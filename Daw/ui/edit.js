@@ -1585,6 +1585,14 @@ function lanesPress (e, p) {
         const all = [[r, t]].concat(companions(r, t))                                 // an end pulled on a track of an edit group: the same end on the others
         drag = { a: end[1] === 'l' ? 'trimL' : 'trimR', id: r.id, o, before, also: all.slice(1).map(([x, tr]) => ({ id: x.id, o: held(x, tr) })) }
         if (shuffling()) drag.rip = all.flatMap(([x, tr]) => tr.regs.filter(y => y !== x && y.a > x.a + 1e-9).map(y => [y, y.a, y.b]))      // shuffle: what follows on the track goes along with the end
+        else if (S.selR.length > 1 && S.selR.includes(r.id)) {                       // several chosen, the end of one pulled: the same end of every chosen one, by as much (as in Logic), each as far as it can go
+          const have = new Set(all.map(([x]) => x.id))
+          const left = end[1] === 'l', chosenIds = new Set(S.selR.concat(all.map(([x]) => x.id)))
+          drag.more = selRegs().flatMap(([x, tr]) => [[x, tr]].concat(companions(x, tr))).filter(([x]) => !have.has(x.id) && (have.add(x.id), true))
+            .filter(([x, tr]) => !(left ? crossBefore(x, tr) : crossAfter(x, tr)))      // (an end that is part of a crossfade stays: its join is moved by its own hand, as a key does)
+            .map(([x, tr]) => ({ id: x.id, o: held(x, tr), lim: left ? Math.max(-Infinity, ...tr.regs.filter(q => q !== x && chosenIds.has(q.id) && q.b <= x.a + 1e-9).map(q => q.b)) : Math.min(Infinity, ...tr.regs.filter(q => q !== x && chosenIds.has(q.id) && q.a >= x.b - 1e-9).map(q => q.a)) }))      // (not on into another of the chosen, as the keys go)
+          drag.lim = left ? Math.max(-Infinity, ...t.regs.filter(q => q !== r && chosenIds.has(q.id) && q.b <= r.a + 1e-9).map(q => q.b)) : Math.min(Infinity, ...t.regs.filter(q => q !== r && chosenIds.has(q.id) && q.a >= r.b - 1e-9).map(q => q.a))      // (the one pulled no further into another of the chosen than they go into each other)
+        }
       }
       else if (S.selR.includes(r.id)) drag = { a: 'move', lead: r.id, grab: pos - (r.a - 1), ti0: ti, copy: e.altKey, before, orig: new Map(selRegs().map(([x, tr]) => [x.id, { a: x.a, b: x.b, ti: S.tracks.indexOf(tr) }])) }
     }
@@ -1619,7 +1627,7 @@ function lanesPress (e, p) {
     else if (r && e.altKey) {                                                           // with option: that fade is taken off (one that is half of a crossfade, as the crossfade it is; on a track of an edit group, on the others too)
       const left = pos - (r.a - 1) < (r.b - r.a) / 2, pair = joinsOf(t).find(([A, B]) => xfadeOf(A, B) && (left ? B === r : A === r))
       if (pair) { for (const [a, b] of [pair].concat(joinMates(pair[0], pair[1], t))) uncross(a, b); commit(before) }
-      else if (left ? r.fi : r.fo) { for (const x of [r].concat(fadeWith(r, t))) { if (left) x.fi = 0; else x.fo = 0; dirtyReg(x) } commit(before) }
+      else if (left ? r.fi : r.fo) { for (const x of [r].concat(fadeWith(r, t).filter(x => { const xt = regOf(x.id)[1]; return !(left ? crossBefore(x, xt) : crossAfter(x, xt)) }))) { if (left) x.fi = 0; else x.fo = 0; dirtyReg(x) } commit(before) }      // (one taken along whose end there is half of a crossfade keeps it, as in a drag)
     }
     else if (r) { drag = fadeGrab(r, t, pos - (r.a - 1) < (r.b - r.a) / 2, before); drag.x0 = p.x }
   }
@@ -1679,12 +1687,22 @@ function lanesMove (e, p) {
       for (const [x, q] of all) { x.off = q.off + by; x.b = q.b - by; dirtyReg(x) }
       for (const [x, a, b] of d.rip) { x.a = a - by; x.b = b - by }
     } else if (d.a === 'trimL') {
-      const na = clamp(s, Math.max(...all.map(([x, q]) => x.loop || x.notes ? 0 : Math.max(0, (q.a - 1) - q.off))), Math.min(...all.map(([, q]) => Math.max(q.a - 1, (q.b - 1) - MIN_LEN - (q.xe || 0)))))      // (it stays longer than what it shares at its end; one that is shorter than that already — made at a nearer zoom — is not made longer by a pull the other way)
+      const na = clamp(s, Math.max(...all.map(([x, q]) => x.loop || x.notes ? 0 : Math.max(0, (q.a - 1) - q.off)), d.lim == null ? -Infinity : Math.min(o.a - 1, d.lim - 1)), Math.min(...all.map(([, q]) => Math.max(q.a - 1, (q.b - 1) - MIN_LEN - (q.xe || 0)))))      // (it stays longer than what it shares at its end; one that is shorter than that already — made at a nearer zoom — is not made longer by a pull the other way)
       for (const [x, q] of all) { x.off = q.off + (na - (q.a - 1)); x.a = na + 1; dirtyReg(x) }
     } else {
-      const nb = Math.min(Math.max(s, ...all.map(([, q]) => Math.min(q.b - 1, (q.a - 1) + MIN_LEN + (q.xs || 0)))), SONG_END, ...all.map(([x, q]) => !x.loop && x.srcBars ? (q.a - 1) + (x.srcBars - q.off) : Infinity))
+      const nb = Math.min(Math.max(s, ...all.map(([, q]) => Math.min(q.b - 1, (q.a - 1) + MIN_LEN + (q.xs || 0)))), SONG_END, ...all.map(([x, q]) => !x.loop && x.srcBars ? (q.a - 1) + (x.srcBars - q.off) : Infinity), d.lim == null ? Infinity : Math.max(o.b - 1, d.lim - 1))
       for (const [x] of all) { x.b = nb + 1; dirtyReg(x) }
       if (d.rip) for (const [x, a, b] of d.rip) { x.a = a + (r.b - o.b); x.b = b + (r.b - o.b) }
+    }
+    if (d.more && d.more.length) {                                                  // the other chosen ones: their same end, moved by as much as this one's, each kept to what it can be
+      const by = d.a === 'trimL' ? r.a - o.a : r.b - o.b
+      for (const q of d.more) {
+        const [x] = regOf(q.id), w = q.o
+        if (!x) continue
+        if (d.a === 'trimL') { const na = clamp((w.a - 1) + by, Math.max(x.loop || x.notes ? 0 : Math.max(0, (w.a - 1) - w.off), q.lim == null ? -Infinity : Math.min(w.a - 1, q.lim - 1)), Math.max(w.a - 1, (w.b - 1) - MIN_LEN - (w.xe || 0))); x.off = w.off + (na - (w.a - 1)); x.a = na + 1 }
+        else x.b = Math.min(Math.max((w.b - 1) + by, Math.min(w.b - 1, (w.a - 1) + MIN_LEN + (w.xs || 0))), SONG_END, !x.loop && x.srcBars ? (w.a - 1) + (x.srcBars - w.off) : Infinity, q.lim == null ? Infinity : Math.max(w.b - 1, q.lim - 1)) + 1
+        dirtyReg(x)
+      }
     }
     d.moved = true
   } else if (d.a === 'xfade') {                                                         // pulled away from the join: the crossfade is as long as twice that, about the join
@@ -1756,7 +1774,7 @@ function lanesUp () {
       settle([...d.orig.keys()].map(regOf).filter(x => x[0]).map(([r, t]) => [r, t, r.a - 1, r.b - 1]))
     }
     else if (d.a === 'trimL' || d.a === 'trimR') {                                  // an edge pulled outwards covers only the stretch it gained (a region just drawn: all of it)
-      const all = [{ id: d.id, o: d.o }].concat(d.also || [])
+      const all = [{ id: d.id, o: d.o }].concat(d.also || [], d.more || [])
       if (!d.fresh && all.every(q => { const [r] = regOf(q.id); return !r || (Math.abs(r.a - q.o.a) < 1e-9 && Math.abs(r.b - q.o.b) < 1e-9) })) { uiDirty('lanes', 'dock'); return }      // (the end is where it was: nothing to undo)
       for (const q of all) {
         const [r, t] = regOf(q.id)

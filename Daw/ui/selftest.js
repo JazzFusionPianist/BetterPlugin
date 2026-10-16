@@ -996,6 +996,63 @@ async function runSelfTest (mode) {
   /* the command line in cells (ui/hint.js), in the app's own web view and on a real plug-in: a track, its plug-in, one of
      its controls (read from the plug-in, with how it reads along its travel), a stretch, how much in the control's own
      unit, the act — the line that would be drawn, then drawn; and a plain act on a track */
+  /* the meter (Source/Meter.h): its sums against sound that is known — a thousand hertz at -23 on both sides reads -23
+     momentary, short term and integrated, and silence after it changes nothing; -36, -23, -36 reads -23 (EBU 3341); -20
+     then -30 has a range of 10 (EBU 3342); a sine at a quarter of the rate whose samples stop 3 db under what it reaches
+     reads 0 true; opposite sides read a correlation of -1; a side half as loud reads 6 db the other way; a sine over full
+     scale is counted once for each time it goes over, up and down. At two rates. */
+  await step('meterMath', async () => {
+    const res = { rates: {} }
+    let good = true
+    for (const rate of [48000, 44100]) {
+      const m = await NAT.call('testMeterMath', { rate }), near = (v, want, by) => typeof v === 'number' && Math.abs(v - want) <= by
+      const ok = { loud: near(m.m23, -23, .1) && near(m.s23, -23, .1) && near(m.i23, -23, .1), silenceAfter: near(m.i23thenSilence, -23, .1), gated: near(m.iGated, -23, .1), level: near(m.range23, 0, .2), range: near(m.range10, 10, 1),
+        sides: near(m.rms23, -26.01, .1) && near(m.peak23, -23, .05), alike: near(m.cor23, 1, .01) && near(m.width23, 0, .01), truePeak: near(m.tpSample, -3.01, .05) && near(m.tp, 0, .3),
+        opposite: near(m.corOpp, -1, .01) && near(m.widthOpp, 1, .01) && near(m.corLowOpp, -1, .05), balance: near(m.balLeft, -6.02, .1), counted: m.overs === 200 && m.oversAfterReset === 0 && near(m.peakAfterReset, -30, .1), read: m.waveChars > 600 && m.pairChars > 2000 }
+      res.rates[rate] = { ok, m }
+      if (!Object.values(ok).every(Boolean)) good = false
+    }
+    res.ok = good
+    return res
+  })
+  /* a macro (macro.js) on one of the Mac's own plug-ins: wired to a control picked from the plug-in's own list, it takes
+     that control's name; turned by hand, the plug-in's control reads what the macro does; a line drawn for it moves the
+     control as the song plays; in the automation view's list it is there by its name */
+  await step('macro', async () => {
+    const was = { sel: S.sel, on: S.panel.on, tab: S.panel.tab, out: WALL.out }, res = {}
+    const t = newTrack('audio', 'macro check', true)
+    S.sel = S.tracks.indexOf(t); WALL.out = false; S.panel.on = true; S.panel.tab = 'patch'; setView(true)
+    await natSession(); await sleep(200)
+    const r = await natInsert(S.sel, 'AudioUnit:Effects/aufx,dely,appl')
+    res.opened = !!(r && r.ok)
+    if (!res.opened) { deleteTrack(S.tracks.indexOf(t)); S.sel = was.sel; return res }
+    wallOf(t); wallPush(t); await sleep(200)
+    const ins = t.inserts[0], m = macroNew(t), node = wallOf(t).nodes.find(q => q.k === 'plug' && q.ins === ins)
+    await macroOpenList(t, m, node)
+    res.listed = MAC.list ? MAC.list.rows.map(x => x.name) : null
+    const pick = MAC.list ? Math.max(0, MAC.list.rows.findIndex(x => /mix/.test(x.name))) : -1
+    if (pick < 0) return res
+    const row = MAC.list.rows[pick]
+    macroPick(t, pick)
+    res.wired = { name: m.name, to: m.to, v: +m.v.toFixed(3), was: +row.v.toFixed(3) }
+    const read = async () => { const rows = (await NAT.call('params', { track: t.id, uid: ins.uid })) || []; const x = rows.find(q => q[0] === m.to.i); return x ? +(+x[2]).toFixed(3) : null }
+    macroSet(t, m, .2); await sleep(150)
+    res.byHand = { macro: +m.v.toFixed(3), control: await read() }
+    macroSet(t, m, .8); await sleep(150)
+    res.byHand2 = { macro: +m.v.toFixed(3), control: await read() }
+    edit(() => { addPoint(t, macKey(m), 0, .1); addPoint(t, macKey(m), 3, .1); addPoint(t, macKey(m), 3.01, .9); addPoint(t, macKey(m), 8, .9) })
+    await natSession(); await sleep(200)
+    halt(false); play(1); await sleep(400); res.early = await read()
+    halt(false); play(5); await sleep(400); res.late = await read()
+    halt(false)
+    await openAutoMenu(t, 200, 200); res.menu = S.menu ? S.menu.items.filter(it => MAC_KEY.test(it.v)).map(it => [it.t, it.k]) : null; S.menu = null
+    res.saved = JSON.parse(serialize()).tracks.find(x => x.id === t.id).macros
+    flush(); await snap('selftest-macro.png')
+    deleteTrack(S.tracks.indexOf(t)); await sleep(200)
+    S.sel = clamp(was.sel, 0, S.tracks.length - 1); WALL.out = was.out; S.panel.on = was.on; S.panel.tab = was.tab; setView(true); dirtyAll()
+    res.ok = !!res.listed && res.listed.length > 1 && res.wired.name === row.name && res.byHand.control === .2 && res.byHand2.control === .8 && res.early != null && Math.abs(res.early - .1) < .02 && Math.abs(res.late - .9) < .02 && res.menu.length === 1 && res.saved.length === 1
+    return res
+  })
   /* a patch kept as a preset (preset.js): a wall with a print and one of the Mac's own plug-ins, the plug-in turned, is
      kept under a name — the file is the one Patch on Slur keeps, what it reads and the wall whole beside it; initial takes
      everything off the track; the name puts it all back, the plug-in open again where it stood and set as it was; undo
@@ -1588,6 +1645,80 @@ async function runSelfTest (mode) {
     res.after = { buses: S.tracks.filter(x => x.name === 'way a' || x.name === 'way b').length, out: t.out, sends: t.sends.length }
     return res
   })
+  /* the meter on a wall, in the engine: wired between in and out it measures what the track plays, and the track's print is
+     the same with it as without it, not a sample late; its count begins again when the song is played from another place;
+     its face is a window of its own, there when asked for and gone when the meter is taken off */
+  await step('meter', async () => {
+    const t = S.tracks.find(x => sounding(x) && !(x.inserts || []).length)                 // (a track with no plug-in on it: one with a tail of its own would not print the same twice)
+    if (!t) return { skipped: 'no track with sound on it and no plug-in' }
+    const a0 = firstBar(t), back = allHeard(), res = { track: t.name }, was = { wall: t.wall ? copy(wallSaved(t)) : null, patch: copy(t.patch), sel: S.sel }
+    t.patch = NO_PATCH(); pushTrack(t)
+    const print = async name => { const b = await NAT.call('bounce', { kind: 'stems', a0, a1: a0 + 2, modes: ['wet'], tracks: [{ id: t.id, name }], folder: 'meter', name, fmt: 'wav', rate: 0, bits: 24 }); await sleep(120); return b && b.ok ? `${b.dir}/${name}.wav` : null }
+    const set = async (nodes, wires) => { t.wall = Object.assign(t.wall || {}, { nodes, wires, z: 0, ox: 0, oy: 0, in: { x: 40, y: 0 }, out: { x: 400, y: 0 } }); WALL.sent.set(t.id, ''); await wallPush(t); await sleep(200); return NAT.call('wallFacts', { track: t.id }) }
+    await set([], [])
+    const plain = await print('without a meter')
+    res.facts = await set([Object.assign(wallNew('meter', 220, 0), { id: 0 })], [{ from: -1, to: 0, gain: 1, port: 0 }, { from: 0, to: -2, gain: 1, port: 0 }])
+    res.before = await NAT.call('meterRead', { track: t.id, id: 0, sec: 5 })
+    await only(t, async () => { await playFrom(a0); await sleep(1800) })
+    const r = await NAT.call('meterRead', { track: t.id, id: 0, sec: 5 })
+    res.read = { ok: r.ok, m: +(+r.m).toFixed(1), s: +(+r.s).toFixed(1), i: +(+r.i).toFixed(1), tp: +(+r.tp).toFixed(1), rmsL: +(+r.rmsL).toFixed(1), heldL: +(+r.heldL).toFixed(1), cor: +(+r.cor).toFixed(2), sec: r.sec, wave: (r.wave || '').length, pairs: (r.pairs || '').length, waveMoves: Math.max(0, ...atob(r.wave || '').split('').filter((c, k) => k % 4 === 0).map(c => c.charCodeAt(0))) > 135 }      // (the wave it kept rises off the middle: a level tone has no shape to it, but it has height)
+    halt(false); await sleep(150)
+    const metered = await print('with a meter')
+    const afterPrint = await NAT.call('meterRead', { track: t.id, id: 0, sec: 5 })
+    res.printCounted = afterPrint.sec - r.sec > .5 ? `${r.sec} -> ${afterPrint.sec}` : false          // (a print is not counted: the two bars of it would be seconds more; the last of the sound dying away may be a tenth or two)
+    res.same = plain && metered ? await NAT.call('testLag', { a: plain, b: metered }) : null
+    await only(t, async () => { await playFrom(a0 + 1); await sleep(700) })
+    const again = await NAT.call('meterRead', { track: t.id, id: 0, sec: 5 })
+    res.anew = { secBefore: r.sec, secAfter: again.sec }
+    halt(false)
+    await NAT.call('meterShow', { track: t.id, id: 0, name: t.name, c: t.c }); await sleep(900)
+    res.faceUp = await NAT.call('meterOpen')
+    await only(t, async () => { await playFrom(a0); await sleep(1500); await NAT.call('testMeterAsk', { track: t.id, id: 0, js: "window.__always = true; window.__meter && window.__meter.tick(); '1'" }); await sleep(700); res.face = await NAT.call('testMeterAsk', { track: t.id, id: 0, js: "JSON.stringify(window.__meter ? { now: !!window.__meter.F.now, gone: window.__meter.F.gone, w: innerWidth, h: innerHeight, hits: window.__meter.F.hits.length, i: window.__meter.F.now && window.__meter.F.now.i, asked: window.__meter.F.asked || 0, answered: window.__meter.F.answered || 0, hidden: document.hidden, errs: window.__errs } : { none: true, errs: window.__errs })" }); await NAT.call('testMeterSnap', { track: t.id, id: 0, name: 'selftest-meter.png' }); await sleep(300) }); halt(false)      // (its face while the track plays, as its window shows it)
+    wallRemove(t, wallNode(wallOf(t), 0)); await sleep(300)
+    res.faceGone = await NAT.call('meterOpen'); res.goneRead = (await NAT.call('meterRead', { track: t.id, id: 0, sec: 5 })).ok
+    if (was.wall) t.wall = was.wall; else delete t.wall
+    t.patch = was.patch; pushTrack(t)
+    WALL.sent.set(t.id, ''); await wallPush(t); S.sel = was.sel; back(); await sleep(200)
+    res.ok = res.read.ok && res.read.m > -60 && res.read.i > -60 && res.read.waveMoves && res.printCounted === false && !!res.same && res.same.lag === 0 && res.same.alike > .9999 && Math.abs(res.same.levelA - res.same.levelB) < 1e-4 && res.anew.secAfter < res.anew.secBefore && res.faceUp.length === 1 && !!res.face && res.face.now === true && res.face.hits >= 5 && !(res.face.errs || []).length && res.faceGone.length === 0 && res.goneRead === false
+    return res
+  })
+  /* the side on a wall (side.js; Patch on Slur's sidechain): a track's wall with only a side wired to out plays the other
+     track it is given, in time with that track's own print; a comp keyed by it ducks to it (its print is not what the comp
+     makes of the track's own sound); a track that is fed by this one is refused; nothing given, the side is silent */
+  await step('side', async () => {
+    const all = S.tracks.filter(x => sounding(x) && !(x.inserts || []).length)
+    if (all.length < 2) return { skipped: 'two tracks with sound and no plug-in are wanted' }
+    const k = all[0], t = all.find(x => x !== k && firstBar(x) <= firstBar(k) + 4) || all[1], a0 = Math.max(firstBar(k), firstBar(t)), back = allHeard(), n0 = UNDO.length, res = { key: k.name, track: t.name }
+    const was = { wall: t.wall ? copy(wallSaved(t)) : null, patch: copy(t.patch), side: t.sideFrom || 0, vol: t.vol, pan: t.pan }
+    t.patch = NO_PATCH(); t.vol = 0; t.pan = 0; pushTrack(t)
+    const print = async (tr, name) => { const b = await NAT.call('bounce', { kind: 'stems', a0, a1: a0 + 2, modes: ['wet'], tracks: [{ id: tr.id, name }], folder: 'side', name, fmt: 'wav', rate: 0, bits: 24 }); await sleep(120); return b && b.ok ? `${b.dir}/${name}.wav` : null }
+    const set = async (nodes, wires) => { t.wall = { nodes, wires, z: 0, ox: 0, oy: 0, in: { x: 40, y: 0 }, out: { x: 500, y: 0 } }; WALL.sent.set(t.id, ''); await wallPush(t); await sleep(200) }
+    /* a side alone, wired to out: the other track's sound */
+    await set([Object.assign(wallNew('side', 200, 0), { id: 0 })], [{ from: 0, to: -2, gain: 1, port: 0 }])
+    res.silentFirst = await NAT.call('testLag', { a: await print(k, 'the key'), b: await print(t, 'a side playing nothing') })
+    res.given = await sideSet(t, k.id)
+    await sleep(200)
+    res.plays = await NAT.call('testLag', { a: await print(k, 'the key again'), b: await print(t, 'a side playing the key') })
+    /* a comp on the track's own sound, keyed by the side */
+    const comp = Object.assign(wallNew('comp', 300, 0), { id: 1, amount: .9 })
+    await set([comp], [{ from: -1, to: 1, gain: 1, port: 0 }, { from: 1, to: -2, gain: 1, port: 0 }])
+    const own = await print(t, 'comp on its own sound')
+    await set([Object.assign(wallNew('side', 150, 120), { id: 0 }), Object.assign(wallNew('comp', 300, 0), { id: 1, amount: .9 })], [{ from: -1, to: 1, gain: 1, port: 0 }, { from: 1, to: -2, gain: 1, port: 0 }, { from: 0, to: 1, gain: 1, port: 0, in: 1 }])
+    const keyed = await print(t, 'comp keyed by the side')
+    res.keyed = own && keyed ? await NAT.call('testLag', { a: own, b: keyed }) : null
+    /* a track fed by this one: refused */
+    const B = newTrack('bus', 'side ring', true); setOut(t, B.id); await natSession(); await sleep(150)
+    res.ringRefused = !(await NAT.call('sideFrom', { track: t.id, from: B.id })).ok      // (the bus this track plays into, played back into it: a ring)
+    res.busMayHear = (await NAT.call('sideFrom', { track: B.id, from: t.id })).ok           // (the bus hearing a track that plays into it is no ring)
+    await NAT.call('sideFrom', { track: B.id, from: 0 })
+    while (UNDO.length > n0) undoEdit()
+    await sideSet(t, was.side)
+    if (was.wall) t.wall = was.wall; else delete t.wall
+    t.patch = was.patch; t.vol = was.vol; t.pan = was.pan; pushTrack(t); WALL.sent.set(t.id, ''); await wallPush(t)
+    back(); await natSession(); await sleep(200)
+    res.ok = !!res.silentFirst && res.silentFirst.levelB < 1e-4 && res.given === true && !!res.plays && res.plays.lag === 0 && res.plays.alike > .99 && Math.abs(res.plays.levelA - res.plays.levelB) / res.plays.levelA < .02 && !!res.keyed && res.keyed.alike < .999 && res.ringRefused && res.busMayHear
+    return res
+  })
   /* a line opens a track at a bar, and what stands after the track is late: the track plays into a bus that holds plug-ins
      which hand the sound over late, so the track's sound is read early by as much — and its line must be read as early.
      The bus is printed twice, once with no line and once with the track shut until a bar in and open from there: the
@@ -1677,6 +1808,58 @@ async function runSelfTest (mode) {
     return res
   })
 
+  /* the hands that move by themselves (Patch on Slur's control prints, played by the engine's Modulator): an lfo on a gain's
+     amount makes the track swell and fall as many times as its rate says, in time with the song; a macro holding that
+     wire's depth at 0 leaves it still; a scene's knob between two snapshots sets the gain between them */
+  await step('controlPrints', async () => {
+    const t = S.tracks.find(x => sounding(x) && /bass|keys|pad|piano|organ|string|synth|guitar|gtr|hum|vox/i.test(x.name)) || S.tracks.find(sounding)      // (a sound that holds: a level that moves between hits is not seen on a kick)
+    if (!t) return { skipped: 'no track with sound on it' }
+    const a0 = firstBar(t), back = allHeard(), was = { wall: t.wall ? wallSaved(t) : null, patch: copy(t.patch) }, res = { track: t.name }
+    const print = async name => { const b = await NAT.call('bounce', { kind: 'stems', a0, a1: a0 + 2, modes: ['wet'], tracks: [{ id: t.id, name }], folder: 'control prints', name, fmt: 'wav', rate: 0, bits: 24 }); await sleep(120); return b && b.ok ? `${b.dir}/${name}.wav` : null }
+    const nd = (id, type, more) => Object.assign({ id, type, amount: 0, variant: 0, decay: [.5, .5, .5], delayDiv: 2, delayFb: .35, wet: 0, bypass: 0, aux: [0, 0, 0, 0, 0, 0, 0, 0] }, more || {})
+    const push0 = wallPush; wallPush = function (x) { return x === t ? undefined : push0.apply(this, arguments) }      // (the page's own wall is not told again while the check's stands)
+    const tell = async (nodes, edges) => { const r = await NAT.call('wall', { track: t.id, nodes, edges }); await sleep(150); return r }
+    let printed = 0
+    const ratio = async (dry, f, windows) => { const r = await NAT.call('testRatio', { a: dry, b: f, windows }); printed = (r && r.seconds) || 0; return (r && r.ratio) || [] }
+    for (const k of PRINTS3) setPrint(t, k, 0)
+    pushTrack(t)
+    const path = [{ from: -1, to: 0, gain: 1 }, { from: 0, to: -2, gain: 1 }]
+    res.plain = await tell([nd(0, 5, { amount: .75 })], path); const dry = await print('control dry')
+    // an lfo, its own clock in time with the song at a half note, at full depth, on the gain's amount, half way: two bars are four turns
+    res.lfo = await tell([nd(0, 5, { amount: .75 }), nd(1, 30, { aux: [0, 4, 0, 200, 0, 100, 0, 0] })], path.concat([{ from: 1, to: 0, hand: 'amount', gain: .5 }]))
+    const lr = await ratio(dry, await print('control lfo'), 64), live = lr.filter(x => x > 0)
+    /* how many times it swells over the two bars: the strongest turn in the level (in db, where the dry print sounds) */
+    const db = lr.map(x => x > 0 ? 20 * Math.log10(x) : null), mean = db.filter(x => x != null).reduce((a, b) => a + b, 0) / Math.max(1, live.length)
+    /* a turn of so many over the two bars, fitted to the windows where there is sound (m + a sin + b cos, least squares):
+       how much of the level's movement it explains. The lfo's own rate must explain it best, and most of it. */
+    const fit = k => {
+      const pts = db.map((x, i) => [x, 2 * Math.PI * k * (i + .5) / db.length]).filter(q => q[0] != null)
+      const M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], v = [0, 0, 0]
+      for (const [y, w] of pts) { const f = [1, Math.sin(w), Math.cos(w)]; for (let r = 0; r < 3; r++) { v[r] += f[r] * y; for (let c = 0; c < 3; c++) M[r][c] += f[r] * f[c] } }
+      const det = m => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+      const D = det(M); if (Math.abs(D) < 1e-9) return 0
+      const c = [0, 1, 2].map(j => det(M.map((row, r) => row.map((x, k2) => k2 === j ? v[r] : x))) / D)
+      let se = 0, st = 0; for (const [y, w] of pts) { const e = y - (c[0] + c[1] * Math.sin(w) + c[2] * Math.cos(w)); se += e * e; st += (y - mean) * (y - mean) }
+      return st > 0 ? 1 - se / st : 0
+    }
+    const fits = Array.from({ length: 12 }, (_, k) => +fit(k + 1).toFixed(3)), turns = fits.indexOf(Math.max(...fits)) + 1
+    const want = Math.round(printed / (2 * 60 / S.tempo))      // (a half note's turns in what was printed: the two bars, and the tail the print keeps after them)
+    res.lfoIs = { lo: Math.min(...live), hi: Math.max(...live), turns, want, explained: fits[want - 1], fits, heard: live.length }
+    // a macro (its knob at 0) holding the depth of the lfo's wire: the gain stays where it is set
+    res.held = await tell([nd(0, 5, { amount: .75 }), nd(1, 30, { aux: [0, 4, 0, 200, 0, 100, 0, 0] }), nd(2, 32, { amount: 0, aux: [3, 0, 0, 0, 0, 0, 0, 0] })], path.concat([{ from: 1, to: 0, hand: 'amount', gain: .5 }, { from: 2, to: 0, hand: 'wire:1:amount', gain: 1 }]))
+    const hr = (await ratio(dry, await print('control held'), 16)).filter(x => x > 0)
+    res.heldIs = { lo: Math.min(...hr), hi: Math.max(...hr) }
+    // a scene: the gain a tenth (−20 db) at A and at unity at B; the knob at A (no wire on the wall: the knob alone moves it)
+    const row = (id, a) => [id, a, 0, .5, .35, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    res.scene = await tell([nd(0, 5, { amount: .75 }), nd(1, 49, { amount: 0, sceneA: row(0, .5), sceneB: row(0, .75) })], path)
+    const sr = (await ratio(dry, await print('control scene'), 4)).filter(x => x > 0)
+    res.sceneIs = sr.reduce((a, b) => a + b, 0) / Math.max(1, sr.length)
+    wallPush = push0
+    if (was.wall) t.wall = was.wall; else delete t.wall
+    t.patch = was.patch; WALL.sent.delete(t.id); pushTrack(t); wallPush(t); back(); await sleep(300)
+    res.ok = !!(res.lfo && res.lfo.ok && res.lfoIs.hi > res.lfoIs.lo * 3 && res.lfoIs.turns === res.lfoIs.want && res.lfoIs.explained > .7 && res.held && res.held.ok && res.heldIs.hi - res.heldIs.lo < .05 && Math.abs(res.heldIs.hi - 1) < .05 && res.scene && res.scene.ok && Math.abs(res.sceneIs - .1) < .02)
+    return res
+  })
   await step('wallWays', async () => {
     if (typeof wallOf !== 'function') return { skipped: 'this page has no wall' }
     const t = S.tracks.find(sounding)

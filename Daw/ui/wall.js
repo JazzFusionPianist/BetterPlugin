@@ -15,53 +15,61 @@
 
    This script is read after the room's own hands are made (it takes the patch's place on the panel, and the list's). */
 const WALL_IN = -1, WALL_OUT = -2, WALL_MAX = 16, WALL_R = 30, WALL_E = 39
-const WALL_TYPE = { tone: 0, tape: 1, space: 2, stereo: 3, glue: 4, gain: 5, mod: 6, cut: 7, amp: 8, doubler: 9, delay: 10, mix: 11, tremolo: 12, arp: 13, radio: 14, harmony: 15, pitch: 16, formant: 17, grain: 18, crush: 20,
-  shimmer: 21, swell: 22, stutter: 23, air: 24, ring: 25, gate: 26, wow: 27, 'l/r': 28, 'm/s': 29, comp: 35, carve: 37, match: 38, vocode: 39, freeze: 40, shift: 41, smear: 42, pan: 43, repeat: 44, fold: 46, sieve: 50 }
-/* the families, as Patch on Slur's shelf has them: a family gives a print the shape of its plate */
-const WALL_FAMILIES = { tone: ['cut', 'amp', 'tone', 'tape', 'glue', 'comp', 'air'], grit: ['crush', 'radio', 'ring', 'fold'], space: ['delay', 'space', 'shimmer', 'doubler', 'stereo'], motion: ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow', 'repeat'],
-  pitch: ['pitch', 'formant', 'harmony', 'arp', 'grain'], utility: ['gain', 'mix', 'l/r', 'm/s', 'pan'], spectral: ['carve', 'match', 'vocode', 'freeze', 'shift', 'smear', 'sieve'] }
-const WALL_FAMILY = {}
-for (const [f, ks] of Object.entries(WALL_FAMILIES)) for (const k of ks) WALL_FAMILY[k] = f
-const WALL_PRINTS = Object.keys(WALL_FAMILY)
+/* ── the prints are Patch on Slur's ──
+   What they are called, their families and flavours, where a new one rests, how its amount is said and read back, and
+   every hand of its study come from the plug-in's own catalog: catalog.js, made from its printCatalog.ts on every build
+   (tools/catalog-from-patch.mjs), so a print changed or added there is changed or added here with the next build. What is
+   said here is only this wall's own: which prints stand on it, where each stands in the list of what can be added, and how
+   the room writes their words. The build stops (tools/catalog-check.mjs) when the plug-in has a print that is neither
+   given a place in that list nor left off this wall. */
+const PC = PATCH_CATALOG
 /* where each print stands in the list of what can be added: among the plug-ins of its kind (cats.js) */
 const WALL_KIND = { cut: 'eq', tone: 'eq', air: 'eq', carve: 'eq', match: 'eq', sieve: 'eq', tape: 'saturation', crush: 'saturation', radio: 'saturation', ring: 'saturation', fold: 'saturation', amp: 'amp', glue: 'dynamics', comp: 'dynamics', gate: 'dynamics', swell: 'dynamics',
   delay: 'delay', repeat: 'delay', stutter: 'delay', space: 'reverb', shimmer: 'reverb', freeze: 'reverb', smear: 'reverb', doubler: 'modulation', mod: 'modulation', tremolo: 'modulation', wow: 'modulation', stereo: 'stereo', pan: 'stereo', 'l/r': 'stereo', 'm/s': 'stereo',
-  pitch: 'pitch', formant: 'pitch', harmony: 'pitch', arp: 'pitch', grain: 'pitch', vocode: 'pitch', shift: 'pitch', gain: 'channel', mix: 'channel' }
-const WALL_VARIANTS = { tape: ['hard', 'clean'], space: ['hall', 'room', 'plate'], mod: ['chorus', 'flanger', 'phaser'], amp: ['clean', 'crunch', 'lead', 'fuzz'], doubler: ['tight', 'wide'], delay: ['clean', 'tape', 'pingpong'], tremolo: ['sine', 'triangle', 'square', 'pulse', 'saw'],
-  arp: ['up', 'down', 'up-down', 'random'], radio: ['am', 'phone'], harmony: ['key', 'chromatic'], pitch: ['raw', 'natural'], grain: ['cloud', 'stutter', 'reverse'], crush: ['both', 'bits', 'rate'], shimmer: ['octave', 'fifth', 'down'], swell: ['soft', 'hard'],
-  stutter: ['beat', 'bar'], air: ['silk', 'bright'], ring: ['ring', 'am'], gate: ['tight', 'loose'], wow: ['wow', 'flutter', 'both'], mix: ['blend', 'sum'], fold: ['sine', 'triangle'] }
-const WALL_WET = new Set(['space', 'delay', 'doubler', 'mod', 'harmony', 'grain', 'shimmer'])
+  pitch: 'pitch', formant: 'pitch', harmony: 'pitch', arp: 'pitch', grain: 'pitch', vocode: 'pitch', shift: 'pitch', gain: 'channel', mix: 'channel', side: 'channel', bands: 'channel',
+  lfo: 'modulation', drift: 'modulation', pulse: 'modulation', env: 'modulation', follow: 'modulation', macro: 'modulation', scene: 'modulation' }
+/* the prints this wall leaves off (none now: every print of Patch on Slur stands here; one the plug-in gains is refused by
+   the build until it is given a place above or named here) */
+const WALL_OFF = new Set([])
+const wallKey = name => name.toLowerCase()                                                // (the room's words are lowercase: L/R is l/r)
+const WALL_TYPE = {}, WALL_FAMILIES = {}, WALL_FAMILY = {}
+for (const p of PC.PRINTS) if (!WALL_OFF.has(p.name)) { const k = wallKey(p.name); WALL_TYPE[k] = p.type; (WALL_FAMILIES[p.family] = WALL_FAMILIES[p.family] || []).push(k); WALL_FAMILY[k] = p.family }   // (a family gives a print the shape of its plate)
+const WALL_PRINTS = Object.keys(WALL_FAMILY)
+const WALL_WET = new Set(WALL_PRINTS.filter(k => PC.WET_TYPES.has(WALL_TYPE[k])))          // (the ones that can drop their dry sound)
 const WALL_LEGACY = { tape: 1, space: 2, delay: 3 }                                       // their amounts are the track's own (t.patch)
 const WALL_TWO = new Set(['l/r', 'm/s'])                                                  // two ways out
-const WALL_AUX0 = { cut: [2, 0, 0], arp: [12, 0, 0], harmony: [0, 0, 2], grain: [120, 300, 7, 0, 0, 50, 0, 0], comp: [40, 100, 150, 6, 0], carve: [20, 200, 20, 20000], match: [1, 12, 0], vocode: [24, 10, 80], shift: [200, 0, 0], smear: [800, 0, 0], sieve: [5, 80, 100], repeat: [0, 3, 0, 200, -30, 0] }
-const wallNeutral = k => k === 'tone' || k === 'stereo' || k === 'pitch' || k === 'formant' || k === 'pan' ? .5 : k === 'gain' ? .75 : 0
-/* what the big hand of a print is called, where "amount" would say too little */
-const WALL_MAIN = { cut: 'cutoff', comp: 'threshold', carve: 'depth', pan: 'pan', fold: 'drive', freeze: 'hold', sieve: 'keep', gain: 'level' }
-/* the other hands of each print (Patch on Slur's study): a gauge is pulled, a choice is picked from its list */
-const WALL_DIVS = ['1/16', '1/8t', '1/8', '1/8.', '1/4', '1/4.', '1/2'], WALL_RATES = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1', '2/1', '4/1'], WALL_KEYS = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b']
-const wg = (h, label, lo, hi, unit, def, sc) => ({ h, label, lo, hi, unit: unit || '', def, sc: sc || 1 }), wc = (h, label, opts, vals) => ({ h, label, opts, vals: vals || opts.map((_, i) => i) })
-const WALL_HANDS = {
-  cut: [wc('variant', 'pass', ['low pass', 'high pass'], [1, 0]), wc('aux0', 'slope', ['12', '24', '36', '48'], [1, 2, 3, 4])],
-  tremolo: [wc('aux0', 'moves', ['volume', 'pan']), wc('div', 'rate', WALL_DIVS)],
-  space: [wg('decay', 'decay', 0, 100, '', 50)],
-  delay: [wc('div', 'time', WALL_DIVS), wg('fb', 'feedback', 0, 100, '%', 35)],
-  arp: [wc('div', 'rate', WALL_DIVS), wg('aux0', 'step', 1, 12, 'st', 12)],
-  harmony: [wc('aux0', 'key', WALL_KEYS), wc('aux1', 'scale', ['major', 'minor']), wg('aux2', 'interval', -12, 12, '', 2)],
-  pitch: [wg('aux0', 'cents', -100, 100, 'c', 0), wc('aux1', 'engine', ['fine', 'live'])],
-  formant: [wc('aux0', 'engine', ['fine', 'live'])],
-  grain: [wg('aux0', 'size', 10, 600, 'ms', 120), wg('aux1', 'spray', 0, 1500, 'ms', 300), wg('aux2', 'scatter', 0, 24, 'st', 7), wc('aux6', 'pitch', ['key', 'intervals', 'cents', 'free']), wc('aux3', 'key', WALL_KEYS), wc('aux4', 'scale', ['major', 'minor']), wc('div', 'rate', WALL_DIVS), wg('aux5', 'pan', 0, 100, '%', 50), wc('aux7', 'freeze', ['off', 'on'])],
-  swell: [wg('aux0', 'depth', 0, 100, '%', 100)],
-  comp: [wc('variant', 'detector', ['peak', 'rms']), wg('aux0', 'ratio', 10, 200, ':1', 40, .1), wg('aux1', 'attack', 1, 1000, 'ms', 100, .1), wg('aux2', 'release', 10, 2000, 'ms', 150), wg('aux3', 'knee', 0, 24, 'db', 6), wg('aux4', 'makeup', 0, 24, 'db', 0)],
-  carve: [wg('aux0', 'attack', 1, 200, 'ms', 20), wg('aux1', 'release', 20, 2000, 'ms', 200), wg('aux2', 'from', 20, 20000, 'hz', 20), wg('aux3', 'to', 20, 20000, 'hz', 20000)],
-  match: [wc('aux0', 'learn', ['off', 'on']), wg('aux1', 'smooth', 1, 48, '', 12)],
-  vocode: [wg('aux0', 'bands', 8, 64, '', 24), wg('aux1', 'attack', 1, 200, 'ms', 10), wg('aux2', 'release', 10, 2000, 'ms', 80)],
-  shift: [wg('aux0', 'hz', -2000, 2000, 'hz', 200), wg('aux1', 'feedback', 0, 95, '%', 0)],
-  smear: [wg('aux0', 'time', 50, 5000, 'ms', 800), wg('aux1', 'blur', 0, 100, '%', 0)],
-  sieve: [wg('aux0', 'attack', 1, 200, 'ms', 5), wg('aux1', 'release', 20, 2000, 'ms', 80), wg('aux2', 'mix', 0, 100, '%', 100)],
-  repeat: [wc('aux0', 'clock', ['sync', 'hz']), wc('aux1', 'rate', WALL_RATES), wc('aux2', 'feel', ['straight', 'dotted', 'triplet']), wg('aux3', 'hz', 1, 2000, 'hz', 200, .01), wg('aux4', 'threshold', -60, -1, 'db', -30)],
-  gain: [wc('variant', 'phase', ['as it is', 'ø left', 'ø right', 'ø both'])],
+const wallNeutral = k => PC.neutralOf(WALL_TYPE[k])
+const wallMain = k => PC.MAIN_HAND[WALL_TYPE[k]] || 'amount'                              // (what the big hand is called, where "amount" would say too little)
+const wallFlavours = k => PC.flavoursOf(WALL_TYPE[k])
+/* the prints that play other prints' hands (an lfo, a macro, a follow…) and the wires they play along: a control wire lands
+   on a hand (`hand`: amount, decay, aux3…, the share of a mix's wire, or another control wire's depth, wire:<from>:<hand>) */
+const wallPlays = node => !!node && PC.playsHandsType(WALL_TYPE[node.k])
+const wallCtl = e => e.hand != null
+const wallHasAmount = node => node.k === 'side' || WALL_TYPE[node.k] == null || PC.hasAmountType(WALL_TYPE[node.k])      // (an lfo, a mix, the splitters: no big hand)
+const wallOuts = node => node ? (WALL_TWO.has(node.k) ? 2 : node.k === 'bands' ? PC.outPortsOf(WALL_TYPE.bands, node.aux || []) : 1) : 1      // (the bands: one way out a band)
+/* how the room writes what Patch on Slur says: lowercase, a space before a unit, a minus that is a minus */
+const wallSaid = s => String(s).toLowerCase().replace(/(^|[\s(])-(?=\.?\d)/g, '$1−').replace(/(\d)(ms|s|st|hz|db|oct|c)\b/g, '$1 $2').replace(/(\d)%/g, '$1 %')
+const WALL_UNIT = { gain: 'db', ring: 'hz' }                                               // (Patch on Slur leaves the unit off these two amounts; the room says it)
+const wallAmountText = (k, a, variant) => { const s = wallSaid(PC.fmtValue(WALL_TYPE[k], a, variant)); return WALL_UNIT[k] && /[\dk]$/.test(s) ? s + ' ' + WALL_UNIT[k] : s }
+/* …and what is typed for it, back to 0..1 (null: not a value of it) */
+const wallAmountParse = (k, text, variant) => PC.parseAmount(WALL_TYPE[k], String(text), variant)
+/* a print as Patch on Slur holds it (the catalog reads and writes that), and what the catalog writes, put back on the wall's */
+const wallAsNode = node => ({ type: WALL_TYPE[node.k], amount: node.amount || 0, variant: node.variant || 0, decay: node.decay || [.5, .5, .5], delayDiv: node.div == null ? 2 : node.div, delayFb: node.fb == null ? .35 : node.fb, wet: !!node.wet, bypass: !!node.bypass, aux: node.aux || [0, 0, 0] })
+function wallApply (node, patch) { for (const [f, v] of Object.entries(patch)) node[f === 'delayDiv' ? 'div' : f === 'delayFb' ? 'fb' : f] = v }
+/* a print's other hands, as its study in Patch on Slur shows them for this print now (a hand shown only with some flavours
+   comes and goes with them): h is where it lives (variant, decay, div, fb, aux0…); a choice has its words (opts) and their
+   values, a switch is a choice of off and on, a number has its range (lo, hi), step, rest (def), unit, and its own ways of
+   being said and read. c is the catalog's hand. */
+function wallHands (k, node) {
+  node = node || wallNew(k, 0, 0)
+  const n = wallAsNode(node)
+  return PC.studyHandsOf(n).filter(c => c.at !== 'amount').map(c => {                     // (a hand that is the amount itself, as freeze's hold, is the big hand here)
+    const label = wallSaid(PC.valueOf(c.label, n))
+    if (c.kind !== 'gauge') { const opts = c.kind === 'switch' ? ['off', 'on'] : PC.valueOf(c.options, n).map(wallSaid); return { h: c.at, label, opts, vals: opts.map((_, i) => i), none: c.none ? wallSaid(c.none) : null, c } }      // (none: what it reads when nothing is chosen)
+    return { h: c.at, label, lo: PC.valueOf(c.min, n), hi: PC.valueOf(c.max, n), step: c.step || 1, def: PC.valueOf(c.def, n), unit: c.unit ? wallSaid(c.unit) : '', sc: 1, c,
+      fmt: c.format ? (v, nd) => wallSaid(c.format(v, wallAsNode(nd))) : null, parse: (text, nd) => c.parse ? c.parse(String(text), wallAsNode(nd)) : PC.parseLead(String(text)) }
+  })
 }
-const wallHands = k => { const own = WALL_HANDS[k] || []; return WALL_VARIANTS[k] && !own.some(h => h.h === 'variant') && k !== 'gain' ? [wc('variant', k === 'mix' ? 'adds' : 'mode', WALL_VARIANTS[k])].concat(own) : own }
 
 const WALL = { sel: null, drag: null, g: null, sent: new Map(), last: 0, lastId: null, bad: new Map(), loose: null, out: false, outTold: false }
 /* The stereo out has a wall too. It is not one of the song's tracks: it is kept here (OUT), and written into a project
@@ -115,7 +123,7 @@ function wallSetAmount (t, n, v, live) {
   n.amount = v
   if (NAT && live) NAT.call('wallAmt', { track: t.id, id: n.id, v }); else wallPush(t)
 }
-const wallNew = (k, x, y) => ({ k, x, y, amount: wallNeutral(k), variant: k === 'cut' ? 1 : 0, decay: [.5, .5, .5], div: 2, fb: .35, wet: false, bypass: false, aux: (WALL_AUX0[k] || [0, 0, 0]).concat([0, 0, 0, 0, 0, 0, 0, 0]).slice(0, 8) })
+const wallNew = (k, x, y) => Object.assign({ k, x, y, amount: wallNeutral(k), variant: PC.variantOf(WALL_TYPE[k]), decay: [.5, .5, .5], div: 2, fb: .35, wet: false, bypass: false, aux: PC.auxOf(WALL_TYPE[k]).concat([0, 0, 0, 0, 0, 0, 0, 0]).slice(0, 8) }, k === 'lfo' ? { pts: PC.SINE_PTS.slice() } : null)      // (an lfo begins as a sine, drawn)
 
 /* ── a track's wall: made from the patch it had (a project from before walls), and kept in step with its plug-ins ── */
 function wallOf (t) {
@@ -171,29 +179,30 @@ function wallAppend (w, id) {
 }
 /* a node taken off: when one wire fed it, that wire's start now feeds whatever it fed (Patch on Slur heals the same way) */
 function wallTake (w, id) {
-  const ins = w.wires.filter(e => e.to === id), outs = w.wires.filter(e => e.from === id)
-  w.wires = w.wires.filter(e => e.from !== id && e.to !== id)
+  const ins = w.wires.filter(e => e.to === id && !e.in && !wallCtl(e)), outs = w.wires.filter(e => e.from === id && !wallCtl(e))      // (what went into its key heals nothing: side.js; nor does what played its hands)
+  w.wires = w.wires.filter(e => e.from !== id && e.to !== id && !(wallCtl(e) && String(e.hand).startsWith(`wire:${id}:`)))
   if (ins.length === 1) for (const o of outs) if (o.to !== ins[0].from && !w.wires.some(e => e.from === ins[0].from && e.to === o.to && (e.port || 0) === (ins[0].port || 0))) w.wires.push({ from: ins[0].from, to: o.to, gain: o.gain, port: ins[0].port || 0 })
   w.nodes = w.nodes.filter(n => n.id !== id)
 }
-const wallReach = (w, a, b, seen = new Set()) => { if (a === b) return true; if (seen.has(a)) return false; seen.add(a); return w.wires.some(e => e.from === a && wallReach(w, e.to, b, seen)) }
+const wallReach = (w, a, b, seen = new Set()) => { if (a === b) return true; if (seen.has(a)) return false; seen.add(a); return w.wires.some(e => e.from === a && !wallCtl(e) && wallReach(w, e.to, b, seen)) }      // (by the sound: a hand played is no way round)
 /* may a wire be drawn from here to there: not onto itself, not twice, not into in or out of out, never round in a ring */
-function wallMay (w, from, to, port) {
+function wallMay (w, from, to, port, inp) {
   if (from === to || from === WALL_OUT || to === WALL_IN) return false
-  if (w.wires.some(e => e.from === from && e.to === to && (e.port || 0) === (port || 0))) return false
+  if (typeof wallTakesNothing === 'function' && wallTakesNothing(w, to, inp)) return false      // (side.js: a side has no way in; only some prints have a key)
+  if (w.wires.some(e => e.from === from && e.to === to && (e.port || 0) === (port || 0) && (e.in || 0) === (inp || 0))) return false
   return !wallReach(w, to, from)
 }
 /* a mix that blends shares a hundred among its wires: a new wire, or one taken away, and they are made even */
 function wallShares (w, id) {
   const m = wallNode(w, id)
   if (!m || m.k !== 'mix' || (m.variant || 0) !== 0) return
-  const ins = w.wires.filter(e => e.to === id)
+  const ins = w.wires.filter(e => e.to === id && !wallCtl(e))
   for (const e of ins) e.gain = 1 / ins.length
 }
-function wallWire (t, from, to, port) {
+function wallWire (t, from, to, port, inp) {
   const w = wallOf(t)
-  if (!wallMay(w, from, to, port)) return false
-  w.wires.push({ from, to, gain: 1, port: port || 0 }); wallShares(w, to); wallPush(t)
+  if (!wallMay(w, from, to, port, inp)) return false
+  w.wires.push(Object.assign({ from, to, gain: 1, port: port || 0 }, inp ? { in: 1 } : {})); if (!inp) wallShares(w, to); wallPush(t)
   return true
 }
 /* the level a wire carries into a mix, pulled: in a blending mix the others give way so that it stays a hundred in all */
@@ -210,14 +219,17 @@ function wallSetShare (t, i, v) {
 }
 
 /* ── told to the engine: the wall whole, whenever it is not what was last told (looked at twice a second, and at once after a hand) ── */
+/* what a print carries beside its hands, as Patch on Slur writes it: a tremolo's drawn cycle, an lfo's points (and the shape
+   it morphs toward), a scene's two snapshots */
+const wallDrawn = n => Object.assign({}, n.curve ? { curve: n.curve } : null, n.pts ? { pts: n.pts } : null, n.pts2 ? { pts2: n.pts2 } : null, n.sceneA ? { sceneA: n.sceneA } : null, n.sceneB ? { sceneB: n.sceneB } : null)
 function wallMsg (t) {
   const w = wallOf(t)
   if (!w) return null
   const nodes = w.nodes.map(n => {
     if (n.k === 'plug') { const i = n.ins; return i && i.uid && !i.out && !i.dead ? { id: n.id, type: 51, uid: i.uid } : { id: n.id, type: 5, amount: .75, bypass: 1 } }      // (one that would not open, or is still opening: the sound goes by its place)
-    return { id: n.id, type: WALL_TYPE[n.k], amount: +wallAmount(t, n).toFixed(4), variant: n.variant || 0, decay: n.decay || [.5, .5, .5], delayDiv: n.div == null ? 2 : n.div, delayFb: n.fb == null ? .35 : n.fb, wet: n.wet ? 1 : 0, bypass: n.bypass ? 1 : 0, aux: n.aux || [], line: WALL_LEGACY[n.k] || 0 }
+    return { id: n.id, type: WALL_TYPE[n.k], amount: +wallAmount(t, n).toFixed(4), variant: n.variant || 0, decay: n.decay || [.5, .5, .5], delayDiv: n.div == null ? 2 : n.div, delayFb: n.fb == null ? .35 : n.fb, wet: n.wet ? 1 : 0, bypass: n.bypass ? 1 : 0, aux: n.aux || [], line: WALL_LEGACY[n.k] || 0, ...wallDrawn(n) }      // (a tremolo's shape, an lfo's points, a scene's snapshots)
   })
-  const edges = w.wires.filter(e => (e.from === WALL_IN || wallNode(w, e.from)) && (e.to === WALL_OUT || wallNode(w, e.to))).map(e => ({ from: e.from, to: e.to, gain: +(+e.gain).toFixed(4), port: e.port || 0, in: 0 }))
+  const edges = w.wires.filter(e => (e.from === WALL_IN || wallNode(w, e.from)) && (e.to === WALL_OUT || wallNode(w, e.to))).map(e => Object.assign({ from: e.from, to: e.to, gain: +(+e.gain).toFixed(4), port: e.port || 0, in: e.in ? 1 : 0 }, wallCtl(e) ? { hand: e.hand, pol: e.pol || 0 } : null))
   return { track: t.id, nodes, edges }
 }
 function wallPush (t) {
@@ -253,9 +265,12 @@ function wallPreset (t) {
   const w = { nodes: w0.nodes.slice(), wires: w0.wires.map(e => Object.assign({}, e)) }
   for (const n of w0.nodes) if (n.k === 'plug') wallTake(w, n.id)
   const x0 = Math.min(...w.nodes.map(n => n.x))
-  return JSON.stringify({ nodes: w.nodes.map(n => ({ id: n.id, type: WALL_TYPE[n.k], amount: +wallAmount(t, n).toFixed(4), variant: n.variant || 0, decay: n.decay || [.5, .5, .5], delayDiv: n.div == null ? 2 : n.div, delayFb: n.fb == null ? .35 : n.fb, wet: !!n.wet, bypass: !!n.bypass, aux: n.aux || [0, 0, 0], x: Math.round(180 + (n.x - x0) * 1.6), y: Math.round(280 + (n.y - w0.in.y) * 1.6) })),
-    edges: w.wires.map(e => ({ from: e.from, to: e.to, gain: +(+e.gain).toFixed(4), port: e.port || 0 })) }, null, 1)
+  return JSON.stringify({ nodes: w.nodes.map(n => ({ id: n.id, type: WALL_TYPE[n.k], amount: +wallAmount(t, n).toFixed(4), variant: n.variant || 0, decay: n.decay || [.5, .5, .5], delayDiv: n.div == null ? 2 : n.div, delayFb: n.fb == null ? .35 : n.fb, wet: !!n.wet, bypass: !!n.bypass, aux: n.aux || [0, 0, 0], ...wallDrawn(n), x: Math.round(180 + (n.x - x0) * 1.6), y: Math.round(280 + (n.y - w0.in.y) * 1.6) })),
+    edges: w.wires.map(e => Object.assign({ from: e.from, to: e.to, gain: +(+e.gain).toFixed(4), port: e.port || 0 }, e.in ? { in: 1 } : {}, wallCtl(e) ? { hand: e.hand, pol: e.pol || 0 } : null)) }, null, 1)
 }
+
+/* a clock, as its print says it: in time with the song (1/4, 1/8. …) or so many times a second */
+const wallRate = n => { const a = n.aux || []; return a[0] === 1 ? `${((a[3] || 200) / 100).toFixed(2)} hz` : `${PC.RATE_DIVS[a[1] ?? 3] || '1/4'}${a[2] === 1 ? '.' : a[2] === 2 ? 't' : ''}` }
 
 /* ── drawn ── */
 const wallView = (w, g) => { if (!w.z) wallFit(w, g); return { z: w.z, tx: g.cx - w.ox * w.z, ty: g.cy - w.oy * w.z } }
@@ -265,19 +280,26 @@ function wallFit (w, g) {
   w.ox = (x0 + x1) / 2; w.oy = (y0 + y1) / 2
 }
 const wallToWorld = (w, g, p) => ({ x: (p.x - g.cx) / w.z + w.ox, y: (p.y - g.cy) / w.z + w.oy })
-const wallOutPort = (w, id, port) => { const q = wallPos(w, id); if (id === WALL_IN) return { x: q.x + (w.v ? WALL_E : 7), y: q.y }; const n = wallNode(w, id), two = n && WALL_TWO.has(n.k); return { x: q.x + WALL_E, y: q.y + (two ? (port ? 13 : -13) : 0) } }
-const wallInPort = (w, id) => { const q = wallPos(w, id); return id === WALL_OUT ? { x: q.x - 7, y: q.y } : { x: q.x - WALL_E, y: q.y } }
+const wallOutPort = (w, id, port) => { const q = wallPos(w, id); if (id === WALL_IN) return { x: q.x + (w.v ? WALL_E : 7), y: q.y }; const n = wallNode(w, id), N = wallOuts(n), gap = N > 2 ? 11 : 26; return { x: q.x + (wallPlays(n) ? WALL_E - 12 : WALL_E), y: q.y + (N > 1 ? ((port || 0) - (N - 1) / 2) * gap : 0) } }      // (a control print is smaller: its port comes in)
+const wallInPort = (w, id) => { const q = wallPos(w, id); return id === WALL_OUT ? { x: q.x - 7, y: q.y } : { x: q.x - (wallPlays(wallNode(w, id)) ? WALL_E - 12 : WALL_E), y: q.y } }
 const wallCurve = (a, b) => { const dx = Math.max(26, Math.abs(b.x - a.x) * .5); return `M${n(a.x)} ${n(a.y)}C${n(a.x + dx)} ${n(a.y)} ${n(b.x - dx)} ${n(b.y)} ${n(b.x)} ${n(b.y)}` }
 function wallPrint (t, node, sel) {
   const fam = WALL_FAMILY[node.k] || 'tone', type = WALL_TYPE[node.k], tint = PATCH_PRINTS.PLATE_TINT[type] || '#B8B4AA'
-  const inner = PATCH_PRINTS.printInner({ type, amount: wallAmount(t, node), variant: node.variant || 0, aux: node.aux || [0, 0, 0, 0, 0, 0, 0, 0] }, fam, tint).replace(/'Space Mono', ui-monospace, monospace/g, 'Instrument Sans')
-  return `<g transform="translate(${n(node.x)} ${n(node.y)}) scale(${WALL_R})"${node.bypass ? ' opacity=".35"' : ''}>${inner}</g>` + (sel ? Cc(node.x, node.y, WALL_R + 7, { stroke: INK, sa: .5, dash: '2 3' }) : '')
+  const inner = PATCH_PRINTS.printInner(Object.assign({ type, amount: wallAmount(t, node), variant: node.variant || 0, aux: node.aux || [0, 0, 0, 0, 0, 0, 0, 0] }, wallDrawn(node)), fam, tint).replace(/'Space Mono', ui-monospace, monospace/g, 'Instrument Sans')
+  const r = WALL_R * (PC.isControlType(type) ? .6 : 1)                                  // (a control print is a fitting: about half a sound print, as on Patch on Slur's wall)
+  return `<g transform="translate(${n(node.x)} ${n(node.y)}) scale(${n(r)})"${node.bypass ? ' opacity=".35"' : ''}>${inner}</g>` + (sel ? Cc(node.x, node.y, r + 7, { stroke: INK, sa: .5, dash: '2 3' }) : '')
 }
 const wallValue = (t, node) => {
-  const a = wallAmount(t, node), vs = WALL_VARIANTS[node.k], v = vs && node.k !== 'mix' ? vs[node.variant || 0] || '' : ''
+  const a = wallAmount(t, node), v = node.bare || node.k === 'mix' || node.k === 'gain' ? '' : node.k === 'tremolo' ? wallSaid((PC.TREM_PRESETS[(node.aux || [])[2] || 0] || PC.TREM_PRESETS[0]).name) : wallSaid(wallFlavours(node.k)[node.variant || 0] || '')      // (bare: the amount alone, as the study says it; a tremolo is called by its shape)
   if (node.k === 'mix') return (node.variant || 0) === 0 ? 'blends' : 'adds'
+  if (node.k === 'meter') return ''                                                      // (meternode.js: it has no amount; what it shows is on its face)
+  if (node.k === 'side') return typeof sideWord === 'function' ? sideWord(t) : ''                // (side.js: the track it plays)
   if (WALL_TWO.has(node.k)) return ''
-  const num = node.k === 'tone' || node.k === 'stereo' || node.k === 'pan' || node.k === 'pitch' || node.k === 'formant' ? (a === .5 ? '0' : (a > .5 ? '+' : '−') + Math.round(Math.abs(a - .5) * 200)) : String(Math.round(a * 100))
+  if (node.k === 'bands') return PC.crossovers(node.aux || []).map(hz => wallSaid(PC.fmtHz(hz))).join(' / ')      // (where it cuts)
+  if (node.k === 'lfo' || node.k === 'drift' || node.k === 'pulse') return wallRate(node)
+  if (node.k === 'macro') return node.bare ? wallAmountText('macro', a, 0) : `${((node.aux || [])[0] || 0) + 1} · ${wallAmountText('macro', a, 0)}`      // (its number, and its knob)
+  if (node.k === 'follow' || node.k === 'env') return wallSaid(wallFlavours(node.k)[node.variant || 0] || (node.k === 'follow' ? ['envelope', 'transient'][node.variant || 0] : ''))
+  const num = wallAmountText(node.k, a, node.variant || 0)                               // (in Patch on Slur's units)
   return (v ? v + ' ' : '') + num
 }
 function wallPatch (y, h) {
@@ -290,8 +312,8 @@ function wallPatch (y, h) {
     const dot = q => Cc(q.x, q.y, 2.2, { fill: INK })
     /* the wires, each with the level it carries where it goes into a mix */
     w.wires.forEach((e, i) => {
-      if (!wallPos(w, e.from) || !wallPos(w, e.to)) return
-      const p0 = wallOutPort(w, e.from, e.port), p1 = wallInPort(w, e.to), dd = wallCurve(p0, p1), chosen = sel && sel.wire === i, m = wallNode(w, e.to)
+      if (wallCtl(e) || !wallPos(w, e.from) || !wallPos(w, e.to)) return                // (a control wire is drawn where it lands on a hand: ctl.js)
+      const p0 = wallOutPort(w, e.from, e.port), p1 = e.in && typeof wallKeyPort === 'function' ? wallKeyPort(w, e.to) : wallInPort(w, e.to), dd = wallCurve(p0, p1), chosen = sel && sel.wire === i, m = wallNode(w, e.to)
       a += P(dd, { stroke: INK, sa: chosen ? 1 : .46, sw: chosen ? 1.6 : 1 }) + dot(p0) + dot(p1)
       hits += `<path d="${dd}" fill="none" stroke="#000" stroke-opacity="0" stroke-width="12" data-a="wall" data-k="wire" data-i="${i}" style="cursor:pointer"/>`
       if (m && m.k === 'mix') {
@@ -300,7 +322,7 @@ function wallPatch (y, h) {
         hits += `<rect x="${n(mx - 15)}" y="${n(my - 10)}" width="30" height="20" fill="#000" fill-opacity="0" data-a="wall" data-k="lvl" data-i="${i}" style="cursor:ns-resize"/>`
       }
     })
-    if (d && d.k === 'wire' && d.to) a += P(wallCurve(wallOutPort(w, d.from, d.port), d.land != null ? wallInPort(w, d.land) : d.to), { stroke: INK, sa: .85, dash: '3 3' }) + (d.land != null ? '' : Cc(d.to.x, d.to.y, 4.5, { stroke: INK, sa: .9 }))
+    if (d && d.k === 'wire' && d.to && !d.ctl) a += P(wallCurve(wallOutPort(w, d.from, d.port), d.land != null ? (d.landIn ? wallKeyPort(w, d.land) : wallInPort(w, d.land)) : d.to), { stroke: INK, sa: .85, dash: '3 3' }) + (d.land != null ? '' : Cc(d.to.x, d.to.y, 4.5, { stroke: INK, sa: .9 }))
     /* in and out */
     for (const [id, word] of [[WALL_IN, 'in'], [WALL_OUT, 'out']]) {
       const q = wallPos(w, id)
@@ -324,15 +346,17 @@ function wallPatch (y, h) {
         a += G(loanFrame(node.x, node.y, 32, asGiven(name)), '', dim ? ' opacity=".4"' : '') + (chosen ? R(node.x - 38.5, node.y - 38.5, 77, 77, { rx: 3, stroke: INK, sa: .5, dash: '2 3' }) : '')
         a += T(node.x, node.y + 49, fit(asGiven(name), 96, 10, 500), { size: 10, w: 500, anchor: 'middle' }) + T(node.x, node.y + 61.5, !i ? 'opening' : i.busy ? 'opening' : i.out ? 'left out' : i.off ? 'off' : i.fmt || '', { size: 9, a: .46, anchor: 'middle' })
       } else {
+        const cy = node.y + (PC.isControlType(WALL_TYPE[node.k]) ? 37 : 49)                // (under a control print, nearer: it is smaller)
         a += wallPrint(t, node, chosen)
-        a += T(node.x, node.y + 49, node.k, { size: 10, w: 500, anchor: 'middle' }) + T(node.x, node.y + 61.5, asGiven(wallValue(t, node)), { size: 9, a: .46, anchor: 'middle' })
+        a += T(node.x, cy, node.k, { size: 10, w: 500, anchor: 'middle' }) + T(node.x, cy + 12.5, asGiven(wallValue(t, node)), { size: 9, a: .46, anchor: 'middle' })
       }
       if (land) a += Cc(node.x, node.y, WALL_R + 9, { stroke: INK, sa: .9 })
-      hits += `<rect x="${n(node.x - 34)}" y="${n(node.y - 34)}" width="68" height="68" fill="#000" fill-opacity="0" data-a="wall" data-k="node" data-id="${node.id}" style="cursor:${node.k === 'plug' ? 'pointer' : node.k === 'mix' || WALL_TWO.has(node.k) ? 'grab' : 'ns-resize'}"/>`
+      hits += `<rect x="${n(node.x - 34)}" y="${n(node.y - 34)}" width="68" height="68" fill="#000" fill-opacity="0" data-a="wall" data-k="node" data-id="${node.id}" style="cursor:${node.k === 'plug' || node.k === 'meter' || node.k === 'side' ? 'pointer' : !wallHasAmount(node) ? 'grab' : 'ns-resize'}"/>`
       hits += `<rect x="${n(node.x - 44)}" y="${n(node.y + 38)}" width="88" height="28" fill="#000" fill-opacity="0" data-a="wall" data-k="cap" data-id="${node.id}" style="cursor:grab"/>`
-      const two = WALL_TWO.has(node.k)
-      for (const port of two ? [0, 1] : [0]) { const q = wallOutPort(w, node.id, port); hits += `<circle cx="${n(q.x)}" cy="${n(q.y)}" r="${two ? 9 : 11}" fill="#000" fill-opacity="0" data-a="wall" data-k="port" data-id="${node.id}" data-p="${port}" style="cursor:crosshair"/>`; if (!w.wires.some(e => e.from === node.id && (e.port || 0) === port)) a += Cc(q.x, q.y, 2.2, { stroke: INK, sa: .5, fill: K1 }) }
-      if (!w.wires.some(e => e.to === node.id)) { const q = wallInPort(w, node.id); a += Cc(q.x, q.y, 2.2, { stroke: INK, sa: .5, fill: K1 }) }
+      const N = wallOuts(node)
+      for (let port = 0; port < N; port++) { const q = wallOutPort(w, node.id, port); hits += `<circle cx="${n(q.x)}" cy="${n(q.y)}" r="${N > 2 ? 5.5 : N > 1 ? 9 : 11}" fill="#000" fill-opacity="0" data-a="wall" data-k="port" data-id="${node.id}" data-p="${port}" style="cursor:crosshair"/>`; if (!w.wires.some(e => e.from === node.id && (e.port || 0) === port)) a += Cc(q.x, q.y, 2.2, { stroke: INK, sa: .5, fill: K1 }) }
+      if (node.k !== 'side' && !PC.noInputType(WALL_TYPE[node.k]) && !w.wires.some(e => e.to === node.id && !wallCtl(e))) { const q = wallInPort(w, node.id);      // (a side and an lfo have no way in)
+        a += Cc(q.x, q.y, 2.2, { stroke: INK, sa: .5, fill: K1 }) }
     }
     s += `<g clip-path="url(#${cid})"><rect x="0" y="${n(y)}" width="${n(Math.max(0, cw))}" height="${n(h)}" fill="#000" fill-opacity="0" data-a="wall" data-k="bg" style="cursor:default"/>` + G(a + hits, `translate(${n(v.tx)} ${n(v.ty)}) scale(${n(v.z)})`) + '</g>'
     s += wallFoot(t, w, y + h - 26, cw, sel)
@@ -348,16 +372,16 @@ function wallPatch (y, h) {
   s += strip(x2, y, WSTRIP, h, MASTER(), -1, { wide: true, master: true, sel: t === OUT })
   return s
 }
-const wallHandNow = (node, h) => h.h === 'variant' ? node.variant || 0 : h.h === 'div' ? (node.div == null ? 2 : node.div) : h.h === 'fb' ? Math.round((node.fb == null ? .35 : node.fb) * 100) : h.h === 'decay' ? Math.round(((node.decay || [.5, .5, .5])[clamp(node.variant || 0, 0, 2)]) * 100) : (node.aux || [])[+h.h.slice(3)] || 0
+const wallQuant = (v, step) => { const q = Math.round(v / step) * step; return +q.toFixed(step >= 1 ? 0 : Math.min(6, Math.ceil(-Math.log10(step)))) }
+const wallHandNow = (node, h) => { const v = h.c.get(wallAsNode(node)); return h.c.kind === 'switch' ? (v ? 1 : 0) : v }
 function wallHandSet (node, h, v) {
+  const c = h.c, n = wallAsNode(node)
+  if (c.kind === 'gauge') return wallApply(node, c.set(wallQuant(clamp(v, h.lo, h.hi), h.step), n))
   v = Math.round(v)
-  if (h.h === 'variant') node.variant = v
-  else if (h.h === 'div') node.div = v
-  else if (h.h === 'fb') node.fb = v / 100
-  else if (h.h === 'decay') { node.decay = (node.decay || [.5, .5, .5]).slice(); node.decay[clamp(node.variant || 0, 0, 2)] = v / 100 }
-  else { node.aux = (node.aux || []).concat([0, 0, 0, 0, 0, 0, 0, 0]).slice(0, 8); node.aux[+h.h.slice(3)] = v; if (node.k === 'swell' && h.h === 'aux0') node.aux[1] = 1 }
+  if (v === wallHandNow(node, h)) return                                                    // (picked again: nothing, as in Patch on Slur — a switch would turn back, a shape be drawn again)
+  wallApply(node, c.set(c.kind === 'switch' ? !!v : v, n))
 }
-const wallHandText = (node, h) => { const v = wallHandNow(node, h); if (h.opts) { const i = h.vals.indexOf(v); return h.opts[i < 0 ? 0 : i] } const x = v * h.sc; return (h.sc < 1 ? (h.sc <= .01 ? x.toFixed(2) : x.toFixed(1)) : String(x)) + (h.unit ? (h.unit === ':1' ? '' : ' ') + h.unit : '') }
+const wallHandText = (node, h) => { const v = wallHandNow(node, h); if (h.opts) { const i = h.vals.indexOf(v); return i < 0 && h.none ? h.none : h.opts[Math.max(0, i)] } return h.fmt ? h.fmt(v, node) : `${wallQuant(v, h.step)}${h.unit ? ' ' + h.unit : ''}` }
 /* the foot of the wall: what is chosen, and its hands (Patch on Slur's study, as a line of fields); with nothing chosen, how near the wall is */
 function wallFoot (t, w, y, cw, sel) {
   let s = R(0, y, cw, 26, { fill: K1 }) + hline(0, cw, y, .07)
@@ -368,14 +392,14 @@ function wallFoot (t, w, y, cw, sel) {
   if (node) {
     s += T(x, by, fit(asGiven(wallName(node)), 120, 10, 500), { size: 10, w: 500 }); x += Math.min(120, tw(wallName(node), 10, 500)) + 14
     if (wallIsPrint(node)) {
-      if (node.k !== 'mix' && !WALL_TWO.has(node.k)) { const [f, fw] = field(x, by, WALL_MAIN[node.k] || 'amount', asGiven(wallValue(t, Object.assign({}, node, { variant: -1 })).trim()), { a: 'wall', more: ` data-k="amt" data-id="${node.id}"` }); if (x + fw < lim) { s += f; x += fw + 14 } }
-      wallHands(node.k).forEach((h, i) => { const [f, fw] = field(x, by, h.label, asGiven(wallHandText(node, h)), { a: 'wall', more: ` data-k="hand" data-id="${node.id}" data-h="${i}"`, cur: h.opts ? 'pointer' : 'ns-resize' }); if (x + fw < lim - 150) { s += f; x += fw + 14 } })
+      if (wallHasAmount(node)) { const [f, fw] = field(x, by, wallMain(node.k), asGiven(wallValue(t, Object.assign({}, node, { bare: true })).trim()), { a: 'wall', more: ` data-k="amt" data-id="${node.id}"` }); if (x + fw < lim) { s += f; x += fw + 14 } }
+      wallHands(node.k, node).forEach((h, i) => { const [f, fw] = field(x, by, h.label, asGiven(wallHandText(node, h)), { a: 'wall', more: ` data-k="hand" data-id="${node.id}" data-h="${i}"`, cur: h.opts ? 'pointer' : 'ns-resize' }); if (x + fw < lim - 150) { s += f; x += fw + 14 } })
     }
     let rx = lim
     const word = (label, k, on) => { const wd = keyW(label, {}); rx -= wd; s += key(rx, y + 4, label, { a: 'wall', more: ` data-k="${k}" data-id="${node.id}"`, armed: on })[0]; rx -= 6 }
     word(sel.arm ? 'sure?' : 'remove', 'rm', !!sel.arm)
     if (node.k === 'plug') { if (node.ins && node.ins.uid && !node.ins.out) word('off', 'off', !!node.ins.off) }
-    else { if (node.k !== 'mix' && !WALL_TWO.has(node.k)) word('bypass', 'by', !!node.bypass); if (WALL_WET.has(node.k)) word('wet only', 'wet', !!node.wet) }
+    else { if (!PC.isUtilityType(WALL_TYPE[node.k])) word('bypass', 'by', !!node.bypass); if (WALL_WET.has(node.k)) word('wet only', 'wet', !!node.wet) }
   } else if (sel && sel.wire != null && w.wires[sel.wire]) {
     const e = w.wires[sel.wire], nm = id => id === WALL_IN ? 'in' : id === WALL_OUT ? 'out' : wallName(wallNode(w, id) || { k: '' })
     s += T(x, by, asGiven(`${nm(e.from)} → ${nm(e.to)}`), { size: 10, w: 500 })
@@ -414,7 +438,7 @@ function wallDown (e) {
         if (i && i.out) { if (typeof bringAllBack === 'function') bringAllBack() } else if (i && i.uid) { i.off = !i.off; if (NAT) NAT.call('bypass', { track: t.id, uid: i.uid, off: i.off ? 1 : 0 }) }
         break
       }
-      if (node.k === 'plug' || node.k === 'mix' || WALL_TWO.has(node.k)) { hold({ k: 'move', id, x: node.x, y: node.y, press: node.k === 'plug' }); break }
+      if (node.k === 'plug' || node.k === 'meter' || node.k === 'side' || !wallHasAmount(node)) { hold({ k: 'move', id, x: node.x, y: node.y, press: node.k === 'plug' || node.k === 'meter' || node.k === 'side' }); break }
       if (e.altKey || twice) { wallSetAmount(t, node, WALL_LEGACY[node.k] ? PRINT_START[node.k] / 100 : wallNeutral(node.k)); break }      // twice, or with option: back to where it rests
       hold({ k: 'amt', id, v0: wallAmount(t, node), ly: p.y }); break
     }
@@ -422,7 +446,7 @@ function wallDown (e) {
     case 'wire': choose({ wire: +el.dataset.i }); break
     case 'lvl': { const i = +el.dataset.i; choose({ wire: i }); if (e.altKey || twice) { const m = wallNode(w, w.wires[i].to), n0 = w.wires.filter(x => x.to === w.wires[i].to).length; wallSetShare(t, i, m && (m.variant || 0) === 0 ? 1 / n0 : 1) } else hold({ k: 'lvl', i, v0: w.wires[i].gain, ly: p.y }); break }
     case 'hand': {
-      const h = wallHands(node.k)[+el.dataset.h]
+      const h = wallHands(node.k, node)[+el.dataset.h]
       if (!h) break
       if (h.opts) openMenu(p.x, p.y, h.opts.map((o, i) => ({ t: asGiven(o), v: h.vals[i], on: wallHandNow(node, h) === h.vals[i] })), it => { wallHandSet(node, h, it.v); if (node.k === 'mix') wallShares(w, node.id); wallPush(t); uiDirty('dock') }, { w: 120 })
       else if (e.altKey || twice) { wallHandSet(node, h, h.def); wallPush(t) }
@@ -460,9 +484,10 @@ function wallMove (e) {
     const node = wallNode(w, d.id), h = d.h, dy = d.ly - p.y
     if (node) { const logish = h.lo > 0 && h.hi / h.lo >= 100, v = logish ? d.v0 * Math.pow(h.hi / h.lo, dy / 220) : d.v0 + dy * (h.hi - h.lo) / (e.shiftKey ? 1100 : 220); wallHandSet(node, h, clamp(v, h.lo, h.hi)); wallPush(t) }
   } else if (d.k === 'wire') {
-    d.to = q; d.land = null
+    d.to = q; d.land = null; d.landIn = 0
     let best = 46
     for (const id of [WALL_OUT].concat(w.nodes.map(x => x.id))) { const at = wallPos(w, id), dist = Math.hypot(at.x - q.x, at.y - q.y); if (dist < best && wallMay(w, d.from, id, d.port)) { best = dist; d.land = id } }
+    if (typeof wallKeyPort === 'function') for (const x of w.nodes) { if (!wallHasKey(x)) continue; const kp = wallKeyPort(w, x.id); if (Math.hypot(kp.x - q.x, kp.y - q.y) < 16 && wallMay(w, d.from, x.id, d.port, 1)) { d.land = x.id; d.landIn = 1 } }      // (near a print's key point: into its key)
   }
   uiDirty('dock')
 }
@@ -470,10 +495,12 @@ function wallUp () {
   const d = WALL.drag, t = wallTrack(), w = wallOf(t)
   WALL.drag = null
   if (!d || !w) return
-  if (d.k === 'wire' && d.land != null) wallWire(t, d.from, d.land, d.port)
+  if (d.k === 'wire' && d.land != null) wallWire(t, d.from, d.land, d.port, d.landIn)
   else if (d.k === 'move' && !d.moved && d.press) {                                    // a plug-in pressed and not moved: its own window (one that was left out: it is opened again, in its place)
     const node = wallNode(w, d.id), i = node && node.ins
-    if (i && i.out && typeof bringBack === 'function') bringBack(t, t.inserts.indexOf(i)).then(() => { WALL.sent.delete(t.id); wallPush(t); uiDirty('dock') })
+    if (node && node.k === 'meter') { if (typeof meterOpen === 'function') meterOpen(t, node) }      // (a meter pressed: its face)
+    else if (node && node.k === 'side') { if (typeof sideMenu === 'function') sideMenu(t, node) }   // (a side pressed: which track it plays)
+    else if (i && i.out && typeof bringBack === 'function') bringBack(t, t.inserts.indexOf(i)).then(() => { WALL.sent.delete(t.id); wallPush(t); uiDirty('dock') })
     else if (i && i.uid && NAT) NAT.call('editor', { track: t.id, uid: i.uid })
   }
   else if (d.k === 'move' && d.moved && d.id >= 0) {
@@ -505,7 +532,9 @@ function wallAdd (t, k) {
   const w = wallOf(t), id = wallFree(w)
   if (id < 0) return
   const at = wallSpot(w)
-  w.nodes.push(Object.assign(wallNew(k, at.x, at.y), { id }))
+  const node = Object.assign(wallNew(k, at.x, at.y), { id })
+  if (k === 'macro') { const used = new Set(w.nodes.filter(x => x.k === 'macro').map(x => (x.aux || [])[0] || 0)); let m = 0; while (used.has(m) && m < 7) m++; node.aux = PC.auxOf(WALL_TYPE.macro, m).concat([0, 0, 0, 0, 0, 0, 0, 0]).slice(0, 8) }      // (macro 1, 2… as on Patch on Slur's wall)
+  w.nodes.push(node)
   if (WALL_LEGACY[k]) { setPrint(t, k, PRINT_START[k]); if (t !== OUT) pushTrack(t) }
   WALL.sel = { t: t.id, node: id }; S.focus = 'wall'
   wallPush(t); uiDirty('dock')

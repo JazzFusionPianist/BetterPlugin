@@ -8,6 +8,10 @@
 # and then two copies work on the same project.
 set -e
 cd "$(dirname "$0")"
+# Patch on Slur's prints come from the plug-in's own source on every build — their pictures (ui/prints.js) and what they
+# are (ui/catalog.js: names, flavours, every hand, units) — and the build stops here when the plug-in and this wall no
+# longer agree (tools/catalog-check.mjs says what to do: a new print is given its place in ui/wall.js, or left off)
+node tools/prints-from-patch.mjs > /dev/null && node tools/catalog-from-patch.mjs > /dev/null && node tools/catalog-check.mjs
 B=build.noindex
 cmake -S . -B $B -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="$(uname -m)" > build-configure.log 2>&1 || { tail -30 build-configure.log; exit 1; }
 cmake --build $B -j "${SLUR_JOBS:-10}"

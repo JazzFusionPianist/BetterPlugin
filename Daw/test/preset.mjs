@@ -36,18 +36,18 @@ const w1 = await wall()
 ok('a wall to keep: three prints, wired side by side, and a plug-in from outside', w1.nodes.length === 4 && w1.nodes.includes('plug:Channel EQ') && w1.nodes.includes('crush:40') && w1.nodes.includes('space:46'), w1.nodes)
 { await press('box'); await ev(`window.__typed = 'Lead Vox: Chain'`); await press('saveas'); await b.sleep(250)
   const s = await ev(`return { list: PRE.list, open: PRE.open, pre: wallTrack().pre && wallTrack().pre.name, store: Object.keys(JSON.parse(localStorage.getItem('orb_wall_presets') || '{}')) }`)
-  ok('save as…: kept under the name typed, made lower and fit for a file; the list is away and the bar reads the name', s.list.join() === 'lead vox chain' && !s.open && s.pre === 'lead vox chain' && s.store.join() === 'lead vox chain' && (await texts()).includes('lead vox chain'), s)
-  const f = await ev(`const g = JSON.parse(localStorage.getItem('orb_wall_presets'))['lead vox chain']; return { types: g.nodes.map(n => n.type), edges: g.edges.length, ids: g.nodes.every(n => typeof n.id === 'number'), own: !!g.slurStudio, wallNodes: g.slurStudio.wall.nodes.map(n => n.k), ins: g.slurStudio.inserts, hasIns: g.slurStudio.wall.nodes.some(n => 'ins' in n) }`)
+  ok('save as…: kept under the name typed (capitals and all), made fit for a file; the list is away and the bar reads the name', s.list.join() === 'Lead Vox Chain' && !s.open && s.pre === 'Lead Vox Chain' && s.store.join() === 'Lead Vox Chain' && (await texts()).includes('Lead Vox Chain'), s)
+  const f = await ev(`const g = JSON.parse(localStorage.getItem('orb_wall_presets'))['Lead Vox Chain']; return { types: g.nodes.map(n => n.type), edges: g.edges.length, ids: g.nodes.every(n => typeof n.id === 'number'), own: !!g.slurStudio, wallNodes: g.slurStudio.wall.nodes.map(n => n.k), ins: g.slurStudio.inserts, hasIns: g.slurStudio.wall.nodes.some(n => 'ins' in n) }`)
   ok('the file as patch on slur reads it: the three prints by their numbers, wired; the plug-in is not among them', f.types.length === 3 && f.types.includes(1) && f.types.includes(2) && f.types.includes(20) && f.edges >= 5 && f.ids, f)
   ok('…and the wall whole beside it: the plug-in in its place, with what it is and its settings', f.own && f.wallNodes.filter(k => k === 'plug').length === 1 && f.ins.length === 1 && f.ins[0].id === 'AudioUnit:test/eq' && f.ins[0].state === 'c2V0dGluZ3M=' && !f.hasIns, f) }
 
 /* changed: the star; saved: no star */
 { await ev(`const t = wallTrack(), w = wallOf(t); wallSetAmount(t, w.nodes.find(n => n.k === 'crush'), .9); dirtyAll(); flush()`)
-  ok('the wall changed: a star after the name', (await wall()).pre[1] === true && (await texts()).includes('lead vox chain *'), await texts().then(t => t.filter(x => /chain/.test(x))))
+  ok('the wall changed: a star after the name', (await wall()).pre[1] === true && (await texts()).includes('Lead Vox Chain *'), await texts().then(t => t.filter(x => /chain/.test(x))))
   await press('box')
   ok('the list now offers save', (await texts()).includes('save'))
   await press('save'); await b.sleep(200)
-  const s = await ev(`return { dirty: presetDirty(wallTrack()), amt: JSON.parse(localStorage.getItem('orb_wall_presets'))['lead vox chain'].slurStudio.wall.nodes.find(n => n.k === 'crush').amount }`)
+  const s = await ev(`return { dirty: presetDirty(wallTrack()), amt: JSON.parse(localStorage.getItem('orb_wall_presets'))['Lead Vox Chain'].slurStudio.wall.nodes.find(n => n.k === 'crush').amount }`)
   ok('save writes over the file, and the star is gone', s.dirty === false && Math.abs(s.amt - .9) < 1e-6, s) }
 
 /* initial: the empty wall, in one step; undo brings everything back */
@@ -57,14 +57,14 @@ ok('a wall to keep: three prints, wired side by side, and a plug-in from outside
   ok('initial: nothing on the wall, no plug-in on the track, the bar reads initial', w.nodes.length === 0 && w.wires.length === 0 && w.inserts.length === 0 && w.pre[0] === 'initial' && w.undo === before.undo + 1, w)
   await ev(`undoEdit(); flush()`); await b.sleep(250)
   const back = await wall()
-  ok('undo: the wall as it was — prints, amounts, wires, the plug-in and its settings, and its name', JSON.stringify(back.nodes) === JSON.stringify(before.nodes) && JSON.stringify(back.wires) === JSON.stringify(before.wires) && back.inserts[0][1] === 'c2V0dGluZ3M=' && back.pre[0] === 'lead vox chain', [back.nodes, before.nodes])
+  ok('undo: the wall as it was — prints, amounts, wires, the plug-in and its settings, and its name', JSON.stringify(back.nodes) === JSON.stringify(before.nodes) && JSON.stringify(back.wires) === JSON.stringify(before.wires) && back.inserts[0][1] === 'c2V0dGluZ3M=' && back.pre[0] === 'Lead Vox Chain', [back.nodes, before.nodes])
   await ev(`redoEdit(); flush()`); await b.sleep(250)
   ok('redo: empty again', (await wall()).nodes.length === 0) }
 
 /* a name pressed: the kept wall is put up whole */
 { await press('box'); await press('pick 0'); await b.sleep(300)
   const w = await wall()
-  ok('the name pressed in the list: the kept wall, whole', w.nodes.length === 4 && w.nodes.includes('crush:90') && w.nodes.includes('space:46') && w.nodes.includes('plug:Channel EQ') && w.wires.length >= 5 && w.inserts.length === 1 && w.inserts[0][0] === 'AudioUnit:test/eq' && w.inserts[0][1] === 'c2V0dGluZ3M=' && w.pre[0] === 'lead vox chain' && w.pre[1] === false, w) }
+  ok('the name pressed in the list: the kept wall, whole', w.nodes.length === 4 && w.nodes.includes('crush:90') && w.nodes.includes('space:46') && w.nodes.includes('plug:Channel EQ') && w.wires.length >= 5 && w.inserts.length === 1 && w.inserts[0][0] === 'AudioUnit:test/eq' && w.inserts[0][1] === 'c2V0dGluZ3M=' && w.pre[0] === 'Lead Vox Chain' && w.pre[1] === false, w) }
 
 /* onto another track; the arrows */
 { await ev(`chooseTrack(2, ''); S.focus = 'tracks'; dirtyAll(); flush()`)
@@ -75,7 +75,7 @@ ok('a wall to keep: three prints, wired side by side, and a plug-in from outside
   const c = await wall()
   await press('prev'); await b.sleep(250)
   const d = await wall()
-  ok('the one after, twice: initial, then the kept one; the one before: initial again', a.pre[0] === 'initial' && c.pre[0] === 'lead vox chain' && c.nodes.length === 4 && d.pre[0] === 'initial' && d.nodes.length === 0, [a.pre, c.pre, d.pre]) }
+  ok('the one after, twice: initial, then the kept one; the one before: initial again', a.pre[0] === 'initial' && c.pre[0] === 'Lead Vox Chain' && c.nodes.length === 4 && d.pre[0] === 'initial' && d.nodes.length === 0, [a.pre, c.pre, d.pre]) }
 
 /* a file patch on slur wrote: put on the wall from its prints and wires alone */
 { await ev(`const all = JSON.parse(localStorage.getItem('orb_wall_presets')); all['from the plug-in'] = { nodes: [{ id: 7, type: 1, amount: .3, variant: 1, x: 200, y: 280 }, { id: 9, type: 10, amount: .5, variant: 2, delayDiv: 3, delayFb: .6, x: 430, y: 200 }, { id: 12, type: 999, amount: .5, x: 430, y: 360 }, { id: 14, type: 10, amount: .2, x: 660, y: 280 }], edges: [{ from: -1, to: 7, gain: 1 }, { from: 7, to: 9, gain: 1 }, { from: 7, to: 12, gain: 1 }, { from: 9, to: 14, gain: 1 }, { from: 12, to: -2, gain: 1 }, { from: 14, to: -2, gain: 1 }] }; localStorage.setItem('orb_wall_presets', JSON.stringify(all))`)
@@ -100,7 +100,7 @@ ok('a wall to keep: three prints, wired side by side, and a plug-in from outside
   await b.click(700, 200); await b.sleep(120)
   ok('a press elsewhere puts the list away', !(await ev(`return PRE.open`)))
   const kept = await ev(`chooseTrack(0, ''); const o = JSON.parse(serialize()); return o.tracks[0].pre`)
-  ok('which preset is up is written with the project', !!kept && kept.name === 'lead vox chain', kept) }
+  ok('which preset is up is written with the project', !!kept && kept.name === 'Lead Vox Chain', kept) }
 
 { const errs = await ev(`return window.__errs || []`)
   ok('nothing went wrong on the page', !errs.length && !b.errors.length, [errs, b.errors]) }

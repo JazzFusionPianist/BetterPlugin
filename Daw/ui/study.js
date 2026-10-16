@@ -18,7 +18,7 @@ const STUDY_IN = document.createElement('input')
 
 const studyTint = node => (PATCH_PRINTS.PLATE_TINT || {})[WALL_TYPE[node.k]] || '#B8B4AA'
 const studyBipolar = k => k === 'tone' || k === 'stereo' || k === 'pan' || k === 'pitch' || k === 'formant'
-const studyHasAmount = node => node.k !== 'mix' && !WALL_TWO.has(node.k)
+const studyHasAmount = node => wallHasAmount(node)
 /* the print the study is open on, if it is still there and its wall is the one shown */
 function studyNode () {
   const t = wallTrack()
@@ -31,9 +31,10 @@ function studyClose () { if (STUDY.id == null) return; STUDY.id = null; STUDY.ar
 
 /* every row of a print's study, in order: its hands (a choice or a number), a mix's wires, its switches */
 function studyRows (t, w, node) {
-  const rows = wallHands(node.k).map((h, i) => ({ k: h.opts ? 'choice' : 'gauge', h, i }))
-  if (node.k === 'mix') w.wires.forEach((e, i) => { if (e.to === node.id) rows.push({ k: 'share', i, label: e.from === WALL_IN ? 'in' : wallName(wallNode(w, e.from) || { k: '?' }) }) })
-  const sw = (WALL_WET.has(node.k) ? ['wet'] : []).concat(node.k !== 'mix' && !WALL_TWO.has(node.k) ? ['by'] : [])
+  const hands = wallHands(node.k, node), rows = hands.map((h, i) => ({ k: h.opts ? 'choice' : 'gauge', h, i })).filter(r => r.h.c.kind !== 'switch')      // (a hand that is a switch stands with the switches, as in Patch on Slur)
+  if (node.k === 'mix') w.wires.forEach((e, i) => { if (e.to === node.id && !wallCtl(e)) rows.push({ k: 'share', i, label: e.from === WALL_IN ? 'in' : wallName(wallNode(w, e.from) || { k: '?' }) }) })
+  const sw = hands.map((h, i) => h.c.kind === 'switch' ? 'h' + i : null).filter(Boolean).concat(WALL_WET.has(node.k) ? ['wet'] : []).concat(!PC.isUtilityType(WALL_TYPE[node.k]) ? ['by'] : [])
+  if (typeof ctlRows === 'function') rows.push(...ctlRows(t, w, node))      // (a scene's takes, and what plays this print's hands: ctl.js)
   if (sw.length) rows.push({ k: 'switches', sw })
   return rows
 }
@@ -48,7 +49,7 @@ function studyLay (g, n) {
 /* a number's place along its gauge, 0 to 1 (a wide range is read along a log) */
 const studyLog = h => h.lo > 0 && h.hi / h.lo >= 100
 const studyFrac = (h, v) => studyLog(h) ? Math.log(v / h.lo) / Math.log(h.hi / h.lo) : (v - h.lo) / (h.hi - h.lo)
-const studyAmountText = (t, node) => wallValue(t, Object.assign({}, node, { variant: -1 })).trim()
+const studyAmountText = (t, node) => wallValue(t, Object.assign({}, node, { bare: true })).trim()
 
 /* ── drawn ── */
 function studyDraw (t, w, node) {
@@ -67,9 +68,10 @@ function studyDraw (t, w, node) {
   s += Cc(kx, ky, 11.5, { stroke: INK, sa: .22, fill: K1 }) + P(`M${n(kx - 3.4)} ${n(ky - 3.4)}L${n(kx + 3.4)} ${n(ky + 3.4)}M${n(kx + 3.4)} ${n(ky - 3.4)}L${n(kx - 3.4)} ${n(ky + 3.4)}`, { stroke: INK, sa: .7, sw: 1.3, cap: 'round' }) + hit(kx - 13, ky - 13, 26, 26, 'study', ' data-k="close"', 'pointer')
   /* the print, big */
   const fam = WALL_FAMILY[node.k] || 'tone', type = WALL_TYPE[node.k]
-  const inner = PATCH_PRINTS.printInner({ type, amount: wallAmount(t, node), variant: node.variant || 0, aux: node.aux || [0, 0, 0, 0, 0, 0, 0, 0] }, fam, tint).replace(/'Space Mono', ui-monospace, monospace/g, 'Instrument Sans')
-  s += `<g transform="translate(${n(cx)} ${n(py)}) scale(${n(L.P / 2)})"${node.bypass ? ' opacity=".38"' : ''}>${inner}</g>`
-  s += hit(cx - L.P / 2, py - L.P / 2, L.P, L.P, 'study', ' data-k="print"', studyHasAmount(node) ? 'ns-resize' : 'default')
+  const drawn = typeof ctlArt === 'function' ? ctlArt(t, w, node, cx, py, L.P, tint) : null      // (an lfo's shape and the bands' cuts are drawn by hand here: ctl.js)
+  const inner = drawn != null ? '' : PATCH_PRINTS.printInner(Object.assign({ type, amount: wallAmount(t, node), variant: node.variant || 0, aux: node.aux || [0, 0, 0, 0, 0, 0, 0, 0] }, wallDrawn(node)), fam, tint).replace(/'Space Mono', ui-monospace, monospace/g, 'Instrument Sans')
+  s += drawn != null ? drawn : `<g transform="translate(${n(cx)} ${n(py)}) scale(${n(L.P / 2)})"${node.bypass ? ' opacity=".38"' : ''}>${inner}</g>`
+  if (drawn == null) s += hit(cx - L.P / 2, py - L.P / 2, L.P, L.P, 'study', ' data-k="print"', studyHasAmount(node) ? 'ns-resize' : 'default')
   /* its amount, in its ink */
   const vy = py + L.P / 2 + 30
   if (studyHasAmount(node)) {
@@ -90,12 +92,14 @@ function studyDraw (t, w, node) {
   return s
 }
 function studyRow (t, w, node, r, i, x, y, rw, tint) {
+  if (r.k === 'ctl') return ctlRow(t, w, node, r, i, x, y, rw, tint)
   const by = y + STUDY_ROW / 2 + 3.6, more = ` data-k="row" data-i="${i}"`
   let s = ''
   if (r.k === 'switches') {
     let rx = x + rw
     for (const k of r.sw.slice().reverse()) {
-      const on = k === 'wet' ? !!node.wet : !!node.bypass, quiet = k === 'by', word = k === 'wet' ? 'wet only' : 'bypass', sw = 26, sy = y + STUDY_ROW / 2 - 7
+      const hand = k[0] === 'h' ? wallHands(node.k, node)[+k.slice(1)] : null      // (a print's own switch: gain's phases, grain's freeze, match's learn)
+      const on = hand ? wallHandNow(node, hand) === 1 : k === 'wet' ? !!node.wet : !!node.bypass, quiet = k === 'by', word = hand ? hand.label : k === 'wet' ? 'wet only' : 'bypass', sw = 26, sy = y + STUDY_ROW / 2 - 7
       rx -= sw
       s += R(rx + .5, sy + .5, sw - 1, 13, { rx: 6.5, stroke: on ? (quiet ? INK : tint) : INK, sa: on ? (quiet ? .6 : .9) : .3, fill: on ? (quiet ? INK : tint) : 'none', fa: on ? (quiet ? .08 : .16) : 0 })
       s += Cc(on ? rx + 19 : rx + 7, sy + 7, 4, { fill: on ? (quiet ? INK : tint) : INK, fa: on ? (quiet ? .85 : 1) : .5 })
@@ -124,7 +128,7 @@ function studyRow (t, w, node, r, i, x, y, rw, tint) {
         cx += cw[k]
       })
     } else {                                                                              // too many to stand in a line: one cell that opens the list
-      const word = asGiven(h.opts[Math.max(0, h.vals.indexOf(now))]), mw = Math.round(tw(word, 10) + 26)
+      const word = asGiven(wallHandText(node, h)), mw = Math.round(tw(word, 10) + 26)
       s += R(x + rw - mw + .5, y + 5.5, mw - 1, 17, { rx: 3, stroke: INK, sa: .22, fill: tint, fa: .3 }) + T(x + rw - mw + 8, y + 17.6, word, { size: 10, w: 500 }) + caret(x + rw - 9.5, y + 14, .6)
       s += hit(x + rw - mw, y + 4, mw, 20, 'study', ` data-k="list" data-i="${i}"`, 'pointer')
     }
@@ -168,6 +172,7 @@ function studyDown (e, el) {
   const k = el.dataset.k, i = el.dataset.i == null ? -1 : +el.dataset.i, p = studyPoint(e), r = i >= 0 ? G.rows[i] : null
   const now = performance.now(), twice = STUDY.lastK === k + ':' + i && now - STUDY.lastAt < 380
   STUDY.lastAt = now; STUDY.lastK = k + ':' + i
+  if (typeof ctlStudyDown === 'function' && ctlStudyDown(e, el, k, t, w, node, G, p, twice)) { STUDY.arm = false; uiDirty('dock'); return }      // (ctl.js: the shape, the cuts, a take, a play)
   const hold = d => { STUDY.drag = Object.assign({ p0: p, moved: false }, d); try { document.getElementById('svg').setPointerCapture(e.pointerId) } catch (err) {} }
   const rest = () => WALL_LEGACY[node.k] ? PRINT_START[node.k] / 100 : wallNeutral(node.k)
   if (k !== 'rm') STUDY.arm = false
@@ -183,7 +188,7 @@ function studyDown (e, el) {
       hold({ k: 'row', i, v0: r.k === 'share' ? w.wires[r.i].gain * 100 : wallHandNow(node, r.h) }); break
     case 'cell': if (r && r.h) { wallHandSet(node, r.h, r.h.vals[+el.dataset.v]); if (node.k === 'mix') wallShares(w, node.id); wallPush(t) } break
     case 'list': if (r && r.h) { const h = r.h; openMenu(p.x - 60, p.y + 12, h.opts.map((o, x) => ({ t: asGiven(o), v: h.vals[x], on: wallHandNow(node, h) === h.vals[x] })), it => { wallHandSet(node, h, it.v); wallPush(t); uiDirty('dock') }, { w: 130 }) } break
-    case 'sw': if (el.dataset.v === 'wet') node.wet = !node.wet; else node.bypass = !node.bypass; wallPush(t); break
+    case 'sw': { const v = el.dataset.v, hand = v[0] === 'h' ? wallHands(node.k, node)[+v.slice(1)] : null; if (hand) wallHandSet(node, hand, wallHandNow(node, hand) ? 0 : 1); else if (v === 'wet') node.wet = !node.wet; else node.bypass = !node.bypass; wallPush(t); break }
     case 'rm': if (!STUDY.arm) STUDY.arm = true; else { STUDY.arm = false; wallRemove(t, node); studyClose() } break
   }
   uiDirty('dock')
@@ -192,6 +197,7 @@ function studyMove (e) {
   const d = STUDY.drag, t = wallTrack(), w = t && wallOf(t), node = studyNode(), G = STUDY.g
   if (!d || !node || !G) return
   const p = studyPoint(e), dy = d.p0.y - p.y
+  if (d.ctl) { d.moved = true; ctlStudyMove(e, d, t, w, node, G, p); uiDirty('dock'); return }
   if (Math.abs(dy) > 2 || Math.abs(p.x - d.p0.x) > 2) d.moved = true
   if (!d.moved) return
   if (d.k === 'amt') wallSetAmount(t, node, d.v0 + dy / (e.shiftKey ? 950 : 190), true)
@@ -207,6 +213,7 @@ function studyUp () {
   const d = STUDY.drag, t = wallTrack(), node = studyNode()
   STUDY.drag = null
   if (!d || !t) return
+  if (d.ctl) { if (node) wallPush(t); uiDirty('dock'); return }
   if (d.moved) { if (node) wallPush(t) }
   else if (d.k === 'amt' && d.type) studyType({ k: 'amt' })                                  // the number pressed and let go: typed into
   else if (d.k === 'row') studyType({ k: 'row', i: d.i })
@@ -224,7 +231,7 @@ function studyType (what) {
     if (!r) return
     const L = G.L, i = what.i, rx = L.tall ? G.sx + 24 : G.sx + L.left + Math.floor(i / L.per) * (L.colW + 22), rw = L.tall ? L.w - 48 : L.colW, ry = L.tall ? G.py + L.P / 2 + 30 + 18 + i * STUDY_ROW : G.y + L.head - 6 + (i % L.per) * STUDY_ROW
     size = 11.5; wd = 90; x = rx + rw - wd; y = ry + 4
-    v = r.k === 'share' ? String(Math.round(w.wires[r.i].gain * 100)) : String(+(wallHandNow(node, r.h) * r.h.sc).toFixed(r.h.sc < 1 ? 2 : 0))
+    v = r.k === 'share' ? String(Math.round(w.wires[r.i].gain * 100)) : r.h.fmt ? r.h.fmt(wallHandNow(node, r.h), node).replace(/^[−]/, '-') : String(+(wallHandNow(node, r.h) * r.h.sc).toFixed(r.h.sc < 1 ? 2 : 0))      // (as it is said: a decay in seconds…)
   }
   STUDY.typing = Object.assign({ node: node.id }, what)
   STUDY_IN.style.left = n(x) + 'px'; STUDY_IN.style.top = n(y) + 'px'; STUDY_IN.style.width = n(wd) + 'px'; STUDY_IN.style.height = (size > 14 ? 32 : 20) + 'px'
@@ -238,10 +245,9 @@ function studyTyped (keep) {
   const t = wallTrack(), w = t && wallOf(t), node = studyNode(), G = STUDY.g
   if (!keep || !ty || !node || node.id !== ty.node || !G) { uiDirty('dock'); return }
   const x = parseFloat(STUDY_IN.value.replace(/[−–]/g, '-').replace(/[^0-9.+-]/g, ''))
-  if (isFinite(x)) {
-    if (ty.k === 'amt') wallSetAmount(t, node, studyBipolar(node.k) ? .5 + x / 200 : x / 100)
-    else { const r = G.rows[ty.i]; if (r) studyValueSet(t, w, node, r, r.k === 'share' ? x : x / (r.h.sc || 1)) }
-  }
+  /* typed in the units it is said in (wall.js: wallAmountParse, a hand's own parse): seconds, db, hz, centre… */
+  if (ty.k === 'amt') { const a = typeof wallAmountParse === 'function' ? wallAmountParse(node.k, STUDY_IN.value, node.variant || 0) : (isFinite(x) ? (studyBipolar(node.k) ? .5 + x / 200 : x / 100) : null); if (a != null) wallSetAmount(t, node, a) }
+  else { const r = G.rows[ty.i], own = r && r.h && r.h.parse ? r.h.parse(STUDY_IN.value, node) : null; if (r && (own != null || isFinite(x))) studyValueSet(t, w, node, r, own != null ? own : r.k === 'share' ? x : x / (r.h.sc || 1)) }
   uiDirty('dock')
 }
 STUDY_IN.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') studyTyped(true); else if (e.key === 'Escape') studyTyped(false) })

@@ -9,6 +9,7 @@
 #include "Recover.h"
 #include "Instruments.h"
 #include "host/Plug.h"
+#include "Meter.h"
 #include <sys/sysctl.h>
 #include <AudioToolbox/AudioToolbox.h>
 #include <mach/mach_time.h>
@@ -455,7 +456,16 @@ struct Track
     bool wall = false;                           // the page has given it a wall: the patch and the plug-ins are played from the graph, not in a row
     orbfx::Graph wallGraph;                      // as the page drew it (message thread; kept to be compiled again when a plug-in's lateness changes)
     std::array<std::atomic<float>, orbfx::kMaxNodes> amt {};      // each node's amount, as the hand has it
+    orbfx::Modulator mod;                        // the hands its control prints play (lfos, macros, scenes…): Patch on Slur's own, from the engine
+    orbfx::NodeParams prmNow[orbfx::kMaxNodes];  // audio thread: this block's hands, as the control prints have moved them (prm is where they are set)
+    int slotType[orbfx::kMaxNodes] {};           // what stands at each node (changed under the lock, with the program)
     Insert* slotIns[orbfx::kMaxNodes] {};        // the plug-in that stands at a node (changed under the lock, with the program that names it)
+    std::unique_ptr<Meter> meterOwn[orbfx::kMaxNodes];   // a meter that stands at a node: made when one first stands there, and kept as long as the track is
+    Meter* slotMeter[orbfx::kMaxNodes] {};       // … and the one the audio thread hands the sound to as it passes (changed under the lock)
+    int sideFrom = 0;                            // the track a `side` on its wall plays (Patch on Slur's sidechain: the host's side bus, here a track), 0: none
+    Track* side = nullptr;                       // … found again whenever the tracks are wired; nullptr while that track is not there
+    Hold sideHold;                               // what it plays, held back until this track's own sound is as late
+    juce::AudioBuffer<float> sideBuf;            // the side, held, for one block
     int slotSrc[orbfx::kMaxNodes] {};            // whose amount a node takes: 0 its own; 1, 2, 3 the track's tape, space, delay (their lines and command words go on working)
     int slotLat[orbfx::kMaxNodes] {};            // how late each plug-in was when the wall was last compiled
     int wallLat = 0;                             // how late the whole wall hands sound over, from in to out
@@ -842,7 +852,7 @@ public:
                 if (have == nullptr && fresh.count (t.id) == 0)
                 {
                     auto nt = std::make_unique<Track>();                     // tracks that are new are made before anything is locked
-                    nt->id = t.id; nt->work.setSize (2, maxBlock); nt->share = -1.0f;
+                    nt->id = t.id; nt->work.setSize (2, maxBlock); nt->sideBuf.setSize (2, maxBlock); nt->share = -1.0f;
                     nt->now.reserve (2048); nt->plugMidi.ensureSize (16384);
                     fresh[t.id] = std::move (nt);
                 }
@@ -1544,6 +1554,14 @@ public:
     }
     /** How one of a plug-in's controls reads along its travel: its words at a hundred and one places from 0 to 1, and its
         unit — so that an amount typed in the control's own unit ("3 db") can be found on it (ui/hint.js). */
+    /** One control of a plug-in set where it stands, by hand (a macro turned: ui/macro.js). A line drawn for it goes on
+        moving it as the song plays. Message thread. */
+    bool setPluginParam (int trackId, int uid, int index, float v)
+    {
+        bool done = false;
+        if (auto* t = find (trackId)) t->eachPlug ([&done, uid, index, v] (Insert& i) { if (i.uid == uid && ! done) { float told = -1.0f; i.setParam (index, v, told); done = told >= 0.0f; } });
+        return done;
+    }
     juce::var pluginScale (int trackId, int uid, int index)
     {
         auto* o = new juce::DynamicObject();
@@ -1789,6 +1807,24 @@ public:
             o->setProperty ("why", ins->keyCh == 0 ? "no key input" : "ring");
             ready (was);
         }
+        else { o->setProperty ("ok", true); o->setProperty ("from", fromId); }
+        measureLatency();
+        return res;
+    }
+    /** What a `side` on a track's wall plays: another track (0: nothing). Refused when that track is fed by this one. */
+    juce::var setSide (int trackId, int fromId)
+    {
+        auto* o = new juce::DynamicObject();
+        juce::var res (o);
+        o->setProperty ("ok", false);
+        if (bouncing.load()) { o->setProperty ("why", "busy"); return res; }
+        auto* t = find (trackId);
+        if (t == nullptr) { o->setProperty ("why", "gone"); return res; }
+        const juce::ScopedLock sl (lock);
+        if (t->sideBuf.getNumSamples() < maxBlock) t->sideBuf.setSize (2, maxBlock);
+        const int was = t->sideFrom;
+        t->sideFrom = fromId; wire();
+        if (fromId != 0 && t->side == nullptr) { o->setProperty ("why", find (fromId) == nullptr ? "gone" : "ring"); t->sideFrom = was; wire(); }
         else { o->setProperty ("ok", true); o->setProperty ("from", fromId); }
         measureLatency();
         return res;
@@ -2592,7 +2628,7 @@ public:
                 std::vector<std::shared_ptr<Buf>> gone;                                // what the print kept alive is let go of outside the lock (a sound dropped meanwhile is freed, or unmapped, here)
                 { const juce::ScopedLock sl (e.lock); gone.swap (e.printBufs); }
             }
-            e.bouncing.store (false);
+            e.bouncing.store (false); Meter::still.store (false);
             e.printOver();
         }
         void answer (const juce::var& res, std::function<void()> then = {})
@@ -2614,7 +2650,7 @@ public:
         if (printThread.joinable()) printThread.join();                // the one before has ended (or `bouncing` could not have been taken): this only lets go of it
         std::shared_ptr<PrintEnd> end (new PrintEnd { *this, std::move (done) });
         printStates = juce::var (new juce::DynamicObject());           // (should asking the plug-ins fail: nothing, rather than what they were at some earlier print)
-        printing.store (true);
+        printing.store (true); Meter::still.store (true);              // (the meters count nothing while a print is made)
         try
         {
             printStates = statesNow();
@@ -2802,7 +2838,11 @@ public:
     {
         auto& t = *static_cast<Track*> (ctx);
         Insert* i = slot >= 0 && slot < orbfx::kMaxNodes ? t.slotIns[slot] : nullptr;
-        if (i == nullptr) return;                                              // (taken off since: the sound goes by)
+        if (i == nullptr)                                                      // (a meter: the sound goes by and is measured; a plug-in taken off since: it goes by)
+        {
+            if (auto* m = slot >= 0 && slot < orbfx::kMaxNodes ? t.slotMeter[slot] : nullptr) if (! Meter::still.load (std::memory_order_relaxed)) m->take (L, R, n);
+            return;
+        }
         for (auto& a : t.autos) if (a.param == kAutoPlug && a.uid == i->uid) i->setParam (a.index, lineAt (a, t.barNow), a.told);
         const Track* k = i->key;
         i->process (L, R, n, k != nullptr ? k->work.getReadPointer (0) : nullptr, k != nullptr ? k->work.getReadPointer (1) : nullptr);
@@ -2820,9 +2860,11 @@ public:
         if (! alone) lock.enter();
         if (made != nullptr) t.chain = std::move (made);
         t.wall = true; t.wallLat = p.bypass ? 0 : p.latency;
+        int types[kMaxNodes]; for (auto& x : types) x = kNone;
+        for (auto& nd : g.nodes) if (nd.id >= 0 && nd.id < kMaxNodes) types[nd.id] = nd.type;
         for (int i = 0; i < kMaxNodes; ++i)
         {
-            t.slotIns[i] = at[i]; t.slotLat[i] = at[i] != nullptr ? at[i]->latencyNow() : 0;
+            t.slotIns[i] = at[i]; t.slotLat[i] = at[i] != nullptr ? at[i]->latencyNow() : 0; t.slotType[i] = types[i];
             if (prm != nullptr) { t.prm[i] = prm[i]; t.slotSrc[i] = src[i]; t.amt[(size_t) i].store (amt[i]); }
         }
         t.chain->publish (p);                                                 // (under the same lock: no block is played with the new places and the old program)
@@ -2841,37 +2883,31 @@ public:
         auto* t = find ((int) d["track"]);
         if (t == nullptr) { o->setProperty ("error", "no such track"); return res; }
         if (bouncing.load()) { o->setProperty ("error", "busy"); return res; }
-        Graph g;
-        Insert* at[kMaxNodes] {}; int src[kMaxNodes] {}; float amt[kMaxNodes] {}; NodeParams prm[kMaxNodes];
-        if (auto* ns = d["nodes"].getArray()) for (auto& nv : *ns)
+        /* the wall is read as Patch on Slur reads a patch (orbfx::graphFromVar: its prints, its wires, a control wire's hand
+           and depth, an lfo's drawn shape, a scene's snapshots) — and then what only this app stands on a wall: a plug-in
+           from outside (its uid), a meter, and a tape, space or delay whose amount is the track's own (line) */
+        Graph g; String perr;
+        if (! graphFromVar (d, g, perr)) { o->setProperty ("error", perr); return res; }
+        Insert* at[kMaxNodes] {}; int src[kMaxNodes] {}; float amt[kMaxNodes] {}; NodeParams prm[kMaxNodes]; bool meterAt[kMaxNodes] {};
+        auto* ns = d["nodes"].getArray();
+        for (size_t k = 0; k < g.nodes.size(); ++k)
         {
-            Graph::Node nd;
-            nd.id = (int) nv["id"]; nd.type = (int) nv["type"];
+            auto& nd = g.nodes[k];
+            const juce::var& nv = (*ns)[(int) k];
             if (nd.id < 0 || nd.id >= kMaxNodes) { o->setProperty ("error", "bad node id"); return res; }
             if (const int uid = (int) nv["uid"]; uid != 0) { nd.type = kOutside; for (auto& i : t->inserts) if (i->uid == uid) at[nd.id] = i.get(); }
-            nd.amount = juce::jlimit (0.0f, 1.0f, (float) (double) nv["amount"]);
-            nd.variant = juce::jlimit (0, 7, (int) nv["variant"]);
-            if (auto* dc = nv["decay"].getArray()) { for (int k = 0; k < juce::jmin (3, dc->size()); ++k) nd.decay[k] = juce::jlimit (0.0f, 1.0f, (float) (double) (*dc)[k]); }
-            else if (nv.hasProperty ("decay")) for (auto& dv : nd.decay) dv = juce::jlimit (0.0f, 1.0f, (float) (double) nv["decay"]);
-            if (nv.hasProperty ("delayDiv")) nd.delayDiv = juce::jlimit (0, 6, (int) nv["delayDiv"]);
-            if (nv.hasProperty ("delayFb"))  nd.delayFb = juce::jlimit (0.0f, 1.0f, (float) (double) nv["delayFb"]);
-            nd.wet = (bool) nv["wet"]; nd.bypass = (bool) nv["bypass"];
-            if (auto* ax = nv["aux"].getArray()) for (int k = 0; k < juce::jmin (kAuxCount, ax->size()); ++k) nd.aux[k] = (int) (*ax)[k];
-            if (auto* cv = nv["curve"].getArray(); cv != nullptr && cv->size() == kCurveLen) { nd.hasCurve = true; for (int k = 0; k < kCurveLen; ++k) nd.curve[k] = juce::jlimit (0.0f, 1.0f, (float) (double) (*cv)[k]); }
+            if ((int) nv["meter"] != 0) { nd.type = kOutside; meterAt[nd.id] = true; }        // a meter stands outside the graph too: the sound is handed to it and comes back as it went
+            nd.amount = juce::jlimit (0.0f, 1.0f, nd.amount);
+            nd.variant = juce::jlimit (0, 7, nd.variant);
+            for (auto& dv : nd.decay) dv = juce::jlimit (0.0f, 1.0f, dv);
+            nd.delayDiv = juce::jlimit (0, 7, nd.delayDiv);
+            nd.delayFb = juce::jlimit (0.0f, 1.0f, nd.delayFb);
             auto& p = prm[nd.id];
             p.amount = nd.amount; p.variant = nd.variant; p.decay = nd.decay[juce::jlimit (0, 2, nd.variant)]; p.delayDiv = nd.delayDiv; p.delayFb = nd.delayFb; p.wet = nd.wet;
-            for (int k = 0; k < kAuxCount; ++k) p.aux[k] = nd.aux[k];
-            p.hasCurve = nd.hasCurve; for (int k = 0; k < kCurveLen; ++k) p.curve[k] = nd.curve[k];
+            for (int q = 0; q < kAuxCount; ++q) p.aux[q] = nd.aux[q];
+            p.hasCurve = nd.hasCurve; for (int q = 0; q < kCurveLen; ++q) p.curve[q] = nd.curve[q];
             amt[nd.id] = nd.amount;
             src[nd.id] = juce::jlimit (0, 3, (int) nv["line"]);
-            g.nodes.push_back (nd);
-        }
-        if (auto* es = d["edges"].getArray()) for (auto& ev : *es)
-        {
-            Graph::Edge e;
-            e.from = (int) ev["from"]; e.to = (int) ev["to"]; e.gain = ev.hasProperty ("gain") ? juce::jlimit (0.0f, 2.0f, (float) (double) ev["gain"]) : 1.0f;
-            e.port = (int) ev["port"]; e.in = (int) ev["in"];
-            g.edges.push_back (e);
         }
         std::unique_ptr<Chain> made;
         Chain* c = t->chain.get();
@@ -2879,11 +2915,28 @@ public:
         c->setOutside (&wallOutside, t);
         for (auto& nd : g.nodes) if (wallSlotHasState (nd.type)) c->prepareSlot (nd.id);     // (a print's memory: a few megabytes, taken when it first stands on the wall)
         String err;
+        for (int i = 0; i < kMaxNodes; ++i) if (meterAt[i] && t->meterOwn[i] == nullptr) { t->meterOwn[i] = std::make_unique<Meter>(); t->meterOwn[i]->prepare (sr); }
         if (! compileWall (*t, *c, g, at, prm, amt, src, err, std::move (made))) { o->setProperty ("error", err); return res; }
+        { const juce::ScopedLock sl (lock); for (int i = 0; i < kMaxNodes; ++i) t->slotMeter[i] = meterAt[i] ? t->meterOwn[i].get() : nullptr; }
         t->wallGraph = g;
+        t->mod.setGraph (g);                                                   // (what its control prints play, and their shapes: taken at the next block)
         measureLatency();
         o->setProperty ("ok", true); o->setProperty ("latency", t->wallLat);
         return res;
+    }
+    /** What a meter on a track's wall shows now (`seconds` of its wave), and its count begun again (id < 0: every meter of the track; track 0: every meter there is). Message thread. */
+    juce::var meterRead (int trackId, int id, double seconds)
+    {
+        auto* t = find (trackId);
+        auto* m = t != nullptr && id >= 0 && id < orbfx::kMaxNodes ? t->slotMeter[id] : nullptr;
+        if (m == nullptr) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); return juce::var (o); }
+        auto v = m->read (seconds);
+        v.getDynamicObject()->setProperty ("ok", true);
+        return v;
+    }
+    void meterReset (int trackId, int id)
+    {
+        for (auto& tp : tracks) if (trackId == 0 || tp->id == trackId) for (int i = 0; i < orbfx::kMaxNodes; ++i) if ((id < 0 || i == id) && tp->meterOwn[i] != nullptr) tp->meterOwn[i]->reset();
     }
     /** A node's amount, while it is being pulled (the whole wall is not sent again for that). */
     void setWallAmount (int trackId, int id, float v) { if (auto* t = find (trackId)) if (id >= 0 && id < orbfx::kMaxNodes) t->amt[(size_t) id].store (juce::jlimit (0.0f, 1.0f, v)); }
@@ -2966,6 +3019,12 @@ private:
                 if (i->keyFrom == 0) continue;
                 if (auto* s = find (i->keyFrom)) if (s != tp.get() && ! reaches (tp.get(), s)) { i->key = s; heard[s].push_back (tp.get()); }
             }
+        for (auto& tp : tracks)                                         // a wall's side: the track it plays is worked before it, as a key's is
+        {
+            tp->side = nullptr;
+            if (tp->sideFrom == 0) continue;
+            if (auto* s = find (tp->sideFrom)) if (s != tp.get() && ! reaches (tp.get(), s)) { tp->side = s; heard[s].push_back (tp.get()); }
+        }
         order.clear(); rankEnds.clear();
         std::map<Track*, int> waiting, rank;
         for (auto& tp : tracks) { waiting[tp.get()] = 0; rank[tp.get()] = 0; }
@@ -2992,7 +3051,7 @@ private:
             for (auto& tp : tracks)
                 if (std::find (order.begin(), order.end(), tp.get()) == order.end())
                 {
-                    tp->out = nullptr; for (auto& s : tp->sends) s.dst = nullptr; for (auto& i : tp->inserts) i->key = nullptr;
+                    tp->out = nullptr; for (auto& s : tp->sends) s.dst = nullptr; for (auto& i : tp->inserts) i->key = nullptr; tp->side = nullptr;
                     order.push_back (tp.get());
                 }
             rankEnds.push_back (order.size());                         // cut loose, they are a last rank of their own
@@ -3042,6 +3101,7 @@ private:
                 wants.push_back ({ &i->keyHold, i->key != nullptr && i->keyCh > 0 ? juce::jmax (0, longest (i->key, 1) - own (t) - all + before) : 0 });
                 if (! t.wall) before += i->latencyNow();               // (on a wall the plug-ins are not in a row: what stands before one is not counted — its key is lined up with the wall's way in)
             }
+            wants.push_back ({ &t.sideHold, t.side != nullptr ? juce::jmax (0, longest (t.side, 1) - own (t) - all) : 0 });      // (a side is lined up with the wall's way in, as a key on the wall is)
         }
         for (auto& w : wants) if (w.hold->len != juce::jlimit (0, 1 << 20, w.n)) changed = true;
         if (! changed) return;
@@ -3065,6 +3125,7 @@ private:
                 bool feeds = tp->out != nullptr && s.count (tp->out) > 0;
                 for (auto& sd : tp->sends) if (sd.dst != nullptr && s.count (sd.dst) > 0) feeds = true;
                 for (auto& other : tracks) if (! feeds && s.count (other.get()) > 0) for (auto& i : other->inserts) if (i->key == tp.get()) feeds = true;
+                for (auto& other : tracks) if (! feeds && s.count (other.get()) > 0 && other->side == tp.get()) feeds = true;
                 if (feeds) { s.insert (tp.get()); grew = true; }
             }
         }
@@ -3146,20 +3207,33 @@ private:
                side lined up by their lateness — and calls back (wallOutside) where a plug-in stands. */
             if (t.chain == nullptr) return;
             const float bpm = (float) tempo.load(); const double ppq = (double) pos / barS * barQuarters();
+            float macros[orbfx::kNumMacros] {};
             for (int i = 0; i < orbfx::kMaxNodes; ++i)
             {
-                auto& p = t.prm[i];
+                auto& p = t.prmNow[i];
+                p = t.prm[i];                                                  // (where the hands are set; the control prints move them from there, this block only)
                 const int src = t.slotSrc[i];
                 float v;
                 p.amount = src == 0 ? t.amt[(size_t) i].load()
                          : evalAuto (t, src == 1 ? kAutoTape : src == 2 ? kAutoSpace : kAutoDelay, bar, v) ? juce::jlimit (0.0f, 1.0f, v)
                          : (src == 1 ? t.tape : src == 2 ? t.space : t.delay).load();
                 p.bpm = bpm; p.ppq = ppq; p.playing = rolling;
+                if (t.slotType[i] == orbfx::kMacro) macros[juce::jlimit (0, orbfx::kNumMacros - 1, p.aux[0])] = p.amount;      // a macro print's knob
             }
+            if (t.chain != nullptr) t.mod.apply (t.prmNow, n, (float) sr, bpm, rolling, ppq, macros, *t.chain);
             t.barNow = bar;
             juce::AudioBuffer<float> view (t.work.getArrayOfWritePointers(), 2, n);
             float gr = 0.0f;
-            t.chain->process (view, (float) sr, t.prm, gr);
+            const juce::AudioBuffer<float>* sideIn = nullptr;                   // a side on the wall: the track it plays, as it is this block (a track of an earlier rank), lined up
+            juce::AudioBuffer<float> sideView;
+            if (t.side != nullptr && t.sideBuf.getNumSamples() >= n && t.sideBuf.getNumChannels() >= 2)
+            {
+                t.sideBuf.clear (0, n);
+                t.sideHold.add (t.side->work.getReadPointer (0), t.side->work.getReadPointer (1), t.sideBuf.getWritePointer (0), t.sideBuf.getWritePointer (1), n, 1.0f, 1.0f);
+                sideView.setDataToReferTo (t.sideBuf.getArrayOfWritePointers(), 2, n);
+                sideIn = &sideView;
+            }
+            t.chain->process (view, (float) sr, t.prmNow, gr, sideIn);
             return;
         }
         if (t.chain != nullptr)
@@ -3559,7 +3633,7 @@ private:
         bool play = playing.load();
         const bool rec = recording.load();
         const double sk = seekTo.exchange (kNoSeek);
-        if (sk > kNoSeek * 0.5) { posS = (juce::int64) std::llround (sk * barS); for (auto& tp : tracks) { tp->outHold.clear(); for (auto& sd : tp->sends) sd.hold.clear(); for (auto& i : tp->inserts) i->keyHold.clear(); } }      // (and nothing held back from before the jump comes out after it)
+        if (sk > kNoSeek * 0.5) { posS = (juce::int64) std::llround (sk * barS); for (auto& tp : tracks) { tp->outHold.clear(); for (auto& sd : tp->sends) sd.hold.clear(); for (auto& i : tp->inserts) i->keyHold.clear(); tp->sideHold.clear(); } }      // (and nothing held back from before the jump comes out after it)
         if (play)
         {
             for (int guard = 0; guard < 3; ++guard)

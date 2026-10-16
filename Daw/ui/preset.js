@@ -46,7 +46,7 @@ async function preDrop (name) {
 }
 
 /* ── a wall as a file, and a file as a wall ── */
-const preInserts = (t, whole) => (t.inserts || []).filter(i => i.id).map(i => Object.assign({ id: i.id, name: i.name, fmt: i.fmt, state: i.state || '' }, i.off ? { off: true } : {}, whole && i.key ? { key: i.key } : {}, whole && i.n ? { n: i.n } : {}, whole && i.pn ? { pn: i.pn } : {}))
+const preInserts = (t, whole) => (t.inserts || []).filter(i => i.id).map(i => Object.assign({ id: i.id, name: i.name, fmt: i.fmt, state: i.state || '' }, i.off ? { off: true } : {}, whole && i.key ? { key: i.key } : {}, i.n ? { n: i.n } : {}, whole && i.pn ? { pn: i.pn } : {}))
 /* the settings of the plug-ins on it, as they are now (the app is asked: a plug-in's own window does not say when it is turned) */
 async function preFresh (t) {
   if (!NAT || !(t.inserts || []).some(i => i.uid)) return
@@ -57,20 +57,20 @@ const preEmpty = () => ({ nodes: [], wires: [], z: 0, ox: 0, oy: 0, in: { x: 40,
 /* the wall as Patch on Slur can hold it: the prints and their wires. A plug-in from outside is closed over — whatever fed
    it feeds whatever it fed, so the way from in to out is not broken where it stood */
 function prePlain (t) {
-  const w0 = wallOf(t), w = { nodes: w0.nodes.filter(n => n.k !== 'plug'), wires: w0.wires.map(e => Object.assign({}, e)) }
-  for (const p of w0.nodes) if (p.k === 'plug') {
-    const ins = w.wires.filter(e => e.to === p.id), outs = w.wires.filter(e => e.from === p.id)
+  const w0 = wallOf(t), out = n => n.k === 'plug' || n.k === 'meter', w = { nodes: w0.nodes.filter(n => !out(n)), wires: w0.wires.map(e => Object.assign({}, e)) }      // (a meter is not Patch on Slur's either: meternode.js)
+  for (const p of w0.nodes) if (out(p)) {
+    const ins = w.wires.filter(e => e.to === p.id && !e.in), outs = w.wires.filter(e => e.from === p.id)
     w.wires = w.wires.filter(e => e.from !== p.id && e.to !== p.id)
-    for (const i of ins) for (const o of outs) if (i.from !== o.to && !w.wires.some(e => e.from === i.from && e.to === o.to && (e.port || 0) === (i.port || 0))) w.wires.push({ from: i.from, to: o.to, gain: o.gain, port: i.port || 0 })
+    for (const i of ins) for (const o of outs) if (i.from !== o.to && !w.wires.some(e => e.from === i.from && e.to === o.to && (e.port || 0) === (i.port || 0) && (e.in || 0) === (o.in || 0))) w.wires.push(Object.assign({ from: i.from, to: o.to, gain: o.gain, port: i.port || 0 }, o.in ? { in: 1 } : {}))
   }
   if (!w.nodes.length) return { nodes: [], edges: [{ from: WALL_IN, to: WALL_OUT, gain: 1 }] }
   const x0 = Math.min(...w.nodes.map(n => n.x))
-  return { nodes: w.nodes.map(n => ({ id: n.id, type: WALL_TYPE[n.k], amount: +wallAmount(t, n).toFixed(4), variant: n.variant || 0, decay: n.decay || [.5, .5, .5], delayDiv: n.div == null ? 2 : n.div, delayFb: n.fb == null ? .35 : n.fb, wet: !!n.wet, bypass: !!n.bypass, aux: n.aux || [0, 0, 0], x: Math.round(180 + (n.x - x0) * 1.6), y: Math.round(280 + (n.y - w0.in.y) * 1.6) })),
-    edges: w.wires.filter(e => (e.from === WALL_IN || w.nodes.some(n => n.id === e.from)) && (e.to === WALL_OUT || w.nodes.some(n => n.id === e.to))).map(e => ({ from: e.from, to: e.to, gain: +(+e.gain).toFixed(4), port: e.port || 0 })) }
+  return { nodes: w.nodes.map(n => ({ id: n.id, type: WALL_TYPE[n.k], amount: +wallAmount(t, n).toFixed(4), variant: n.variant || 0, decay: n.decay || [.5, .5, .5], delayDiv: n.div == null ? 2 : n.div, delayFb: n.fb == null ? .35 : n.fb, wet: !!n.wet, bypass: !!n.bypass, aux: n.aux || [0, 0, 0], ...wallDrawn(n), x: Math.round(180 + (n.x - x0) * 1.6), y: Math.round(280 + (n.y - w0.in.y) * 1.6) })),
+    edges: w.wires.filter(e => (e.from === WALL_IN || w.nodes.some(n => n.id === e.from)) && (e.to === WALL_OUT || w.nodes.some(n => n.id === e.to))).map(e => Object.assign({ from: e.from, to: e.to, gain: +(+e.gain).toFixed(4), port: e.port || 0 }, e.in ? { in: 1 } : {}, wallCtl(e) ? { hand: e.hand, pol: e.pol || 0 } : {})) }
 }
 function presetJson (t) {
   const g = prePlain(t)
-  g.slurStudio = { v: 1, wall: wallSaved(t) || preEmpty(), patch: copy(t.patch), inserts: preInserts(t) }
+  g.slurStudio = { v: 1, wall: wallSaved(t) || preEmpty(), patch: copy(t.patch), inserts: preInserts(t), macros: copy(t.macros || []) }      // (a macro is wired to a plug-in by the number it keeps: n, kept with it)
   return JSON.stringify(g, null, 1)
 }
 /* a file Patch on Slur wrote: its prints by their numbers, wired by their ids. What this app's wall has no print for is
@@ -91,11 +91,23 @@ function preFromGraph (g) {
     node.div = n.delayDiv == null ? 2 : n.delayDiv | 0; node.fb = n.delayFb == null ? .35 : +n.delayFb
     node.wet = !!n.wet; node.bypass = !!n.bypass
     if (Array.isArray(n.aux)) node.aux = n.aux.map(v => v | 0).concat([0, 0, 0, 0, 0, 0, 0, 0]).slice(0, 8)
+    if (Array.isArray(n.curve) && n.curve.length === PC.CURVE_LEN) node.curve = n.curve.map(v => clamp(+v || 0, 0, 1))      // (a tremolo's drawn shape)
+    for (const f of ['pts', 'pts2', 'sceneA', 'sceneB']) if (Array.isArray(n[f])) node[f] = n[f].map(v => +v || 0)      // (an lfo's points; a scene's snapshots, by the ids of the file: put right below)
     if (WALL_LEGACY[k]) patch.A[k] = clamp(node.amount * 100, 0, 100)
     w.nodes.push(node)
   })
   const end = id => id === WALL_IN || id === WALL_OUT ? id : idOf.has(id) ? idOf.get(id) : null
-  for (const e of Array.isArray(g.edges) ? g.edges : []) { const from = end(e.from), to = end(e.to); if (from == null || to == null || from === to) continue; w.wires.push({ from, to, gain: clamp(e.gain == null ? 1 : +e.gain, 0, 1), port: e.port | 0 }) }
+  /* a control wire keeps the hand it plays (a wire onto a wire names that wire's print by the file's id); a scene's rows are
+     led by the file's ids too */
+  const handOf = h => { const m = /^wire:(-?\d+):(.+)$/.exec(String(h)); if (!m) return String(h); const f = end(+m[1]); return f == null ? null : `wire:${f}:${m[2]}` }
+  for (const e of Array.isArray(g.edges) ? g.edges : []) {
+    const from = end(e.from), to = end(e.to), ctl = e.hand != null && e.hand !== ''
+    if (from == null || to == null || from === to) continue
+    const hand = ctl ? handOf(e.hand) : null
+    if (ctl && hand == null) continue
+    w.wires.push(Object.assign({ from, to, gain: ctl ? clamp(e.gain == null ? .5 : +e.gain, -1, 1) : clamp(e.gain == null ? 1 : +e.gain, 0, 1), port: e.port | 0 }, e.in ? { in: 1 } : {}, ctl ? { hand, pol: e.pol | 0 } : {}))
+  }
+  for (const node of w.nodes) for (const f of ['sceneA', 'sceneB']) if (node[f]) { const r = []; for (let i = 0; i + PC.SCENE_STRIDE <= node[f].length; i += PC.SCENE_STRIDE) { const id = end(node[f][i]); if (id != null && id >= 0) r.push(id, ...node[f].slice(i + 1, i + PC.SCENE_STRIDE)) } node[f] = r }
   for (const id of drop) wallTake(w, id)
   w.out = { x: Math.max(260, ...w.nodes.map(n => n.x + 126)), y: 0 }
   return { wall: w, patch, inserts: [], left }
@@ -112,7 +124,7 @@ const presetDirty = t => !!(t && t.pre && t.pre.key && t.pre.key !== presetKey(t
 /* ── a wall taken off and another put up ── */
 const preTrack = id => id === OUT_ID ? OUT : byId(id)
 /* the wall as it stands, to be put back by an undo */
-const preKeep = t => ({ wall: (wallOf(t), wallSaved(t)) || preEmpty(), patch: copy(t.patch), inserts: preInserts(t, true), pre: t.pre ? copy(t.pre) : null })
+const preKeep = t => ({ wall: (wallOf(t), wallSaved(t)) || preEmpty(), patch: copy(t.patch), inserts: preInserts(t, true), macros: copy(t.macros || []), pre: t.pre ? copy(t.pre) : null })
 async function prePut (t, d) {
   const turn = t._preTurn = (t._preTurn || 0) + 1
   for (const i of t.inserts || []) if (NAT && i.uid && !i.out && !i.dead) NAT.call('remove', { track: t.id, uid: i.uid })
@@ -122,6 +134,7 @@ async function prePut (t, d) {
   t.wall = d.wall && Array.isArray(d.wall.nodes) ? copy(d.wall) : preEmpty()
   t.wall.z = 0                                                                           // (it is fitted to the panel anew)
   t.patch = d.patch && d.patch.A ? copy(d.patch) : NO_PATCH()
+  t.macros = Array.isArray(d.macros) ? copy(d.macros) : []
   if (WALL.sel && WALL.sel.t === t.id) WALL.sel = null
   WALL.sent.set(t.id, ''); WALL.bad.delete(t.id)                                          // (told anew whatever stands on it — an empty wall too: the engine still holds the one taken off)
   wallOf(t)
@@ -165,7 +178,7 @@ function preRead2 (json) {
   try { g = JSON.parse(json) } catch (e) { g = null }
   if (!g || typeof g !== 'object' || (!Array.isArray(g.nodes) && !g.slurStudio)) { say('that is not a patch'); return null }
   const own = g.slurStudio
-  return own && own.wall && Array.isArray(own.wall.nodes) ? { wall: own.wall, patch: own.patch, inserts: Array.isArray(own.inserts) ? own.inserts : [] } : preFromGraph(g)
+  return own && own.wall && Array.isArray(own.wall.nodes) ? { wall: own.wall, patch: own.patch, inserts: Array.isArray(own.inserts) ? own.inserts : [], macros: Array.isArray(own.macros) ? own.macros : [] } : preFromGraph(g)
 }
 async function presetLoad (name) {
   if (name === PRE_FIRST) return presetTake({ wall: preEmpty(), patch: NO_PATCH(), inserts: [] }, PRE_FIRST)

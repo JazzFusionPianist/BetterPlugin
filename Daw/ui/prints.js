@@ -1,16 +1,11 @@
 /* ── Patch on Slur's prints, as Patch on Slur draws them ──
-   MADE BY tools/prints-from-patch.mjs from the plug-in's own drawing module (printGlyphs.ts): not to be edited here, and not
-   to be redrawn. PATCH_PRINTS.printInner(node, family, tint) gives the SVG of a print in a box from -1 to 1. */
+   MADE BY tools/prints-from-patch.mjs from the plug-in's own drawing module (printGlyphs.ts) on every build: not to be edited
+   here, and not to be redrawn. PATCH_PRINTS.printInner(node, family, tint) gives the SVG of a print in a box from -1 to 1. */
 var PATCH_PRINTS = (() => {
-  var __create = Object.create;
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __getProtoOf = Object.getPrototypeOf;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
-  var __commonJS = (cb, mod) => function __require() {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-  };
   var __export = (target, all) => {
     for (var name in all)
       __defProp(target, name, { get: all[name], enumerable: true });
@@ -23,36 +18,16 @@ var PATCH_PRINTS = (() => {
     }
     return to;
   };
-  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-    // If the importer is in node compatibility mode or this is not an ESM
-    // file that has been converted to a CommonJS file using a Babel-
-    // compatible transform (i.e. "__esModule" has not been set), then set
-    // "default" to the CommonJS "module.exports" for node compatibility.
-    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-    mod
-  ));
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-  // ../../../../private/var/folders/ny/hgzrfsdx7yx60m06brwr75x80000gn/T/slurprints-HmgdrX/react.cjs
-  var require_react = __commonJS({
-    "../../../../private/var/folders/ny/hgzrfsdx7yx60m06brwr75x80000gn/T/slurprints-HmgdrX/react.cjs"(exports, module) {
-      var f = () => ({});
-      var id = (x) => x;
-      module.exports = new Proxy({}, { get: (_, k) => k === "__esModule" ? false : k === "memo" || k === "forwardRef" ? id : f });
-    }
-  });
-
-  // ../../../../private/var/folders/ny/hgzrfsdx7yx60m06brwr75x80000gn/T/slurprints-HmgdrX/entry.ts
-  var entry_exports = {};
-  __export(entry_exports, {
+  // apps/plugin/src/components/collab/prints-entry.ts
+  var prints_entry_exports = {};
+  __export(prints_entry_exports, {
     PLATE_TINT: () => PLATE_TINT,
     REACH: () => REACH,
     SHAPE: () => SHAPE,
     printInner: () => printInner
   });
-
-  // apps/plugin/src/lib/juceBridge.ts
-  var hasJuceBridge = typeof window !== "undefined" && !!window.__JUCE__?.backend;
 
   // apps/plugin/src/lib/fxBridge.ts
   var FX_MIX_TYPE = 11;
@@ -82,56 +57,186 @@ var PATCH_PRINTS = (() => {
   var SCENE_HANDS = ["amount", "variant", "decay", "fb", "div", "wet", "aux0", "aux1", "aux2", "aux3", "aux4", "aux5", "aux6", "aux7"];
   var SCENE_STRIDE = SCENE_HANDS.length + 1;
 
-  // apps/plugin/src/components/collab/LfoEditor.tsx
-  var import_react2 = __toESM(require_react(), 1);
-
-  // apps/plugin/src/lib/liveHands.ts
-  var import_react = __toESM(require_react(), 1);
-  var LIVE_HANDS = 12;
-  var live = new Float32Array(16 * LIVE_HANDS);
-  var lfoPhase = new Float32Array(16);
-  var lfoCycle = new Float64Array(16);
-  var SPEC_BANDS = 40;
-  var spectra = /* @__PURE__ */ new Map();
-  var lfoAt = 0;
-  var have = false;
-  var subs = /* @__PURE__ */ new Set();
-  var notify = () => {
-    for (const s of subs) s();
-  };
-  if (typeof window !== "undefined" && hasJuceBridge) {
-    window.addEventListener("__juceDawAudio", (e) => {
-      const d = e.detail;
-      if (Array.isArray(d.lph)) for (let i = 0; i < 16; i++) {
-        lfoPhase[i] = Number(d.lph[i]) || 0;
-        lfoCycle[i] = Number(d.lcy?.[i]) || 0;
-      }
-      if (Array.isArray(d.spec)) {
-        spectra.clear();
-        for (const row of d.spec) if (Array.isArray(row) && row.length === 1 + SPEC_BANDS * 3) spectra.set(Number(row[0]), row.slice(1).map(Number));
-      }
-      lfoAt = performance.now();
-      if (!Array.isArray(d.live)) return;
-      let changed = !have;
-      for (let i = 0; i < 16 && i < d.live.length; i++) {
-        const h = d.live[i];
-        if (!Array.isArray(h)) continue;
-        for (let k = 0; k < LIVE_HANDS && k < h.length; k++) {
-          const v = Number(h[k]);
-          if (!Number.isFinite(v)) continue;
-          if (live[i * LIVE_HANDS + k] !== v) {
-            live[i * LIVE_HANDS + k] = v;
-            changed = true;
-          }
-        }
-      }
-      have = true;
-      if (changed) notify();
-    });
+  // apps/plugin/src/components/collab/printCatalog.ts
+  var clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  function parseLead(s) {
+    const m = /^\s*([+\-−]?\s*\d*\.?\d+)\s*([a-zA-Z%]*)/.exec(s.replace(/,/g, "."));
+    if (!m) return null;
+    let v = Number(m[1].replace("\u2212", "-").replace(/\s+/g, ""));
+    if (!Number.isFinite(v)) return null;
+    const unit = m[2].toLowerCase();
+    if (unit === "k" || unit === "khz") v *= 1e3;
+    return v;
   }
-
-  // apps/plugin/src/components/collab/LfoEditor.tsx
-  var import_jsx_runtime = __toESM(require_react(), 1);
+  var fmtHz = (hz) => hz >= 1e3 ? `${(hz / 1e3).toFixed(hz >= 1e4 ? 1 : 2)}k` : `${Math.round(hz)}`;
+  var MODES = [
+    { id: 7, name: "cut" },
+    { id: 8, name: "amp" },
+    { id: 0, name: "tone" },
+    { id: 1, name: "tape" },
+    { id: 6, name: "mod" },
+    { id: 9, name: "doubler" },
+    { id: 10, name: "delay" },
+    { id: 2, name: "space" },
+    { id: 3, name: "stereo" },
+    { id: 4, name: "glue" },
+    { id: 5, name: "gain" },
+    { id: 12, name: "tremolo" },
+    { id: 13, name: "arp" },
+    { id: 14, name: "radio" },
+    { id: 15, name: "harmony" },
+    { id: 16, name: "pitch" },
+    { id: 17, name: "formant" },
+    { id: 18, name: "grain" },
+    { id: 20, name: "crush" },
+    { id: 21, name: "shimmer" },
+    { id: 22, name: "swell" },
+    { id: 23, name: "stutter" },
+    { id: 24, name: "air" },
+    { id: 25, name: "ring" },
+    { id: 26, name: "gate" },
+    { id: 27, name: "wow" }
+  ];
+  var nameOf = (type) => type === FX_MIX_TYPE ? "mix" : type === FX_SPLIT_LR ? "L/R" : type === FX_SPLIT_MS ? "M/S" : type === FX_LFO ? "LFO" : type === FX_RATE ? "rate" : type === FX_MACRO ? "macro" : type === FX_SIDE ? "side" : type === FX_FOLLOW ? "follow" : type === FX_COMP ? "comp" : type === FX_BANDS ? "bands" : type === FX_CARVE ? "carve" : type === FX_MATCH ? "match" : type === FX_VOCODE ? "vocode" : type === FX_FREEZE ? "freeze" : type === FX_SHIFT ? "shift" : type === FX_SMEAR ? "smear" : type === FX_PAN ? "pan" : type === FX_REPEAT ? "repeat" : type === FX_ENV ? "env" : type === FX_FOLD ? "fold" : type === FX_DRIFT ? "drift" : type === FX_PULSE ? "pulse" : type === FX_SCENE ? "scene" : type === FX_SIEVE ? "sieve" : MODES.find((m) => m.id === type)?.name ?? "";
+  var FAMILIES = [
+    ["tone", ["cut", "amp", "tone", "tape", "glue", "comp", "air"]],
+    ["grit", ["crush", "radio", "ring", "fold"]],
+    ["space", ["delay", "space", "shimmer", "doubler", "stereo"]],
+    ["motion", ["mod", "tremolo", "swell", "stutter", "gate", "wow", "repeat"]],
+    ["pitch", ["pitch", "formant", "harmony", "arp", "grain"]],
+    ["utility", ["gain", "mix", "L/R", "M/S", "pan", "bands", "side"]],
+    ["control", ["LFO", "macro", "follow", "env", "drift", "pulse", "scene"]],
+    ["spectral", ["carve", "match", "vocode", "freeze", "shift", "smear", "sieve"]]
+  ];
+  var PRINTS = (() => {
+    const byName = /* @__PURE__ */ new Map();
+    for (let t = 0; t <= 60; t++) {
+      const nm = nameOf(t);
+      if (nm) byName.set(nm, t);
+    }
+    return FAMILIES.flatMap(([family, names]) => names.map((name) => ({ type: byName.get(name) ?? -1, name, family })));
+  })();
+  var VARIANTS = [
+    [],
+    // tone
+    ["hard", "clean"],
+    // tape
+    ["hall", "room", "plate"],
+    // space
+    [],
+    // stereo
+    [],
+    // glue
+    [],
+    // gain
+    ["chorus", "flanger", "phaser"],
+    // mod
+    ["low", "high", "band"],
+    // cut
+    ["clean", "crunch", "lead", "fuzz"],
+    // amp
+    ["tight", "wide"],
+    // doubler
+    ["clean", "tape", "pingpong"],
+    // delay
+    [],
+    // (mix slot)
+    ["sine", "triangle", "square", "pulse", "saw"],
+    // tremolo
+    ["up", "down", "up-down", "random"],
+    // arp
+    ["am", "phone"],
+    // radio
+    ["key", "chromatic"],
+    // harmony
+    ["raw", "natural"],
+    // pitch
+    [],
+    // formant
+    ["cloud", "stutter", "reverse"],
+    // grain
+    ["female", "male", "child", "giant"],
+    // voice
+    ["both", "bits", "rate"],
+    // crush
+    ["octave", "fifth", "down"],
+    // shimmer
+    ["soft", "hard"],
+    // swell
+    ["beat", "bar"],
+    // stutter
+    ["silk", "bright"],
+    // air
+    ["ring", "am"],
+    // ring
+    ["tight", "loose"],
+    // gate
+    ["wow", "flutter", "both"]
+    // wow
+  ];
+  var NEW_VARIANTS = { [FX_ENV]: ["level", "wire"], [FX_FOLD]: ["sine", "triangle"] };
+  var flavoursOf = (type) => type === FX_MIX_TYPE ? ["blend", "sum"] : VARIANTS[type] ?? NEW_VARIANTS[type] ?? [];
+  var VARIANT_LABEL = { 1: "drive", 2: "room", 6: "kind", 7: "pass", 8: "stage", 9: "spread", 10: "type", 13: "order", 14: "band", 15: "mode", 16: "mode", 18: "mode", 20: "target", 21: "interval", 22: "floor", 23: "grid", 24: "mode", 25: "mode", 26: "release", 27: "motion" };
+  var MAIN_HAND = { 7: "cutoff", [FX_COMP]: "threshold", [FX_CARVE]: "depth", [FX_PAN]: "pan", [FX_FOLD]: "drive", [FX_FREEZE]: "hold", [FX_SIEVE]: "keep", [FX_SHIFT]: "mix", [FX_SMEAR]: "mix", [FX_REPEAT]: "mix" };
+  var DIV_LABELS = ["1/16", "1/8t", "1/8", "1/8.", "1/4", "1/4.", "1/2", "1/32"];
+  var DIV_ORDER = [7, 0, 1, 2, 3, 4, 5, 6];
+  var RATE_DIVS = ["1/32", "1/16", "1/8", "1/4", "1/2", "1/1", "2/1", "4/1"];
+  var RATE_FEEL = ["straight", "dotted", "triplet"];
+  var KEY_NAMES = ["C", "C\u266F", "D", "D\u266F", "E", "F", "F\u266F", "G", "G\u266F", "A", "A\u266F", "B"];
+  var CURVE_LEN = 32;
+  function baseShape(variant, ph) {
+    switch (variant) {
+      case 1:
+        return 1 - 2 * Math.abs(ph - 0.5);
+      case 2:
+        return ph < 0.5 ? 0 : 1;
+      // square: the dip comes first
+      case 3:
+        return ph < 0.25 ? 0 : 1;
+      // pulse: a short dip
+      case 4:
+        return ph;
+      // saw: rises, drops
+      default:
+        return 0.5 + 0.5 * Math.cos(2 * Math.PI * ph);
+    }
+  }
+  var TREM_PRESETS = /* @__PURE__ */ (() => {
+    const pts = (f) => Array.from({ length: CURVE_LEN }, (_, i) => Math.min(1, Math.max(0, f(i / CURVE_LEN))));
+    const steps = (pattern) => pts((ph) => pattern[Math.floor(ph * pattern.length)] ?? 0);
+    const gate = (pattern, width = 0.6) => pts((ph) => {
+      const k = ph * pattern.length;
+      const i = Math.floor(k);
+      return pattern[i] && k - i < width ? 1 : 0;
+    });
+    return [
+      { name: "sine", curve: () => pts((ph) => baseShape(0, ph)) },
+      { name: "triangle", curve: () => pts((ph) => baseShape(1, ph)) },
+      { name: "square", curve: () => pts((ph) => baseShape(2, ph)) },
+      { name: "pulse", curve: () => pts((ph) => baseShape(3, ph)) },
+      { name: "saw", curve: () => pts((ph) => baseShape(4, ph)) },
+      { name: "eighths", curve: () => gate([1, 1, 1, 1, 1, 1, 1, 1], 0.55) },
+      { name: "sixteenths", curve: () => gate(new Array(16).fill(1), 0.5) },
+      { name: "3-3-2", curve: () => gate([1, 0, 0, 1, 0, 0, 1, 0], 0.9) },
+      { name: "gallop", curve: () => gate([1, 0, 1, 1, 1, 0, 1, 1], 0.7) },
+      { name: "swing", curve: () => pts((ph) => {
+        const k = ph * 4;
+        const i = Math.floor(k);
+        const f = k - i;
+        return f < (i % 2 ? 0.45 : 0.65) ? 1 : 0.15;
+      }) },
+      { name: "offbeat", curve: () => gate([0, 1, 0, 1, 0, 1, 0, 1], 0.6) },
+      { name: "breath", curve: () => pts((ph) => Math.pow(0.5 + 0.5 * Math.cos(2 * Math.PI * ph), 2.2)) },
+      { name: "stairs", curve: () => steps([1, 0.75, 0.5, 0.25, 1, 0.75, 0.5, 0.25]) },
+      { name: "random", curve: () => {
+        let s = 7;
+        return steps(Array.from({ length: 8 }, () => {
+          s = s * 1103515245 + 12345 & 2147483647;
+          return 0.2 + s % 1e3 / 1250;
+        }));
+      } }
+    ];
+  })();
   var B = 0.2071;
   var LFO_SHAPES = [
     { name: "sine", pts: [0, 0.5, B, 0.25, 1, B, 0.5, 0.5, -B, 0.75, 0, -B, 1, 0.5, 0] },
@@ -147,6 +252,15 @@ var PATCH_PRINTS = (() => {
   ];
   var LFO_RANDOM = LFO_SHAPES.length - 1;
   var LFO_STEPS = LFO_SHAPES.length - 2;
+  function stepsToPts(heights) {
+    const n = heights.length, out = [];
+    for (let k = 0; k < n; k++) out.push(k / n, heights[k], 0, (k + 1) / n, heights[k], 0);
+    return out;
+  }
+  function ptsToSteps(pts, count) {
+    const n = pts.length / 6;
+    return Array.from({ length: count }, (_, k) => k < n ? pts[k * 6 + 1] : 0.5);
+  }
   var SINE_PTS = LFO_SHAPES[0].pts;
   function shapeAt(pts, x) {
     const n = pts.length / 3;
@@ -172,6 +286,263 @@ var PATCH_PRINTS = (() => {
     h ^= h >>> 16;
     return (h >>> 0 & 16777215) / 16777215;
   }
+  function fmtDecay(variant, d) {
+    const rs = variant === 0 ? Math.min(1, Math.max(0, 0.769 + d * 0.191)) : variant === 1 ? Math.min(1, Math.max(0.02, 0.16 + (d - 0.5) * 0.44)) : Math.min(1, Math.max(0, 0.5 + (d - 0.5) * 0.7));
+    const g = 0.7 + 0.28 * rs;
+    const t = 0.096 / -Math.log10(g);
+    return `${t >= 10 ? t.toFixed(1) : t.toFixed(2)}s`;
+  }
+  function parseDecay(variant, s) {
+    const t = parseLead(s);
+    if (t === null || t <= 0) return null;
+    const g = Math.pow(10, -0.096 / t);
+    const rs = (g - 0.7) / 0.28;
+    const d = variant === 0 ? (rs - 0.769) / 0.191 : variant === 1 ? (rs - 0.16) / 0.44 + 0.5 : (rs - 0.5) / 0.7 + 0.5;
+    return clamp(d, 0, 1);
+  }
+  var PLAY_HANDS = {
+    2: [{ key: "decay", label: "decay" }],
+    10: [{ key: "fb", label: "feedback" }],
+    13: [{ key: "aux0", label: "step" }],
+    [FX_CARVE]: [{ key: "aux0", label: "attack" }, { key: "aux1", label: "release" }, { key: "aux2", label: "from" }, { key: "aux3", label: "to" }],
+    [FX_MATCH]: [{ key: "aux1", label: "smooth" }],
+    [FX_VOCODE]: [{ key: "aux0", label: "bands" }, { key: "aux1", label: "attack" }, { key: "aux2", label: "release" }],
+    [FX_SHIFT]: [{ key: "aux0", label: "hz" }, { key: "aux1", label: "feedback" }],
+    [FX_SMEAR]: [{ key: "aux0", label: "time" }, { key: "aux1", label: "blur" }],
+    [FX_REPEAT]: [{ key: "aux4", label: "threshold" }],
+    [FX_SIEVE]: [{ key: "aux0", label: "attack" }, { key: "aux1", label: "release" }, { key: "aux2", label: "mix" }],
+    [FX_COMP]: [{ key: "aux0", label: "ratio" }, { key: "aux1", label: "attack" }, { key: "aux2", label: "release" }, { key: "aux3", label: "knee" }, { key: "aux4", label: "makeup" }],
+    15: [{ key: "aux2", label: "interval" }],
+    16: [{ key: "aux0", label: "cents" }],
+    18: [{ key: "aux0", label: "size" }, { key: "aux1", label: "spray" }, { key: "aux2", label: "scatter" }, { key: "aux5", label: "pan" }],
+    22: [{ key: "aux0", label: "depth" }]
+  };
+  var RATE_HANDS = [{ key: "aux0", label: "clock" }, { key: "aux1", label: "rate" }, { key: "aux2", label: "feel" }, { key: "aux3", label: "hz" }];
+  var LFO_HANDS = [...RATE_HANDS, { key: "aux5", label: "depth" }, { key: "aux6", label: "reset" }, { key: "decay", label: "morph" }];
+  var DRIFT_HANDS = [...RATE_HANDS, { key: "aux4", label: "smooth" }, { key: "aux5", label: "depth" }];
+  var PULSE_HANDS = [...RATE_HANDS, { key: "aux4", label: "steps" }, { key: "aux5", label: "hits" }, { key: "aux6", label: "rotate" }, { key: "aux7", label: "length" }];
+  var aux8 = (n) => {
+    const a = [...n.aux || []];
+    while (a.length < 8) a.push(0);
+    return a;
+  };
+  var withAux = (n, k, v, extra) => {
+    const a = aux8(n);
+    a[k] = v;
+    extra?.(a);
+    return { aux: a };
+  };
+  var ms = (v) => `${Math.round(v)} ms`;
+  var gauge = (key, label, k, read, min, max, def, o = {}) => Object.assign({ kind: "gauge", key, label, at: `aux${k}`, min, max, def, step: 1, get: read, set: (v, n) => withAux(n, k, Math.round(v)) }, o);
+  var choice = (key, label, k, options, read, o = {}) => Object.assign({ kind: "choice", key, label, at: `aux${k}`, options, get: read, set: (v, n) => withAux(n, k, v) }, o);
+  var sw = (key, label, k) => ({ kind: "switch", key, label, at: `aux${k}`, get: (n) => !!(n.aux || [])[k], set: (on, n) => withAux(n, k, on ? 1 : 0) });
+  var flavourHand = (type) => ({ kind: "choice", key: "variant", label: type === FX_MIX_TYPE ? "mode" : VARIANT_LABEL[type] ?? "mode", at: "variant", options: flavoursOf(type), get: (n) => n.variant, set: (v) => ({ variant: v }) });
+  var divHand = (key, label, o = {}) => Object.assign({ kind: "choice", key, label, at: "div", options: DIV_ORDER.map((i) => DIV_LABELS[i]), fill: true, get: (n) => DIV_ORDER.indexOf(n.delayDiv), set: (v) => ({ delayDiv: DIV_ORDER[v] }) }, o);
+  var keyHands = (k, when) => [
+    choice("key", "key", k, KEY_NAMES, (n) => ((n.aux[k] || 0) % 12 + 12) % 12, { fill: true, when }),
+    choice("scale", "scale", k + 1, ["major", "minor"], (n) => (n.aux[k + 1] || 0) === 1 ? 1 : 0, { when })
+  ];
+  var CLOCK_HANDS = [
+    choice("mode", "clock", 0, ["sync", "hz"], (n) => n.aux[0] || 0),
+    choice("div", "rate", 1, RATE_DIVS, (n) => n.aux[1] ?? 3, { fill: true, when: (n) => (n.aux[0] || 0) === 0 }),
+    choice("feel", "feel", 2, RATE_FEEL, (n) => n.aux[2] || 0, { when: (n) => (n.aux[0] || 0) === 0 }),
+    gauge("hz", "hz", 3, (n) => (n.aux[3] || 200) / 100, 0.01, 20, 2, { step: 0.01, fine: 260, live: (v) => v / 100, format: (v) => `${v.toFixed(2)} hz`, set: (v, n) => withAux(n, 3, Math.round(v * 100)), when: (n) => (n.aux[0] || 0) !== 0 })
+  ];
+  var toPos = (hz) => 100 * Math.log(Math.max(20, Math.min(2e4, hz)) / 20) / Math.log(1e3);
+  var toHz = (pos) => Math.round(20 * Math.pow(1e3, Math.max(0, Math.min(100, pos)) / 100));
+  var STUDY_HANDS = (() => {
+    const h = {};
+    for (let t = 0; t <= 60; t++) if (flavoursOf(t).length && t !== 5 && t !== 7 && t !== 12 && t !== FX_COMP && t !== FX_FOLLOW && t !== FX_ENV) h[t] = [flavourHand(t)];
+    const add = (type, ...more) => {
+      h[type] = (h[type] || []).concat(more);
+    };
+    add(2, { kind: "gauge", key: "decay", label: "decay", at: "decay", min: 0, max: 1, step: 5e-3, def: 0.5, get: (n) => n.decay[n.variant] ?? 0.5, liveDrag: true, set: (v, n) => {
+      const d = [...n.decay];
+      d[n.variant] = v;
+      return { decay: d };
+    }, format: (d, n) => fmtDecay(n.variant, d), parse: (s, n) => parseDecay(n.variant, s) });
+    add(10, divHand("time", "time"), { kind: "gauge", key: "fb", label: "feedback", at: "fb", min: 0, max: 100, step: 1, unit: "%", def: 35, live: (v) => v * 100, liveDrag: true, get: (n) => Math.round(n.delayFb * 100), set: (v) => ({ delayFb: v / 100 }) });
+    add(13, divHand("rate", "rate"), gauge("step", "step", 0, (n) => n.aux[0] || 12, 1, 12, 12, { unit: "st", fine: 120, set: (v, n) => withAux(n, 0, v) }));
+    {
+      const chroma = (n) => n.variant === 1;
+      add(
+        15,
+        ...keyHands(0, (n) => n.variant !== 1),
+        gauge("int", (n) => chroma(n) ? "interval" : "degrees", 2, (n) => n.aux[2] || 0, (n) => chroma(n) ? -12 : -7, (n) => chroma(n) ? 12 : 7, (n) => chroma(n) ? 7 : 2, { bipolar: true, fine: 140, format: (v, n) => `${v > 0 ? "+" : ""}${v}${chroma(n) ? " st" : v === 0 ? " unison" : ""}`, set: (v, n) => withAux(n, 2, v) })
+      );
+    }
+    add(16, gauge("cents", "cents", 0, (n) => n.aux[0] || 0, -100, 100, 0, { bipolar: true, format: (v) => `${v > 0 ? "+" : ""}${v} c`, set: (v, n) => withAux(n, 0, v) }), choice("engine", "engine", 1, ["fine", "live"], (n) => n.aux[1] || 0));
+    add(17, choice("engine", "engine", 0, ["fine", "live"], (n) => n.aux[0] || 0));
+    add(
+      18,
+      gauge("size", "size", 0, (n) => n.aux[0] || 120, 10, 600, 120, { unit: "ms", set: (v, n) => withAux(n, 0, v) }),
+      gauge("spray", "spray", 1, (n) => n.aux[1] || 0, 0, 1500, 300, { unit: "ms", set: (v, n) => withAux(n, 1, v) }),
+      gauge("scatter", "scatter", 2, (n) => n.aux[2] || 0, 0, 24, 0, { unit: "st", fine: 140, set: (v, n) => withAux(n, 2, v) }),
+      choice("pmode", "pitch", 6, ["key", "intervals", "cents", "free"], (n) => n.aux[6] || 0),
+      ...keyHands(3, (n) => (n.aux[6] || 0) === 0),
+      divHand("rate", "rate", { when: (n) => n.variant === 1 }),
+      gauge("pan", "pan", 5, (n) => n.aux[5] ?? 50, 0, 100, 50, { unit: "%", set: (v, n) => withAux(n, 5, v) }),
+      sw("freeze", "freeze", 7)
+    );
+    add(22, gauge("depth", "depth", 0, (n) => n.aux[1] === 1 ? n.aux[0] : 100, 0, 100, 100, { unit: "%", set: (v, n) => withAux(n, 0, v, (a) => {
+      a[1] = 1;
+    }) }));
+    h[12] = [
+      choice("shape", "shape", 2, TREM_PRESETS.map((p) => p.name), (n) => Math.min(TREM_PRESETS.length - 1, n.aux[2] || 0), { set: (pi, n) => ({ ...withAux(n, 2, pi), curve: TREM_PRESETS[pi].curve(), variant: Math.min(4, pi) }) }),
+      choice("target", "moves", 0, ["volume", "pan"], (n) => n.aux[0] || 0),
+      divHand("rate", "rate")
+    ];
+    h[7] = [
+      { kind: "choice", key: "variant", label: "pass", at: "variant", options: ["low pass", "high pass"], get: (n) => n.variant === 1 ? 0 : 1, set: (k) => ({ variant: k === 0 ? 1 : 0 }) },
+      // the engine's words are low (cut) and high (cut): a low cut is a high pass. Said here as passes, low first.
+      choice("slope", "slope", 0, ["12", "24", "36", "48"], (n) => (n.aux[0] >= 1 && n.aux[0] <= 4 ? n.aux[0] : 2) - 1, { fill: true, set: (k, n) => withAux(n, 0, k + 1) })
+    ];
+    h[5] = [
+      { kind: "switch", key: "phaseL", label: "\xF8 left", at: "variant", get: (n) => (n.variant & 1) !== 0, set: (_, n) => ({ variant: n.variant ^ 1 }) },
+      { kind: "switch", key: "phaseR", label: "\xF8 right", at: "variant", get: (n) => (n.variant & 2) !== 0, set: (_, n) => ({ variant: n.variant ^ 2 }) }
+    ];
+    h[FX_COMP] = [
+      { kind: "choice", key: "variant", label: "detector", at: "variant", options: ["peak", "rms"], get: (n) => n.variant, set: (v) => ({ variant: v }) },
+      gauge("ratio", "ratio", 0, (n) => (n.aux[0] || 40) / 10, 1, 20, 4, { step: 0.1, live: (v) => v / 10, format: (v) => `${v.toFixed(1)}:1`, set: (v, n) => withAux(n, 0, Math.round(v * 10)) }),
+      gauge("attack", "attack", 1, (n) => (n.aux[1] || 100) / 10, 0.1, 100, 10, { step: 0.1, fine: 260, live: (v) => v / 10, format: (v) => `${v < 10 ? v.toFixed(1) : Math.round(v)} ms`, set: (v, n) => withAux(n, 1, Math.round(v * 10)) }),
+      gauge("release", "release", 2, (n) => n.aux[2] || 150, 10, 2e3, 150, { fine: 320, format: ms }),
+      gauge("knee", "knee", 3, (n) => n.aux[3] ?? 6, 0, 24, 6, { step: 0.5, format: (v) => `${v.toFixed(1)} dB` }),
+      gauge("makeup", "makeup", 4, (n) => n.aux[4] || 0, 0, 24, 0, { step: 0.5, format: (v) => `+${v.toFixed(1)} dB` })
+    ];
+    h[FX_CARVE] = [
+      gauge("attack", "attack", 0, (n) => n.aux[0] || 20, 1, 200, 20, { format: ms }),
+      gauge("release", "release", 1, (n) => n.aux[1] || 200, 20, 2e3, 200, { fine: 320, format: ms }),
+      // from / to: the range that is carved, on a log track (the gauge's unit is 0..100 along it)
+      gauge("from", "from", 2, (n) => toPos(n.aux[2] || 20), 0, 100, 0, { step: 0.5, fine: 400, live: toPos, format: (v) => `${fmtHz(toHz(v))} hz`, set: (v, n) => withAux(n, 2, toHz(v)), parse: (s) => {
+        const v = parseLead(s);
+        return v === null ? null : toPos(v);
+      } }),
+      gauge("to", "to", 3, (n) => toPos(n.aux[3] || 2e4), 0, 100, 100, { step: 0.5, fine: 400, live: toPos, format: (v) => `${fmtHz(toHz(v))} hz`, set: (v, n) => withAux(n, 3, toHz(v)), parse: (s) => {
+        const v = parseLead(s);
+        return v === null ? null : toPos(v);
+      } })
+    ];
+    h[FX_MATCH] = [gauge("smooth", "smooth", 1, (n) => n.aux[1] || 12, 1, 48, 12, { format: (v) => `${Math.round(v)}` }), sw("learn", "learn", 0)];
+    h[FX_VOCODE] = [
+      gauge("bands", "bands", 0, (n) => n.aux[0] || 24, 8, 64, 24, { format: (v) => `${Math.round(v)}` }),
+      gauge("attack", "attack", 1, (n) => n.aux[1] || 10, 1, 200, 10, { format: ms }),
+      gauge("release", "release", 2, (n) => n.aux[2] || 80, 10, 2e3, 80, { fine: 320, format: ms })
+    ];
+    h[FX_SHIFT] = [
+      gauge("shz", "hz", 0, (n) => n.aux[0] || 0, -2e3, 2e3, 0, { bipolar: true, fine: 400, format: (v) => `${v > 0 ? "+" : ""}${Math.round(v)} hz` }),
+      gauge("sfb", "feedback", 1, (n) => n.aux[1] || 0, 0, 95, 0, { unit: "%" })
+    ];
+    h[FX_SMEAR] = [gauge("stime", "time", 0, (n) => n.aux[0] || 800, 50, 5e3, 800, { step: 10, fine: 320, format: ms }), gauge("blur", "blur", 1, (n) => n.aux[1] || 0, 0, 100, 0, { unit: "%" })];
+    h[FX_SIEVE] = [
+      gauge("attack", "attack", 0, (n) => n.aux[0] || 5, 1, 200, 5, { format: ms }),
+      gauge("release", "release", 1, (n) => n.aux[1] || 80, 20, 2e3, 80, { fine: 320, format: ms }),
+      gauge("smix", "mix", 2, (n) => n.aux[2] ?? 100, 0, 100, 100, { unit: "%" })
+    ];
+    h[FX_REPEAT] = [...CLOCK_HANDS, gauge("threshold", "threshold", 4, (n) => n.aux[4] || -30, -60, -1, -30, { format: (v) => `${Math.round(v)} dB` })];
+    h[FX_FREEZE] = [{ kind: "switch", key: "hold", label: "hold", at: "amount", get: (n) => n.amount > 0.5, set: (on) => ({ amount: on ? 1 : 0 }) }];
+    const round = (v) => `${Math.round(v)}`;
+    const depth = gauge("lfodepth", "depth", 5, (n) => n.aux[5] ?? 100, 0, 100, 100, { unit: "%" });
+    {
+      const isRandom = (n) => (n.aux[4] || 0) > 0, isSteps = (n) => !isRandom(n) && n.variant === LFO_STEPS;
+      const toShapes = LFO_SHAPES.filter((sh) => sh.pts);
+      const morphOf = (n) => n.pts2 ? toShapes.findIndex((sh) => sh.pts.length === n.pts2.length && sh.pts.every((v, i) => Math.abs(v - n.pts2[i]) < 1e-6)) : -1;
+      h[FX_LFO] = [
+        {
+          kind: "choice",
+          key: "shape",
+          label: "shape",
+          at: "variant",
+          list: true,
+          none: "drawn",
+          options: LFO_SHAPES.map((sh) => sh.name),
+          get: (n) => isRandom(n) ? LFO_RANDOM : n.variant,
+          set: (k, n) => {
+            const aux = aux8(n);
+            const sh = LFO_SHAPES[k];
+            if (k === LFO_RANDOM) {
+              aux[4] = aux[4] || 8;
+              return { variant: k, aux };
+            }
+            aux[4] = 0;
+            if (k === LFO_STEPS) {
+              aux[6] = aux[6] || 8;
+              return { variant: k, aux, pts: stepsToPts(Array.from({ length: aux[6] }, (_, i) => i / Math.max(1, aux[6] - 1))) };
+            }
+            return { pts: [...sh.pts], variant: k, aux };
+          }
+        },
+        gauge("steps", "steps", 4, (n) => n.aux[4] || 8, 1, 32, 8, { format: round, set: (v, n) => withAux(n, 4, Math.max(1, Math.round(v))), when: isRandom }),
+        // the morph: a second shape the lfo leans toward, as far as its `morph` hand says (a macro can play it)
+        {
+          kind: "choice",
+          key: "morphto",
+          label: "morph to",
+          at: "pts2",
+          list: true,
+          none: "none",
+          options: toShapes.map((sh) => sh.name),
+          get: morphOf,
+          set: (k, n) => {
+            const cur = morphOf(n);
+            return { pts2: k < 0 || k === cur ? void 0 : [...toShapes[k].pts], ...cur < 0 && k >= 0 ? { decay: [0, 0, 0] } : {} };
+          },
+          // (a shape picked fresh starts unmorphed: the hand at 0)
+          when: (n) => !isRandom(n) && !isSteps(n)
+        },
+        {
+          kind: "gauge",
+          key: "morph",
+          label: "morph",
+          at: "decay",
+          min: 0,
+          max: 100,
+          step: 1,
+          unit: "%",
+          def: 0,
+          live: (v) => v * 100,
+          liveDrag: true,
+          get: (n) => Math.round((n.decay[Math.max(0, Math.min(2, n.variant))] ?? 0) * 100),
+          set: (v) => ({ decay: [v / 100, v / 100, v / 100] }),
+          when: (n) => !isRandom(n) && !isSteps(n) && !!n.pts2
+        },
+        gauge("nsteps", "steps", 6, (n) => n.aux[6] || 8, 2, 32, 8, {
+          format: round,
+          when: isSteps,
+          set: (v, n) => {
+            const c = Math.max(2, Math.round(v));
+            return { ...withAux(n, 6, c), pts: stepsToPts(ptsToSteps(n.pts ?? SINE_PTS, c)) };
+          }
+        }),
+        ...CLOCK_HANDS,
+        depth
+      ];
+    }
+    h[FX_RATE] = [...CLOCK_HANDS];
+    h[FX_DRIFT] = [...CLOCK_HANDS, gauge("dsmooth", "smooth", 4, (n) => n.aux[4] ?? 60, 0, 100, 60, { unit: "%" }), depth];
+    h[FX_PULSE] = [
+      ...CLOCK_HANDS,
+      gauge("psteps", "steps", 4, (n) => n.aux[4] || 8, 1, 32, 8, { format: round, set: (v, n) => withAux(n, 4, Math.max(1, Math.round(v))) }),
+      gauge("hits", "hits", 5, (n) => n.aux[5] ?? 3, 0, (n) => n.aux[4] || 8, 3, { format: round }),
+      gauge("rotate", "rotate", 6, (n) => n.aux[6] || 0, 0, (n) => Math.max(0, (n.aux[4] || 8) - 1), 0, { format: round }),
+      gauge("length", "length", 7, (n) => n.aux[7] || 50, 1, 100, 50, { unit: "%" })
+    ];
+    h[FX_FOLLOW] = [
+      { kind: "choice", key: "variant", label: "mode", at: "variant", options: ["envelope", "transient"], get: (n) => n.variant, set: (v) => ({ variant: v }) },
+      gauge("attack", "attack", 0, (n) => n.aux[0] || 10, 1, 500, 10, { format: ms }),
+      gauge("release", "release", 1, (n) => n.aux[1] || 200, 5, 2e3, 200, { format: ms }),
+      gauge("sense", "sense", 2, (n) => n.aux[2] ?? 50, 0, 100, 50, { format: round }),
+      gauge("threshold", "threshold", 3, (n) => n.aux[3] || -40, -60, -1, -40, { format: (v) => `${Math.round(v)} dB` })
+    ];
+    h[FX_ENV] = [
+      { kind: "choice", key: "variant", label: "opened by", at: "variant", options: ["level", "wire"], get: (n) => n.variant, set: (v) => ({ variant: v }) },
+      gauge("attack", "attack", 0, (n) => n.aux[0] || 10, 1, 5e3, 10, { fine: 320, format: ms }),
+      gauge("edecay", "decay", 1, (n) => n.aux[1] || 200, 1, 5e3, 200, { fine: 320, format: ms }),
+      gauge("sustain", "sustain", 2, (n) => n.aux[2] ?? 70, 0, 100, 70, { unit: "%" }),
+      gauge("release", "release", 3, (n) => n.aux[3] || 300, 1, 1e4, 300, { fine: 320, format: ms }),
+      gauge("threshold", "threshold", 4, (n) => n.aux[4] || -30, -60, -1, -30, { format: (v) => `${Math.round(v)} dB`, when: (n) => n.variant === 0 })
+    ];
+    return h;
+  })();
 
   // apps/plugin/src/components/collab/printGlyphs.ts
   var PAPER = "#FBFAF7";
@@ -447,5 +818,5 @@ var PATCH_PRINTS = (() => {
     const inkScale = family === "control" ? 0.78 : 1;
     return `<path d="${SHAPE[family]}" fill="${tint}" fill-rule="evenodd"/><g transform="scale(${inkScale})">${pic}</g>`;
   }
-  return __toCommonJS(entry_exports);
+  return __toCommonJS(prints_entry_exports);
 })();

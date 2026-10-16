@@ -95,6 +95,14 @@ LANG.lists.ko = {
   'the check leaves the machine’s device as it is': '점검 중에는 장치를 그대로 둠',
   /* a patch kept as a preset (preset.js) */
   'saved as': '저장됨:', 'a file of that name is there': '같은 이름의 파일이 있음',
+  /* the meter (meternode.js, meterface.js): the words of loudness stay as engineers say them */
+  'meter': '미터', 'the wave as it came': '들어온 파형', 'short term over it': '위의 선은 short term', 'how loud': '라우드니스', 'against the aim': '목표 대비', 'measured for': '측정 시간',
+  'each side': '좌우', 'rms, peak, held': 'rms, 피크, 홀드', 'crest': '크레스트', 'the stereo picture': '스테레오', 'correlation': '상관도', 'mono safe': '모노 안전', 'goes under 0': '0 아래로 내려감',
+  'never under 0 in': '0 아래로 내려간 적 없음, 측정', 'lowest': '최저', 'aim': '목표', 'listening': '듣는 중', 'this meter is not on the wall any more': '이 미터는 이제 패치에 없음',
+  /* the side (side.js) */
+  'side': '사이드', 'nothing': '없음', 'the side plays nothing': '사이드: 없음', 'that track is fed by this one': '그 트랙은 이 트랙을 거쳐 옴', 'that track is not there': '그 트랙이 없음', 'not while it prints': '바운스 중에는 안 됨',
+  /* macros (macro.js) */
+  'macros': '매크로', 'none yet': '아직 없음', 'not wired': '연결 안 됨', 'find a control': '노브 찾기', 'asking the plug-in': '플러그인에 묻는 중', 'none by that name': '그 이름은 없음', 'it has no controls to turn': '돌릴 수 있는 노브가 없음', '# controls': '노브 #개', 'macro': '매크로',
   'untitled': '이름 없음', 'initial': '초기 상태', 'no presets yet': '아직 프리셋 없음', 'save as…': '다른 이름으로 저장…', 'open…': '열기…',
   'that is not a patch': '패치 파일이 아님', 'that preset is not there any more': '그 프리셋은 이제 없음', 'the preset could not be written': '프리셋을 쓰지 못함',
   'one thing this wall has no print for was left out': '이 패치에 없는 프린트 하나는 빠짐', '# things this wall has no print for were left out': '이 패치에 없는 프린트 #개는 빠짐',

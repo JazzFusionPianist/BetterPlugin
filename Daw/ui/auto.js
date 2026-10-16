@@ -18,13 +18,37 @@ const FX_KEY = /^fx(\d+)\.(\d+)$/
 const fxIns = (t, k) => { const m = FX_KEY.exec(k); return m ? (t.inserts || []).find(x => x.n === +m[1] && !x.out) || null : null }
 const fxIndex = k => +FX_KEY.exec(k)[2]
 const fxAuto = k => ({ p: 100, fx: true, name: 'control', f: v => clamp(v, 0, 1), inv: f => Math.round(clamp(f, 0, 1) * 1000) / 1000, fmt: v => String(Math.round(v * 100)), eng: v => v, now: t => { const ins = fxIns(t, k), v = ins && ins.pv ? ins.pv[fxIndex(k)] : null; return v == null ? .5 : v }, step: .01 })
-const AUTO = new Proxy(AUTO_OWN, { get: (own, k) => own[k] || (typeof k === 'string' && FX_KEY.test(k) ? (own[k] = fxAuto(k)) : undefined) })
+/* a macro's line is kept as mac<id> (ui/macro.js): the line is the macro's, and goes to whatever control of a plug-in on the
+   track the macro is wired to (it is told to the engine as that control's line); a macro not wired keeps its line and
+   moves nothing */
+const MAC_KEY = /^mac(\d+)$/
+const macroOf = (t, k) => { const m = MAC_KEY.exec(k); return m ? (t.macros || []).find(x => x.id === +m[1]) || null : null }
+const macroIns = (t, m) => m && m.to ? (t.inserts || []).find(x => x.n === m.to.n && !x.out) || null : null
+const macAuto = k => ({ p: 100, mac: true, name: 'macro', f: v => clamp(v, 0, 1), inv: f => Math.round(clamp(f, 0, 1) * 1000) / 1000, fmt: v => String(Math.round(v * 100)), eng: v => v, now: t => { const m = macroOf(t, k); return m ? m.v : .5 }, step: .01 })
+const AUTO = new Proxy(AUTO_OWN, { get: (own, k) => own[k] || (typeof k === 'string' && FX_KEY.test(k) ? (own[k] = fxAuto(k)) : typeof k === 'string' && MAC_KEY.test(k) ? (own[k] = macAuto(k)) : undefined) })
 /* the line a track shows: the one asked for, while what it is a line for is still there (a send, a plug-in); else its volume */
-const apOf = t => AUTO[t.ap] && (!/^send/.test(t.ap) || t.sends[+t.ap.slice(4)]) && (!FX_KEY.test(t.ap) || fxIns(t, t.ap)) ? t.ap : 'vol'
+const apOf = t => AUTO[t.ap] && (!/^send/.test(t.ap) || t.sends[+t.ap.slice(4)]) && (!FX_KEY.test(t.ap) || fxIns(t, t.ap)) && (!MAC_KEY.test(t.ap) || macroOf(t, t.ap)) ? t.ap : 'vol'
 let PID = 0
 const autoPts = (t, k) => (t.autos && t.autos[k]) || []
-const autoName = (t, k) => { if (FX_KEY.test(k)) { const ins = fxIns(t, k), i = fxIndex(k); return ins ? `${ins.name.toLowerCase()} ${(ins.pn && ins.pn[i]) || 'control ' + (i + 1)}` : 'plug-in' } if (/^send/.test(k)) { const b = t.sends[+k.slice(4)] && byId(t.sends[+k.slice(4)].to); return b ? `to ${b.name}` : 'send' } return AUTO[k].name }
-const autoParams = t => ['vol', 'pan', 'tape', 'space', 'delay'].concat(t.sends.map((s, k) => 'send' + k), Object.keys(t.autos || {}).filter(k => FX_KEY.test(k) && t.autos[k].length && fxIns(t, k)))
+const autoName = (t, k) => { if (MAC_KEY.test(k)) { const m = macroOf(t, k); return m ? m.name : 'macro' } if (FX_KEY.test(k)) { const ins = fxIns(t, k), i = fxIndex(k); return ins ? `${ins.name.toLowerCase()} ${(ins.pn && ins.pn[i]) || 'control ' + (i + 1)}` : 'plug-in' } if (/^send/.test(k)) { const b = t.sends[+k.slice(4)] && byId(t.sends[+k.slice(4)].to); return b ? `to ${b.name}` : 'send' } return AUTO[k].name }
+const autoParams = t => ['vol', 'pan', 'tape', 'space', 'delay'].concat((t.macros || []).map(m => 'mac' + m.id), t.sends.map((s, k) => 'send' + k), Object.keys(t.autos || {}).filter(k => FX_KEY.test(k) && t.autos[k].length && fxIns(t, k)))
+/* the way from one point to the next may bend (the command line can ask for it: "exponentially"): a point's c is how the
+   stretch that begins at it goes — none straight, 'exp' slow then fast, 'log' fast then slow, 's' slow at both ends.
+   Drawn and played as it bends: the app is told the bent stretch as a run of points. */
+const AUTO_CURVES = { exp: x => (Math.exp(4 * x) - 1) / (Math.exp(4) - 1), log: x => 1 - (Math.exp(4 * (1 - x)) - 1) / (Math.exp(4) - 1), s: x => x * x * (3 - 2 * x) }
+const curveAt = (c, x) => (AUTO_CURVES[c] || (y => y))(clamp(x, 0, 1))
+/* a line as straight pieces: a bent stretch is laid out in small steps (for the app, and to be drawn) */
+function autoBent (pts) {
+  const out = []
+  pts.forEach((q, i) => {
+    out.push([q.b, q.v])
+    const nx = pts[i + 1]
+    if (!q.c || !AUTO_CURVES[q.c] || !nx || nx.b - q.b < 1e-6) return
+    const steps = clamp(Math.round((nx.b - q.b) * 16), 8, 96)
+    for (let k = 1; k < steps; k++) { const x = k / steps; out.push([q.b + (nx.b - q.b) * x, q.v + (nx.v - q.v) * curveAt(q.c, x)]) }
+  })
+  return out
+}
 function autoAt (t, k, pos) {
   const p = autoPts(t, k)
   if (!p.length) return null
@@ -33,12 +57,12 @@ function autoAt (t, k, pos) {
   let i = 1
   while (p[i].b < pos) i++
   const a = p[i - 1], b = p[i], span = b.b - a.b
-  return span > 1e-9 ? a.v + (b.v - a.v) * (pos - a.b) / span : b.v
+  return span > 1e-9 ? a.v + (b.v - a.v) * curveAt(a.c, (pos - a.b) / span) : b.v
 }
 /* what a control reads now: its line where there is one, else where the hand left it */
 const shown = (t, k) => { const v = autoAt(t, k, curPos()); return v == null ? AUTO[k].now(t) : v }
 /* the lines as the app wants them */
-const autoMsg = t => Object.keys(t.autos || {}).filter(k => AUTO[k] && t.autos[k].length && (!FX_KEY.test(k) || (fxIns(t, k) || {}).uid)).map(k => Object.assign({ p: AUTO[k].p, pts: t.autos[k].map(q => [q.b, AUTO[k].eng(q.v)]) }, FX_KEY.test(k) ? { uid: fxIns(t, k).uid, i: fxIndex(k) } : {}))
+const autoMsg = t => Object.keys(t.autos || {}).filter(k => AUTO[k] && t.autos[k].length && (!FX_KEY.test(k) || (fxIns(t, k) || {}).uid) && (!MAC_KEY.test(k) || (macroIns(t, macroOf(t, k)) || {}).uid)).map(k => Object.assign({ p: AUTO[k].p, pts: autoBent(t.autos[k]).map(([b, v]) => [b, AUTO[k].eng(v)]) }, FX_KEY.test(k) ? { uid: fxIns(t, k).uid, i: fxIndex(k) } : MAC_KEY.test(k) ? { uid: macroIns(t, macroOf(t, k)).uid, i: macroOf(t, k).to.i } : {}))
 /* a fader moved by hand: with a line drawn, the whole line moves with it */
 function volSet (t, v) {
   const pts = autoPts(t, 'vol')
@@ -59,7 +83,8 @@ function cycleAutoParam () {
 /* the list of what a track's line can be for. Each plug-in on it offers the control last moved in its own window: a line
    is asked for by moving the thing itself, and then choosing it here */
 async function openAutoMenu (t, x, y) {
-  const items = autoParams(t).map(k => ({ t: autoName(t, k), k: autoPts(t, k).length ? String(autoPts(t, k).length) : '', v: k, on: apOf(t) === k }))
+  const items = autoParams(t).map(k => ({ t: MAC_KEY.test(k) ? asGiven(autoName(t, k)) : autoName(t, k), k: MAC_KEY.test(k) ? (macroIns(t, macroOf(t, k)) ? asGiven(macroOf(t, k).to.plug) : 'not wired') : autoPts(t, k).length ? String(autoPts(t, k).length) : '', v: k, on: apOf(t) === k }))
+  { const m = items.findIndex(it => MAC_KEY.test(it.v)); if (m > 0) items[m].sep = true }       // (the macros, by their names, under the track's own lines)
   if (NAT) for (const ins of t.inserts || []) {
     if (ins.out || !ins.uid) continue
     const r = await NAT.call('touched', { track: t.id, uid: ins.uid })
@@ -86,7 +111,7 @@ function autoLane (t, y, rh, xEnd = X1) {
   const { k, A, yOf } = autoGeom(t, y, rh), pts = autoPts(t, k), own = lineOwn(t), ink = own ? t.c : INK, pale = own && !heard(t) ? .45 : 1, xe = Math.min(xEnd, X1)
   if (!pts.length) return own ? (xe > X0 ? P(`M${X0} ${n(yOf(A.now(t))) + .5}H${n(xe)}`, { stroke: ink, sa: OWN_LINE * pale }) : '') : P(`M${X0} ${n(yOf(A.now(t)))}H${X1}`, { stroke: INK, sa: .5, dash: '5 4' })
   let d = `M${X0 - 2} ${n(yOf(pts[0].v))}`, dots = ''
-  for (const q of pts) d += `L${n(bx(q.b + 1))} ${n(yOf(q.v))}`
+  for (const [b, v] of autoBent(pts)) d += `L${n(bx(b + 1))} ${n(yOf(v))}`
   d += `L${n(own ? Math.max(xe, bx(pts[pts.length - 1].b + 1)) : Math.max(X1, bx(pts[pts.length - 1].b + 1)) + 2)} ${n(yOf(pts[pts.length - 1].v))}`
   for (const q of pts) {
     const x = bx(q.b + 1)

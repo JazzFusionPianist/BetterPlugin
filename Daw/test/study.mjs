@@ -78,8 +78,8 @@ const comp = await node('comp')
   if (c.x < (await el('#g-dock [data-a="study"][data-k="bg"]')).l) { await b.click(c.x, c.y); await b.sleep(80) } else await ev(`studyOpen(S.tracks[S.sel], ${d.id})`)
   ok('another print pressed: its study instead', await ev(`return STUDY.id === ${d.id}`))
   const i = await ev(`flush(); return STUDY.g.rows.findIndex(r => r.h && r.h.label === 'time')`), cells = await ev(`return document.querySelectorAll('#g-dock [data-a="study"][data-k="cell"][data-i="${i}"]').length`)
-  ok('…the delay\'s time stands as a line of cells, every division of it', cells === 7, cells)
-  const c4 = await el(`#g-dock [data-a="study"][data-k="cell"][data-i="${i}"][data-v="4"]`); await b.click(c4.x, c4.y); await b.sleep(60)
+  ok('…the delay\'s time stands as a line of cells, every division of it (Patch on Slur\'s, 1/32 to 1/2)', cells === 8, cells)
+  const c4 = await el(`#g-dock [data-a="study"][data-k="cell"][data-i="${i}"][data-v="5"]`); await b.click(c4.x, c4.y); await b.sleep(60)
   ok('…a quarter pressed', (await node('delay')).div === 4, await node('delay')) }
 
 /* put away: the close mark, esc, a press on the empty wall */

@@ -1,0 +1,149 @@
+<!doctype html><meta charset="utf-8">
+<!-- Slur Studio, the meter: draft 1 (2026-10-13). A thing on the wall that changes nothing and shows what passes through
+     it: the wave as it came, how loud (lufs: momentary, short term, integrated, range; true peak), peak and rms for each
+     side, and the stereo picture three ways (lissajous, polar sample, polar level) with correlation and balance.
+     Everything here is drawn from made-up sound; nothing is built. -->
+<style>
+@font-face { font-family: 'Instrument Sans'; font-weight: 400 700; font-style: normal; src: url("../../ui/fonts/instrument-sans-normal-400-700-latin.woff2") }
+@font-face { font-family: 'Instrument Sans'; font-weight: 400 700; font-style: italic; src: url("../../ui/fonts/instrument-sans-italic-400-700-latin.woff2") }
+body { margin: 0; background: #0c0c0c; color: #ECEAE4; font: 13px 'Instrument Sans', sans-serif; width: 1440px }
+h1 { font-size: 22px; font-weight: 500; margin: 0; padding: 28px 32px 4px }
+p.sub { margin: 0; padding: 0 32px 6px; color: #8d8a84; max-width: 1100px; line-height: 1.5 }
+.lab { padding: 22px 32px 10px; display: flex; gap: 14px; align-items: baseline } .lab b { font-weight: 500; font-size: 15px } .lab span { color: #8d8a84 }
+svg text { font-family: 'Instrument Sans', sans-serif }
+.row { display: flex; gap: 20px; padding: 0 32px }
+</style>
+<h1>the meter, draft 1</h1>
+<p class="sub">a thing on the wall that changes nothing and shows what passes through it. it stands wherever it is wired: after a print it shows what that print made. its face opens in a window of its own, like a plug-in’s.</p>
+<div class="lab"><b>a  the face, everything at once</b><span>the wave as it came; how loud; each side; the stereo picture</span></div>
+<div class="row"><div id="A"></div></div>
+<div class="lab"><b>the stereo picture, three ways</b><span>the cell above it chooses</span></div>
+<div class="row" id="S"></div>
+<div class="lab"><b>b  the face made small</b><span>the same meter narrow, to stand beside the room: loudness and the sides, the picture under them</span></div>
+<div class="row"><div id="B"></div><div id="W" style="padding-left:28px"></div></div>
+<div style="height:30px"></div>
+<script>
+const K0 = '#0E0E0E', K1 = '#151514', K2 = '#1B1B1A', K3 = '#262625', K4 = '#32322F', INK = '#ECEAE4', PIG = '#E0562F', OCH = '#C9A23A', RED = '#D8432E'
+const n = v => Math.round(v * 100) / 100
+const T = (x, y, s, o = {}) => `<text x="${n(x)}" y="${n(y)}" font-size="${o.size || 10}" font-weight="${o.w || 400}" fill="${o.c || INK}" fill-opacity="${o.a == null ? 1 : o.a}"${o.anchor ? ` text-anchor="${o.anchor}"` : ''}${o.it ? ' font-style="italic"' : ''}${o.ls ? ` letter-spacing="${o.ls}"` : ''}>${s}</text>`
+const R = (x, y, w, h, o = {}) => `<rect x="${n(x)}" y="${n(y)}" width="${n(Math.max(0, w))}" height="${n(Math.max(0, h))}"${o.rx ? ` rx="${o.rx}"` : ''} fill="${o.fill || 'none'}"${o.fa != null ? ` fill-opacity="${o.fa}"` : ''}${o.stroke ? ` stroke="${o.stroke}" stroke-opacity="${o.sa == null ? 1 : o.sa}" stroke-width="${o.sw || 1}"` : ''}/>`
+const P = (d, o = {}) => `<path d="${d}" fill="${o.fill || 'none'}"${o.fa != null ? ` fill-opacity="${o.fa}"` : ''}${o.stroke ? ` stroke="${o.stroke}" stroke-opacity="${o.sa == null ? 1 : o.sa}" stroke-width="${o.sw || 1}"` : ''}${o.dash ? ` stroke-dasharray="${o.dash}"` : ''}${o.cap ? ` stroke-linecap="${o.cap}"` : ''}/>`
+const C = (x, y, r, o = {}) => `<circle cx="${n(x)}" cy="${n(y)}" r="${n(r)}" fill="${o.fill || 'none'}"${o.fa != null ? ` fill-opacity="${o.fa}"` : ''}${o.stroke ? ` stroke="${o.stroke}" stroke-opacity="${o.sa == null ? 1 : o.sa}" stroke-width="${o.sw || 1}"` : ''}/>`
+const hl = (x0, x1, y, a = .1) => P(`M${n(x0)} ${n(y) + .5}H${n(x1)}`, { stroke: INK, sa: a })
+const vl = (x, y0, y1, a = .1) => P(`M${n(x) + .5} ${n(y0)}V${n(y1)}`, { stroke: INK, sa: a })
+const cellW = s => Math.round(s.length * 5.4 + 18)
+const cell = (x, y, s, on) => R(x + .5, y + .5, cellW(s) - 1, 17, { rx: 1.5, fill: on ? INK : 'none', stroke: INK, sa: on ? 1 : .22 }) + T(x + cellW(s) / 2, y + 12.6, s, { size: 9.5, anchor: 'middle', c: on ? K0 : INK, a: on ? 1 : .8, w: on ? 500 : 400 })
+const field = (x, y, k, v) => T(x, y, k, { size: 9.5, a: .42 }) + T(x + k.length * 5.2 + 8, y, v, { size: 9.5, a: .9 })
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647, gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) / 1.2
+/* made-up sound: a voice in phrases, over ten seconds */
+const N = 760, env = []
+for (let i = 0; i < N; i++) { const t = i / N * 10, ph = [[.3, 1.9, .8], [2.3, 3.6, .95], [4.1, 5.2, .6], [5.6, 7.9, 1], [8.3, 9.8, .85]].find(p => t >= p[0] && t <= p[1]); let e = 0; if (ph) { const u = (t - ph[0]) / (ph[1] - ph[0]); e = ph[2] * Math.min(1, u * 9) * Math.min(1, (1 - u) * 5) * (.55 + .45 * Math.abs(Math.sin(t * 9.3)) * (.6 + .4 * rnd())) } env.push(Math.max(.012, e * (.75 + .25 * rnd()))) }
+function wave (x, y, w, h, o = {}) {
+  const mid = y + h / 2, k = N / w
+  let up = `M${x} ${mid}`, dn = ''
+  for (let i = 0; i < w; i++) { const e = env[Math.min(N - 1, Math.floor(i * k))] * (h / 2 - 3); up += `L${x + i} ${n(mid - e)}`; dn = `L${x + i} ${n(mid + e * (.86 + .14 * Math.sin(i * .7)))}` + dn }
+  let s = P(up + dn + 'Z', { fill: PIG, fa: .9 }) + hl(x, x + w, mid, .12)
+  if (o.loud) { let d = ''; for (let i = 0; i < w; i += 4) { let a = 0, c = 0; for (let j = Math.max(0, i - 90); j <= i; j++) { a += Math.pow(env[Math.min(N - 1, Math.floor(j * k))], 2); c++ } const l = 10 * Math.log10(a / c + 1e-5) - 9, yy = y + 6 + (h - 12) * Math.min(1, Math.max(0, -l / 36)); d += (d ? 'L' : 'M') + (x + i) + ' ' + n(yy) } s += P(d, { stroke: INK, sa: .75, sw: 1.1 }) }
+  for (const t of o.clips || []) s += R(x + w * t - 1, y + 1, 2, 5, { fill: RED })
+  return s
+}
+/* a level bar: rms solid, peak a line, the held peak a tick; db from -60 to +3 */
+const dbY = (db, y, h) => y + h * (1 - Math.min(1, Math.max(0, (db + 60) / 63)))
+function bar (x, y, w, h, rms, peak, hold, lab) {
+  let s = R(x, y, w, h, { fill: K0 }) + R(x, dbY(rms, y, h), w, y + h - dbY(rms, y, h), { fill: INK, fa: .82 }) + R(x, dbY(peak, y, h), w, dbY(rms, y, h) - dbY(peak, y, h), { fill: INK, fa: .26 })
+  s += P(`M${x} ${n(dbY(hold, y, h)) + .5}H${x + w}`, { stroke: hold > -.3 ? RED : INK, sw: 1.5 }) + T(x + w / 2, y + h + 13, lab, { size: 9.5, anchor: 'middle', a: .5 })
+  return s
+}
+function dbScale (x, y, h, side) { let s = ''; for (const d of [0, -6, -12, -18, -24, -36, -48]) { const yy = dbY(d, y, h); s += hl(x - 3, x + 3, yy, .3) + T(side < 0 ? x - 7 : x + 7, yy + 3.3, String(Math.abs(d)), { size: 8.5, a: .42, anchor: side < 0 ? 'end' : 'start' }) } return s }
+/* loudness on its own scale, -36 to 0 lufs, with where it should be */
+const luY = (lu, y, h) => y + h * Math.min(1, Math.max(0, -lu / 36))
+function loudBar (x, y, w, h, m, st, it, target) {
+  let s = R(x, y, w, h, { fill: K0 }) + R(x, luY(m, y, h), w, y + h - luY(m, y, h), { fill: INK, fa: .2 }) + R(x + 3, luY(st, y, h), w - 6, y + h - luY(st, y, h), { fill: INK, fa: .82 })
+  s += P(`M${x - 4} ${n(luY(it, y, h)) + .5}H${x + w + 4}`, { stroke: PIG, sw: 1.6 }) + P(`M${x - 4} ${n(luY(target, y, h)) + .5}H${x + w + 4}`, { stroke: OCH, sw: 1, dash: '2 2' })
+  for (const d of [0, -6, -12, -18, -24, -30, -36]) s += hl(x + w + 6, x + w + 10, luY(d, y, h), .3) + T(x + w + 14, luY(d, y, h) + 3.3, String(Math.abs(d)), { size: 8.5, a: .42 })
+  return s
+}
+const big = (x, y, k, v, unit, o = {}) => T(x, y, k, { size: 9.5, a: .42 }) + T(x, y + (o.size || 22) + 2, v, { size: o.size || 22, w: 500, c: o.c || INK, ls: '-.02em' }) + T(x + String(v).length * (o.size || 22) * .54 + 5, y + (o.size || 22) + 2, unit, { size: 9.5, a: .42 })
+/* the stereo picture */
+const cloud = (count, wide) => { const pts = []; for (let i = 0; i < count; i++) { const a = Math.pow(rnd(), .6), m = gauss() * a, sd = gauss() * a * wide; pts.push([m, sd]) } return pts }
+const PTS = cloud(1500, .34)
+function lissajous (x, y, sz) {
+  const cx = x + sz / 2, cy = y + sz / 2, r = sz / 2 - 16
+  let s = R(x, y, sz, sz, { fill: K0 }) + P(`M${cx} ${cy - r}L${cx + r} ${cy}L${cx} ${cy + r}L${cx - r} ${cy}Z`, { stroke: INK, sa: .16 }) + P(`M${cx - r} ${cy}H${cx + r}M${cx} ${cy - r}V${cy + r}`, { stroke: INK, sa: .08 }) + P(`M${cx - r / 2} ${cy - r / 2}L${cx + r / 2} ${cy + r / 2}M${cx + r / 2} ${cy - r / 2}L${cx - r / 2} ${cy + r / 2}`, { stroke: INK, sa: .08 })
+  for (const [m, sd] of PTS) { const px = cx + sd * r * .9, py = cy - m * r * .9; if (Math.abs(px - cx) + Math.abs(py - cy) < r) s += R(px, py, 1.1, 1.1, { fill: PIG, fa: .55 }) }
+  s += T(cx, y + 11, 'm', { size: 9, a: .42, anchor: 'middle' }) + T(x + sz - 6, cy + 3, 's', { size: 9, a: .42, anchor: 'end' }) + T(cx - r / 2 - 9, cy - r / 2 - 5, 'l', { size: 9, a: .42 }) + T(cx + r / 2 + 6, cy - r / 2 - 5, 'r', { size: 9, a: .42 })
+  return s
+}
+function polar (x, y, sz, level) {
+  const cx = x + sz / 2, cy = y + sz - 22, r = sz / 2 - 14
+  let s = R(x, y, sz, sz, { fill: K0 })
+  for (const k of [1, .66, .33]) s += P(`M${cx - r * k} ${cy}A${r * k} ${r * k} 0 0 1 ${cx + r * k} ${cy}`, { stroke: INK, sa: k === 1 ? .16 : .07 })
+  for (const a of [0, 45, 90, 135, 180]) { const q = a * Math.PI / 180; s += P(`M${cx} ${cy}L${n(cx - Math.cos(q) * r)} ${n(cy - Math.sin(q) * r)}`, { stroke: INK, sa: .08 }) }
+  s += hl(cx - r, cx + r, cy, .16)
+  if (level) { const bins = 48, amp = new Array(bins).fill(0); for (const [m, sd] of PTS) { const q = Math.atan2(Math.abs(m), -sd), b = Math.min(bins - 1, Math.floor(q / Math.PI * bins)), a = Math.hypot(m, sd); amp[b] = Math.max(amp[b] * .995, a, amp[b]) } let d = `M${cx} ${cy}`; for (let b = 0; b < bins; b++) { const sm = (amp[Math.max(0, b - 1)] + amp[b] * 2 + amp[Math.min(bins - 1, b + 1)]) / 4, q = (b + .5) / bins * Math.PI, rr = Math.min(r, sm * r * .78); d += `L${n(cx - Math.cos(q) * rr)} ${n(cy - Math.sin(q) * rr)}` } s += P(d + 'Z', { fill: PIG, fa: .5, stroke: PIG, sw: 1.1 }) }
+  else for (const [m, sd] of PTS) { const q = Math.atan2(Math.abs(m), -sd), a = Math.min(1, Math.hypot(m, sd) * .8); s += R(cx - Math.cos(q) * a * r, cy - Math.sin(q) * a * r, 1.1, 1.1, { fill: PIG, fa: .55 }) }
+  s += T(cx - r, cy + 13, 'l', { size: 9, a: .42, anchor: 'middle' }) + T(cx + r, cy + 13, 'r', { size: 9, a: .42, anchor: 'middle' }) + T(cx, y + 11, 'm', { size: 9, a: .42, anchor: 'middle' })
+  return s
+}
+/* correlation and balance: a line with its middle marked, and where it stands now */
+function line (x, y, w, lab, l, r, v, mid) {
+  const px = x + w * (v + 1) / 2
+  return T(x, y - 7, lab, { size: 9.5, a: .42 }) + T(x + w, y - 7, mid, { size: 9.5, a: .9, anchor: 'end' }) + R(x, y, w, 5, { fill: K0 }) + vl(x + w / 2, y - 2, y + 7, .3) + R(Math.min(px, x + w / 2), y, Math.abs(px - (x + w / 2)), 5, { fill: INK, fa: .3 }) + R(px - 1, y - 2, 2, 9, { fill: INK }) + T(x, y + 17, l, { size: 8.5, a: .42 }) + T(x + w, y + 17, r, { size: 8.5, a: .42, anchor: 'end' })
+}
+const head = (w, title, right) => R(0, 0, w, 26, { fill: K2 }) + hl(0, w, 25.5, .1) + R(12, 10, 6, 6, { fill: PIG }) + T(24, 16.6, 'meter', { size: 10.5, w: 500 }) + T(62, 16.6, title, { size: 9.5, a: .42 }) + right
+const frame = (w, h, inner) => `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block">${R(0, 0, w, h, { fill: K1 })}${inner}${R(.5, .5, w - 1, h - 1, { stroke: INK, sa: .16 })}</svg>`
+
+/* ── a: everything at once ── */
+{ const w = 900, h = 488
+  let s = head(w, 'lead vox, after tape', cell(w - 12 - cellW('reset'), 4, 'reset') + cell(w - 12 - cellW('reset') - 6 - cellW('hold'), 4, 'hold', true) + field(w - 300, 16.6, 'window', '10 s') + field(w - 222, 16.6, 'aim', '−14 lufs'))
+  /* the wave as it came, with the short-term loudness drawn over it */
+  s += T(16, 44, 'the wave as it came', { size: 9.5, a: .42 }) + T(w - 16, 44, 'short term over it', { size: 9.5, a: .42, anchor: 'end' })
+  s += R(16, 52, w - 32, 132, { fill: K0 }) + wave(16, 52, w - 32, 132, { loud: true, clips: [.612] })
+  for (let k = 0; k <= 10; k++) { const x = 16 + (w - 32) * k / 10; s += vl(x, 184, 188, .3) + T(x, 198, k === 10 ? 'now' : `−${10 - k} s`, { size: 8.5, a: .42, anchor: k === 0 ? 'start' : k === 10 ? 'end' : 'middle' }) }
+  s += hl(0, w, 210, .1)
+  /* how loud */
+  const y0 = 228
+  s += T(16, y0, 'how loud', { size: 9.5, a: .42 })
+  s += big(16, y0 + 22, 'integrated', '−14.2', 'lufs', { size: 40, c: INK })
+  s += big(16, y0 + 96, 'short term', '−13.1', 'lufs') + big(128, y0 + 96, 'momentary', '−11.6', 'lufs')
+  s += big(16, y0 + 150, 'range', '6.3', 'lu') + big(128, y0 + 150, 'true peak', '−0.2', 'dbtp', { c: RED })
+  s += big(16, y0 + 204, 'against the aim', '−0.2', 'lu', { size: 16 }) + big(128, y0 + 204, 'measured for', '3:42', '', { size: 16 })
+  s += loudBar(258, y0 + 14, 22, 232, -11.6, -13.1, -14.2, -14)
+  s += vl(330, 210, h, .1)
+  /* each side */
+  const bx = 352
+  s += T(bx, y0, 'each side', { size: 9.5, a: .42 }) + T(bx + 150, y0, 'rms, peak, held', { size: 9.5, a: .42, anchor: 'end' })
+  s += dbScale(bx + 14, y0 + 14, 216, -1) + bar(bx + 26, y0 + 14, 22, 216, -17.8, -6.2, -1.4, 'l') + bar(bx + 54, y0 + 14, 22, 216, -18.4, -5.1, -.2, 'r')
+  s += T(bx + 96, y0 + 30, 'peak', { size: 9.5, a: .42 }) + T(bx + 96, y0 + 46, '−1.4', { size: 13, w: 500 }) + T(bx + 96, y0 + 62, '−0.2', { size: 13, w: 500, c: RED })
+  s += T(bx + 96, y0 + 92, 'rms', { size: 9.5, a: .42 }) + T(bx + 96, y0 + 108, '−17.8', { size: 13, w: 500 }) + T(bx + 96, y0 + 124, '−18.4', { size: 13, w: 500 })
+  s += T(bx + 96, y0 + 154, 'crest', { size: 9.5, a: .42 }) + T(bx + 96, y0 + 170, '11.9', { size: 13, w: 500 })
+  s += T(bx + 96, y0 + 200, 'over', { size: 9.5, a: .42 }) + T(bx + 96, y0 + 216, '1', { size: 13, w: 500, c: RED })
+  s += vl(530, 210, h, .1)
+  /* the stereo picture */
+  const sx = 552, sz = 216
+  s += T(sx, y0, 'the stereo picture', { size: 9.5, a: .42 })
+  let cx = w - 16; for (const [k, on] of [['polar level', false], ['polar sample', false], ['lissajous', true]]) { cx -= cellW(k); s += cell(cx, y0 - 13, k, on); cx += 1 }
+  s += lissajous(sx, y0 + 14, sz)
+  s += line(sx + sz + 22, y0 + 44, w - 16 - (sx + sz + 22), 'correlation', '−1', '+1', .78, '+0.78') + line(sx + sz + 22, y0 + 104, w - 16 - (sx + sz + 22), 'balance', 'l', 'r', .06, 'r 0.4 db') + line(sx + sz + 22, y0 + 164, w - 16 - (sx + sz + 22), 'width', 'mono', 'wide', -.32, '34 %')
+  s += T(sx + sz + 22, y0 + 214, 'mono safe', { size: 9.5, a: .9 }) + T(sx + sz + 22, y0 + 228, 'never under 0 in 3:42', { size: 9, a: .42 })
+  document.getElementById('A').innerHTML = frame(w, h, s) }
+
+/* ── the stereo picture, three ways ── */
+{ const sz = 250; let h = ''
+  for (const [name, f] of [['lissajous', () => lissajous(0, 22, sz)], ['polar sample', () => polar(0, 22, sz, false)], ['polar level', () => polar(0, 22, sz, true)]])
+    h += `<div><svg width="${sz}" height="${sz + 22}" viewBox="0 0 ${sz} ${sz + 22}" style="display:block">${T(0, 12, name, { size: 10.5, a: .8 })}${f()}${R(.5, 22.5, sz - 1, sz - 1, { stroke: INK, sa: .16 })}</svg></div>`
+  document.getElementById('S').innerHTML = h }
+
+/* ── b: made small ── */
+{ const w = 300, h = 470
+  let s = head(w, 'lead vox', cell(w - 12 - cellW('reset'), 4, 'reset'))
+  s += R(12, 36, w - 24, 54, { fill: K0 }) + wave(12, 36, w - 24, 54, {})
+  s += big(12, 106, 'integrated', '−14.2', 'lufs', { size: 30 }) + big(158, 106, 'true peak', '−0.2', 'dbtp', { c: RED, size: 16 }) + big(158, 144, 'range', '6.3', 'lu', { size: 16 })
+  s += loudBar(12, 196, 16, 150, -11.6, -13.1, -14.2, -14) + dbScale(84, 196, 150, -1) + bar(92, 196, 16, 150, -17.8, -6.2, -1.4, 'l') + bar(114, 196, 16, 150, -18.4, -5.1, -.2, 'r')
+  s += lissajous(150, 196, 138)
+  s += line(12, 392, w - 24, 'correlation', '−1', '+1', .78, '+0.78') + line(12, 438, w - 24, 'balance', 'l', 'r', .06, 'r 0.4 db')
+  document.getElementById('B').innerHTML = frame(w, h, s) }
+{ const rows = [['on the wall', 'picked from add like any print. it stands where it is wired and shows the sound at that place; several can stand on one wall.'], ['it changes nothing', 'what goes in comes out, sample for sample, with no lateness.'], ['its window', 'opens when the meter is clicked, stays over the room, and is sized by its corner: wide it is a, narrow it is b.'], ['hold, reset', 'hold keeps the highest peaks marked; reset starts integrated, range and the held peaks again. they also start again when the song is played from a new place.'], ['aim', 'the loudness wanted (−14, −16, −23 lufs or typed). the dashed line and “against the aim” read from it.'], ['the stereo out', 'on the stereo out’s wall it is the meter of the whole song.']]
+  let s = ''; rows.forEach(([k, v], i) => { s += T(0, 14 + i * 58, k, { size: 12, w: 500 }) ; const words = v.split(' '); let ln = '', yy = 32 + i * 58; for (const wd of words) { if ((ln + ' ' + wd).length > 92) { s += T(0, yy, ln, { size: 11.5, a: .6 }); ln = wd; yy += 16 } else ln = ln ? ln + ' ' + wd : wd } s += T(0, yy, ln, { size: 11.5, a: .6 }) })
+  document.getElementById('W').innerHTML = `<svg width="760" height="470" viewBox="0 0 760 470">${s}</svg>` }
+</script>

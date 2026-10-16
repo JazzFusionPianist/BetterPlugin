@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>meter</title>
+<style>
+@font-face { font-family: 'Instrument Sans'; font-weight: 400 700; font-style: normal; src: url(fonts/instrument-sans-normal-400-700-latin.woff2) }
+@font-face { font-family: 'Instrument Sans'; font-weight: 400 700; font-style: italic; src: url(fonts/instrument-sans-italic-400-700-latin.woff2) }
+/* the meter's face: one page of the room's, in the room's own paper and ink (see meterface.js) */
+html, body { height: 100%; margin: 0; background: #151514; overflow: hidden; -webkit-user-select: none; user-select: none; cursor: default }
+canvas { display: block; width: 100%; height: 100% }
+</style>
+</head>
+<body>
+<canvas id="face" role="img" aria-label="meter"></canvas>
+<script src="lang.js"></script>
+<script src="lang.ko.js"></script>
+<script src="meterface.js"></script>
+</body>
+</html>

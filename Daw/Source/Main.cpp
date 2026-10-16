@@ -235,7 +235,7 @@ public:
         startTimerHz (30);
     }
 
-    ~MainComponent() override { slur::PlugWindow::key = nullptr; settings.reset(); engine.devices().removeChangeListener (this); }
+    ~MainComponent() override { slur::PlugWindow::key = nullptr; meters.clear(); settings.reset(); engine.devices().removeChangeListener (this); }
     void resized() override { if (web) web->setBounds (getLocalBounds()); }
     void paint (juce::Graphics& g) override { g.fillAll (juce::Colour (0xff151514)); }
 
@@ -753,6 +753,44 @@ private:
             done (getPeer() != nullptr ? juce::JSON::parse (juce::String (juce::CharPointer_UTF8 (slurWindowReport (getPeer()->getNativeHandle(), png.getFullPathName().toRawUTF8()).c_str()))) : juce::var());
             return;
         }
+        if (op == "testMeterMath")                                             // the check: the meter's sums against sound that is known (EBU 3341 and 3342's own cases, and plain ones)
+        {
+            auto* o = new juce::DynamicObject();
+            if (selfTestMode().isEmpty()) { done (juce::var (o)); return; }
+            const double rate = d.hasProperty ("rate") ? (double) d["rate"] : 48000.0, pi2 = juce::MathConstants<double>::twoPi;
+            const int block = 512;
+            std::vector<float> L ((size_t) block), R ((size_t) block);
+            juce::int64 at = 0;
+            // seconds of a sine on both sides: its peak in db, its pitch, the right side's sign, and where in its turn it begins
+            auto run = [&] (daw::Meter& m, double seconds, double peakDb, double hz, double right, double phase)
+            {
+                const double a = peakDb <= -200.0 ? 0.0 : std::pow (10.0, peakDb / 20.0);
+                for (juce::int64 left = (juce::int64) std::llround (seconds * rate); left > 0; left -= block)
+                {
+                    const int n = (int) juce::jmin ((juce::int64) block, left);
+                    for (int i = 0; i < n; ++i, ++at) { const float v = (float) (a * std::sin (pi2 * hz * (double) at / rate + phase)); L[(size_t) i] = v; R[(size_t) i] = (float) (v * right); }
+                    m.take (L.data(), R.data(), n);
+                }
+            };
+            const auto db = [] (float v) { return v > 1.0e-9f ? 20.0 * std::log10 ((double) v) : -200.0; };
+            { daw::Meter m; m.prepare (rate); at = 0; run (m, 20.0, -23.0, 1000.0, 1.0, 0.0);                  // 3341, case 1: a thousand hertz at -23 on both sides reads -23
+              o->setProperty ("m23", (double) m.momentary.load()); o->setProperty ("s23", (double) m.shortTerm.load()); o->setProperty ("i23", (double) m.integrated.load()); o->setProperty ("range23", (double) m.range.load());
+              o->setProperty ("rms23", db (m.rms[0].load())); o->setProperty ("peak23", db (m.peakHeld[0].load())); o->setProperty ("cor23", (double) m.correlation.load()); o->setProperty ("width23", (double) m.width.load());
+              run (m, 20.0, -400.0, 1000.0, 1.0, 0.0); o->setProperty ("i23thenSilence", (double) m.integrated.load()); }      // (silence after it is not counted)
+            { daw::Meter m; m.prepare (rate); at = 0; run (m, 10.0, -36.0, 1000.0, 1.0, 0.0); run (m, 60.0, -23.0, 1000.0, 1.0, 0.0); run (m, 10.0, -36.0, 1000.0, 1.0, 0.0);      // 3341, case 3: -36, -23, -36 reads -23 (what is more than ten under goes)
+              o->setProperty ("iGated", (double) m.integrated.load()); }
+            { daw::Meter m; m.prepare (rate); at = 0; run (m, 20.0, -20.0, 1000.0, 1.0, 0.0); run (m, 20.0, -30.0, 1000.0, 1.0, 0.0);                                         // 3342, case 1: -20 then -30 has a range of 10
+              o->setProperty ("range10", (double) m.range.load()); }
+            { daw::Meter m; m.prepare (rate); at = 0; run (m, 2.0, 0.0, rate / 4.0, 1.0, juce::MathConstants<double>::pi / 4.0);                                              // a quarter of the rate, begun an eighth of a turn in: its samples stop 3 db under what it reaches
+              o->setProperty ("tpSample", db (m.peakHeld[0].load())); o->setProperty ("tp", db (m.truePeak.load())); }
+            { daw::Meter m; m.prepare (rate); at = 0; run (m, 3.0, -12.0, 440.0, -1.0, 0.0);                                                                                   // one side the other's opposite
+              o->setProperty ("corOpp", (double) m.correlation.load()); o->setProperty ("widthOpp", (double) m.width.load()); o->setProperty ("corLowOpp", (double) m.corLow.load()); }
+            { daw::Meter m; m.prepare (rate); at = 0; run (m, 3.0, -12.0, 440.0, 0.5, 0.0);                                                                                    // the right side half as loud: 6 db to the left
+              o->setProperty ("balLeft", (double) m.balance.load()); const auto r = m.read (5.0); o->setProperty ("waveChars", r["wave"].toString().length()); o->setProperty ("pairChars", r["pairs"].toString().length()); o->setProperty ("sec", (double) r["sec"]); }
+            { daw::Meter m; m.prepare (rate); at = 0; run (m, 1.0, 1.0, 100.0, 1.0, 0.0); o->setProperty ("overs", m.overs.load()); m.reset(); run (m, 0.5, -30.0, 100.0, 1.0, 0.0); o->setProperty ("oversAfterReset", m.overs.load()); o->setProperty ("peakAfterReset", db (m.peakHeld[0].load())); }      // over full scale a hundred times a second, each counted once; and the count begun again
+            o->setProperty ("rate", rate);
+            done (juce::var (o)); return;
+        }
         if (op == "testGate")                                                  // the check: where a printed file first sounds, and where another first sounds from a given frame on (a line that opens a track, against the same print with no line)
         {
             auto* o = new juce::DynamicObject();
@@ -775,6 +813,28 @@ private:
             o->setProperty ("ref", (double) first (d["a"].toString(), (juce::int64) (double) d["from"]));
             o->setProperty ("got", (double) first (d["b"].toString(), 0));
             o->setProperty ("rate", rate);
+            done (juce::var (o)); return;
+        }
+        if (op == "testRatio")                                                 // the check: how loud a print is against the same print dry, window by window (a hand that moves with the song)
+        {
+            auto* o = new juce::DynamicObject();
+            if (selfTestMode().isEmpty()) { done (juce::var (o)); return; }
+            juce::AudioFormatManager fm; fm.registerBasicFormats();
+            std::unique_ptr<juce::AudioFormatReader> ra { fm.createReaderFor (juce::File (d["a"].toString())) }, rb { fm.createReaderFor (juce::File (d["b"].toString())) };
+            if (ra == nullptr || rb == nullptr) { done (juce::var (o)); return; }
+            const int n = (int) juce::jmin ((juce::int64) 1440000, juce::jmin (ra->lengthInSamples, rb->lengthInSamples)), wins = juce::jlimit (1, 512, (int) d["windows"]);
+            juce::AudioBuffer<float> A ((int) ra->numChannels, n), B ((int) rb->numChannels, n);
+            ra->read (&A, 0, n, 0, true, true); rb->read (&B, 0, n, 0, true, true);
+            juce::Array<juce::var> r;
+            std::vector<double> ea ((size_t) wins), eb ((size_t) wins);
+            for (int w = 0; w < wins; ++w)
+            {
+                const int i0 = (int) ((juce::int64) n * w / wins), i1 = (int) ((juce::int64) n * (w + 1) / wins);
+                for (int i = i0; i < i1; ++i) for (int c = 0; c < 2; ++c) { const float x = A.getSample (juce::jmin (c, A.getNumChannels() - 1), i), y = B.getSample (juce::jmin (c, B.getNumChannels() - 1), i); ea[(size_t) w] += x * x; eb[(size_t) w] += y * y; }
+            }
+            const double top = *std::max_element (ea.begin(), ea.end());
+            for (int w = 0; w < wins; ++w) r.add (ea[(size_t) w] > top * 0.01 && ea[(size_t) w] > 1.0e-9 ? juce::roundToInt (std::sqrt (eb[(size_t) w] / ea[(size_t) w]) * 1000.0) / 1000.0 : -1.0);   // (a window where the dry print is near silent says nothing: -1)
+            o->setProperty ("ratio", r); o->setProperty ("rate", ra->sampleRate); o->setProperty ("seconds", (double) n / ra->sampleRate);
             done (juce::var (o)); return;
         }
         if (op == "testLag")                                                   // the check: by how many samples the second file's sound comes later than the first's (one sound printed after going two ways)
@@ -943,6 +1003,8 @@ private:
         if (op == "quit") { done (okVar()); juce::MessageManager::callAsync ([] { juce::JUCEApplication::quit(); }); return; }
         if (op == "quitWait") { quitIn = 0; done (okVar()); return; }          // the page is asking whether to save first: the app does not close by itself meanwhile (it closes when the page says quit)
         if (op == "paramScale") { done (engine.pluginScale ((int) d["track"], (int) d["uid"], (int) d["index"])); return; }      // how one control reads along its travel
+        if (op == "sideFrom")  { done (engine.setSide ((int) d["track"], (int) d["from"])); return; }       // what a side on a track's wall plays (ui/side.js)
+        if (op == "paramSet")  { done (okVar (engine.setPluginParam ((int) d["track"], (int) d["uid"], (int) d["index"], (float) (double) d["v"]))); return; }      // one control set by hand (a macro turned)
         if (op == "params")    { done (engine.pluginParams ((int) d["track"], (int) d["uid"])); return; }       // a plug-in's controls, for a line to be drawn for one
         if (op == "touched")   { done (engine.pluginTouched ((int) d["track"], (int) d["uid"])); return; }      // the control last moved in its window
         if (op == "testHosts")                                                 // the check: audio units opened through the library and by the app itself, laid side by side
@@ -955,6 +1017,43 @@ private:
         if (op == "testTouch") { if (selfTestMode().isNotEmpty()) engine.testTouch ((int) d["track"], (int) d["uid"], (int) d["i"], (float) (double) d["v"]); done (okVar()); return; }
         if (op == "keyFrom") { done (engine.setKey ((int) d["track"], (int) d["uid"], (int) d["from"])); return; }      // a plug-in is given a track to listen to (its key, or side chain); 0: none
         if (op == "bypass")  { engine.bypassPlugin ((int) d["track"], (int) d["uid"], (int) d["off"] != 0); done (okVar()); return; }
+        /* the meter (Meter.h): what one shows now, its count begun again, and its face — a window for each meter, by the
+           track and the node it stands at; shown again where it was left */
+        if (op == "meterRead")  { done (engine.meterRead ((int) d["track"], (int) d["id"], d.hasProperty ("sec") ? (double) d["sec"] : 10.0)); return; }
+        if (op == "meterReset") { engine.meterReset ((int) d["track"], d.hasProperty ("id") ? (int) d["id"] : -1); done (okVar()); return; }
+        if (op == "meterShow")
+        {
+            const auto key = d["track"].toString() + "." + d["id"].toString();
+            auto& w = meters[key];
+            if (w == nullptr)
+                w = std::make_unique<MeterWindow> ([] (const juce::String& path) { return serve (path); },
+                                                   [this] (const juce::String& o2, const juce::var& d2, MeterWindow::Done dn) { handle (o2, d2, std::move (dn)); },
+                                                   "track=" + d["track"].toString() + "&id=" + d["id"].toString() + "&name=" + juce::URL::addEscapeChars (d["name"].toString(), true) + "&c=" + juce::URL::addEscapeChars (d["c"].toString(), true), lang, selfTestMode().isEmpty());
+            else { w->setVisible (true); w->toFront (true); }
+            if (d["name"].toString().isNotEmpty()) w->setName ("meter, " + d["name"].toString());
+            done (okVar()); return;
+        }
+        if (op == "meterClose")                                                // the meter was taken off the wall (or its track is gone): its face goes
+        {
+            const auto key = d["track"].toString() + "." + d["id"].toString();
+            if (d["all"].toString() == "1") meters.clear(); else meters.erase (key);
+            done (okVar()); return;
+        }
+        if (op == "testMeterAsk")                                              // the check: a question put to a meter's face (a line of JavaScript that answers with JSON)
+        {
+            const auto it = meters.find (d["track"].toString() + "." + d["id"].toString());
+            if (selfTestMode().isEmpty() || it == meters.end() || it->second == nullptr) { done (okVar (false)); return; }
+            it->second->page().evaluateJavascript (d["js"].toString(), [done] (juce::WebBrowserComponent::EvaluationResult r) { done (r.getResult() != nullptr ? juce::JSON::parse (r.getResult()->toString()) : juce::var()); });
+            return;
+        }
+        if (op == "testMeterSnap")                                             // the check: a picture of a meter's face as its window shows it
+        {
+            const auto it = meters.find (d["track"].toString() + "." + d["id"].toString());
+            if (selfTestMode().isEmpty() || it == meters.end() || it->second == nullptr || it->second->getPeer() == nullptr) { done (okVar (false)); return; }
+            slurSnapshotWebView (it->second->getPeer()->getNativeHandle(), logDir().getChildFile (juce::File::createLegalFileName (d["name"].toString())).getFullPathName().toRawUTF8(), false);
+            done (okVar()); return;
+        }
+        if (op == "meterOpen")  { juce::Array<juce::var> a; for (auto& kv : meters) if (kv.second != nullptr && kv.second->isVisible()) a.add (kv.first); done (juce::var (a)); return; }      // which faces are up (for the check)
         if (op == "editor")  { engine.openEditor ((int) d["track"], (int) d["uid"]); done (okVar()); return; }
         if (op == "remove")  { done (okVar (engine.removePlugin ((int) d["track"], (int) d["uid"]))); return; }
         if (op == "decode")
@@ -1269,6 +1368,7 @@ private:
     bool slurLight = false;                                                    // slur's panel is light: the room's look asked for it (slurLook)
     bool keysToPage = false;                                                   // (command x, c, v and a go to the page as keys: see slurKeysToPage)
     std::unique_ptr<SettingsWindow> settings;
+    std::map<juce::String, std::unique_ptr<MeterWindow>> meters;      // the meters' faces, by track and node
     juce::String lang { "en" };
     juce::String pendingOpen;
     bool pageUp = false;

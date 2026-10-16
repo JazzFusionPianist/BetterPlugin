@@ -363,6 +363,16 @@ int slurRunningCopy (bool forward, bool amongChecks)
 
 /** The window's own bar takes the colour of the room's control bar, with its name in light type: one dark surface from the
     top of the window down. In full screen the system puts the bar away, and the name with it. */
+/*  A window of the app's own that stays over the room while the app is in front, and goes with the app when another one
+    is (the meter's face: as a plug-in's window does, host/Window.mm).  */
+void slurWindowOverRoom (void* nsView)
+{
+    NSView* v = (__bridge NSView*) nsView;
+    NSWindow* w = v.window;
+    if (w == nil) return;
+    w.level = NSFloatingWindowLevel;
+    w.hidesOnDeactivate = YES;
+}
 void slurStyleWindow (void* nsView)
 {
     NSView* v = (__bridge NSView*) nsView;

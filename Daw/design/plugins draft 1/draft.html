@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>slur studio, settings, plug-ins, draft 1</title>
+<style>
+/* Slur Studio, settings > plug-ins, draft 1 (2026-10-16). His ask: a plug-ins page in the settings that shows every
+   plug-in on the Mac sorted by kind, where the ones he does not use can be chosen and so left out of the room's list.
+   Drawn with the room's kit, in the settings window as display has it (1100 wide). The plug-ins are the ones on this
+   Mac (plugs.json, read from their bundles), sorted by the room's own rules (ui/cats.js).
+   ?f=1 by kind (dynamics chosen), ?f=2 by maker (Universal Audio chosen, some left out). */
+@font-face { font-family: 'Instrument Sans'; font-weight: 400 700; font-style: normal; src: url(../../ui/fonts/instrument-sans-normal-400-700-latin.woff2) }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0E0E0E; }
+svg { display: block; }
+</style>
+</head>
+<body>
+<div id="host"></div>
+<script src="../../ui/kit.js"></script>
+<script src="../../ui/cats.js"></script>
+<script>
+const SYS = "-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif"
+const endText = (x, y, t, size = 10, a = .5, c = INK) => `<text x="${x}" y="${y}" text-anchor="end" font-family="${FONT}" font-size="${size}" fill="${c}" fill-opacity="${a}">${esc(t)}</text>`
+const WW = 1100, WH = 720, BAR = 28, SIDE = 164
+const PARTS = ['general', 'display', 'audio', 'recording', 'editing', 'notes', 'plug-ins', 'command line', 'slur', 'hand off', 'storage']
+const KINDS = ['instruments'].concat(PLUG_CATS)
+/* a tick box: filled with a tick when the plug-in is in the room's list */
+const tick = (x, y, on) => on ? R(x, y, 12, 12, { rx: 2, fill: INK }) + P(`M${x + 3} ${y + 6.2}L${x + 5.2} ${y + 8.4}L${x + 9.2} ${y + 3.8}`, { stroke: K1, sw: 1.4, cap: 'round' }) : R(x + .5, y + .5, 11, 11, { rx: 2, stroke: INK, sa: .32 })
+
+Promise.all([400, 500].map(w => document.fonts.load(`${w} 10px 'Instrument Sans'`)).concat([document.fonts.load("italic 400 10px 'Instrument Sans'")])).then(() => fetch('plugs.json')).then(r => r.json()).then(list => {
+  for (const p of list) p.kind = p.inst ? 'instruments' : plugCat(p)
+  const f = +(new URLSearchParams(location.search).get('f') || 1)
+  /* what he left out in this picture: a few he would not use */
+  const OUT = new Set(['Console Recall', 'Ocean Way Studios', 'Auto-Key', 'UAD Fairchild 660', 'UAD Fairchild 670', 'UAD dbx 160', 'UAD Teletronix LA-3A', 'UAD Precision Limiter', 'UAD Precision Multiband', 'UAD Precision Buss Compressor', 'UAD Neve 33609', 'UAD API Vision Channel Strip', 'UAD Helios Type 69', 'UAD Pultec MEQ-5', 'UAD Pultec HLF-3C', 'UAD Lexicon 224', 'UAD RealVerb Pro', 'UAD EP-34 Tape Echo', 'UAD Galaxy Tape Echo', 'UAD Roland CE-1', 'UAD Roland Dimension D', 'UAD Brigade Chorus', 'UAD MXR Flanger Doubler'])
+  const shown = p => !OUT.has(p.name)
+  const out = list.filter(p => !shown(p)).length
+  let s = R(0, 0, WW, WH, { rx: 9, fill: K1 }) + `<clipPath id="w"><rect width="${WW}" height="${WH}" rx="9"/></clipPath>`
+  let g = R(0, 0, WW, BAR, { fill: K2 }) + hline(0, WW, BAR, .1)
+  g += Cc(18, 14, 5.4, { fill: '#FF5F57' }) + Cc(37, 14, 5.4, { fill: '#FEBC2E' }) + Cc(56, 14, 5.4, { fill: '#28C840' })
+  g += `<text x="${WW / 2}" y="18.2" text-anchor="middle" font-family="${SYS}" font-size="12" font-weight="600" fill="${INK}" fill-opacity=".9">Settings</text>`
+  g += vline(SIDE, BAR, WH, .1)
+  PARTS.forEach((p, i) => {
+    const y = BAR + 14 + i * 26, on = p === 'plug-ins'
+    if (on) g += R(10, y, SIDE - 20, 22, { rx: 2, fill: INK })
+    g += T(22, y + 14.8, p, { size: 10.5, w: on ? 500 : 400, c: on ? K1 : INK, a: on ? 1 : .78 })
+  })
+  const PR = WW - SIDE - 28
+  let b = T(28, 34, 'plug-ins', { size: 13, w: 500, a: .94 }) + T(28 + tw('plug-ins', 13, 500) + 12, 34, `${list.length} on this Mac,  ${out} left out of the room’s list`, { size: 10, a: .45 })
+  let kx = PR
+  for (const [t, armed] of [['look again', false], ['bring every one back', false]]) { const w = keyW(t, { size: 10, pad: 10, armed }); kx -= w; b += key(kx, 20, t, { h: 20, size: 10, pad: 10, armed })[0]; kx -= 8 }
+  b += hline(28, PR, 54, .1)
+  // down the left: by kind or by maker, and a field to find one by name
+  const TX = 28, TW = 196
+  b += cells(TX, 66, 20, [{ t: 'by kind', on: f !== 2 }, { t: 'by maker', on: f === 2 }], { size: 9.5, pad: 12, widths: [TW / 2, TW / 2] })[0]
+  b += R(TX + .5, 96.5, TW - 1, 21, { rx: 2, stroke: INK, sa: .22 }) + T(TX + 9, 110.6, 'find a plug-in', { size: 10, a: .36 })
+  const groups = f === 2 ? [...new Set(list.map(p => p.maker || 'others'))].sort((a, b) => list.filter(p => (p.maker || 'others') === b).length - list.filter(p => (p.maker || 'others') === a).length) : KINDS.filter(k => list.some(p => p.kind === k))
+  const chosen = f === 2 ? 'Universal Audio' : 'dynamics'
+  const inG = (p, grp) => f === 2 ? (p.maker || 'others') === grp : p.kind === grp
+  let y = 130
+  for (const grp of groups.slice(0, 24)) {
+    const n = list.filter(p => inG(p, grp)).length, o = list.filter(p => inG(p, grp) && !shown(p)).length, on = grp === chosen
+    if (on) b += R(TX, y, TW, 20, { rx: 2, fill: INK })
+    b += T(TX + 10, y + 13.6, f === 2 ? asGiven(grp.toLowerCase()) : grp, { size: 10, w: on ? 500 : 400, c: on ? K1 : INK, a: on ? 1 : .72 })
+    b += endText(TX + TW - 10, y + 13.6, o ? `${n - o} of ${n}` : String(n), 9.5, on ? .7 : .38, on ? K1 : INK)
+    y += 21
+  }
+  b += vline(TX + TW + 16, 62, WH - BAR - 10, .1)
+  // the chosen group: every plug-in in it, ticked when it is in the room's list
+  const X0 = TX + TW + 36, X1 = PR
+  const rows = list.filter(p => inG(p, chosen)).sort((a, b) => a.name.localeCompare(b.name))
+  const o = rows.filter(p => !shown(p)).length
+  b += T(X0, 82, f === 2 ? asGiven(chosen.toLowerCase()) : chosen, { size: 12, w: 500, a: .95 }) + T(X0 + tw(f === 2 ? chosen.toLowerCase() : chosen, 12, 500) + 10, 82, o ? `${rows.length - o} of ${rows.length} in the list` : `all ${rows.length} in the list`, { size: 9.5, a: .42 })
+  kx = X1
+  for (const t of ['leave all out', 'take all in']) { const w = keyW(t, { size: 9.5, pad: 9 }); kx -= w; b += key(kx, 69, t, { h: 18, size: 9.5, pad: 9 })[0]; kx -= 6 }
+  b += hline(X0, X1, 98, .1)
+  // two columns of plug-ins
+  const colW = (X1 - X0 - 24) / 2, perCol = Math.floor((WH - BAR - 140) / 22)
+  rows.slice(0, perCol * 2).forEach((p, i) => {
+    const cx = X0 + (i >= perCol ? colW + 24 : 0), ry = 108 + (i % perCol) * 22, on = shown(p)
+    b += tick(cx, ry + 3, on)
+    const nm = fit(asGiven(p.name.replace(/^UAD /, '')), colW - 120, 10.5)
+    b += T(cx + 22, ry + 13, nm, { size: 10.5, a: on ? .9 : .36 })
+    b += T(cx + 22 + tw(nm, 10.5) + 8, ry + 13, f === 2 ? p.kind : asGiven((p.maker || '').toLowerCase()), { size: 9, a: on ? .38 : .2, it: f !== 2 && !!p.maker })
+    b += endText(cx + colW, ry + 13, p.fmt, 8.5, on ? .32 : .18)
+  })
+  if (rows.length > perCol * 2) b += T(X0, WH - BAR - 14, `and ${rows.length - perCol * 2} more, a scroll away`, { size: 9.5, a: .38 })
+  g += G(b, `translate(${SIDE} ${BAR})`)
+  s += G(g, '', ' clip-path="url(#w)"') + R(.5, .5, WW - 1, WH - 1, { rx: 9, stroke: INK, sa: .16 })
+  document.getElementById('host').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="${WW * 2}" height="${WH * 2}" viewBox="0 0 ${WW} ${WH}">${s}</svg>`
+  setTimeout(() => { document.title = 'ready ' + WW * 2 + ' ' + WH * 2 }, 400)
+})
+</script>
+</body>
+</html>

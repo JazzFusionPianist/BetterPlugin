@@ -8,7 +8,7 @@ const out = [], bad = []
 const ok = (name, cond, extra) => { out.push(`${cond ? 'ok  ' : 'FAIL'} ${name}${extra !== undefined ? '  ' + JSON.stringify(extra) : ''}`); if (!cond) bad.push(name) }
 const ev = b.ev
 await ev(`if (typeof START !== 'undefined') START.on = false; setView(true); Object.assign(S.ho, { open: true, what: 'stems', print: 'with patch', range: 'song', skip: [], done: 0, note: '' }); dirtyAll(); flush()`)
-const see = () => ev(`flush(); const pl = hoPlan(); return { list: pl.list.map(t => t.name), cands: pl.cands.map(t => t.name), skip: (S.ho.skip || []).length, head: document.getElementById('g-hand').textContent.match(/(\\d+) stems/), rows: document.querySelectorAll('#g-hand [data-a="ho-pick"]').length }`)
+const see = () => ev(`flush(); const pl = hoPlan(); return { list: pl.list.map(t => t.name), cands: pl.cands.map(t => t.name), skip: (S.ho.skip || []).length, head: [null, hoPlan().list.length], rows: document.querySelectorAll('#g-hand [data-a="ho-pick"]').length }`)
 const row = name => ev(`flush(); const i = S.tracks.findIndex(t => t.name === ${JSON.stringify(name)}), el = document.querySelector('#g-hand [data-a="ho-pick"][data-i="' + i + '"]'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + 60, y: r.top + r.height / 2 }`)
 const s0 = await see()
 ok('every track that sounds in the song has a row that can be pressed, and all of them are in', s0.list.length === s0.cands.length && s0.cands.length >= 6 && s0.rows === s0.cands.length && +s0.head[1] === s0.list.length, s0)

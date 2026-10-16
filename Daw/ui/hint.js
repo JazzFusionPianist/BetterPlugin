@@ -156,7 +156,12 @@ function wordKind (tok) {
     case 'rfilt': return 'filter'
     case 'name': return 'track'
     case 'trk': return tok.fam ? 'tracks' : null                                       // (the many words a track answers to are found as its name)
-    case 'rword': case 'notes': return 'what'
+    case 'rword': case 'notes': case 'tword': case 'tkind': case 'mword': case 'pword': return 'what'
+    case 'tfilt': return 'filter'
+    case 'tpos': return 'where'
+    case 'color': case 'shade': return 'colour'
+    case 'howhat': case 'fmt': case 'hoprint': case 'horange': return 'hand off'
+    case 'printname': return 'print'
     case 'what': return 'value'
     case 'plug': return 'plug-in'
     case 'ctlname': return 'control'

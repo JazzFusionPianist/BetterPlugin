@@ -1227,6 +1227,12 @@ async function runSelfTest (mode) {
     res.regions = { later: await said('move this later by 1 beat'), a: reg.a, trimmed: await said(`trim the end of this to bar ${Math.floor(r0.b) - 1}`), b: reg.b, named: await said('rename this to "Take A"'), tag: reg.tag, gain: await said('set the gain of this to -3 db'), g: reg.gain, steps: UNDO.length - u0 }
     while (UNDO.length > u0) undoEdit()
     { const q = t.regs.find(x => x.id === reg.id) || {}; res.regions.back = q.a === r0.a && q.b === r0.b && (q.gain || 0) === r0.gain && (q.tag || '') === r0.tag }      // (looked up again: a step back may bring the region back as another object)
+    /* round three: a plug-in by its name, from the app's own list — put on, turned off, taken off — by lines of words */
+    const mine = () => t.inserts.filter(i => /audelay/i.test(i.name)), k0 = mine().length
+    res.patch = { put: await said('put audelay on serum 2'), on: mine().length - k0 }
+    res.patch.off = await said('bypass audelay on serum 2'); res.patch.isOff = !!(mine()[0] || {}).off
+    res.patch.gone = await said('remove audelay from serum 2'); res.patch.left = mine().length - k0
+    res.patch.track = await said('new audio track called "Words"'); res.patch.made = S.tracks.some(x => x.name === 'Words'); undoEdit(); await sleep(100); res.patch.unmade = !S.tracks.some(x => x.name === 'Words')
     await NAT.call('remove', { track: t.id, uid: r.uid }); t.inserts = t.inserts.filter(x => x.uid !== r.uid)
     t.name = was; t.ap = ap0; S.auto = auto0; SAY.vocab = null; S.last = null; applyAll(); await natSession(); dirtyAll(); flush()
     return res

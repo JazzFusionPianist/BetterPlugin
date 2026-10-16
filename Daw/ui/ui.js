@@ -430,7 +430,9 @@ function fineFetch () {
 function fineFor (r, slot, v0, v1) {
   const pps = PXB / SPB()                                                               // pixels to a second of what is played
   if (r.loop) {
-    const lp = LOOPS[r.buf], per = lp.n / lp.bars                                       // samples to a bar
+    const lp = LOOPS && LOOPS[r.buf]
+    if (!lp) return null                                                                  // (the loops are made once the fonts are in: drawn before that, the outline does)
+    const per = lp.n / lp.bars                                                            // samples to a bar
     if (PXB < per / 24) return null
     const i0 = ((r.off || 0) + v0 / PXB) * per, i1 = ((r.off || 0) + v1 / PXB) * per, e = loopWave(lp, i0, i1, v1 - v0)
     return { from: i0, to: i1, n: e.n, lo: e.lo, hi: e.hi, i0, spp: per / PXB, stamp: 0 }
@@ -450,6 +452,7 @@ function fineFor (r, slot, v0, v1) {
    that the numbers stay small however long the region is at a deep zoom): only the stretch that shows, a point to a
    pixel; near a corner that is cut or rounded it keeps inside the outline */
 function wavePath (r, w, yc, hmax, outline, lh, v0, v1, slot = '') {
+  if (r.loop && !(LOOPS && LOOPS[r.buf])) return ''                                          // (the loops are made once the fonts are in: drawn before that, no sound is drawn yet)
   const fiP = DRAFT.fades && r.fi > 0 ? r.fi * PXB : 0, foP = DRAFT.fades && r.fo > 0 ? r.fo * PXB : 0                      // under a fade the outline tapers as the sound does
   const fine = fineFor(r, slot, v0, v1)
   const len = r.b - r.a, k = `${S.tempo}|${n(w)}|${n(hmax)}|${n(yc)}|${n(len * 1000)}|${n((r.off || 0) * 1000)}|${r.gain || 0}|${r.wsig || ''}|${outline}|${v0}|${v1}|${n(fiP)}|${n(foP)}|${r.fic || 0}|${r.foc || 0}|${fine ? fine.stamp + ':' + n(PXB) : ''}|${S.wz || 1}|${LOOK_STAMP}`
@@ -1510,6 +1513,8 @@ function parseLocal (raw) {
   if (/^(stop|pause)$/.test(s)) return [{ do: 'stop' }]
   let m = s.match(/^(?:tempo|bpm)\s*(?:to|=)?\s*(\d{2,3})$/) || s.match(/^(\d{2,3})\s*bpm$/)
   if (m) return [{ do: 'tempo', bpm: +m[1] }]
+  m = s.match(/^(?:set\s+)?(?:the\s+)?(?:meter|measure|time signature|signature)\s+(?:to\s+)?(\d{1,2})\s*\/\s*(\d{1,2})$/)      // the measure, for the whole song
+  if (m) return [{ do: 'meter', b: +m[1], u: +m[2] }]
   m = s.match(/^(?:bar|go ?to)?\s*(\d{1,3})(?:[.\s](\d{1,2})(?:[.\s](\d))?)?$/)                   // a bar (or bar beat sixteenth): the playhead goes there
   if (m) return [{ do: 'pos', bar: +m[1], beat: +(m[2] || 1), six: +(m[3] || 1) }]
   if (/^(record|rec)$/.test(s)) return [{ do: 'record' }]

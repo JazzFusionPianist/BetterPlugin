@@ -27,7 +27,7 @@ const SAY_FIXED = [
   [{ k: 'role', v: 'at' }, ['at', 'into', 'onto', 'in', 'on']],
   [{ k: 'and' }, ['and', '&']],
   [{ k: 'then' }, ['then', 'and then']],
-  [{ k: 'fill' }, ['the', 'a', 'an', 'of', 'for', 'my', 'please', 'pls', 'track', 'tracks']],
+  [{ k: 'fill' }, ['the', 'a', 'an', 'of', 'for', 'my', 'please', 'pls']], [{ k: 'tword' }, ['tracks', 'track', 'channels', 'channel']],
   [{ k: 'unit', v: 'db' }, ['db', 'decibels']], [{ k: 'unit', v: 'bar' }, ['bars', 'bar']], [{ k: 'unit', v: 'beat' }, ['beats', 'beat']],
   [{ k: 'unit', v: 'times' }, ['times', 'time']],
   [{ k: 'num', v: 2, unit: 'times' }, ['twice']], [{ k: 'num', v: 3, unit: 'times' }, ['three times']],
@@ -37,7 +37,7 @@ const SAY_FIXED = [
   [{ k: 'verb', v: 'unmute' }, ['unmute']], [{ k: 'verb', v: 'mute' }, ['mute']],
   [{ k: 'verb', v: 'unsolo' }, ['unsolo']], [{ k: 'verb', v: 'solo' }, ['solo']],
   [{ k: 'verb', v: 'delete' }, ['delete', 'remove', 'erase', 'clear']],
-  [{ k: 'verb', v: 'again' }, ['once more', 'one more time', 'again', 'repeat', 'duplicate']],
+  [{ k: 'verb', v: 'again' }, ['once more', 'one more time', 'again', 'repeat']], [{ k: 'verb', v: 'duplicate' }, ['duplicate']],      // (duplicate: a track named is made twice; regions are said once more)
   [{ k: 'verb', v: 'copy' }, ['copy']], [{ k: 'verb', v: 'move' }, ['move']],
   [{ k: 'verb', v: 'fadein' }, ['fade in', 'fadein']], [{ k: 'verb', v: 'fadeout' }, ['fade out', 'fadeout']],
   [{ k: 'verb', v: 'quantize' }, ['quantize', 'quantise']], [{ k: 'verb', v: 'select' }, ['select', 'choose', 'pick']],
@@ -80,6 +80,31 @@ const SAY_FIXED = [
   [{ k: 'role', v: 'above' }, ['above', 'higher than', 'more than']], [{ k: 'role', v: 'below' }, ['below', 'under', 'lower than', 'less than']],
   [{ k: 'unit', v: 'tick' }, ['ticks', 'tick']], [{ k: 'unit', v: 'sample' }, ['samples', 'sample']],
   [{ k: 'fill' }, ['make', 'scale', 'in place', 'its', 'their', 'by itself']],
+  /* tracks, as the track keys and menus make and order them */
+  [{ k: 'verb', v: 'new' }, ['new', 'create']], [{ k: 'tkind', v: 'audio' }, ['audio tracks', 'audio track', 'audio']], [{ k: 'tkind', v: 'midi' }, ['instrument tracks', 'instrument track', 'software instrument track', 'midi tracks', 'midi track', 'instrument']],
+  [{ k: 'tfilt', v: 'empty' }, ['empty', 'unused']], [{ k: 'tpos', v: 'top' }, ['to the top', 'at the top', 'first in the list']], [{ k: 'tpos', v: 'bottom' }, ['to the bottom', 'at the bottom', 'last in the list']],
+  [{ k: 'verb', v: 'group' }, ['stack']], [{ k: 'verb', v: 'unstack' }, ['unstack', 'take apart', 'take the stack apart']],
+  [{ k: 'verb', v: 'arm' }, ['record enable', 'record-enable', 'arm']], [{ k: 'verb', v: 'disarm' }, ['disarm', 'unarm']],
+  [{ k: 'verb', v: 'monitor' }, ['hear the input of', 'hear the input', 'monitor']], [{ k: 'verb', v: 'unmonitor' }, ['stop monitoring', 'unmonitor']],
+  [{ k: 'verb', v: 'route' }, ['send the output of', 'route']], [{ k: 'verb', v: 'color' }, ['color', 'colour', 'paint']],
+  [{ k: 'opt', v: 'edit' }, ['for editing', 'for edits']], [{ k: 'opt', v: 'full' }, ['with its regions', 'with their regions', 'with regions', 'with what is on it', 'with everything']],
+  [{ k: 'color', v: 'drums' }, ['blue', 'navy']], [{ k: 'color', v: 'bass' }, ['purple', 'violet', 'magenta']], [{ k: 'color', v: 'keys' }, ['green', 'teal']],
+  [{ k: 'color', v: 'gtr' }, ['yellow', 'orange', 'amber', 'gold']], [{ k: 'color', v: 'vox' }, ['red', 'pink', 'coral']], [{ k: 'color', v: 'fx' }, ['grey', 'gray']],
+  [{ k: 'color', v: null }, ['as read', 'its own colour', 'its own color', 'automatic']], [{ k: 'shade', v: 1 }, ['dark', 'deep']], [{ k: 'shade', v: 5 }, ['light', 'pale']],
+  /* the song's time: its markers, bars put in and taken out, its tempo */
+  [{ k: 'mword' }, ['markers', 'marker']], [{ k: 'verb', v: 'insert' }, ['make room for', 'insert']], [{ k: 'verb', v: 'takeout' }, ['take out']],
+  [{ k: 'opt', v: 'song' }, ['out of the song', 'from the song', 'of the song']], [{ k: 'what', v: 'tempo' }, ['tempo']], [{ k: 'unit', v: 'bpm' }, ['bpm']],
+  /* the project: what is handed off, and how; saved under another name */
+  [{ k: 'verb', v: 'export' }, ['export', 'hand off']], [{ k: 'verb', v: 'saveas' }, ['save a copy as', 'save as']],
+  [{ k: 'howhat', v: 'mix' }, ['the mix', 'a mix', 'stereo mix', 'mixdown', 'mix down']], [{ k: 'howhat', v: 'stems' }, ['stems', 'stem']],
+  [{ k: 'fmt', v: 'wav' }, ['wav', 'wave']], [{ k: 'fmt', v: 'aiff' }, ['aiff', 'aif']], [{ k: 'fmt', v: 'flac' }, ['flac']], [{ k: 'fmt', v: 'm4a' }, ['m4a', 'aac']], [{ k: 'fmt', v: 'mp3' }, ['mp3']],
+  [{ k: 'hoprint', v: 'both' }, ['dry and wet', 'both ways']], [{ k: 'hoprint', v: 'dry' }, ['dry']], [{ k: 'hoprint', v: 'with patch' }, ['with the patch', 'with patch', 'wet']],
+  [{ k: 'horange', v: 'song' }, ['the whole song', 'whole song']], [{ k: 'unit', v: 'bit' }, ['bits', 'bit', '-bit']], [{ k: 'unit', v: 'kbps' }, ['kbps', 'kbit']], [{ k: 'unit', v: 'k' }, ['k']],
+  [{ k: 'fill' }, ['as', 'in']],
+  /* the patch: plug-ins and prints put on a track, taken off, turned off and on, opened */
+  [{ k: 'verb', v: 'put' }, ['put', 'load']], [{ k: 'pword' }, ['prints', 'print']],
+  [{ k: 'verb', v: 'bypass' }, ['bypass', 'turn off', 'switch off']], [{ k: 'verb', v: 'unbypass' }, ['unbypass', 'turn on', 'switch on']], [{ k: 'verb', v: 'open' }, ['open', 'show']],
+  [{ k: 'opt', v: 'parallel' }, ['in parallel', 'parallel', 'alongside']], [{ k: 'opt', v: 'series' }, ['in series', 'in line']],
 ]
 /* a print said as a track word after a track (kick delay 30, guitar reverb 40): the print, unless it is sent to */
 const SAY_PRINT_TRK = { reverb: 'space', delay: 'delay' }
@@ -92,7 +117,7 @@ function sayKeys (t) { const ks = new Set(sayWords(t.name).map(sayStem)); if (ty
 function saySect (name) { const s = String(name).toLowerCase().replace(/\s*\d+$/, '').trim(); for (const k in SAY_SECT) if (SAY_SECT[k].includes(s)) return k; return s }
 /* every word the line may hold, longest first: the tracks' and the markers' names are read off the song as it is now */
 function sayVocab () {
-  const sig = S.tracks.map(t => t.id + t.name + '/' + (t.inserts || []).map(x => x.name + ((x.pl || []).length)).join(',') + '/' + (t.macros || []).map(m => m.name).join(',')).join('|') + '#' + SCENES.map(s => s.name).join('|')
+  const sig = (SAY.plugins ? SAY.plugins.length : 0) + '/' + S.tracks.map(t => t.id + t.name + '/' + (t.inserts || []).map(x => x.name + ((x.pl || []).length)).join(',') + '/' + (t.macros || []).map(m => m.name).join(',')).join('|') + '#' + SCENES.map(s => s.name).join('|')
   if (SAY.vocab && SAY.sig === sig) return SAY.vocab
   const V = new Map(), put = (w, tok) => { w = String(w).toLowerCase().trim(); if (w && !V.has(w)) V.set(w, tok) }
   for (const [tok, ws] of SAY_FIXED) for (const w of ws) put(w, tok)
@@ -104,6 +129,8 @@ function sayVocab () {
   for (const g of SAY_SAME) for (const w of g) put(w, { k: 'trk', v: g[0] })
   for (const t of S.tracks) for (const ins of t.inserts || []) if (!ins.out && ins.name) { for (const w of sayPlugNames(ins)) put(w, { k: 'plug', name: w }); for (const [, nm] of ins.pl || []) put(nm, { k: 'ctlname', name: String(nm).toLowerCase() }) }
   for (const t of S.tracks) for (const m of t.macros || []) put(m.name, { k: 'ctlname', name: String(m.name).toLowerCase() })
+  for (const pl of SAY.plugins || []) for (const w of sayPlugNames(pl)) put(w, { k: 'plug', name: w })
+  if (typeof WALL_PRINTS !== 'undefined') for (const k of WALL_PRINTS) put(k, { k: 'printname', v: k })      // (a print whose name is another word already — cut, gain, mix — is read as a print with the word print)      // (every plug-in the app has, once a line has asked for them: sayPrime)
   SAY.vocab = [...V.entries()].sort((a, b) => b[0].length - a[0].length); SAY.sig = sig
   return SAY.vocab
 }
@@ -171,7 +198,7 @@ function sayValue (c) {
   const vv = verbs.filter(v => v === 'set' || v === 'ramp'), other = verbs.some(v => v !== 'set' && v !== 'ramp')
   const toA = amts.find(x => x.role === 'to'), fromA = amts.find(x => x.role === 'from'), byA = amts.find(x => x.role === 'by') || amts.find(x => !x.role && !['times', 'bar', 'beat'].includes(x.unit))
   const named = who && who.tracks && who.tracks.length, moved = mods.includes('up') || mods.includes('down') || amts.some(x => x.signed)
-  if (what && ['gain', 'velocity', 'length'].includes(what.key)) return null                         // (a region's gain, a note's velocity and length: sayEdit)
+  if (what && ['gain', 'velocity', 'length', 'tempo'].includes(what.key)) return null                         // (a region's gain, a note's velocity and length: sayEdit)
   if (items.some(x => x.t === 'notes' || x.t === 'rword')) return null
   if (other || !(what || ctl || shapeIt || side || vv.length || (named && (span || after != null) && moved) || (named && toA))) return null
   /* where: the stretch said, or from a bar on, or up to one */
@@ -236,12 +263,165 @@ function sayValue (c) {
 /* the plug-ins whose names a line says have their controls asked for first, so that the line may name one (async: the app answers) */
 async function sayPrime (text) {
   const s = String(text).toLowerCase()
+  if (NAT && !SAY.plugins && /\b(put|load|insert|add|open|bypass|remove|delete|turn|switch)\b/.test(s)) { const list = await NAT.call('plugins'); SAY.plugins = Array.isArray(list) ? list : []; SAY.vocab = null }      // (the plug-ins the app has, asked for once: their names are words of the line)
   for (const t of S.tracks) for (const ins of t.inserts || []) if (!ins.out && ins.name && !ins.pl && sayPlugNames(ins).some(w => s.includes(w))) await fxParams(t, ins)
   if (/macro/.test(s) || S.tracks.some(t => (t.macros || []).some(m => s.includes(String(m.name).toLowerCase())))) for (const t of S.tracks) for (const m of t.macros || []) { const ins = macroIns(t, m); if (ins && !ins.pl) await fxParams(t, ins) }
 }
 /* and a control's travel, before its line is written in its own unit */
 async function sayReady (acts) {
+  /* what the track keys do over time (asking for the input, the plug-ins' states) is done here, waited for, so that the line
+     says what came of it and is still one step back */
+  for (const a of acts || []) if (a && a.do === 'track' && ['duplicate', 'delete', 'empty', 'arm', 'disarm', 'monitor', 'unmonitor'].includes(a.op)) {
+    const ts = (a.ids || []).map(byId).filter(Boolean), n0 = S.tracks.length
+    if (a.op === 'duplicate') { for (const t of ts) await duplicateTrack(S.tracks.indexOf(t), !!a.full); a.result = S.tracks.length > n0 ? `${sayList(ts)} duplicated${a.full ? ' with ' + (ts.length > 1 ? 'their' : 'its') + ' regions' : ''}` : 'no room for another track' }
+    else if (a.op === 'delete') { await deleteTracks(ts); a.result = S.tracks.length < n0 ? `${sayList(ts)} deleted` : 'not deleted' }
+    else if (a.op === 'empty') { await deleteUnused(); a.result = S.tracks.length < n0 ? `${n0 - S.tracks.length} empty track${n0 - S.tracks.length === 1 ? '' : 's'} deleted` : 'no track is empty' }
+    else { const key = a.op.endsWith('arm') ? 'arm' : 'mon', on = a.op === 'arm' || a.op === 'monitor'; for (const t of ts) if (!!t[key] !== on) await (key === 'arm' ? toggleArm : toggleMon)(S.tracks.indexOf(t)); const got = ts.filter(t => !!t[key] === on); a.result = got.length === ts.length ? `${sayList(ts)}: ${key === 'arm' ? (on ? 'armed' : 'not armed') : on ? 'input heard' : 'input not heard'}` : `${sayList(ts.filter(t => !got.includes(t)))}: the input could not be opened` }
+    SAY.vocab = null
+  }
+  for (const a of acts || []) if (a && a.do === 'patch2' && a.op === 'add' && a.plug && NAT) {      // a plug-in put on: the app opens it (waited for, and said as it came out)
+    const list = SAY.plugins || [], pl = list.find(x => sayPlugNames(x).includes(a.plug))
+    if (!pl) { a.result = `no plug-in called ${a.plug}`; continue }
+    const got = []
+    for (const t of (a.ids || []).map(byId).filter(Boolean)) {
+      const r = await natInsert(S.tracks.indexOf(t), pl.id)
+      if (!(r && r.ok)) continue
+      if (a.parallel) { const w = wallOf(t), ins = t.inserts.find(i => i.uid === r.uid), node = w && w.nodes.find(n => n.ins === ins); if (node) { sayParallel(w, node.id); await wallPush(t) } }
+      got.push(t)
+    }
+    a.result = got.length ? `${pl.name.toLowerCase()} put on${a.parallel ? ' in parallel' : ''}: ${sayList(got)}` : `${pl.name.toLowerCase()} would not open`
+  }
+  for (const a of acts || []) if (a && a.do === 'project' && a.op === 'saveas' && NAT) { const ok = await saveAs(String(a.name).slice(0, 80), false); a.result = ok ? `saved as ${a.name}` : (S.last && S.last.say) || 'could not save' }
   for (const a of acts || []) if (a && a.do === 'line') { const t = S.tracks.find(x => x.name === a.track); if (t && ctlKey(a.key)) { const [ins, i] = scaleIns(t, a.key); if (ins) await fxScale(t, ins, i) } }
+}
+/* ── the patch ──
+   A plug-in by its name (any the app has: "put pro-q 3 on vocals") or a print by its name and the word print ("add a
+   chorus print to keys"): put on a track — at the end of its way, or "in parallel" beside what is there — taken off,
+   turned off and on, its window opened. Which track: the one named (on, to, from), else the one chosen. Null: else. */
+function sayPatch (c) {
+  const { items, verbs, who, toks } = c, v = verbs[0], has = k => items.some(x => x.t === k), opt = o => items.some(x => x.t === 'opt' && x.v === o), done = acts => ({ acts, who: c.said ? who : c.who0 })
+  const ctl = items.find(x => x.t === 'ctl'), plug = ctl && ctl.plug && !ctl.ctl && !ctl.mac ? ctl.plug : null
+  const print = (items.find(x => x.t === 'printname') || {}).v || (has('pword') ? (toks.map(t => String(t.raw || '').toLowerCase()).find(w => WALL_PRINTS.includes(w)) || null) : null)
+  if (!plug && !print) return null
+  const ts = who && who.tracks ? who.tracks.map(n => S.tracks.find(t => t.name === n)).filter(Boolean) : who && who.sel ? chosen() : [S.tracks[S.sel]].filter(Boolean)
+  if (!ts.length) return { say: 'on which track' }
+  const what = plug ? { plug } : { print }, ids = ts.map(t => t.id)
+  if (v === 'put' || v === 'insert' || (!v && items.some(x => x.t === 'who' && (x.role === 'to' || x.role === 'at')))) return done([Object.assign({ do: 'patch2', op: 'add', ids, parallel: opt('parallel') }, what)])
+  if (v === 'delete') return done([Object.assign({ do: 'patch2', op: 'remove', ids }, what)])
+  if (v === 'bypass' || v === 'unbypass') return done([Object.assign({ do: 'patch2', op: v, ids }, what)])
+  if (v === 'open' && plug) return done([{ do: 'patch2', op: 'open', ids, plug }])
+  return null
+}
+/* a node of a wall made to stand beside what is there: its way in from in, its way out to out (not after the rest) */
+function sayParallel (w, id) {
+  for (const e of w.wires) if (e.to === id && e.from !== WALL_IN && !wallCtl(e)) e.to = WALL_OUT
+  if (!w.wires.some(e => e.from === WALL_IN && e.to === id)) w.wires.push({ from: WALL_IN, to: id, gain: 1, port: 0 })
+  if (!w.wires.some(e => e.from === id && e.to === WALL_OUT)) w.wires.push({ from: id, to: WALL_OUT, gain: 1, port: 0 })
+  const seen = new Set(); w.wires = w.wires.filter(e => { const k = `${e.from}>${e.to}>${e.port || 0}>${e.in || 0}>${e.hand || ''}`; if (seen.has(k)) return false; seen.add(k); return true })      // (two wires that became one)
+}
+const sayInsOf = (t, name) => (t.inserts || []).find(i => !i.out && sayPlugNames(i).includes(name))
+const sayNodeOf = (t, k) => { const w = wallOf(t); return w ? w.nodes.find(n => n.k === k) : null }
+/* ── the project ──
+   A hand-off said in words sets the hand-off panel as it is said and opens it — the mix or stems (of these tracks), the
+   format, bits, rate and an mp3's kbps, dry or with the patch, this part, the whole song or the cycle — and the hand-off
+   key is still pressed by hand (the Mac asks where it goes). Saved as "…": a copy under that name. Null: something else. */
+function sayProject (c) {
+  const { items, verbs, amts, who, places } = c, v = verbs[0], get = k => items.find(x => x.t === k), done = acts => ({ acts, who: c.said ? who : c.who0 })
+  if (v === 'saveas') { const str = get('str') || (items.find(x => x.t === 'rfilt' && x.v === 'named') ? { v: items.find(x => x.t === 'rfilt' && x.v === 'named').raw } : null); if (!str) return { say: 'save it as what (in quotes)' }; return done([{ do: 'project', op: 'saveas', name: str.v }]) }
+  const what = get('howhat'), fmt = get('fmt')
+  if (!(v === 'export' || (v === 'bounce' && (what || fmt)))) return null
+  const o = {}
+  if (what) o.what = what.v
+  if (fmt) o.fmt = fmt.v
+  const bits = amts.find(x => x.unit === 'bit'); if (bits) { if (!HO_BITS.includes(bits.n)) return { say: `the bits there are: ${HO_BITS.join(' ')}` }; o.bits = bits.n }
+  const kb = amts.find(x => x.unit === 'kbps') || (o.fmt === 'mp3' ? amts.find(x => !x.unit && HO_KBPS.includes(x.n)) : null); if (kb) { if (!HO_KBPS.includes(kb.n)) return { say: `an mp3 is ${HO_KBPS.join(', ')} kbps` }; o.kbps = kb.n; o.fmt = o.fmt || 'mp3' }
+  const rt = amts.find(x => x.unit === 'khz' || x.unit === 'k' || (x.unit === 'hz' && x.n > 1000)); if (rt) { const hz = Math.round(rt.unit === 'hz' ? rt.n : rt.n * 1000); if (!HO_RATE.includes(hz)) return { say: `the rates there are: ${HO_RATE.map(r => r / 1000).join(' ')} khz` }; o.rate = hz }
+  const pr = get('hoprint'); if (pr) o.print = pr.v
+  const rg = get('horange'), sc = places.find(p => p.scene != null), cyc = places.find(p => p.name === 'the cycle')
+  if (rg) o.range = 'song'; else if (cyc) o.range = 'cycle'; else if (sc) { o.range = 'this scene'; o.scene = sc.scene }
+  if (who && who.tracks && who.tracks.length) { o.what = 'stems'; o.only = who.tracks }
+  return done([Object.assign({ do: 'project', op: 'handoff' }, o)])
+}
+/* ── the song's time ──
+   Markers made (where it is said, else at the playhead; called "…"), renamed, deleted and moved; bars put in (insert 2 bars
+   at 17) and taken out of the song (take out bars 9 to 12); the song's tempo. The tempo and the measure are one for the
+   whole song in this version: a change of them partway along is said to be not yet there. Null: something else. */
+function sayTime (c) {
+  const { items, verbs, amts, places, span, destPos } = c, v = verbs[0], has = k => items.some(x => x.t === k), done = acts => ({ acts, who: c.said ? c.who : c.who0 })
+  const str = items.find(x => x.t === 'str') || (items.find(x => x.t === 'rfilt' && x.v === 'named') ? { v: items.find(x => x.t === 'rfilt' && x.v === 'named').raw } : null)
+  const what = items.find(x => x.t === 'what')
+  if (what && what.key === 'tempo') {
+    if (span || c.after != null || places.some(p => p.pos != null && p.role === 'at')) return { say: 'the tempo is one for the whole song in this version' }
+    const toA = amts.find(x => x.role === 'to') || amts.find(x => !x.role && !x.signed && !items.some(y => y.t === 'mod')), byA = amts.find(x => x.role === 'by' || x.signed), mods = items.filter(x => x.t === 'mod').map(x => x.v)
+    if (toA) return done([{ do: 'tempo', bpm: toA.n }])
+    if (byA) return done([{ do: 'tempo', by: mods.includes('down') ? -Math.abs(byA.n) : mods.includes('up') ? Math.abs(byA.n) : byA.n }])
+    return { ask: { q: 'to what', append: ' to ', s: c.s } }
+  }
+  if (has('mword')) {
+    const sc = places.find(p => p.scene != null), at = destPos != null ? destPos : places.find(p => p.pos != null && p.scene == null) ? places.find(p => p.pos != null && p.scene == null).pos : null
+    const here = () => { const m = typeof markerNow === 'function' ? markerNow() : null; return m ? m.i : null }
+    if (v === 'delete') { const i = sc ? sc.scene : here(); if (i == null) return { say: 'which marker' }; return done([{ do: 'time', op: 'delmark', i }]) }
+    if (v === 'rename') { const i = sc ? sc.scene : here(); if (i == null) return { say: 'which marker' }; if (!str) return { say: 'rename it to what (in quotes)' }; return done([{ do: 'time', op: 'namemark', i, name: str.v }]) }
+    if (v === 'move') { const i = sc ? sc.scene : here(); if (i == null) return { say: 'which marker' }; if (at == null) return { say: 'move it to which bar' }; return done([{ do: 'time', op: 'movemark', i, at }]) }
+    if (!v || v === 'new') return done([{ do: 'time', op: 'addmark', at: at != null ? at : null, name: str ? str.v : null }])
+    return null
+  }
+  if (v === 'insert') {
+    const len = amts.find(x => x.unit === 'bar' || x.unit === 'beat' || x.unit == null)
+    if (!len) return { ask: { q: 'how many bars', append: ' ', s: c.s } }
+    const at = destPos != null ? destPos : places.find(p => p.pos != null) ? places.find(p => p.pos != null).pos : null
+    return done([{ do: 'time', op: 'room', at, len: len.unit === 'beat' ? len.n / BEATS() : len.n }])
+  }
+  if (v === 'takeout' || ((v === 'delete' || v === 'cut') && items.some(x => x.t === 'opt' && x.v === 'song'))) {
+    if (!span) return { say: 'take out which bars' }
+    return done([{ do: 'time', op: 'cut', a: span[0], b: span[1] }])
+  }
+  return null
+}
+/* ── tracks, as the track keys and menus make, order, colour and route them ──
+   New ones (audio, instrument, bus; so many; called "…"), duplicated (with their regions), deleted (the empty ones), moved
+   above or below another or to the top, coloured (blue, purple, green, yellow, red, grey — the room's own pigments —
+   dark or light, or as read), stacked and taken apart, grouped for editing, armed, heard at their input, routed to a bus.
+   Null: the clause is about something else. */
+const SAY_TRACK_VERBS = ['new', 'duplicate', 'unstack', 'arm', 'disarm', 'monitor', 'unmonitor', 'route', 'color']
+function sayTrack (c) {
+  const { items, verbs, amts, who } = c, v = verbs[0], has = k => items.some(x => x.t === k), get = k => items.find(x => x.t === k), opt = o => items.some(x => x.t === 'opt' && x.v === o)
+  const done = acts => ({ acts, who: c.said ? who : c.who0 }), named_ = items.find(x => x.t === 'rfilt' && x.v === 'named'), str = get('str') || (named_ ? { v: named_.raw } : null), plainWho = c.whos.filter(x => !x.role || x.role === 'at' || x.role === 'in')
+  const named = () => { const ids = plainWho.flatMap(x => x.ids || []); return ids.length ? ids.map(id => byId(id)).filter(Boolean) : who && who.sel ? chosen() : who && who.all ? S.tracks.filter(t => !(who.not || []).includes(t.name)) : [] }
+  /* new tracks: audio, instrument, a bus; so many; called "…" */
+  const kind = get('tkind'), busWord = c.whos.some(x => (x.word || []).includes('bus') && !(x.ids || []).length)
+  if ((v === 'new' || (!v && kind)) && (kind || busWord || has('tword'))) {
+    const n = amts.find(x => !x.unit && Number.isInteger(x.n) && x.n > 0), k = kind ? kind.v : busWord ? 'bus' : 'audio'
+    return done([{ do: 'track', op: 'new', kind: k, n: n ? Math.min(n.n, 32) : 1, name: str ? str.v : null }])
+  }
+  if (v === 'new') return { say: 'a new what: audio track, instrument track or bus' }
+  if (v === 'duplicate' && !has('rword') && !(who && who.sel && !has('tword'))) { const ts = named(); if (!ts.length) return null; return done([{ do: 'track', op: 'duplicate', ids: ts.map(t => t.id), full: opt('full') }]) }
+  if (v === 'delete' && (has('tword') || has('tfilt'))) {
+    if (has('tfilt')) return done([{ do: 'track', op: 'empty' }])
+    const ts = named(); if (!ts.length) return { say: 'which track' }; return done([{ do: 'track', op: 'delete', ids: ts.map(t => t.id) }])
+  }
+  if (v === 'move' && (c.whos.some(x => x.role === 'above' || x.role === 'below') || has('tpos'))) {
+    const ts = named(), ref = c.whos.find(x => x.role === 'above' || x.role === 'below'), pos = get('tpos')
+    if (!ts.length) return { say: 'move which track' }
+    if (ref && (ref.ids || []).length !== 1) return { say: `${ref.role} which track` }
+    return done([{ do: 'track', op: 'move', ids: ts.map(t => t.id), ref: ref ? ref.ids[0] : null, below: ref ? ref.role === 'below' : null, pos: pos ? pos.v : null }])
+  }
+  if (v === 'color') {
+    const col = get('color'), shade = get('shade')
+    if (!col) return { ask: { q: 'what colour: blue, purple, green, yellow, red, grey', append: ' ', s: c.s } }
+    const regions = has('rword') || (who && who.sel && !has('tword') && S.focus !== 'tracks')
+    return done([{ do: 'track', op: 'color', ids: regions ? null : named().map(t => t.id), regions, col: col.v ? [col.v, shade ? shade.v : 3] : null, who }])
+  }
+  if (v === 'unstack') { const ts = named().map(t => t.kind === 'stack' ? t : byId(t.parent)).filter(Boolean); if (!ts.length) return { say: 'no stack there' }; return done([{ do: 'track', op: 'unstack', ids: [...new Set(ts.map(t => t.id))] }]) }
+  if (['arm', 'disarm', 'monitor', 'unmonitor'].includes(v)) { const ts = named().filter(t => t.kind === 'audio'); if (!ts.length) return { say: 'which track' }; return done([{ do: 'track', op: v, ids: ts.map(t => t.id) }]) }
+  if (v === 'route') {
+    const to = c.whos.find(x => x.role === 'to' || x.role === 'at'), from = c.whos.filter(x => x !== to).flatMap(x => x.ids || []), dest = to && (to.ids || []).length === 1 ? byId(to.ids[0]) : null
+    if (!dest && !(to && (to.word || []).some(w => w === 'out' || w === 'stereo'))) return { say: 'route it to which bus' }
+    if (!from.length) return { say: 'route which track' }
+    return done([{ do: 'track', op: 'route', ids: from, to: dest ? dest.id : 0 }])
+  }
+  if ((v === 'group' || v === 'ungroup') && opt('edit')) { const ts = named(); if (!ts.length) return { say: 'which tracks' }; return done([{ do: 'track', op: v === 'group' ? 'editgroup' : 'editungroup', ids: ts.map(t => t.id) }]) }
+  return null
 }
 /* ── regions and notes, as the hand edits them ──
    Moved or made longer by so much (in bars, beats, sixteenths, ms, ticks, samples: the nudge keys, so many times), trimmed
@@ -327,13 +507,15 @@ function sayClause (toks, who0, s, made0) {
     if (t.k === 'side') { items.push({ t: 'side', v: t.v, hard: !!t.hard }); i++; continue }
     if (t.k === 'except') { not = true; i++; continue }
     if (t.k === 'str') { items.push({ t: 'str', v: t.v }); i++; continue }
-    if (t.k === 'rword' || t.k === 'notes') { items.push({ t: t.k }); i++; continue }
+    if (t.k === 'rword' || t.k === 'notes' || t.k === 'tword' || t.k === 'mword' || t.k === 'pword') { items.push({ t: t.k }); i++; continue }
+    if (t.k === 'printname') { items.push({ t: 'printname', v: t.v }); i++; continue }
+    if (t.k === 'tkind' || t.k === 'tfilt' || t.k === 'tpos' || t.k === 'color' || t.k === 'shade' || t.k === 'howhat' || t.k === 'fmt' || t.k === 'hoprint' || t.k === 'horange') { items.push({ t: t.k, v: t.v }); i++; continue }
     if (t.k === 'qopt') { items.push({ t: 'qopt', v: t.v }); i++; continue }
     if (t.k === 'pitch') { items.push({ t: 'pitch', n: t.v, role: role() }); i++; continue }
     if (t.k === 'rfilt') {                                                                         // which regions: muted, unmuted, longer or shorter than so much, named "…"
       i++
       if (t.v === 'long' || t.v === 'short') { const n = toks[i] && toks[i].k === 'num' ? toks[i++] : null, u = n && toks[i] && toks[i].k === 'unit' ? toks[i++].v : null; if (!n) return null; items.push({ t: 'rfilt', v: t.v, bars: sayBars(n.v, u) }); continue }
-      if (t.v === 'named') { const q = toks[i] && toks[i].k === 'str' ? toks[i++] : null; if (!q) return { say: 'named what (in quotes)' }; items.push({ t: 'rfilt', v: 'named', s: q.v.toLowerCase() }); continue }
+      if (t.v === 'named') { const q = toks[i] && toks[i].k === 'str' ? toks[i++] : null; if (!q) return { say: 'named what (in quotes)' }; items.push({ t: 'rfilt', v: 'named', s: q.v.toLowerCase(), raw: q.v }); continue }
       items.push({ t: 'rfilt', v: t.v }); continue
     }
     /* a value of a track: what it is (volume, pan, a print), or a control of a plug-in or a macro, by their names */
@@ -388,6 +570,7 @@ function sayClause (toks, who0, s, made0) {
         if (!p.length) continue
         /* a print said after a track (kick delay 30), or alone after one (kick, reverb 40): the print, unless it is sent to */
         const pw = p[p.length - 1], print = !routed && pw.k === 'trk' && SAY_PRINT_TRK[pw.v]
+        if (print && p.length === 1 && toks.some(x => x.k === 'pword')) { items.push({ t: 'printname', v: print }); continue }      // (a delay print, a reverb print: the print of that name)
         if (print && p.length === 1 && items.some(x => x.t === 'who')) { items.push({ t: 'what', key: print }); continue }
         const resolve = q => { const nm = q.find(x => x.k === 'name'); return nm ? S.tracks.filter(x => x.id === nm.id) : sayTracks(q.map(x => x.v)) }
         let ts = resolve(p), word = p.map(x => x.raw).join(' ')
@@ -407,7 +590,7 @@ function sayClause (toks, who0, s, made0) {
   let whos = items.filter(x => x.t === 'who' && !x.not), dest = null
   const nots = items.filter(x => x.t === 'who' && x.not).flatMap(x => (x.ids || []).map(id => byId(id).name))      // (all but these)
   if (routing) { dest = whos.find(x => x.role === 'at' || x.role === 'to') || null; whos = whos.filter(x => x !== dest) }
-  { const lost = whos.find(x => x.none); if (lost) return { say: `no track called ${lost.none}` } }
+  { const lost = whos.find(x => x.none); if (lost && !verbs.includes('new') && !items.some(x => x.t === 'tkind')) return { say: `no track called ${lost.none}` } }      // (a new bus: there need be none yet)
   let who = whos.length ? (whos.some(x => x.sel) ? { sel: true } : whos.some(x => x.all) ? { all: true } : { tracks: [...new Set(whos.flatMap(x => x.ids))].map(id => byId(id).name), fam: whos.length === 1 ? whos[0].fam : null }) : null
   if (who && nots.length) { if (who.tracks) who.tracks = who.tracks.filter(n => !nots.includes(n)); who.not = nots }
   const said = !!who
@@ -418,7 +601,7 @@ function sayClause (toks, who0, s, made0) {
   const places = items.filter(x => x.t === 'place' && !filt.includes(x)), at0 = x => x.span ? x.span[0] : x.pos
   const from = places.find(x => x.role === 'from') || (places.some(x => x.role === 'to' || x.role === 'thru') ? places.find(x => x.role === 'in' || (x.role == null && places.indexOf(x) === 0 && places.length > 1)) : null)
   const to = places.find(x => (x.role === 'to' || x.role === 'thru') && x !== from)
-  const wantsDest = verbs.some(v => v === 'move' || v === 'copy' || v === 'again' || v === 'trimstart' || v === 'trimend')
+  const wantsDest = verbs.some(v => v === 'move' || v === 'copy' || v === 'again' || v === 'duplicate' || v === 'trimstart' || v === 'trimend')
   let span = null, name = '', destPos = null
   if (from || (to && !wantsDest) || (to && from)) {
     const a = from ? at0(from) : curPos(), b = to ? (to.span && to.role === 'thru' ? to.span[1] : to.bar ? Math.min(SONG_END, to.pos + 1) : at0(to)) : songEnd()      // (a bar named as the end is in the stretch: 17 to 24 is eight bars; up to a marker is up to where it begins)
@@ -433,10 +616,16 @@ function sayClause (toks, who0, s, made0) {
   }
   const db = amts.find(x => x.unit === 'db') || amts.find(x => x.unit == null && (mods.includes('up') || mods.includes('down') || x.signed)), times = amts.find(x => x.unit === 'times'), len = amts.find(x => x.unit === 'bar' || x.unit === 'beat')
   const msA = amts.find(x => x.unit === 'ms' || x.unit === 's'), lenBars = len ? (len.unit === 'beat' ? len.n / BEATS() : len.n) : msA ? (msA.unit === 'ms' ? msA.n / 1000 : msA.n) / SPB() : null      // (a time in ms is so many bars at the song's tempo)
-  const acts = [], v = verbs[0], names = who && who.tracks ? who.tracks : null, more = {}
+  const acts = [], names = who && who.tracks ? who.tracks : null, more = {}
+  let v = verbs[0]
   if (who) more.who = who; if (span) more.span = span; if (name) more.name = name; if (after != null) more.after = after; if (before != null) more.before = before
   { const r = sayValue({ items, verbs, mods, amts, who, said, who0, span, after, before, s }); if (r) return r }
   { const rf = {}; for (const x of items.filter(x => x.t === 'rfilt')) rf[x.v] = x.v === 'long' || x.v === 'short' ? x.bars : x.v === 'named' ? x.s : x.v === 'first' || x.v === 'last' ? x.n : true; if (Object.keys(rf).length) more.rf = rf }
+  { const r = sayPatch({ items, verbs, who, said, who0, toks, s }); if (r) return r }
+  { const r = sayProject({ items, verbs, amts, who, said, who0, places, s }); if (r) return r }
+  { const r = sayTime({ items, verbs, amts, who, said, who0, places, span, destPos, after, s }); if (r) return r }
+  { const r = sayTrack({ items, verbs, amts, who, said, who0, whos: items.filter(x => x.t === 'who'), s }); if (r) return r }
+  if (v === 'duplicate') v = 'again'                                                         // (regions duplicated: said once more)
   { const r = sayEdit({ items, verbs, mods, amts, grid, who, said, who0, more, destPos, s }); if (r) return r }
   if (verbs.length > 1 && !(verbs.includes('group') && verbs.includes('send'))) return null
   if (!v) {
@@ -555,6 +744,105 @@ function sayDo (a, out) {
   const word = (text, more) => out.push(Object.assign({ k: 'word', text, step: 1 }, more || {})), none = () => out.push({ k: 'word', text: sayWho(a) ? 'nothing there' : 'choose a region first' })
   if (a.do === 'note') { out.push({ k: 'word', text: String(a.text).slice(0, 90), quiet: 1 }); return true }
   if (a.do === 'chords') return typeof chordDo === 'function' ? chordDo(a, out) : false
+  if (a.do === 'patch2') {                                                                         // the patch, by words: what the wall's own hands do
+    const ts = (a.ids || []).map(byId).filter(Boolean), name = a.plug || a.print, said = []
+    if (a.op === 'add' && a.plug) { out.push({ k: 'word', text: a.result || 'plug-ins are put on in the app' }); return true }      // (put on before the line: sayReady)
+    for (const t of ts) {
+      const w = wallOf(t)
+      if (a.op === 'add') { const n0 = w.nodes.length; wallAdd(t, a.print); const node = w.nodes.length > n0 ? w.nodes[w.nodes.length - 1] : null; if (!node) continue; if (a.parallel) sayParallel(w, node.id); else wallAppend(w, node.id); wallPush(t); said.push(t) }
+      else if (a.plug) {
+        const ins = sayInsOf(t, a.plug), node = ins && w ? w.nodes.find(n => n.ins === ins) : null
+        if (!ins) continue
+        if (a.op === 'remove') { if (node) wallRemove(t, node); else { if (NAT && ins.uid) NAT.call('remove', { track: t.id, uid: ins.uid }); t.inserts.splice(t.inserts.indexOf(ins), 1) } wallPush(t) }
+        else if (a.op === 'bypass' || a.op === 'unbypass') { ins.off = a.op === 'bypass'; if (NAT && ins.uid) NAT.call('bypass', { track: t.id, uid: ins.uid, off: ins.off ? 1 : 0 }) }
+        else if (a.op === 'open') { if (NAT && ins.uid) NAT.call('editor', { track: t.id, uid: ins.uid }) }
+        said.push(t)
+      } else {
+        const node = sayNodeOf(t, a.print)
+        if (!node) continue
+        if (a.op === 'remove') wallRemove(t, node); else node.bypass = a.op === 'bypass'
+        wallPush(t); said.push(t)
+      }
+    }
+    uiDirty('dock', 'lanes', 'head')
+    if (!said.length) { out.push({ k: 'word', text: `no ${name} on ${sayList(ts)}` }); return true }
+    word(`${name} ${{ add: 'put on', remove: 'taken off', bypass: 'off', unbypass: 'on', open: 'opened' }[a.op]}${a.op === 'add' && a.parallel ? ' in parallel' : ''}: ${sayList(said)}`)
+    return true
+  }
+  if (a.do === 'project') {
+    if (a.op === 'saveas') { out.push({ k: 'word', text: a.result || 'saving is in the app' }); return true }
+    const ho = S.ho
+    if (ho.state === 'busy') { out.push({ k: 'word', text: 'a hand-off is under way' }); return true }
+    for (const k of ['what', 'fmt', 'bits', 'kbps', 'rate', 'print', 'range']) if (a[k] != null) ho[k] = a[k]
+    if (a.scene != null && SCENES[a.scene]) jumpTo(SCENES[a.scene].a - 1)                       // (this part: the one the playhead stands in)
+    if (a.only) { const pl = hoPlan(), want = new Set(a.only.map(n => String(n).toLowerCase())); ho.skip = pl.cands.filter(t => !want.has(t.name.toLowerCase())).map(t => t.id) } else if (a.what) ho.skip = []
+    ho.open = true; ho.done = 0; ho.note = ''; uiDirty('top', 'hand')
+    const f = hoFmt(), pl = hoPlan()
+    if (ho.what !== 'mix' && !pl.list.length) { out.push({ k: 'word', text: `hand off set, but no stem sounds in ${ho.range === 'song' ? 'the song' : ho.range === 'cycle' ? 'the cycle' : pl.sc.name || 'this part'}` }); return true }
+    out.push({ k: 'word', text: `hand off set: ${ho.what === 'mix' ? 'the mix' : `${pl.list.length} stem${pl.list.length === 1 ? '' : 's'}`} · ${f.fmt}${f.kbps ? ' ' + f.kbps : f.bits ? ' ' + f.bits + ' bit' : ''} · ${f.rate / 1000} khz — press hand off` })
+    return true
+  }
+  if (a.do === 'time' && (a.op === 'room' || a.op === 'cut')) {                                  // bars put in, or taken out of the song (the song's time keys)
+    if (a.op === 'room') { const at = a.at != null ? clamp(+a.at, 0, SONG_END) : curPos(); timeAct.room(at, +a.len); word(`${+(+a.len).toFixed(2)} bars put in at ${readout(at)}`) }
+    else { timeAct.cut(+a.a, +a.b); word(`bars ${Math.round(a.a) + 1} to ${Math.round(a.b)} taken out of the song`) }
+    uiDirty('scenes', 'ruler', 'lanes'); return true
+  }
+  if (a.do === 'tempo' && a.by != null) { const bpm = clamp(Math.round(S.tempo + (+a.by)), 60, 180), from = S.tempo; if (bpm !== from) setTempo(bpm); out.push({ k: 'tempo', from, to: bpm, mix: 1 }); return true }
+  if (a.do === 'meter') { const ok = MEASURES.some(m => m[0] === +a.b && m[1] === +a.u); if (!ok) { out.push({ k: 'word', text: `the measures there are: ${MEASURES.map(m => m.join('/')).join(' ')}` }); return true } const was = S.meter.join('/'); setMeter(+a.b, +a.u); out.push({ k: 'word', text: `measure ${was} to ${a.b}/${a.u}: the steps back are cleared, as by hand` }); return true }      // (no step of its own: a new measure clears the steps back, as the measure menu does)
+  if (a.do === 'time') {
+    const mark = (list, fn) => { edit(fn); uiDirty('scenes', 'ruler', 'lanes') }
+    if (a.op === 'addmark') {
+      const bar1 = clamp(Math.round((a.at != null ? +a.at : curPos())) + 1, 1, SONG_END)
+      if (SCENES.some(s => s.a === bar1)) { out.push({ k: 'word', text: `there is a marker at bar ${bar1}` }); return true }
+      const name = String(a.name || `part ${SCENES.length + 1}`).slice(0, 40)
+      mark(null, () => { SCENES = mkScenes(SCENES.map(s => [s.name, s.a]).concat([[name, bar1]])) }); SAY.vocab = null
+      word(`marker ${name} at bar ${bar1}`); return true
+    }
+    const sc = SCENES[a.i]
+    if (!sc) { out.push({ k: 'word', text: 'no such marker' }); return true }
+    if (a.op === 'delmark') { removeScene(a.i); SAY.vocab = null; uiDirty('scenes', 'ruler'); word(`marker ${sc.name} deleted`); return true }
+    if (a.op === 'namemark') { const name = String(a.name).slice(0, 40); mark(null, () => { SCENES = mkScenes(SCENES.map((s, k) => [k === a.i ? name : s.name, s.a])) }); SAY.vocab = null; word(`${sc.name} is ${name}`); return true }
+    if (a.op === 'movemark') {
+      const bar1 = clamp(Math.round(+a.at) + 1, 1, SONG_END)
+      if (SCENES.some((s, k) => k !== a.i && s.a === bar1)) { out.push({ k: 'word', text: `there is a marker at bar ${bar1}` }); return true }
+      mark(null, () => { SCENES = mkScenes(SCENES.map((s, k) => [s.name, k === a.i ? bar1 : s.a])) })
+      word(`marker ${sc.name} at bar ${bar1}`); return true
+    }
+    return false
+  }
+  if (a.do === 'track') {                                                                         // the track keys and menus, on the tracks the line means
+    const ts = (a.ids || []).map(byId).filter(Boolean), names = ts.map(t => t.name), list = () => sayList(ts)
+    if (a.op === 'new') {
+      const made = newTracks({ kind: a.kind === 'midi' ? 'midi' : a.kind, inst: a.kind === 'midi' ? { kind: 'synth' } : undefined, n: a.n, out: 0 })
+      if (a.name) made.forEach((t, k) => { const nm = String(a.name).slice(0, 40) + (made.length > 1 ? ' ' + (k + 1) : ''); if (!S.tracks.some(x => x !== t && x.name === nm)) t.name = nm })
+      repaint(); SAY.vocab = null
+      word(made.length ? `${sayList(made)} made` : 'no room for another track'); return true
+    }
+    if (a.result != null) { word(a.result); return true }                                       // (done and waited for before the line: sayReady)
+    if (a.op === 'move') {
+      const vis = rows(), ref = a.ref ? byId(a.ref) : null
+      let k = a.pos === 'top' ? 0 : a.pos === 'bottom' ? vis.length : ref ? vis.indexOf(S.tracks.indexOf(ref)) : -1
+      if (ref && a.below) { const under = S.tracks.filter(x => x === ref || insideOf(x, ref)); k = Math.max(...under.map(x => vis.indexOf(S.tracks.indexOf(x)))) + 1 }      // (below a stack: below all that stands in it)
+      if (k < 0) { out.push({ k: 'word', text: 'that track is not in view' }); return true }
+      moveTracks(ts, k); repaint()
+      word(`${list()} ${a.pos ? 'to the ' + a.pos : (a.below ? 'below ' : 'above ') + ref.name}`); return true
+    }
+    if (a.op === 'color') {
+      if (a.regions) { const rs = sayOf({ who: a.who && !a.who.sel ? a.who : null }); if (!rs.length) { none(); return true } edit(() => { for (const [r] of rs) { if (a.col) r.col = a.col.slice(); else delete r.col; dirtyReg(r) } }); word(`${sayCount(rs.length)} ${a.col ? 'coloured' : 'as the track'}`); return true }
+      if (!ts.length) { out.push({ k: 'word', text: 'which track' }); return true }
+      edit(() => { for (const t of ts) { if (a.col) t.col = a.col.slice(); else delete t.col } }); repaint(); dirtyAll()
+      word(`${list()} ${a.col ? 'coloured' : 'as read'}`); return true
+    }
+    if (a.op === 'unstack') { for (const t of ts) deleteTrack(S.tracks.indexOf(t)); SAY.vocab = null; word(`${list()} taken apart`); return true }
+    if (a.op === 'route') { const to = a.to ? byId(a.to) : null; for (const t of ts) if (t !== to && (!to || canFeed(t, to) || to.kind === 'stack')) setOut(t, a.to || 0); repaint(); word(`${list()} to ${to ? to.name : 'the stereo out'}`); return true }
+    if (a.op === 'editgroup' || a.op === 'editungroup') {
+      const was = S.selT.slice(), set = a.op === 'editungroup' ? S.tracks.filter(x => ts.some(t => t.grp && x.grp === t.grp)) : ts
+      if (a.op === 'editgroup' && set.length < 2) { out.push({ k: 'word', text: 'two tracks or more' }); return true }
+      S.selT = set.map(t => t.id); if (a.op === 'editungroup' || !set.every(t => t.grp && t.grp === set[0].grp)) groupTracks(); S.selT = was
+      word(`${sayList(set)} ${a.op === 'editgroup' ? 'grouped for editing' : 'no longer grouped'}`); return true
+    }
+    return false
+  }
   if (a.do === 'nudge' || a.do === 'nudgelen') {                                                // the nudge keys, so many times, on what the line means
     const rs = sayOf(a)
     if (!rs.length) { none(); return true }

@@ -137,9 +137,17 @@ Object.assign(LANG.lists.ko, {
   'the panel': '패널', 'slur, beside the lanes': '레인 옆의 slur', 'its look': '모습', 'by the ground': '바탕에 따라', 'dark': '어둡게', 'light': '밝게',
   'light when the ground is lighter than': '바탕이 이보다 밝으면 밝게', 'on': '켬',
 })
+/* settings > plug-ins (plugpage.js): every plug-in on the Mac, by kind or by maker, in the room's lists or left out */
+Object.assign(LANG.lists.ko, {
+  'look again': '다시 찾기', 'bring every one back': '모두 되돌리기', 'looking': '찾는 중',
+  '# on this Mac, # left out of the room’s list': '이 Mac에 #개, 방의 목록에서 #개 뺌', '# on this Mac, all in the room’s list': '이 Mac에 #개, 모두 방의 목록에 있음',
+  'by kind': '종류별', 'by maker': '제작사별', 'find a plug-in': '플러그인 찾기', 'instruments': '악기', 'delay': '딜레이', 'others': '그 밖의 제작사',
+  'everything found': '찾은 것 모두', 'nothing found': '찾은 것 없음', '# of #': '#/#', '# of # in the list': '목록에 #개, 전체 #개', 'all # in the list': '#개 모두 목록에',
+  'take all in': '모두 넣기', 'leave all out': '모두 빼기', 'and # more, a scroll away': '#개 더, 스크롤해서 보기',
+})
 /* the Mac's menu bar (menus.js), as the Mac writes its menus in Korean: 파일, 편집, 보기, 윈도우, 도움말 */
 LANG.menuKo = {
-  'Settings': '설정', 'General': '일반', 'Display': '디스플레이', 'Audio': '오디오', 'Key Commands': '단축키',
+  'Settings': '설정', 'General': '일반', 'Display': '디스플레이', 'Audio': '오디오', 'Plug-ins': '플러그인', 'Key Commands': '단축키',
   'File': '파일', 'New': '새로 만들기', 'Open…': '열기…', 'Open Recent': '최근 사용 열기', 'No Projects Yet': '아직 프로젝트 없음', 'More…': '더 보기…',
   'Save': '저장', 'Save As…': '다른 이름으로 저장…', 'Rename…': '이름 변경…', 'Revert To…': '이전 버전으로 되돌리기…', 'Import Audio…': '오디오 가져오기…',
   'Hand Off…': '내보내기…', 'Hand Off Stems…': '스템 내보내기…', 'Bounce in Place': '제자리 바운스', 'Bounce in Place in Realtime': '실시간으로 제자리 바운스',

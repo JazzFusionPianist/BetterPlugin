@@ -65,6 +65,18 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
     note('By the ground, the Slur panel turns light by itself when the window’s ground grows lighter than the mark ({{light when the ground is lighter than}}, 60% at first), and dark again below it.', '바탕에 따라로 두면, 창의 바탕이 기준({{light when the ground is lighter than}}, 처음엔 60%)보다 밝아질 때 Slur 패널이 저절로 밝아지고, 그 아래로 내려가면 다시 어두워집니다.'),
     art: fig('display-room', { w: 150, cap: ['the room in a look of its own: a light ground, dark ink, round corners, the sound standing on each region’s foot, drums from red to amber', '직접 만든 모습을 입은 방: 밝은 바탕, 짙은 잉크, 둥근 모서리, 리전 바닥에 선 소리, 빨강에서 호박색으로 가는 드럼'] }) }),
 
+  page(t('plug-ins: in the lists or left out', 'plug-ins: 목록에 두기, 빼기'), { kind: 'split', tw: 104, txt:
+    lead('Settings › {{plug-ins}} shows every plug-in on this Mac, sorted by kind or by maker. One you never use can be left out, and the room’s lists stop showing it.', '설정 › {{plug-ins}}는 이 Mac에 깔린 모든 플러그인을 종류별이나 제작사별로 보여 줍니다. 쓰지 않는 것은 뺄 수 있고, 그러면 방의 목록에 더는 나오지 않습니다.') +
+    legend(
+      [1, '{{by kind}} sorts them as the room’s list does (instruments, eq, dynamics…); {{by maker}} by who made them, the makers with the most first', '{{by kind}}는 방의 목록처럼(악기, EQ, 다이내믹…) 나누고, {{by maker}}는 만든 회사별로, 가장 많은 회사부터 나눕니다'],
+      [2, '{{find a plug-in}} by its name or its maker’s. [[esc]] clears it', '{{find a plug-in}} 이름이나 제작사 이름으로 찾습니다. [[esc]]로 지웁니다'],
+      [3, 'a kind or a maker, and how many of it are in the lists: 13 of 14 when one is left out', '종류나 제작사, 그리고 그중 목록에 있는 수. 하나를 빼면 13/14처럼 나옵니다'],
+      [4, 'a tick: in the lists. Click the row to leave it out, and again to take it back in', '체크: 목록에 있음. 줄을 클릭하면 빠지고, 다시 클릭하면 돌아옵니다'],
+      [5, '{{leave all out}} and {{take all in}} do it to everything shown', '{{leave all out}}과 {{take all in}}은 보이는 모든 것에 한 번에 합니다'],
+      [6, '{{bring every one back}} puts every plug-in back in the lists. {{look again}} finds plug-ins installed since', '{{bring every one back}}은 모든 플러그인을 목록에 되돌립니다. {{look again}}은 그 뒤에 깐 플러그인을 찾습니다']) +
+    p('What is left out is gone from the plug-in list of the patch and the wall, and from the instruments of a track of notes. A song that already uses one still opens with it. [[⌘Z]] in the window takes the last change back.', '뺀 것은 패치와 월의 플러그인 목록, 노트 트랙의 악기 목록에서 사라집니다. 이미 그것을 쓰는 곡은 그대로 열립니다. 창에서 [[⌘Z]]를 누르면 마지막 변경이 되돌아갑니다.'),
+    art: fig('plugins', { w: 150, calls: [[1, 'p-by', 't'], [6, 'p-again', 't'], [2, 'p-find', 'l'], [3, 'p-group#3', 'l'], [4, 'p-tick#3', 'r'], [5, 'p-none', 't']] }) }),
+
   page(t('after a bad end', '비정상 종료 뒤에'), { kind: 'text', cc: 3, txt:
     h('what protects the work', '작업을 지키는 것') +
     list(
@@ -123,6 +135,6 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
       ['changing key commands: the sheet only lists them', '단축키 바꾸기: 표는 보여 주기만 합니다'],
       ['a way back to the start page without quitting; more than one project open', '종료 없이 시작 화면으로 돌아가기. 프로젝트 여러 개 동시에 열기'],
       ['templates of your own', '직접 만든 템플릿'],
-      ['settings other than general, display and audio', 'general, display, audio 외의 설정'],
+      ['settings other than general, display, audio and plug-ins', 'general, display, audio, plug-ins 외의 설정'],
       ['a Windows version', 'Windows 버전']) }),
 ])

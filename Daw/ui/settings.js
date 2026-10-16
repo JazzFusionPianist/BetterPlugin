@@ -1,16 +1,18 @@
 /* ── the settings window ──
    A window of the Mac's (Source/Settings.h) with this page in it: the parts of the settings named down the left, the
    chosen part on the right — a name on the left of each row, the thing itself against the right edge. A change is
-   taken at once; nothing is confirmed. General, display and audio are there: the others are named and cannot be
-   picked yet. Drawn with the room's kit, at the sizes of the draft (design/settings draft 1); display is larger, and
-   the window grows for it (display.js, design/display draft 2). */
+   taken at once; nothing is confirmed. General, display, audio and plug-ins are there: the others are named and cannot
+   be picked yet. Drawn with the room's kit, at the sizes of the draft (design/settings draft 1); display and plug-ins
+   are larger, and the window grows for them (display.js, design/display draft 2; plugpage.js, design/plugins draft 1). */
 let PAGE_W = 700, PAGE_H = 440
 const SIDE = 164, PX = 28, PR = 700 - SIDE - 28
 const PARTS = ['general', 'display', 'audio', 'recording', 'editing', 'notes', 'plug-ins', 'command line', 'slur', 'hand off', 'storage']
-const THERE = new Set(['general', 'display', 'audio'])        // the parts that are made
+const THERE = new Set(['general', 'display', 'audio', 'plug-ins'])        // the parts that are made
+/* what a part reads as it is opened */
+function partOpened (p) { if (p === 'display') displayRead(); else if (p === 'plug-ins' && !PG.list) plugRead() }
 /* the page's size for a part: display has the room's every part in it, and is larger */
 function setPage () {
-  const [w, h] = V.part === 'display' ? [DISP_W, DISP_H] : [700, 440]
+  const [w, h] = V.part === 'display' || V.part === 'plug-ins' ? [DISP_W, DISP_H] : [700, 440]
   if (w === PAGE_W && h === PAGE_H) return
   PAGE_W = w; PAGE_H = h
   const svg = document.getElementById('svg')
@@ -115,6 +117,7 @@ function draw () {
     if (there && !on) s += hit(10, y, SIDE - 20, 22, 'part', ` data-v="${p}"`)
   })
   if (V.part === 'display') { document.getElementById('svg').innerHTML = s + G(displayBody(), `translate(${SIDE} 0)`) + displayMenu(); return }
+  if (V.part === 'plug-ins') { document.getElementById('svg').innerHTML = s + G(plugBody(), `translate(${SIDE} 0)`); return }
   let b = T(PX, 34, V.part, { size: 13, w: 500, a: .94 }), y = 54
   V.at = {}
   if (d && BODY[V.part]) for (const [head, rows] of BODY[V.part](d)) {
@@ -134,7 +137,7 @@ async function read () {
   const d = NAT ? await NAT.call('settingsRead') : STAND_IN
   if (!d || !d.outs) return
   if (d.lang && d.lang !== LANG.now) setLang(d.lang)           // the language was changed while this window was away
-  if (d.part && THERE.has(d.part) && d.part !== V.part) { V.part = d.part; V.menu = null; V.key = ''; setPage(); if (V.part === 'display') displayRead() }
+  if (d.part && THERE.has(d.part) && d.part !== V.part) { V.part = d.part; V.menu = null; V.key = ''; setPage(); partOpened(V.part) }
   const k = JSON.stringify([d.lang, d.outs, d.ins, d.out, d.in, d.rates, d.rate, d.blocks, d.block, d.outLat, d.inLat, d.inputOn, Math.round(meterOf(d.level) * 150), d.threads, d.asked, d.busy])
   V.now = d
   if (k !== V.key) { V.key = k; draw() }
@@ -154,7 +157,8 @@ document.getElementById('svg').addEventListener('pointerdown', async e => {
   if (!el) return
   const a = el.dataset.a, v = el.dataset.v, d = V.now
   if (a.startsWith('d-')) { e.preventDefault(); return displayPress(el, e) }      // (so the press does not take the focus from a field it opens)
-  if (a === 'part') { V.part = v; V.menu = null; V.said = ''; setPage(); if (v === 'display') displayRead(); draw() }
+  if (a.startsWith('p-')) { e.preventDefault(); return plugPress(el, e) }
+  if (a === 'part') { V.part = v; V.menu = null; V.said = ''; setPage(); partOpened(v); draw() }
   else if (a === 'open') { V.menu = V.menu && V.menu.id === v ? null : { id: v, y: V.at[v === 'out' ? 'output' : 'input'] + 26, items: (v === 'out' ? d.outs : d.ins).map(t => ({ t, on: t === (v === 'out' ? d.out : d.in) })) }; draw() }
   else if (a === 'close') { V.menu = null; draw() }
   else if (a === 'set') { const what = el.dataset.what; await set(what, what === 'out' || what === 'in' || what === 'lang' ? v : +v) }
@@ -163,8 +167,11 @@ document.getElementById('svg').addEventListener('pointerdown', async e => {
 })
 addEventListener('pointermove', e => { displayMove(e) })
 addEventListener('pointerup', () => { displayUp() })
+addEventListener('wheel', e => { if (V.part === 'plug-ins') plugWheel(e) }, { passive: true })
 addEventListener('keydown', e => {
   if (V.part === 'display' && e.metaKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); dUndo(); return }
+  if (V.part === 'plug-ins' && e.metaKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); pgUndo(); return }
+  if (e.key === 'Escape' && V.part === 'plug-ins' && PG.find) { PG.find = ''; PG.group = null; draw(); return }
   if (e.key === 'Escape' && V.part === 'display' && D.menu) { D.menu = null; draw(); return }
   if (e.key === 'Escape') { if (V.menu) { V.menu = null; draw() } else if (NAT) NAT.call('settingsClose') }
   else if (e.metaKey && (e.key === 'w' || e.key === ',')) { e.preventDefault(); if (NAT && e.key === 'w') NAT.call('settingsClose') }
@@ -175,6 +182,7 @@ Promise.all([400, 500, 600].map(w => document.fonts.load(`${w} 10px 'Instrument 
   setPage()
   if (V.part === 'display') await displayRead()
   draw()
+  if (V.part === 'plug-ins') plugRead()
   await read()
   setInterval(() => { if (!document.hidden) read() }, 120)
 })

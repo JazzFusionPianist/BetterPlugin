@@ -843,7 +843,7 @@ async function openPicker (what) {
   placePicker()
   el.hidden = false; q.value = ''
   if (!S.picker.list) {
-    if (NAT) { drawPicker(); $('pk-head').innerHTML = '<b>add</b><span>looking</span>'; const list = await NAT.call('plugins'); S.picker.list = Array.isArray(list) ? list.sort((a, b) => a.name.localeCompare(b.name)) : [] }
+    if (NAT) { drawPicker(); $('pk-head').innerHTML = '<b>add</b><span>looking</span>'; const list = await NAT.call('plugins'); S.picker.list = Array.isArray(list) ? plugMakers(list).sort((a, b) => a.name.localeCompare(b.name)) : [] }
     else S.picker.list = []
   }
   drawPicker(); q.focus()
@@ -853,7 +853,7 @@ function closePicker () { if (!S.picker.open) return; S.picker.open = false; $('
 function drawPicker () {
   const t = S.tracks[S.sel], q = $('pk-q').value.trim().toLowerCase(), full = (t.inserts || []).length >= MAX_INS, fresh = S.picker.what === 'new', voice = S.picker.what === 'inst' || fresh
   const prints0 = voice ? [] : PRINTS3.filter(k => !printOn(t, k) && (!q || k.includes(q)))
-  const all = voice ? (S.picker.list || []).filter(p => p.inst || (q && p.unsure)) : full ? [] : (S.picker.list || []).filter(p => !p.inst), found = q ? all.filter(p => (p.name + ' ' + p.maker).toLowerCase().includes(q)) : all
+  const all = (voice ? (S.picker.list || []).filter(p => p.inst || (q && p.unsure)) : full ? [] : (S.picker.list || []).filter(p => !p.inst)).filter(plugShown), found = q ? all.filter(p => (p.name + ' ' + p.maker).toLowerCase().includes(q)) : all
   /* the kinds, down the left of the list of effects: each with how many of it there are (of what was looked for, when
      something was); the one pressed is the only kind listed. What is typed is looked for among all of them again. */
   const kinds = !voice && pickerIn(), cat = kinds ? S.picker.cat || 'all' : 'all', kindOf = p => p.cat || (p.cat = plugCat(p)), count = { all: prints0.length + found.length }

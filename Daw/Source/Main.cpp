@@ -463,6 +463,12 @@ private:
             }
             done (juce::var (o)); return;
         }
+        if (op == "testSettingsJs")                                            // the check: a script run in the settings page (what it holds; a press made by its own code)
+        {
+            if (selfTestMode().isEmpty() || settings == nullptr) { done (juce::var()); return; }
+            settings->page().evaluateJavascript (d["js"].toString(), [done] (juce::WebBrowserComponent::EvaluationResult r) { done (r.getResult() != nullptr ? juce::JSON::parse (r.getResult()->toString()) : juce::var()); });
+            return;
+        }
         if (op == "click")   { engine.click.store ((int) d["on"] != 0); done (okVar()); return; }
         if (op == "master")  { engine.master.store ((float) (double) d["gain"]); done (okVar()); return; }
         if (op == "inputOn")
@@ -1475,6 +1481,19 @@ private:
             }
             const auto facts = engine.setLowLatency (engine.lowLat.load(), ms);
             if (web != nullptr) web->emitEventIfBrowserIsVisible ("dawLowLat", facts);
+            return okVar();
+        }
+        if (what == "plugOut")                                                 // settings > plug-ins: the ones left out of the room's lists (ui/cats.js) — kept, and the room told at once
+        {
+            if (selfTestMode().isEmpty())
+            {
+                auto v = juce::JSON::parse (prefsFile());
+                if (! v.isObject()) v = juce::var (new juce::DynamicObject());
+                v.getDynamicObject()->setProperty ("plugOut", d["value"]);
+                prefsFile().getParentDirectory().createDirectory();
+                prefsFile().replaceWithText (juce::JSON::toString (v));
+            }
+            if (web != nullptr) { auto* o = new juce::DynamicObject(); o->setProperty ("ids", d["value"]); o->setProperty ("again", (bool) d["again"]); web->emitEventIfBrowserIsVisible ("dawPlugOut", juce::var (o)); }
             return okVar();
         }
         if (what == "look")                                                    // settings > display: the look the room wears (ui/look.js) — kept, and the room told at once

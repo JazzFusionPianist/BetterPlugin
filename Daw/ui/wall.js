@@ -599,7 +599,7 @@ async function wallPick (p) {
     if (S.picker.what !== 'fx') return draw0()
     const t = wallTrack(), w = wallOf(t), q = $('pk-q').value.trim().toLowerCase(), full = !w || wallFree(w) < 0
     const prints0 = full ? [] : WALL_PRINTS.filter(k => !(WALL_LEGACY[k] && w.nodes.some(n => n.k === k)) && (!q || k.includes(q)))
-    const found = full ? [] : (S.picker.list || []).filter(p => !p.inst && (!q || (p.name + ' ' + p.maker).toLowerCase().includes(q)))
+    const found = full ? [] : (S.picker.list || []).filter(p => !p.inst && plugShown(p) && (!q || (p.name + ' ' + p.maker).toLowerCase().includes(q)))      // (not those left out in settings > plug-ins)
     const kinds = pickerIn(), cat = kinds ? S.picker.cat || 'all' : 'all', kindOf = p => p.cat || (p.cat = plugCat(p)), count = { all: prints0.length + found.length, slur: prints0.length }
     for (const k of prints0) count[WALL_KIND[k]] = (count[WALL_KIND[k]] || 0) + 1
     for (const p of found) count[kindOf(p)] = (count[kindOf(p)] || 0) + 1

@@ -242,6 +242,37 @@ async function runSelfTest (mode) {
     await note('page', { errors: window.__errs || [] })
     await NAT.call('testDone'); return
   }
+  if (mode === 'plugins') {                                                        // only this: settings > plug-ins (plugpage.js), and the room's lists without what is left out there
+    await step('plugins', async () => {
+      const res = {}, there = js => NAT.call('testSettingsJs', { js })
+      await NAT.call('settings', { part: 'plug-ins' })
+      for (let k = 0; k < 60; k++) { await sleep(300); const r = await there(`JSON.stringify({ n: PG.list ? PG.list.length : 0, looking: PG.looking })`); if (r && r.n && !r.looking) break }
+      res.page = await there(`JSON.stringify({ part: V.part, all: PG.list.length, vst3: PG.list.filter(p => p.fmt === 'vst3').length, vst3Named: PG.list.filter(p => p.fmt === 'vst3' && p.maker).length, makers: new Set(PG.list.map(p => p.maker || 'others')).size, kinds: pgGroups(PG.list), out: PG.out.size, nameless: PG.list.filter(p => p.fmt === 'vst3' && !p.maker).map(p => p.name).slice(0, 20) })`)
+      res.window = await NAT.call('testSettings', { name: 'selftest-plugins.png' }); await sleep(600)
+      await there(`PG.by = 'maker'; PG.group = null; draw(); '1'`); await sleep(400)
+      await NAT.call('testSettings', { name: 'selftest-plugins-maker.png' }); await sleep(600)
+      S.picker.list = null; await openPicker(); await sleep(1500)
+      const rows = () => document.querySelectorAll('#pk-list .pk-row').length
+      res.pickerBefore = rows(); closePicker()
+      const out = await there(`PG.by = 'kind'; PG.group = 'delay'; draw(); pgSet(PG.rows, true); JSON.stringify(PG.rows.filter(p => !p.inst).map(p => p.id))`)      // the delays left out, as a press of 'leave all out' does
+      await sleep(800)
+      await NAT.call('testSettings', { name: 'selftest-plugins-out.png' }); await sleep(600)
+      res.leftOut = out.length; res.roomHeard = out.every(id => PLUG_OUT.has(id))
+      await openPicker(); await sleep(800)
+      res.pickerAfter = rows(); res.pickerLost = res.pickerBefore - res.pickerAfter
+      res.noneListed = !(S.picker.list || []).filter(p => !p.inst).filter(plugShown).some(p => out.includes(p.id))
+      await snap('selftest-plugins-picker.png'); closePicker()
+      res.stillOpens = !!(await natInsert(0, 'AudioUnit:Effects/aufx,dely,appl') || {}).ok      // a song may still have one that is left out: it opens
+      res.appleDelayWasOut = out.includes('AudioUnit:Effects/aufx,dely,appl')
+      await there(`pgUndo(); '1'`); await sleep(800)
+      res.back = PLUG_OUT.size === 0
+      await openPicker(); await sleep(600); res.pickerBack = rows(); closePicker()
+      await NAT.call('settingsClose')
+      return res
+    })
+    await note('page', { errors: window.__errs || [] })
+    await NAT.call('testDone'); return
+  }
   if (mode === 'display') {                                                        // only this: settings > display, the room wearing what is set there, and slur following its ground (needs the net)
     await step('display', async () => {
       const res = {}, slurDark = async () => { const r = await NAT.call('testSlur', { js: `JSON.stringify({ dark: document.documentElement.classList.contains('slur-dark') })` }); return r ? r.dark : null }

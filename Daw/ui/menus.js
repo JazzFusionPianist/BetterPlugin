@@ -19,7 +19,7 @@ const ALWAYS = new Set(['⌘KeyN', '⌘KeyO', '⌘KeyS', '⇧⌘KeyS', '⌘KeyI'
 const NUDGE_COMBO = { bar: '⌥⇧KeyM', beat: '⌥⇧KeyB', '1/16': '⌥⇧KeyS', '10 ticks': '⌥⇧KeyT', tick: '⌥⇧KeyQ', '10 ms': '⌃⌥Digit0', '1 ms': '⌃⌥Digit1', sample: '⌃⌥KeyS' }
 const MENU_BAR = () => [
   ['Slur Studio', [
-    ['Settings', null, { sub: [['General', null, { id: 'settings:general' }], ['Display', null, { id: 'settings:display' }], ['Audio', null, { id: 'settings:audio' }]] }],
+    ['Settings', null, { sub: [['General', null, { id: 'settings:general' }], ['Display', null, { id: 'settings:display' }], ['Audio', null, { id: 'settings:audio' }], ['Plug-ins', null, { id: 'settings:plug-ins' }]] }],
     ['Key Commands', '⌥KeyK', { id: 'keys' }],
   ]],
   ['File', [

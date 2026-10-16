@@ -1363,6 +1363,22 @@ public:
                     if (said.isNotEmpty()) o->setProperty ("sub", said);
                     o->setProperty ("unsure", ! info.existsAsFile());      // (it carries no such note: what it is, is only known once it is opened — the page lets it be looked for by name in either list)
                 }
+                {
+                    /* who made it, for the list by maker (settings > plug-ins): the note of its contents says, where it has one;
+                       else the page names it from what its bundle says of itself — its id and its copyright (ui/cats.js plugMakers) */
+                    juce::File info (juce::File (path).getChildFile ("Contents/Resources/moduleinfo.json"));
+                    if (! info.existsAsFile()) info = juce::File (path).getChildFile ("Contents/moduleinfo.json");
+                    const auto note = info.existsAsFile() && info.getSize() < (1 << 20) ? info.loadFileAsString() : String();
+                    const auto vendor = note.fromFirstOccurrenceOf ("\"Vendor\"", false, false).fromFirstOccurrenceOf ("\"", false, false).upToFirstOccurrenceOf ("\"", false, false).trim();
+                    if (vendor.isNotEmpty()) o->setProperty ("maker", vendor);
+                    const juce::File plist (juce::File (path).getChildFile ("Contents/Info.plist"));
+                    const auto pl = plist.existsAsFile() && plist.getSize() < (1 << 18) ? plist.loadFileAsString() : String();
+                    auto says = [&pl] (const char* key) { return pl.fromFirstOccurrenceOf ("<key>" + String (key) + "</key>", false, false).fromFirstOccurrenceOf ("<string>", false, false).upToFirstOccurrenceOf ("</string>", false, false).replace ("&amp;", "&").trim(); };
+                    o->setProperty ("bid", says ("CFBundleIdentifier"));
+                    auto by = says ("NSHumanReadableCopyright");
+                    if (by.isEmpty()) by = says ("CFBundleGetInfoString");
+                    o->setProperty ("by", by);
+                }
                 out.add (juce::var (o));
             }
         }

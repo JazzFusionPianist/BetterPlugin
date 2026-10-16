@@ -8,6 +8,7 @@
 #   ./selftest.sh realtime  only a realtime print: the mix, two stems, a bounce in place, and one stopped (the room drawn as it plays)
 #   ./selftest.sh menus     only the menu bar: every menu there, which keys it takes and leaves, a line pressed, its tick
 #   ./selftest.sh display   only settings > display: the room wearing a look, and slur turning light with its ground (needs the net)
+#   ./selftest.sh plugins   only settings > plug-ins: every plug-in on the Mac in it, the delays left out of the room's lists and back
 #   ./selftest.sh bench     only the measure (ui/bench.js; ./bench.sh runs it and keeps what it found)
 #   ./selftest.sh crash     only a bad end and what comes back after it: the app is brought down by a plug-in in the middle
 #                           of a take, then started again (the first run's notes are kept as selftest-crash.json)

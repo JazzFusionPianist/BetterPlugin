@@ -36,4 +36,38 @@ function plugCat (p) {
 }
 /* the room's own prints, by the same kinds */
 const PRINT_CAT = { tape: 'saturation', space: 'reverb', delay: 'delay' }
-if (typeof module !== 'undefined') module.exports = { plugCat, PLUG_CATS, PRINT_CAT }
+/* the plug-ins he has left out of the room's lists (settings > plug-ins, plugpage.js): kept in the app's settings by
+   their ids ('plugOut'); the lists of the room (the patch's, the wall's, the instruments') do not show them. A song that
+   has one still opens it. */
+const PLUG_OUT = new Set()
+const plugShown = p => !p || !PLUG_OUT.has(p.id)
+function plugOutSet (ids) {
+  PLUG_OUT.clear(); for (const id of Array.isArray(ids) ? ids : []) PLUG_OUT.add(String(id))
+  if (typeof S !== 'undefined' && S.picker && S.picker.open && typeof drawPicker === 'function') drawPicker()      // (the list that is up, written again)
+  if (typeof uiDirty === 'function') uiDirty('dock')
+}
+if (typeof window !== 'undefined' && window.__JUCE__ && window.__JUCE__.backend) {
+  window.__JUCE__.backend.addEventListener('dawPlugOut', d => { if (!d) return; if (d.again && typeof S !== 'undefined' && S.picker && !S.picker.open) S.picker.list = null; plugOutSet(d.ids) })      // (again: the plug-ins were looked for again, and the room asks the app afresh)
+  addEventListener('load', async () => { if (typeof NAT !== 'undefined' && NAT) { const p = await NAT.call('prefGet'); plugOutSet(p && p.plugOut) } })
+}
+/* who made a vst3 that does not say (Source/Engine.h listPlugins): the maker of the audio units whose name its bundle's id
+   carries ('com.fabfilter.Micro' → FabFilter), else what its copyright says ('Copyright © 2002-2024 FabFilter') */
+const squash = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+function plugMakers (list) {
+  const known = new Map()
+  for (const p of list) if (p.maker && p.fmt === 'au') known.set(squash(p.maker), p.maker)
+  for (const p of list) {
+    if (p.maker) continue
+    const k = squash(String(p.bid || '').split('.')[1])
+    let m = k.length >= 3 ? known.get(k) : null
+    if (!m && k.length >= 4) for (const [q, v] of known) if (q.length >= 4 && (q.startsWith(k) || k.startsWith(q))) { m = v; break }
+    if (!m && p.by) {
+      const by = String(p.by).replace(/all rights reserved\.?|copyright|\(c\)|©|\b(19|20)\d\d(\s*[-–]\s*((19|20)\d\d|present))?\b|\bv?\d+(\.\d+)+\b/gi, ' ').replace(/^[\s,.]+|[\s,.]+$/g, '').replace(/\s+/g, ' ')
+      const name = by.replace(/,?\s+(oy|inc|ltd|llc|gmbh|ab|ag|bv|sas|sarl|s\.?a\.?|co|corp)\.?$/i, '').trim()
+      if (/[a-z]/i.test(name) && name.length <= 40 && !list.some(o => o.name === name)) m = name      // (not the plug-in's own name, read back from a string that only names it)
+    }
+    if (m) p.maker = m
+  }
+  return list
+}
+if (typeof module !== 'undefined') module.exports = { plugCat, PLUG_CATS, PRINT_CAT, plugMakers }

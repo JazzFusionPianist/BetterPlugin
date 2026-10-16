@@ -121,7 +121,7 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
 
   page(t('trimming, cutting, joining', '트림, 자르기, 잇기'), { kind: 'text', cc: 3, txt:
     h('trim', '트림') +
-    p('Drag an end with the pointer or the smart tool. A file cannot be trimmed out past its own beginning or end; a region of notes can be pulled out as far as you like. Pulled outwards over a neighbour, the neighbour gives way.', '포인터나 스마트 도구로 끝을 드래그합니다. 파일은 자기 시작과 끝 너머로 늘릴 수 없고, 노트 리전은 원하는 만큼 늘릴 수 있습니다. 이웃 위로 늘리면 이웃이 자리를 내줍니다.') +
+    p('Drag an end with the pointer or the smart tool. A file cannot be trimmed out past its own beginning or end; a region of notes can be pulled out as far as you like. Pulled outwards over a neighbour, the neighbour gives way. With several regions chosen, the end of one pulled moves the same end of all of them by as much.', '포인터나 스마트 도구로 끝을 드래그합니다. 파일은 자기 시작과 끝 너머로 늘릴 수 없고, 노트 리전은 원하는 만큼 늘릴 수 있습니다. 이웃 위로 늘리면 이웃이 자리를 내줍니다. 여러 리전을 선택하고 하나의 끝을 끌면 모두의 같은 끝이 같은 만큼 움직입니다.') +
     table(null,
       ['[[[]] [[]]]', ['what is chosen begins, ends at the playhead. It trims or extends, and works while the song runs', '선택한 것이 플레이헤드에서 시작, 끝나게. 줄이거나 늘리며, 재생 중에도 됩니다']],
       ['[[⌥⇧←]] [[⌥⇧→]]', ['shorter, longer by one nudge', '넛지 한 번만큼 짧게, 길게']]) +
@@ -150,7 +150,7 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
 
   page(t('fades and crossfades', '페이드와 크로스페이드'), { kind: 'split', tw: 122, txt:
     table(null,
-      [['fade tool, smart tool', '페이드 도구, 스마트 도구'], ['drag from a region’s end inwards; across a join for a crossfade. With [[⌃⇧]] held the pointer does the same', '리전 끝에서 안쪽으로 드래그. 이음매를 가로지르면 크로스페이드. [[⌃⇧]]를 누르면 포인터로도 됩니다']],
+      [['fade tool, smart tool', '페이드 도구, 스마트 도구'], ['drag from a region’s end inwards; across a join for a crossfade. [[⌃⇧]] and the pointer do the same; all chosen regions get it', '리전 끝에서 안쪽으로 드래그. 이음매를 가로지르면 크로스페이드. [[⌃⇧]]를 누르면 포인터로도 됩니다. 여러 리전을 선택했으면 전부에 걸립니다']],
       ['[[F]]', ['fades for what is chosen: every join between chosen regions gets a 20 ms crossfade, every open end a 10 ms fade. With a marquee up, the marquee says how long', '선택한 것에 페이드: 선택한 리전 사이 이음매마다 20 ms 크로스페이드, 열린 끝마다 10 ms 페이드. 마키가 있으면 그 길이대로']],
       ['[[D]]', ['a fade in from the region’s start up to the playhead', '리전 시작에서 플레이헤드까지 페이드 인']],
       ['[[G]]', ['a fade out from the playhead to its end', '플레이헤드에서 리전 끝까지 페이드 아웃']],

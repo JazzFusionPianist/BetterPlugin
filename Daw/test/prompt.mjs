@@ -41,6 +41,35 @@ await b.press('Escape', 'Escape', 27); await b.press('Escape', 'Escape', 27); aw
 { await ev(`$('cmd').focus()`); const r = await el('#g-dock [data-a="prompt"][data-k="said"][data-i="0"]'); await b.click(r.x, r.y); await b.sleep(100)
   ok('a said row pressed: its words in the field again, chosen', (await ev(`return $('cmd').value`)) === 'snare -2' && (await ev(`return document.activeElement === $('cmd')`)), await ev(`return $('cmd').value`)) }
 
+/* what can follow, with nothing typed: at every step of a line (draft b shows it after the stretch); a longer list than
+   the page has room for goes down with the arrows and the wheel; return does a line that is whole */
+await b.press('Escape', 'Escape', 27); await b.press('Escape', 'Escape', 27); await ev(`S.line = { parts: [], done: false }; $('cmd').value = ''; $('cmd').blur(); flush()`); await b.sleep(60)
+{ const r = await el('#g-dock [data-a="prompt"][data-k="field"]'); await b.click(r.x, r.y); await b.sleep(150) }
+const list = () => ev(`flush(); return S.hint ? S.hint.items.map(x => x.t) : []`)
+const shown = () => ev(`flush(); return [...document.querySelectorAll('#g-dock [data-a="hint"]')].length`)
+ok('the field pressed, nothing typed: what can begin a line is listed (tracks, and acts)', (await list()).includes('kick') && (await list()).includes('lower'), await list())
+{ const n = (await list()).length, fit = await ev('return promptRows()'), seen = await shown()
+  ok('…a list longer than the page has room for is not cut: as many rows as fit are shown, and it says how many there are', n > fit && seen === fit && /of \d+/.test(await texts()), [n, fit, seen])
+  for (let k = 0; k < fit + 2; k++) await b.press('ArrowDown', 'ArrowDown', 40)
+  ok('…the arrows go past the last row shown, and the list follows', await ev(`flush(); return S.hint.at === ${fit + 2} && !!document.querySelector('#g-dock [data-a="hint"][data-i="${fit + 2}"]') && !document.querySelector('#g-dock [data-a="hint"][data-i="0"]')`))
+  const L = await ev(`const q = promptListBox(), r = board.getBoundingClientRect(); return { x: r.left + (q.x + 40) * r.width / W, y: r.top + (q.y + 20) * r.height / H }`)
+  for (let k = 0; k < 30; k++) await b.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: L.x, y: L.y, deltaX: 0, deltaY: -60 })
+  await b.sleep(100)
+  ok('…and the wheel brings it back up', await ev(`flush(); return PROMPT.top === 0 && !!document.querySelector('#g-dock [data-a="hint"][data-i="0"]')`)) }
+await b.press('Escape', 'Escape', 27); await ev(`$('cmd').focus(); hintFresh(true)`)
+await b.type('kick'); await b.press('Tab', 'Tab', 9); await b.sleep(120)
+ok('a track taken: what is on it is listed, every act among it (none left out)', (await list()).filter(w => ['mute', 'unmute', 'solo', 'unsolo', 'delete', 'select'].includes(w)).length === 6, await list())
+await b.type('vol'); await b.press('Tab', 'Tab', 9); await b.sleep(120)
+ok('a thing taken: where it may be done is listed (the markers), with nothing typed', (await list()).some(w => /^chorus /.test(w)), await list())
+await b.type('5~7'); await b.press('Tab', 'Tab', 9); await b.sleep(120)
+ok('a stretch taken: an amount to begin from, and the acts — as draft b shows', JSON.stringify((await list()).slice(0, 2)) === JSON.stringify(['3 db', 'lower gradually']) && (await list()).includes('set to'), await list())
+await b.press('Tab', 'Tab', 9); await b.sleep(120)
+await b.press('ArrowDown', 'ArrowDown', 40); await b.press('ArrowDown', 'ArrowDown', 40); await b.press('Tab', 'Tab', 9); await b.sleep(150)
+ok('…the amount taken, then the act', JSON.stringify(await ev(`return S.line.parts.map(p => p.t)`)) === JSON.stringify(['kick', 'volume', '5 ~ 7', '3 db', 'lower']), await ev(`return S.line.parts.map(p => p.t)`))
+await b.press('Enter', 'Enter', 13); await b.sleep(200)
+ok('…return does the whole line: kick 3 db lower over bars 5 to 7, one step', await ev(`const t = S.tracks.find(x => x.name === 'kick'); return S.line.done && autoPts(t, 'vol').length >= 4 && Math.abs(autoPts(t, 'vol').find(q => Math.abs(q.b - 4) < 1e-6 && q.v < t.vol - 2.9).v - (t.vol - 3)) < 1e-6`), await ev(`return autoPts(S.tracks.find(x => x.name === 'kick'), 'vol').map(q => [q.b, q.v])`))
+await ev(`undoEdit(); S.line = { parts: [], done: false }; $('cmd').value = ''; flush()`)
+
 /* another page: the foot has its line again */
 { const t = await el('[data-a="tab-mixer"]'); await b.click(t.x, t.y); await b.sleep(400)
   const fo = await foot()

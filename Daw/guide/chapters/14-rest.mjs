@@ -26,7 +26,7 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
     p('((Slur Studio > Settings…)) [[⌘,]] opens a window of its own. A change is taken at once; there is no OK or Cancel. [[esc]] or [[⌘W]] closes it.', '((Slur Studio > Settings…)) [[⌘,]]는 별도의 창을 엽니다. 바꾸면 바로 적용되고, OK나 Cancel은 없습니다. [[esc]]나 [[⌘W]]로 닫습니다.') +
     h('general', 'general') +
     table(null,
-      ['{{language}}', ['{{english}} or {{한국어}}. The app is written again in that language at once, without a restart. Names you gave, the Mac’s menus and its panels never change. The command line reads both languages either way', '{{english}} 또는 {{한국어}}. 재시작 없이 바로 그 언어로 다시 그려집니다. 직접 붙인 이름, Mac의 메뉴와 패널은 바뀌지 않습니다. 커맨드 라인은 어느 쪽이든 두 언어를 읽습니다']]) +
+      ['{{language}}', ['{{english}} or {{한국어}}. The app is written again in that language at once, without a restart. Names you gave, the Mac’s menus and its panels never change. The command line reads English either way', '{{english}} 또는 {{한국어}}. 재시작 없이 바로 그 언어로 다시 그려집니다. 직접 붙인 이름, Mac의 메뉴와 패널은 바뀌지 않습니다. 커맨드 라인은 어느 쪽이든 영어를 읽습니다']]) +
     h('audio', 'audio') +
     legend(
       [1, '{{output}} and {{input}}: the device. Choosing an input does not open it; it opens when a track asks for it', '{{output}}과 {{input}}: 장치. 입력을 골라도 열리지는 않습니다. 트랙이 요청할 때 열립니다'],
@@ -64,7 +64,6 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
       ['{{slur}}', ['the panel’s look: by the ground, always dark or always light', '패널의 모습: 바탕에 따라, 늘 어둡게, 늘 밝게']]) +
     note('By the ground, the Slur panel turns light by itself when the window’s ground grows lighter than the mark ({{light when the ground is lighter than}}, 60% at first), and dark again below it.', '바탕에 따라로 두면, 창의 바탕이 기준({{light when the ground is lighter than}}, 처음엔 60%)보다 밝아질 때 Slur 패널이 저절로 밝아지고, 그 아래로 내려가면 다시 어두워집니다.'),
     art: fig('display-room', { w: 150, cap: ['the room in a look of its own: a light ground, dark ink, round corners, the sound standing on each region’s foot, drums from red to amber', '직접 만든 모습을 입은 방: 밝은 바탕, 짙은 잉크, 둥근 모서리, 리전 바닥에 선 소리, 빨강에서 호박색으로 가는 드럼'] }) }),
-
 
   page(t('after a bad end', '비정상 종료 뒤에'), { kind: 'text', cc: 3, txt:
     h('what protects the work', '작업을 지키는 것') +
@@ -124,8 +123,6 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
       ['changing key commands: the sheet only lists them', '단축키 바꾸기: 표는 보여 주기만 합니다'],
       ['a way back to the start page without quitting; more than one project open', '종료 없이 시작 화면으로 돌아가기. 프로젝트 여러 개 동시에 열기'],
       ['templates of your own', '직접 만든 템플릿'],
-      ['choosing which tracks hand off prints, or its folder', '내보낼 트랙이나 폴더 고르기'],
-      ['mp3 without the lame program installed', 'lame 프로그램 없이 mp3'],
       ['settings other than general, display and audio', 'general, display, audio 외의 설정'],
       ['a Windows version', 'Windows 버전']) }),
 ])

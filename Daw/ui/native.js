@@ -97,10 +97,10 @@ if (NAT) {
   }
   /* a file let go on the page is kept in the project's own folder: it goes over in pieces of three megabytes */
   let putId = 0
-  decodeFile = async f => {
+  decodeFile = async (f, tell) => {                                                      // tell: said after each piece, how much of the file has gone over (0 to 1)
     const id = `put${++putId}`, CH = 3 << 20
     let r = null
-    for (let off = 0; off < Math.max(1, f.size); off += CH) r = await NAT.call('audioPut', { id, project: projKey(), name: f.name, data: b64(new Uint8Array(await f.slice(off, off + CH).arrayBuffer())), last: off + CH >= f.size ? 1 : 0 })
+    for (let off = 0; off < Math.max(1, f.size); off += CH) { if (tell) tell(off / Math.max(1, f.size)); r = await NAT.call('audioPut', { id, project: projKey(), name: f.name, data: b64(new Uint8Array(await f.slice(off, off + CH).arrayBuffer())), last: off + CH >= f.size ? 1 : 0 }) }
     if (!r || !r.ok) throw new Error('decode')
     return { key: r.key, sec: r.sec, peaks: r.peaks, file: r.file, tone: r.tone }
   }
@@ -111,26 +111,28 @@ if (NAT) {
     const ho = S.ho
     if (ho.state === 'busy' || ho.asking || S.rec) return
     const pl = hoPlan(), f = hoFmt()
-    if (!pl.mix && !pl.list.length) { ho.note = 'nothing sounds in this range'; uiDirty('hand'); return }
+    if (!pl.mix && !pl.list.length) { ho.note = pl.cands.length ? 'no stem is chosen' : 'nothing sounds in this range'; uiDirty('hand'); return }
     ho.asking = true
-    const at = await NAT.call('bouncePick', { name: `${PROJ.name} ${pl.name} ${pl.mix ? 'mix' : 'stems'}`, panel: ho.panel ? 1 : 0 })
+    const at = await NAT.call('bouncePick', Object.assign({ name: `${PROJ.name} ${pl.name} ${pl.mix ? 'mix' : 'stems'}`, panel: ho.panel ? 1 : 0 }, pl.mix ? { ext: f.fmt } : null))      // (the mix is one file: the panel asks for that file, of the kind picked; stems go into a folder)
     ho.asking = false
     if (!at || !at.ok) { ho.note = at && at.why === 'file' ? 'a file of that name is there' : ''; uiDirty('hand'); return }
     if (S.playing) { halt(false); uiDirty('top') }
     ho.state = 'busy'; ho.done = 0; ho.total = pl.mix ? 1 : pl.list.length * pl.modes.length; ho.note = ''; uiDirty('hand')
+    printBegin(pl.mix ? 'printing the mix' : 'printing stems', at.name, ho.total)             // (project.js: a card in the middle of the window, with how far along it is)
     const r = await NAT.call('bounce', {
       kind: pl.mix ? 'mix' : 'stems', a0: pl.a0, a1: pl.a1, modes: pl.modes.map(m => m === 'dry' ? 'dry' : 'wet'),
       tracks: pl.list.map(t => ({ id: t.id, name: `${String(S.tracks.indexOf(t) + 1).padStart(2, '0')} ${t.name}` })),
-      dir: at.dir, name: at.name, fmt: f.fmt, rate: f.rate, bits: f.bits,
+      dir: at.dir, name: at.name, fmt: f.fmt, rate: f.rate, bits: f.bits, kbps: f.kbps || 320, single: at.single ? 1 : 0,
     })
-    ho.state = 'idle'
-    if (r && r.ok) { ho.done = ho.total; ho.note = 'saved as'; ho.at = at.name; handOffExtras(r.dir, at.name, pl.a0, pl.a1); handOffRest(r.dir) } else { ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render' }
+    ho.state = 'idle'; printEnd()
+    if (r && r.ok) { ho.done = ho.total; ho.note = 'saved as'; ho.at = at.single ? `${at.name}.${f.fmt}` : at.name } else {      // (what is printed is the sound and nothing else: wav picked, a wav; the notes, a page about the song, the patches and the project are not laid beside it any more)
+    ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render' }
     resync(); applyAll()
     uiDirty('hand')
   }
   /* the space bar, return or v, pressed while a plug-in's window had the keys and wanted by nothing in it: the room's, as if pressed here */
   NAT.on('dawPlugKey', d => { const key = d && { Space: ' ', Enter: 'Enter', KeyV: 'v' }[d.code]; if (key) dispatchEvent(new KeyboardEvent('keydown', { code: d.code, key, shiftKey: !!d.shift, bubbles: true, cancelable: true })) })
-  NAT.on('dawBounce', d => { if (S.ho.state === 'busy') { S.ho.done = d.done; uiDirty('hand') } })
+  NAT.on('dawBounce', d => { printTell(d); if (S.ho.state === 'busy' && d && d.done >= 0) { S.ho.done = d.done; uiDirty('hand') } })
   /* a file longer than twenty minutes that the disk has no room to keep ready: only its beginning is held, and that is said */
   NAT.on('dawCut', d => { if (d && d.name) say(`only the first ${Math.round(d.held / 60)} of ${Math.round(d.whole / 60)} minutes of ${String(d.name).toLowerCase().slice(0, 28)} are held${d.disk ? ': the disk has no room for the rest' : ''}`) })
   NAT.on('dawTick', d => {

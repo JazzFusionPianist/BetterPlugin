@@ -18,6 +18,9 @@ cmake --build $B -j "${SLUR_JOBS:-10}"
 APP="$B/SlurDaw_artefacts/Release/Slur Studio.app"
 # the page travels inside the app, so the app reads nothing outside itself
 mkdir -p "$APP/Contents/Resources" && rsync -a --delete ui/ "$APP/Contents/Resources/ui/"
+# and so does the program an mp3 is made with (vendor/lame: LAME, as it is, with its licence — ./lame.sh makes it), so that
+# an mp3 can be printed on any Mac the app runs on
+if [ -x vendor/lame/lame ]; then mkdir -p "$APP/Contents/Helpers" && cp vendor/lame/lame "$APP/Contents/Helpers/lame" && cp vendor/lame/COPYING "$APP/Contents/Resources/lame COPYING.txt"; else echo "no vendor/lame/lame: this build cannot print an mp3 (./lame.sh makes it)"; fi
 echo "built: $APP"
 if [ "$1" = "--only" ]; then exit 0; fi
 # installed beside the other apps: copied, signed again there (the page went in after the build signed it), then swapped in,
@@ -25,7 +28,13 @@ if [ "$1" = "--only" ]; then exit 0; fi
 DEST="/Applications/Slur Studio.app"
 rm -rf "$DEST.new"
 ditto "$APP" "$DEST.new"
-codesign --force --deep --sign - "$DEST.new" > /dev/null 2>&1
+# Signed with a certificate of this Mac's own when there is one whose name begins "Slur Studio" (or the one named in
+# SLUR_SIGN_ID): the Mac remembers what an app may reach (the microphone, the Documents folder a plug-in keeps its presets
+# in) by who signed it, and an app signed by nobody is a new app to it after every build — it asks again each time. With
+# a certificate the answer given once holds for every build after. Without one it is signed by nobody, as before.
+SIGN="${SLUR_SIGN_ID:-$(security find-identity -p codesigning 2> /dev/null | sed -n 's/.*"\(Slur Studio[^"]*\)".*/\1/p' | head -1)}"
+if [ -n "$SIGN" ] && codesign --force --deep --sign "$SIGN" "$DEST.new" > /dev/null 2>&1; then echo "signed: $SIGN"
+else codesign --force --deep --sign - "$DEST.new" > /dev/null 2>&1; echo "signed by nobody (the Mac will ask again for the microphone and Documents after this build: see build.sh)"; fi
 rm -rf "$DEST" && mv "$DEST.new" "$DEST"
 echo "installed: $DEST"
 # the same program under the name it had before ("Slur DAW"): taken away, so that there are never two to open — unless a

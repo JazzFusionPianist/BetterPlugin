@@ -398,12 +398,31 @@ async function runSelfTest (mode) {
   })
 
   /* out: stems as flac, the mix as wav at another rate, the mix as m4a; and a bounce in place */
+  const hoPlanWith = set => { Object.assign(S.ho, { skip: [] }, set); return hoPlan().cands }
   const send = async set => { Object.assign(S.ho, { open: true, done: 0, note: '' }, set); await sendStems(); return { note: S.ho.note, done: S.ho.done, total: S.ho.total } }
   setCycle(4, 8, false)
   await step('exportStemsFlac', () => send({ what: 'stems', print: 'with patch', range: 'cycle', fmt: 'flac', rate: 0, bits: 24 }))
+  /* which stems: with two rows pressed out in the panel's plan, only the others are printed (what lies in the folder is looked at from outside) */
+  await step('stemsChosen', async () => {
+    const all = hoPlanWith({ what: 'stems', print: 'with patch', range: 'cycle' }), out = all.slice(0, 2)
+    const r = await send({ what: 'stems', print: 'with patch', range: 'cycle', fmt: 'wav', rate: 0, bits: 16, skip: out.map(t => t.id) })
+    const res = { could: all.map(t => t.name), leftOut: out.map(t => t.name), sent: r, at: S.ho.at }
+    S.ho.skip = []
+    res.ok = all.length >= 3 && r.note === 'saved as' && r.total === all.length - 2 && r.done === r.total
+    return res
+  })
   await step('exportMixWav441', () => send({ what: 'mix', range: 'cycle', fmt: 'wav', rate: 44100, bits: 16 }))
   await step('exportMixM4a', () => send({ what: 'mix', range: 'cycle', fmt: 'm4a', rate: 0, bits: 24 }))
   await step('exportMp3', () => CAP.mp3 ? send({ what: 'mix', range: 'cycle', fmt: 'mp3', rate: 0, bits: 24 }) : { skipped: 'there is no lame on this machine' })
+  /* the mix is one file and nothing else — wav picked, a wav; mp3 picked, an mp3, at the rate picked — made by the encoder
+     that travels inside the app. (What lies in the folder afterwards, and each mp3's rate, is looked at from outside.) */
+  await step('mixFile', async () => {
+    const res = { mp3: !!CAP.mp3, lame: String(CAP.lame || '') }
+    res.wav = await send({ what: 'mix', range: 'cycle', fmt: 'wav', rate: 0, bits: 24 }); res.wavAt = S.ho.at
+    if (CAP.mp3) for (const k of [128, 192, 320]) { res['mp3_' + k] = await send({ what: 'mix', range: 'cycle', fmt: 'mp3', rate: 0, bits: 24, kbps: k }); res['at_' + k] = S.ho.at }
+    res.ok = res.mp3 && /Contents\/Helpers\/lame$/.test(res.lame) && res.wav.note === 'saved as' && /\.wav$/.test(res.wavAt) && [128, 192, 320].every(k => res['mp3_' + k].note === 'saved as' && /\.mp3$/.test(res['at_' + k]))
+    return res
+  })
   await snap('selftest-8-handoff.png')
   S.ho.open = false
   await step('bounceInPlace', async () => {
@@ -1122,6 +1141,34 @@ async function runSelfTest (mode) {
     S.line = { parts: [], done: false }
     res.word = [await take('ser'), await take('mu', 'mute')]; key('Enter'); await sleep(400); res.muted = t.mute
     t.mute = mute0; t.name = was; t.ap = ap0; S.auto = auto0; S.line = { parts: [], done: false }; S.cycle.on = false; cmd.value = ''; cmd.dispatchEvent(new Event('input')); cmd.blur(); applyAll(); await natSession(); dirtyAll(); flush()
+    return res
+  })
+  /* the command line's one grammar in the app (test/grammar.mjs has the rest): a plug-in's control named in a line of
+     words — its controls asked of the app first, its travel read in its own unit — and a bent ramp told to the app */
+  await step('grammar', async () => {
+    const t = S.tracks.find(x => x.kind === 'audio' && !x.theirs), ti = S.tracks.indexOf(t), was = t.name, ap0 = t.ap, auto0 = S.auto, n0 = UNDO.length, res = {}
+    t.name = 'serum 2'; SAY.vocab = null; dirtyAll(); flush()
+    const r = await natInsert(ti, 'AudioUnit:Effects/aufx,dely,appl')
+    if (!(r && r.ok)) { t.name = was; return { plugin: 'would not open' } }
+    const ins = t.inserts.find(x => x.uid === r.uid), name = String(ins.name).toLowerCase()
+    ins.pl = null                                                                                  // (as a line first meets it: its controls not yet asked for)
+    await runCommand(`set ${name} dry/wet mix to 40 % from 5 to 7`); await sleep(300)
+    const k = Object.keys(t.autos || {}).find(x => FX_KEY.test(x) && fxIns(t, x) === ins), sc = k ? scaleOf(t, k) : null
+    res.control = { asked: (ins.pl || []).length, key: k, said: S.last && (S.last.say || (S.last.res || []).map(a => a.text).join(' | ')), unit: sc && sc.unit, pts: k ? autoPts(t, k).map(q => [q.b, +q.v.toFixed(3)]) : null, reads: k && sc && sc.nums ? +scaleNum(sc, autoAt(t, k, 5)).toFixed(1) : null }
+    undoEdit(); await sleep(150)
+    await runCommand('raise serum 2 exponentially from 5 to 9 by 6 db'); await sleep(300)
+    const m = autoMsg(t).find(x => x.p === 0)
+    res.bent = { pts: autoPts(t, 'vol').map(q => [q.b, +q.v.toFixed(2), q.c || '']), told: m ? m.pts.length : 0, said: S.last && (S.last.res || []).map(a => a.text).join(' | '), undo: UNDO.length - n0 }
+    undoEdit(); await sleep(150); res.undone = autoPts(t, 'vol').length
+    /* round two: a region moved, trimmed, named and made louder by lines of words, each one step */
+    const reg = t.regs.slice().sort((x, y) => x.a - y.a)[0], r0 = { a: reg.a, b: reg.b, gain: reg.gain || 0, tag: reg.tag || '' }, u0 = UNDO.length
+    S.selR = [reg.id]; S.focus = 'lanes'
+    const said = async l => { await runCommand(l); await sleep(150); return S.last && (S.last.say || (S.last.res || []).map(a => a.text).join(' | ')) }
+    res.regions = { later: await said('move this later by 1 beat'), a: reg.a, trimmed: await said(`trim the end of this to bar ${Math.floor(r0.b) - 1}`), b: reg.b, named: await said('rename this to "Take A"'), tag: reg.tag, gain: await said('set the gain of this to -3 db'), g: reg.gain, steps: UNDO.length - u0 }
+    while (UNDO.length > u0) undoEdit()
+    { const q = t.regs.find(x => x.id === reg.id) || {}; res.regions.back = q.a === r0.a && q.b === r0.b && (q.gain || 0) === r0.gain && (q.tag || '') === r0.tag }      // (looked up again: a step back may bring the region back as another object)
+    await NAT.call('remove', { track: t.id, uid: r.uid }); t.inserts = t.inserts.filter(x => x.uid !== r.uid)
+    t.name = was; t.ap = ap0; S.auto = auto0; SAY.vocab = null; S.last = null; applyAll(); await natSession(); dirtyAll(); flush()
     return res
   })
   await step('elsewhere', async () => {
@@ -1920,6 +1967,47 @@ async function runSelfTest (mode) {
         && res.side.ok && res.sideFacts.latency === late.latency && same(res.sideIs) && res.gone.inserts === had && same(res.goneIs) && near(res.goneIs, 1, .03))))
     return res
   })
+  /* sound let go on the window: while it is brought in, the card in the middle of the window is up, goes file by file and
+     moves within a file that goes over in several pieces; afterwards it is gone and the sounds lie on their tracks */
+  await step('dropCard', async () => {
+    if (typeof printBegin !== 'function') return { skipped: 'this page has no card for it' }
+    const n0 = UNDO.length, tracks0 = S.tracks.length, el = document.getElementById('loading'), seen = []
+    const tone = async (hz, sec) => { const c = new OfflineAudioContext(2, Math.round(48000 * sec), 48000), o = c.createOscillator(), g = c.createGain(); o.frequency.value = hz; g.gain.value = .2; o.connect(g).connect(c.destination); o.start(); return new File([wav16(await c.startRendering())], `drop ${hz}.wav`, { type: 'audio/wav' }) }
+    const files = [await tone(220, 44), await tone(330, 6)]                               // (the first is long enough to go over in three pieces)
+    const tell0 = printTell
+    printTell = d => { tell0(d); seen.push([PRINT.done, +PRINT.part.toFixed(2), !el.hidden, document.getElementById('ld-what').textContent, document.getElementById('ld-word').textContent, document.getElementById('ld-name').textContent]) }
+    const placed = await dropFiles(files, null, 1)
+    printTell = tell0
+    await sleep(200)
+    const res = { placed, mb: +(files[0].size / 1048576).toFixed(1), looks: seen.length, parts: [...new Set(seen.filter(x => x[0] === 0).map(x => x[1]))], done: [...new Set(seen.map(x => x[0]))], up: seen.every(x => x[2]), word: seen.length ? seen[0][4] : '', name: seen.length ? seen[0][5] : '', what: seen.length ? seen[Math.min(1, seen.length - 1)][3] : '', gone: el.hidden, tracks: S.tracks.length - tracks0 }
+    while (UNDO.length > n0) undoEdit()
+    await natSession(); await sleep(150)
+    res.ok = placed === true && res.parts.length >= 3 && res.parts.every((v, i) => !i || v > res.parts[i - 1]) && res.done.includes(1) && res.done.includes(2) && res.up && res.gone && res.word === 'bringing in' && res.name === '2 files' && /^file 1 of 2/.test(res.what) && res.tracks === 2
+    return res
+  })
+  /* a print tells how far along it is while it runs (the card in the middle of the window): for one long file, the bar is
+     seen at several places between empty and full; for several files it goes file by file; it is gone when the print is */
+  await step('printCard', async () => {
+    if (typeof printBegin !== 'function') return { skipped: 'this page has no card for it' }
+    const t = S.tracks.find(sounding)
+    if (!t) return { skipped: 'no track with sound on it' }
+    const back = allHeard(), seen = [], el = document.getElementById('loading')
+    printBegin('printing the mix', 'check mix', 1)
+    const tell0 = printTell
+    printTell = d => { tell0(d); seen.push([+((PRINT.done + (PRINT.done < PRINT.total ? PRINT.part : 0)) / PRINT.total).toFixed(2), !el.hidden, document.getElementById('ld-what').textContent]) }      // (looked at each time the app says how far it is: a print of the check's short song is over in a moment)
+    const b = await NAT.call('bounce', { kind: 'mix', a0: 0, a1: 40, modes: ['wet'], tracks: [], folder: 'print card', name: 'card mix', fmt: 'wav', rate: 0, bits: 24 })
+    await sleep(150); printTell = tell0; printEnd()
+    const parts = [...new Set(seen.map(x => x[0]))]
+    const res = { printed: !!(b && b.ok), looks: seen.length, parts: parts.length, first: parts[0], last: parts[parts.length - 1], rising: parts.every((v, i) => !i || v >= parts[i - 1]), up: seen.every(x => x[1]), text: seen.length ? seen[seen.length >> 1][2] : '', gone: el.hidden }
+    printBegin('printing stems', 'check stems', 2)
+    const got = []
+    printTell = d => { tell0(d); got.push(PRINT.done) }
+    const st = await NAT.call('bounce', { kind: 'stems', a0: 0, a1: 8, modes: ['wet'], tracks: S.tracks.filter(sounding).slice(0, 2).map(x => ({ id: x.id, name: x.name })), folder: 'print card', name: 'card stems', fmt: 'wav', rate: 0, bits: 24 })
+    await sleep(150); printTell = tell0; res.stems = { ok: !!(st && st.ok), done: PRINT.done, total: PRINT.total, steps: [...new Set(got)] }
+    printEnd(); back()
+    res.ok = res.printed && res.parts >= 5 && res.rising && res.first < .5 && res.last > .8 && res.up && /%$/.test(res.text) && res.gone && res.stems.ok && res.stems.done === 2 && res.stems.steps.includes(1) && res.stems.steps.includes(2)
+    return res
+  })
   /* the stereo out's own wall (wall.js): with nothing on it the song is printed as it was; a print on it changes the whole
      song's print and leaves a single track's print alone; a plug-in on it that is late is made up for; taken off again, the
      engine no longer holds the stereo out as a bus and the song is printed as before. */
@@ -1932,7 +2020,9 @@ async function runSelfTest (mode) {
     const stem = async name => { const b = await NAT.call('bounce', { kind: 'stems', a0, a1: a0 + 2, modes: ['wet'], tracks: [{ id: t.id, name }], folder: 'wall out', name, fmt: 'wav', rate: 0, bits: 24 }); await sleep(120); return b && b.ok ? `${b.dir}/${name}.wav` : null }
     const against = async (dry, f) => { if (!dry || !f) return null; const m = await NAT.call('testLag', { a: dry, b: f }); return { lag: m.lag, alike: +(+m.alike).toFixed(4), level: m.levelA > 0 ? +(m.levelB / m.levelA).toFixed(3) : 0 } }
     await wallOutLoad(null)
+    await natSession(); await sleep(250)                                                 // (a step before this may have opened the project a moment ago: the engine holds all of it before anything is printed)
     const dry = await mixed('out dry'), stemDry = await stem('out stem dry')
+    { const m = dry ? await NAT.call('testLag', { a: dry, b: dry }) : null; res.dry = { file: dry, frames: m && m.frames, level: m && +(+m.levelA).toFixed(4), master: S.master, playing: S.playing, solo: S.tracks.filter(x => x.solo).map(x => x.name), mute: S.tracks.filter(x => x.mute).map(x => x.name), tracks: S.tracks.length, proj: projKey() } }
     res.before = { bus: !!wallOutTrack(), facts: await NAT.call('wallFacts', { track: OUT_ID }) }
     wallAdd(OUT, 'crush'); { const w = wallOf(OUT), n = w.nodes[0]; n.amount = .85; wallWire(OUT, -1, n.id, 0); wallWire(OUT, n.id, -2, 0) }
     await wallPushOut(); await sleep(200)
@@ -2188,8 +2278,9 @@ async function runSelfTest (mode) {
     res.ok = res.in && res.box[1] === res.panel[0] && res.box[3] === res.panel[1] && res.box[0] + res.box[2] === res.panel[2] && cats.length > 6 && cats.slice(1).filter(c => c[0] !== 'slur').reduce((n, c) => n + c[1], 0) === all && all > 0 && other <= all * .15
     return res
   })
-  /* the hand-off folder holds everything: beside the sound, the patch of each track that has one as a file Patch on Slur
-     opens (the same graph the engine runs, with the prints as they stand), and the project itself, whole */
+  /* the hand-off folder holds, beside the sound, the patch of each track that has one as a file Patch on Slur opens (the
+     same graph the engine runs, with the prints as they stand) — and no copy of the project (it used to: a whole song on
+     the disk again for every bounce) */
   await step('handOffRest', async () => {
     const t = S.tracks.find(x => x.kind === 'audio'), was = copy(t.patch)
     setPrint(t, 'space', 40); setPrint(t, 'delay', 25); pushTrack(t)
@@ -2201,7 +2292,8 @@ async function runSelfTest (mode) {
       const there = await NAT.call('projFacts', { name: `${b.dir}/${PROJ.name}.sls` })
       res.rest = r
       res.preset = { types: pj.nodes.map(n => n.type), amounts: pj.nodes.map(n => +n.amount.toFixed(2)), wires: pj.edges.map(e => [e.from, e.to, +e.gain.toFixed(2)]) }
-      res.project = { ok: !!(there && there.ok), tracks: there && there.tracks ? there.tracks.length : -1, mine: S.tracks.length }
+      res.project = { ok: !!(there && there.ok), copied: r.project }                     // (no copy of the project is laid beside a bounce any more: there must be none)
+      res.ok = res.printed && r.patches > 0 && !res.project.ok && r.project === false
     }
     t.patch = was; pushTrack(t)
     return res

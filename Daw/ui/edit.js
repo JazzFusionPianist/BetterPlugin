@@ -755,11 +755,21 @@ const fadeHeld = (e, p) => { if (!e.ctrlKey || !e.shiftKey || e.metaKey || e.alt
 /* a fade taken hold of: where it is part of a crossfade, the crossfade is what is pulled. `pos`: where it was taken hold
    of, when the pull is to be counted from there (the smart tool: the fade grows by as much as the hand moves); without
    it the fade reaches to wherever the pointer is (the fade tool) */
+/* the regions that take a fade along with the one whose fade is pulled: the same stretch on the tracks edited along with
+   its own (an edit group), and — when it is one of several chosen regions — every other chosen region of sound: each gets
+   a fade as long, as far as it has room for one */
+function fadeWith (r, t) {
+  const out = new Map(companions(r, t).map(([x]) => [x.id, x]))
+  if (S.selR.includes(r.id) && S.selR.length > 1) for (const [x] of selRegs()) if (!x.notes) out.set(x.id, x)
+  out.delete(r.id)
+  return [...out.values()]
+}
 function fadeGrab (r, t, left, before, pos) {
   const pair = joinsOf(t).find(([A, B]) => xfadeOf(A, B) && (left ? B === r : A === r))
   if (pair) { S.selR = []; S.selX = [pair[0].id, pair[1].id]; return { a: 'xfade', A: pair[0].id, B: pair[1].id, mates: mateIds(pair[0], pair[1], t), before, moved: false } }
-  S.selR = withTheirs([r.id])
-  return { a: 'fade', id: r.id, left, before, also: companions(r, t).map(([x]) => x.id), dx: pos == null ? 0 : left ? pos - (r.a - 1 + (r.fi || 0)) : pos - (r.b - 1 - (r.fo || 0)) }
+  const with_ = fadeWith(r, t)
+  if (!(S.selR.includes(r.id) && S.selR.length > 1)) S.selR = withTheirs([r.id])           // (one of several chosen: they stay chosen, and take the fade with it)
+  return { a: 'fade', id: r.id, left, before, also: with_.map(x => x.id), dx: pos == null ? 0 : left ? pos - (r.a - 1 + (r.fi || 0)) : pos - (r.b - 1 - (r.fo || 0)) }
 }
 /* says whether the press was the smart tool's own (a fade, a crossfade, a stretch of time); the rest is the pointer's */
 function smartDown (e, p, ti, pos, before) {
@@ -1609,7 +1619,7 @@ function lanesPress (e, p) {
     else if (r && e.altKey) {                                                           // with option: that fade is taken off (one that is half of a crossfade, as the crossfade it is; on a track of an edit group, on the others too)
       const left = pos - (r.a - 1) < (r.b - r.a) / 2, pair = joinsOf(t).find(([A, B]) => xfadeOf(A, B) && (left ? B === r : A === r))
       if (pair) { for (const [a, b] of [pair].concat(joinMates(pair[0], pair[1], t))) uncross(a, b); commit(before) }
-      else if (left ? r.fi : r.fo) { for (const x of [r].concat(companions(r, t).map(q => q[0]))) { if (left) x.fi = 0; else x.fo = 0; dirtyReg(x) } commit(before) }
+      else if (left ? r.fi : r.fo) { for (const x of [r].concat(fadeWith(r, t))) { if (left) x.fi = 0; else x.fo = 0; dirtyReg(x) } commit(before) }
     }
     else if (r) { drag = fadeGrab(r, t, pos - (r.a - 1) < (r.b - r.a) / 2, before); drag.x0 = p.x }
   }

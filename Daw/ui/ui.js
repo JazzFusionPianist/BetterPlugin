@@ -928,9 +928,8 @@ function pCmd () {
   if (canUndoSaid() && ex + 60 < lim) s += key(ex + 12, y + 3, 'undo', { h: 16, size: 9, pad: 8, a: 'undo' })[0]
   return s
 }
-/* what goes into a hand-off folder beside the sound, so that the folder is everything: each track's patch as a file
-   Patch on Slur opens (its prints as they stand now; a track with none gets none), and the project itself, whole, as
-   it was just saved — for whoever has this program too */
+/* what goes into a hand-off folder beside the sound: each track's patch as a file Patch on Slur opens (its prints as they
+   stand now; a track with none gets none). Small files only. */
 async function handOffRest (dir) {
   if (!NAT || !dir) return { patches: 0, project: false }
   const b64 = str => { const u8 = new TextEncoder().encode(str); let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s) }
@@ -941,19 +940,19 @@ async function handOffRest (dir) {
     const r = own ? { json: own } : await NAT.call('patchPreset', { tape: p.tape / 100, space: p.space / 100, delay: p.delay / 100, share: p.share / 100 })
     if (r && r.json && ((await NAT.call('fileWrite', { dir, name: `${pad2(S.tracks.indexOf(t) + 1)} ${t.name} patch.orbpatch`, data: b64(r.json) })) || {}).ok) patches++
   }
-  await saveNow(true)
-  const c = await NAT.call('projCopy', { from: typeof projKey === 'function' ? projKey() : PROJ.name, to: `${dir}/${PROJ.name}.sls`, replace: 1 })
-  if (c && c.why === 'room') say('the disk has no room for the project in the folder')
-  return { patches, project: !!(c && c.ok) }
+  /* (the project itself is NOT laid in the folder: it used to be, whole, with every sound in it — a copy of the song on the
+     disk for every bounce. His words, 2026-10-13: "왜 프젝 파일도 같이 바운스가 되냐… 컴터 용량 한 번 뽑을때마다 ㅈㄴ 빠지겠네".
+     A copy of the project is made on purpose, with save as.) */
+  return { patches, project: false }
 }
 /* hand off: what leaves the room. Stems or the mix, over a range, as a kind of file */
 const contentEnd = () => Math.max(1, ...S.tracks.flatMap(t => t.regs.map(r => r.b - 1)))
-const HO_FMT = ['wav', 'aiff', 'flac', 'm4a', 'mp3'], HO_RATE = [44100, 48000, 88200, 96000], HO_BITS = [16, 24, 32]
+const HO_FMT = ['wav', 'aiff', 'flac', 'm4a', 'mp3'], HO_RATE = [44100, 48000, 88200, 96000], HO_BITS = [16, 24, 32], HO_KBPS = [128, 192, 256, 320]
 /* what the file will really be: some kinds have no depth, or stop at 24 */
 function hoFmt () {
   const ho = S.ho, fmt = !NAT || (ho.fmt === 'mp3' && !CAP.mp3) ? 'wav' : ho.fmt, flat = fmt === 'm4a' || fmt === 'mp3'
   const rate = NAT ? (flat ? Math.min(48000, ho.rate || SND_SR) : (ho.rate || SND_SR)) : SND_SR
-  return { fmt, rate, bits: !NAT ? 16 : flat ? 0 : fmt !== 'wav' && ho.bits === 32 ? 24 : ho.bits }
+  return { fmt, rate, bits: !NAT ? 16 : flat ? 0 : fmt !== 'wav' && ho.bits === 32 ? 24 : ho.bits, kbps: fmt === 'mp3' ? (HO_KBPS.includes(ho.kbps) ? ho.kbps : 320) : 0 }      // (kbps: an mp3's rate, 320 unless another was picked)
 }
 function hoPlan () {
   const ho = S.ho, sc = sceneAt(curPos()), cyc = S.cycle.b - S.cycle.a >= 1 / 32, r0 = ho.range === 'cycle' && !cyc ? 'this scene' : ho.range, range = r0 === 'this scene' && !SCENES.length ? 'song' : r0, mix = NAT && ho.what === 'mix'
@@ -961,8 +960,9 @@ function hoPlan () {
   const modes = mix ? ['with patch'] : ho.print === 'both' ? ['with patch', 'dry'] : [ho.print]
   const secs = m => (a1 - a0) * SPB() + (m === 'dry' ? .05 : 2.5)
   const sounds = t => t.regs.some(r => !r.mute && r.a - 1 < a1 && r.b - 1 > a0)
-  const list = S.tracks.filter(t => t.kind === 'audio' ? sounds(t) : NAT && S.tracks.some(x => x.kind === 'audio' && sounds(x) && reaches(x, t)))
-  return { sc, song: range === 'song', range, a0, a1, mix, modes, secs, list, name: range === 'song' ? 'song' : range === 'cycle' ? `bars ${Math.floor(a0) + 1} to ${Math.ceil(a1)}` : (sc.name || 'song') }
+  const cands = S.tracks.filter(t => t.kind === 'audio' ? sounds(t) : NAT && S.tracks.some(x => x.kind === 'audio' && sounds(x) && reaches(x, t)))
+  const skip = new Set(ho.skip || []), list = mix ? cands : cands.filter(t => !skip.has(t.id))      // (which stems are printed is chosen in the panel: a row pressed is left out, pressed again it is in)
+  return { sc, song: range === 'song', range, a0, a1, mix, modes, secs, list, cands, name: range === 'song' ? 'song' : range === 'cycle' ? `bars ${Math.floor(a0) + 1} to ${Math.ceil(a1)}` : (sc.name || 'song') }
 }
 function pHand () {
   const ho = S.ho
@@ -976,15 +976,15 @@ function pHand () {
   if (NAT) {
     ctl.push(['file', 'fmt', HO_FMT, f.fmt])
     ctl.push(['rate', 'rate', HO_RATE, f.rate])
-    ctl.push(['depth', 'bits', HO_BITS, f.bits])
+    if (f.fmt === 'mp3') ctl.push(['kbps', 'kbps', HO_KBPS, f.kbps]); else ctl.push(['depth', 'bits', HO_BITS, f.bits])      // (an mp3 has no depth: it has a rate of its own)
   }
   const h = ctlY - y + ctl.length * 28 + 52
-  const bytes = m => pl.secs(m) * (f.fmt === 'm4a' ? 32000 : f.fmt === 'mp3' ? 40000 : f.rate * 2 * (f.bits / 8) * (f.fmt === 'flac' ? .6 : 1))
+  const bytes = m => pl.secs(m) * (f.fmt === 'm4a' ? 32000 : f.fmt === 'mp3' ? f.kbps * 125 : f.rate * 2 * (f.bits / 8) * (f.fmt === 'flac' ? .6 : 1))
   const per = pl.modes.reduce((a, m) => a + bytes(m) / 1e6, 0)
   let s = hit(0, 0, W, H, 'ho-close', '', 'default')
   s += R(x, y, w, h, { rx: 3, fill: K2 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 3, stroke: INK, sa: .28 }) + hit(x, y, w, h, 'ho-pane', '', 'default')
   s += run(L, y + 27, [['hand off', { size: 11.5, w: 500 }], [pl.mix ? 'the mix' : `${pl.list.length * pl.modes.length} stems`, { size: 11.5, a: .45 }]], 7)[0]
-  const meta = [[mmss(pl.secs(pl.modes[0])), { size: 10, a: .7 }], [`${+(f.rate / 1000).toFixed(1)}k`, { size: 10, a: .7 }]].concat(f.bits ? [[`${f.bits} bit`, { size: 10, a: .7 }]] : [[f.fmt, { size: 10, a: .7 }]])
+  const meta = [[mmss(pl.secs(pl.modes[0])), { size: 10, a: .7 }], [`${+(f.rate / 1000).toFixed(1)}k`, { size: 10, a: .7 }]].concat(f.bits ? [[`${f.bits} bit`, { size: 10, a: .7 }]] : [[f.fmt === 'mp3' ? `mp3 ${f.kbps}` : f.fmt, { size: 10, a: .7 }]])
   s += run(Rr - runW(meta, 8), y + 27, meta, 8)[0] + hline(x + 1, x + w - 1, y + 40, .08)
   const size = () => [[`${per.toFixed(1)} mb`, { size: 9.5, a: .5 }]]
   if (pl.mix) {
@@ -993,15 +993,16 @@ function pHand () {
     s += run(Rr - runW(size(), 4), rowsY, size(), 4)[0]
   }
   shownT.forEach((t, i) => {
-    const ry = rowsY + i * 22, k = pl.list.indexOf(t), inR = k >= 0, m = pl.modes.length
+    const ry = rowsY + i * 22, k = pl.list.indexOf(t), inR = k >= 0, m = pl.modes.length, can = pl.cands.includes(t), out = can && !inR      // out: it sounds in the range and was pressed out — no stem of it
     const done = inR && ho.done >= (k + 1) * m, doing = ho.state === 'busy' && inR && !done && ho.done >= k * m, nm = fit(asGiven(t.name), 170, 10.5, 500)
-    let g = done ? R(L, ry - 7, 6, 6, { fill: t.c }) : R(L + .5, ry - 6.5, 5, 5, { stroke: t.c, sa: doing ? 1 : .8 })
+    let g = done ? R(L, ry - 7, 6, 6, { fill: t.c }) : out ? P(`M${L} ${ry - 4}H${L + 6}`, { stroke: INK, sa: .7 }) : R(L + .5, ry - 6.5, 5, 5, { stroke: t.c, sa: doing ? 1 : .8 })
     g += T(L + 16, ry, nm, { size: 10.5, w: 500, a: .92 })
     if (t.theirs) g += T(L + 16 + tw(nm, 10.5, 500) + 7, ry, t.theirs, { size: 9, it: true, a: .42 })
     else if (t.kind !== 'audio') g += T(L + 16 + tw(nm, 10.5, 500) + 7, ry, t.kind, { size: 9, a: .42 })
     if (doing) g += R(Rr - 72, ry - 4.5, 72, 2, { fill: INK, fa: .14 }) + R(Rr - 72, ry - 4.5, 36, 2, { fill: INK })
     else if (inR) g += run(Rr - runW(size(), 4), ry, size(), 4)[0]
-    s += inR ? g : G(g, '', ' opacity=".3"')
+    s += inR ? g : G(g, '', out ? ' opacity=".45"' : ' opacity=".3"')
+    if (can && ho.state !== 'busy') s += hit(x + 6, ry - 14, w - 12, 22, 'ho-pick', ` data-i="${S.tracks.indexOf(t)}"`)      // a row pressed: its stem is left out, or taken in again (with option: it alone, or all again)
   })
   if (more) s += T(L + 16, rowsY + shownT.length * 22 - 2, `and ${more} more`, { size: 9.5, a: .42 })
   const label = { 'this scene': pl.sc.name || 'this part', 44100: '44.1', 48000: '48', 88200: '88.2', 96000: '96', 32: '32 float' }
@@ -1297,6 +1298,15 @@ function onDown (e) {
     case 'ho': S.ho.open = !S.ho.open; S.ho.note = ''; S.ho.done = 0; uiDirty('top', 'hand'); break
     case 'ho-close': S.ho.open = false; uiDirty('top', 'hand'); break
     case 'ho-set': if (S.ho.state !== 'busy') { const v = el.dataset.v; S.ho[el.dataset.k] = /^\d+$/.test(v) ? +v : v; S.ho.done = 0; S.ho.note = ''; uiDirty('hand') } break
+    case 'ho-pick': if (S.ho.state !== 'busy') {
+      /* which stems are printed: a row pressed is left out, pressed again it is in. With option: only that one — or, when it
+         is already the only one, all of them again */
+      const ho = S.ho, t = S.tracks[i], pl = hoPlan(), skip = new Set((ho.skip || []).filter(id => pl.cands.some(c => c.id === id)))
+      if (!t) break
+      if (e.altKey) { const alone = pl.list.length === 1 && pl.list[0] === t; skip.clear(); if (!alone) for (const c of pl.cands) if (c !== t) skip.add(c.id) }
+      else if (skip.has(t.id)) skip.delete(t.id); else skip.add(t.id)
+      ho.skip = [...skip]; ho.done = 0; ho.note = ''; uiDirty('hand')
+    } break
     case 'ho-send': sendStems(); break
     case 'undo': undo(); break
     case 'plugs': if (S.picker.open) closePicker(); else openPicker(); break
@@ -1476,68 +1486,35 @@ function onContext (e) {
 const birthAll = () => { if (E.ctx) for (const t of S.tracks) birth(t) }
 
 /* ── the command line ── */
-const ALIAS = { kick: ['kick', '킥', 'bd'], snare: ['snare', '스네어'], hats: ['hats', 'hat', 'hihat', 'hi-hat', '하이햇', '햇'], bass: ['bass', '베이스'], keys: ['keys', 'key', 'piano', 'rhodes', '건반', '키보드', '피아노'], guitar: ['guitar', 'gtr', '기타'], hum: ['hum', 'vocal', 'vox', 'voice', '보컬', '허밍', '목소리'], air: ['air', 'pad', '에어', '패드'] }
-function findTrack (s) {
-  const names = []
-  for (const t of S.tracks) for (const a of [t.name.toLowerCase()].concat(ALIAS[t.name] || [])) names.push([a, t])
-  names.sort((a, b) => b[0].length - a[0].length)
-  for (const [a, t] of names) {
-    const i = s.indexOf(a)
-    if (i < 0) continue
-    const ascii = /^[\x00-\x7f]+$/.test(a), before = s[i - 1], after = s[i + a.length]
-    if (ascii && ((before && /[a-z0-9]/.test(before)) || (after && /[a-z0-9]/.test(after)))) continue
-    return { t, rest: (s.slice(0, i) + ' ' + s.slice(i + a.length)).replace(/\s+/g, ' ').trim() }
-  }
-  return null
-}
-const PRINT_WORDS = { tape: 'tape', '테이프': 'tape', space: 'space', reverb: 'space', '스페이스': 'space', '리버브': 'space', delay: 'delay', echo: 'delay', '딜레이': 'delay', '에코': 'delay', mix: 'mix', '믹스': 'mix' }
-/* the plain cases are read here, at once; then the longer reading (say.js); anything else goes to Claude. null = not understood */
+const ALIAS = { kick: ['kick', 'bd'], snare: ['snare'], hats: ['hats', 'hat', 'hihat', 'hi-hat'], bass: ['bass'], keys: ['keys', 'key', 'piano', 'rhodes'], guitar: ['guitar', 'gtr'], hum: ['hum', 'vocal', 'vox', 'voice'], air: ['air', 'pad'] }
+const PRINT_WORDS = { tape: 'tape', space: 'space', reverb: 'space', delay: 'delay', echo: 'delay', mix: 'mix' }
+/* the plain cases are read here, at once; then the longer reading (say.js); anything else goes to Claude. null = not understood.
+   English only, as all of the command line (say.js) */
 function parseLocal (raw) {
   if (typeof chordLine === 'function') { const c = chordLine(raw); if (c) return c }      // a line of chord names, read with its capitals (chords.js): CM7 is not Cm7
   const s = raw.toLowerCase().replace(/[−–]/g, '-').replace(/\s+/g, ' ').trim()
   if (!s) return []
-  if (/^(play|start|재생|플레이)$/.test(s)) return [{ do: 'play' }]
-  if (/^(stop|pause|정지|멈춰|스톱)$/.test(s)) return [{ do: 'stop' }]
-  let m = s.match(/^(?:tempo|bpm|템포)\s*(?:to|=)?\s*(\d{2,3})$/) || s.match(/^(\d{2,3})\s*bpm$/)
+  SAY.quotes = [...String(raw).matchAll(/["“'‘]([^"”'’]{1,60})["”'’]/g)].map(m => m[1])      // (a name in quotes keeps its capitals: say.js reads the rest in small letters)
+  if (/^(play|start)$/.test(s)) return [{ do: 'play' }]
+  if (/^(stop|pause)$/.test(s)) return [{ do: 'stop' }]
+  let m = s.match(/^(?:tempo|bpm)\s*(?:to|=)?\s*(\d{2,3})$/) || s.match(/^(\d{2,3})\s*bpm$/)
   if (m) return [{ do: 'tempo', bpm: +m[1] }]
-  m = s.match(/^(?:bar|go ?to|마디)?\s*(\d{1,3})(?:[.\s](\d{1,2})(?:[.\s](\d))?)?$/)                   // a bar (or bar beat sixteenth): the playhead goes there
+  m = s.match(/^(?:bar|go ?to)?\s*(\d{1,3})(?:[.\s](\d{1,2})(?:[.\s](\d))?)?$/)                   // a bar (or bar beat sixteenth): the playhead goes there
   if (m) return [{ do: 'pos', bar: +m[1], beat: +(m[2] || 1), six: +(m[3] || 1) }]
-  if (/^(record|rec|녹음)$/.test(s)) return [{ do: 'record' }]
-  if (/^(undo|되돌려|되돌리기|실행 ?취소)$/.test(s)) return [{ do: 'undo' }]
-  if (/^(redo|다시 ?실행)$/.test(s)) return [{ do: 'redo' }]
-  if (/^(save|저장)$/.test(s)) return [{ do: 'save' }]
-  m = s.match(/^(click|metronome|메트로놈|클릭)\s*(on|off|켜|꺼)?$/)
-  if (m) return [{ do: 'click', on: m[2] ? /on|켜/.test(m[2]) : null }]
-  m = s.match(/^(cycle|사이클)\s*(on|off|켜|꺼)?$/)
-  if (m) return [{ do: 'cycle', on: m[2] ? /on|켜/.test(m[2]) : null }]
-  if (/^(new|add) (audio )?track$|^(오디오 )?트랙 ?추가$/.test(s)) return [{ do: 'newtrack', kind: 'audio' }]
-  if (/^(new|add) (bus|aux)$|^버스 ?추가$/.test(s)) return [{ do: 'newtrack', kind: 'bus' }]
-  if (/^(export|bounce|hand ?off|내보내기|바운스)$/.test(s)) return [{ do: 'export' }]
-  if (/^(mixer|믹서)$/.test(s)) return [{ do: 'panel', tab: 'mixer' }]
-  if (/^(patch|패치)$/.test(s)) return [{ do: 'panel', tab: 'patch' }]
-  const ft = findTrack(s)
-  if (!ft) return sayRead(s)                                                             // no track is named outright: the longer reading (this, here, the chorus, all the voices…)
-  const name = ft.t.name, rest = ft.rest.replace(/^(을|를|은|는|이|가|의|에)\s+/, '').replace(/(^|\s)(on|of|the|for)(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim()
-  if (/^(unmute|언뮤트|뮤트 ?해제)$/.test(rest)) return [{ do: 'unmute', track: name }]
-  if (/^(mute|뮤트)$/.test(rest)) return [{ do: 'mute', track: name }]
-  if (/^(unsolo|솔로 ?해제)$/.test(rest)) return [{ do: 'unsolo', track: name }]
-  if (/^(solo|솔로)$/.test(rest)) return [{ do: 'solo', track: name }]
-  m = rest.match(/^(?:pan|팬)\s*(l|r|left|right|c|center|centre|왼쪽|오른쪽|가운데)?\s*(\d{1,3})?$/)
-  if (m && (m[1] || m[2])) { const mid = /^(c|center|centre|가운데)$/.test(m[1] || ''); return [{ do: 'pan', track: name, value: mid ? 0 : (/^(l|left|왼쪽)$/.test(m[1] || 'r') ? -1 : 1) * Math.min(100, m[2] == null ? 100 : +m[2]) / 100 }] }
-  m = rest.match(/^(?:transpose|pitch|트랜스포즈|피치)\s*([+-]?\d{1,2})$/)
-  if (m) return [{ do: 'transpose', track: name, semitones: +m[1], mode: 'relative' }]
-  const pw = Object.keys(PRINT_WORDS).join('|')
-  m = rest.match(new RegExp(`^(${pw})\\s*(?:to|=|at)?\\s*(\\d{1,3})$`)) || (m = rest.match(new RegExp(`^(\\d{1,3})\\s*(${pw})$`))) && [m[0], m[2], m[1]]
-  if (m) return [{ do: 'patch', track: name, print: PRINT_WORDS[m[1]], value: +m[2] }]
-  m = rest.match(/^(?:volume|vol|level|볼륨)?\s*(to|=|at)?\s*([+-]?\d+(?:\.\d+)?)\s*(?:db|데시벨)?\s*(up|down|louder|quieter|올려|내려|올려줘|내려줘|업|다운)?$/)
-  if (!m) { const m2 = rest.match(/^(up|down|louder|quieter)\s*(\d+(?:\.\d+)?)\s*(?:db)?$/); if (m2) m = [m2[0], undefined, m2[2], m2[1]] }
-  if (m) {
-    const v = +m[2], dir = m[3]
-    if (m[1]) return [{ do: 'volume', track: name, db: v, mode: 'absolute' }]
-    if (dir) return [{ do: 'volume', track: name, db: /up|louder|올려|업/.test(dir) ? Math.abs(v) : -Math.abs(v), mode: 'relative' }]
-    if (/^[+-]/.test(m[2])) return [{ do: 'volume', track: name, db: v, mode: 'relative' }]
-  }
-  return sayRead(s)
+  if (/^(record|rec)$/.test(s)) return [{ do: 'record' }]
+  if (/^undo$/.test(s)) return [{ do: 'undo' }]
+  if (/^redo$/.test(s)) return [{ do: 'redo' }]
+  if (/^save$/.test(s)) return [{ do: 'save' }]
+  m = s.match(/^(click|metronome)\s*(on|off)?$/)
+  if (m) return [{ do: 'click', on: m[2] ? m[2] === 'on' : null }]
+  m = s.match(/^cycle\s*(on|off)?$/)
+  if (m) return [{ do: 'cycle', on: m[1] ? m[1] === 'on' : null }]
+  if (/^(new|add) (audio )?track$/.test(s)) return [{ do: 'newtrack', kind: 'audio' }]
+  if (/^(new|add) (bus|aux)$/.test(s)) return [{ do: 'newtrack', kind: 'bus' }]
+  if (/^(export|bounce|hand ?off)$/.test(s)) return [{ do: 'export' }]
+  if (/^mixer$/.test(s)) return [{ do: 'panel', tab: 'mixer' }]
+  if (/^patch$/.test(s)) return [{ do: 'panel', tab: 'patch' }]
+  return sayRead(s)                                                                      // everything else is one grammar: who, what, where, how much, the act (say.js)
 }
 function applyActions (acts) {
   const out = []
@@ -1605,7 +1582,9 @@ async function runCommand (text) {
   { const el = $('cmd'); el.value = text; if (document.activeElement === el) el.select() }      // what was said stays, chosen: the next word typed takes its place
   for (const t of S.tracks) t.ghost = null
   const before = Object.assign(editState(), { mix: mixState() }), n0 = UNDO.length
+  if (typeof sayPrime === 'function') await sayPrime(text)                                // (a plug-in named in the line: its controls are asked for, so that one may be named)
   let acts = parseLocal(text), say = ''
+  if (acts && typeof sayReady === 'function') await sayReady(acts)
   if (acts === null) {
     if (!CAP.sample) { S.last = { say: 'couldn’t read that' }; uiDirty('cmd', 'head'); return }
     S.think = true; uiDirty('cmd')

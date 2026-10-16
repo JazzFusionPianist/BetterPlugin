@@ -1,0 +1,9 @@
+lame — the program Slur Studio hands a sound to when an mp3 is asked for.
+
+It travels inside the app (Contents/Helpers/lame; build.sh puts it there) so that an mp3 can be printed on any Mac the app
+runs on, with nothing else to install. It is LAME 4.0 (https://lame.sourceforge.io), unchanged, built by ../../lame.sh:
+for Apple silicon and Intel in one file, for macOS 11 and later, without its decoder (the app only ever gives it a wav).
+It is run as a program of its own and not built into the app: LAME is under the LGPL (COPYING, beside this), and so is
+handed on whole, as it is, with its licence. Its source is the tarball Homebrew's formula names (lame-4.0.tar.gz).
+
+To make it again (a newer LAME, another oldest macOS): ./lame.sh in Daw/.

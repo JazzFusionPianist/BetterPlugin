@@ -6,10 +6,14 @@
    the field the keys. While the page is up the foot keeps only how the machine stands; with any other page up the foot's
    line is there as before.
    Read after hint.js, wall.js and roll.js (it wraps the panel's drawing and the room's hands). */
-const PROMPT = { said: [], line: false }
+const PROMPT = { said: [], line: false, top: 0 }
 const PR_FH = 38, PR_ROW = 26, PR_SAID = 40
 const promptOn = () => S.panel.on && S.panel.tab === 'prompt' && VIEW.p > .5
+const promptUp = () => S.panel.on && S.panel.tab === 'prompt'                              // (chosen, though the panel may still be opening)
 const promptField = () => ({ x: 20, y: BY + PH + 16, w: RX - 40, h: PR_FH })
+/* how many rows of what can follow the page has room for: a longer list is gone down with the arrows, or the wheel */
+function promptRows () { const f = promptField(), cy = f.y + f.h + 16; return Math.max(1, Math.floor((BY + S.panel.h - 10 - (cy + 18)) / PR_ROW)) }
+const promptListBox = () => { const f = promptField(), cy = f.y + f.h + 16; return { x: f.x - 10, y: cy + 18, w: Math.min(320, Math.round((RX - 40) * .3)), h: BY + S.panel.h - 10 - (cy + 18) } }
 /* where the line's cells stand while the page is up (hint.js asks) */
 function promptAt () { if (!promptOn()) return null; const f = promptField(); return { x: f.x + 34, y: f.y + 8, h: 22, size: 12 } }
 /* what a thing said came to, in words (as the foot says it) */
@@ -40,7 +44,7 @@ function promptLog (words) {
 function promptOpen () {
   if (!(S.panel.on && S.panel.tab === 'prompt')) { S.panel.on = true; S.panel.tab = 'prompt'; closePicker(); setView() }
   uiDirty('dock', 'top', 'cmd', 'hint')
-  setTimeout(() => { const c = $('cmd'); c.focus(); promptPlace() }, 0)
+  setTimeout(() => { const c = $('cmd'); c.focus(); promptPlace(); hintFresh(true) }, 0)      // (the keys may have been in the field already: no focus comes, the list is asked for here)
 }
 
 /* ── drawn ── */
@@ -52,14 +56,17 @@ function pPrompt (y, h) {
   if (S.think) s += T(f.x + f.w - 14, f.y + 23.5, 'thinking', { size: 10.5, a: .5, anchor: 'end' })
   /* what can follow: the list for the line as it stands */
   const cy = f.y + f.h + 16, lw = Math.min(320, Math.round((RX - 40) * .3)), bottom = y + h - 10
+  const H_ = S.hint, typed = cmd.value.trim().toLowerCase(), room = promptRows(), n = H_ ? H_.items.length : 0
+  if (H_) PROMPT.top = clamp(Math.min(PROMPT.top, H_.at), Math.max(0, H_.at - room + 1), Math.max(0, n - room))      // (the row chosen is always in view)
   s += T(f.x, cy + 10, 'what can follow', { size: 9.5, a: .4 })
-  const H_ = S.hint, typed = cmd.value.trim().toLowerCase()
+  if (n > room) s += T(f.x + lw - 22, cy + 10, `${PROMPT.top + 1}–${Math.min(n, PROMPT.top + room)} of ${n}`, { size: 9.5, a: .4, anchor: 'end' })
   if (H_) H_.items.forEach((it, i) => {
-    const ry = cy + 18 + i * PR_ROW
-    if (ry + PR_ROW > bottom) return
+    const ry = cy + 18 + (i - PROMPT.top) * PR_ROW
+    if (i < PROMPT.top || ry + PR_ROW > bottom) return
     const on = i === H_.at, wt = on ? 500 : 400
     if (on) s += R(f.x - 10, ry, lw, PR_ROW, { rx: 2, fill: INK, fa: .08 })
-    if (typed && it.t.startsWith(typed)) s += R(f.x, ry + 19, tw(asGiven(it.t.slice(0, typed.length)), 11.5, wt), 1, { fill: INK, fa: .4 })      // (the letters typed so far)
+    const ty = it.part.k === 'word' && it.part.from != null ? cmd.value.slice(it.part.from).trim().toLowerCase() : typed      // (a word of a line typed out: what was typed of it)
+    if (ty && it.t.startsWith(ty)) s += R(f.x, ry + 19, tw(asGiven(it.t.slice(0, ty.length)), 11.5, wt), 1, { fill: INK, fa: .4 })      // (the letters typed so far)
     s += T(f.x, ry + 17, fit(asGiven(it.t), lw - 30 - (it.d ? tw(it.d, 10) + 12 : 0), 11.5, wt), { size: 11.5, w: wt, a: on ? 1 : .84 })
     if (it.d) s += T(f.x + lw - 22, ry + 17, it.d, { size: 10, a: .42, anchor: 'end' })
     s += hit(f.x - 10, ry, lw, PR_ROW, 'hint', ` data-i="${i}"`, 'pointer')
@@ -94,7 +101,7 @@ function promptPlace () {
 
 /* ── joined to the room ── */
 {
-  const dock0 = PARTS.dock, down0 = onDown, flush0 = flush, rc0 = runCommand, ld0 = lineDo, relayout0 = relayout
+  const dock0 = PARTS.dock, down0 = onDown, flush0 = flush, rc0 = runCommand, ld0 = lineDo, relayout0 = relayout, wheel0 = onWheel
   relayout = function () { relayout0(); if (promptOn()) { PROMPT.line = false; promptPlace() } }      // (the window laid out again puts the typing back at the foot: while the page is up, it goes back into the field)
   PARTS.dock = function () {
     if (!(S.panel.on && S.panel.tab === 'prompt') || VIEW.p <= .001) return dock0()
@@ -114,11 +121,21 @@ function promptPlace () {
     }
     down0(e)
   }
+  /* the wheel over what can follow goes down the list (the row chosen goes with it) */
+  onWheel = function (e) {
+    const p = pt(e), L = promptListBox(), h = S.hint
+    if (!promptOn() || !h || p.x < L.x || p.x > L.x + L.w || p.y < L.y || p.y > L.y + L.h) return wheel0(e)
+    e.preventDefault()
+    const room = promptRows(), n = h.items.length, d = Math.sign(e.deltaY)
+    if (n <= room || !d) return
+    PROMPT.top = clamp(PROMPT.top + d, 0, n - room); h.at = clamp(h.at, PROMPT.top, PROMPT.top + room - 1)
+    uiDirty('dock')
+  }
   flush = function () { if (promptOn() && (dirty.has('hint') || dirty.has('cmd'))) dirty.add('dock'); flush0(); promptPlace() }      // (the list and the typing are drawn in the page)
   KEYS.Slash = () => promptOpen()
   /* what was said is kept for the page (a line of cells once, though it is said through the line's reader) */
   runCommand = async function (text, ...more) { const words = String(text || '').trim(), was = S.think, r = await rc0.call(this, text, ...more); if (words && !was && !PROMPT.inLine) promptLog(words); return r }
   lineDo = async function () { const words = S.line.parts.map(p => p.t).join(' '); PROMPT.inLine = true; let r; try { r = await ld0() } finally { PROMPT.inLine = false } if (r) promptLog(words); return r }
-  $('cmd').addEventListener('focus', () => { if (promptOn()) uiDirty('dock') })
+  $('cmd').addEventListener('focus', () => { if (promptOn()) { hintFresh(true); uiDirty('dock') } })      // (the page shows what can follow as soon as the keys are in its field)
   $('cmd').addEventListener('blur', () => { if (promptOn()) uiDirty('dock') })
 }

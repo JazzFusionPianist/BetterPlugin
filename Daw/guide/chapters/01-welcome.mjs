@@ -22,7 +22,7 @@ export default () => chapter('welcome', t('before you begin', '시작하기 전�
       // the folder that leaves, and where it goes
       D.arrow([[135.4, 31.5], [135.4, 46]]) +
       D.box(96, 47, 54, 46, 'soft') + D.txt(99, 53, 'the hand-off folder', '내보내기 폴더', 'b') +
-      [['01 kick.wav, 02 snare.wav …', '01 kick.wav, 02 snare.wav …'], ['song.mid, the notes', 'song.mid, 노트'], ['song info.txt, tempo, key, markers', 'song info.txt, 템포, 키, 마커'], ['track patch.orbpatch, for Patch on Slur', 'track patch.orbpatch, Patch on Slur용'], ['song.sls, the project itself', 'song.sls, 프로젝트 자체']].map(([en, ko], i) => D.line(99, 58.2 + i * 7, 101.5, 58.2 + i * 7, 'soft') + D.txt(103, 59.2 + i * 7, en, ko, 's')).join('') +
+      [['01 kick.wav', '01 kick.wav'], ['02 snare.wav', '02 snare.wav'], ['03 hats.wav …', '03 hats.wav …'], ['one file for each track', '트랙마다 파일 하나'], ['or the mix, as one file', '또는 믹스 파일 하나']].map(([en, ko], i) => D.line(99, 58.2 + i * 7, 101.5, 58.2 + i * 7, 'soft') + D.txt(103, 59.2 + i * 7, en, ko, 's')).join('') +
       D.arrow([[96, 70], [64, 70]]) + D.cell(20, 63, 44, 14, 'the program you finish in', '마무리할 프로그램', 'dash') +
       D.txt(42, 82, 'Logic, Cubase, Live, Pro Tools …', 'Logic, Cubase, Live, Pro Tools …', 'xs m')) }),
 

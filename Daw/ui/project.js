@@ -148,14 +148,24 @@ function placeDecoded (list, lane, bar) {
 }
 async function dropFiles (files, lane, bar) {
   const list = [], onto = lane != null ? S.tracks[lane] : null
+  /* sound let go on the window: while it is brought in (each file goes over to the app piece by piece and is made ready
+     there), the card in the middle of the window says which file of how many, and how far along it is */
+  const isSound = f => /^audio\//.test(f.type) || /\.(wav|aiff?|mp3|m4a|ogg|flac|caf)$/i.test(f.name), sounds = files.filter(f => !/\.midi?$/i.test(f.name) && isSound(f))
+  let nth = 0
+  if (NAT && sounds.length) printBegin('bringing in', sounds.length === 1 ? sounds[0].name.replace(/\.[^.]+$/, '') : `${sounds.length} files`, sounds.length)
+  const told = p => printTell({ part: p * .9 })                                          // (the last tenth of a file's share: the app making it ready once all of it is there)
+  try { return await dropFilesNow(files, lane, bar, list, onto, told, () => printTell({ done: ++nth })) } finally { printEnd() }
+}
+async function dropFilesNow (files, lane, bar, list, onto, told, one) {
   for (const f of files) {
     if (/\.midi?$/i.test(f.name)) { try { placeMidi(new Uint8Array(await f.arrayBuffer()), f.name, Math.max(1, Math.floor(bar + 1e-6))) } catch (err) { say(`couldn’t read ${fit(f.name, 160, 9.5)}`) } continue }      // a file of notes: its tracks, from the bar it was let go on
     if (!/^audio\//.test(f.type) && !/\.(wav|aiff?|mp3|m4a|ogg|flac|caf)$/i.test(f.name)) continue
     if (onto && onto.inst && onto.inst.kind === 'sampler' && files.length === 1) {       // one sound let go on a sampler's track: the sampler plays from it
-      try { const d = await decodeFile(f); if (d && d.file) { setInstSample(onto, 0, { file: d.file, name: f.name.replace(/\.[^.]+$/, '') }); refreshPool(); say(`the sampler plays ${fit(f.name.replace(/\.[^.]+$/, '').toLowerCase(), 160, 9.5)}`) } } catch (err) { say(`couldn’t open ${fit(f.name, 160, 9.5)}`) }
+      try { const d = await decodeFile(f, told); one(); if (d && d.file) { setInstSample(onto, 0, { file: d.file, name: f.name.replace(/\.[^.]+$/, '') }); refreshPool(); say(`the sampler plays ${fit(f.name.replace(/\.[^.]+$/, '').toLowerCase(), 160, 9.5)}`) } } catch (err) { say(`couldn’t open ${fit(f.name, 160, 9.5)}`) }
       return true
     }
-    try { const d = await decodeFile(f); list.push(Object.assign({ name: f.name.replace(/\.[^.]+$/, '') }, d)) } catch (err) { say(`couldn’t open ${fit(f.name, 160, 9.5)}`) }
+    try { const d = await decodeFile(f, told); list.push(Object.assign({ name: f.name.replace(/\.[^.]+$/, '') }, d)) } catch (err) { say(`couldn’t open ${fit(f.name, 160, 9.5)}`) }
+    one()
   }
   return placeDecoded(list, lane, bar)
 }
@@ -214,16 +224,74 @@ function resetSession () {
   for (const t of S.tracks) t.inserts = []
   S.selX = null; CLIP = []; TIME_CLIP = null
 }
-/* every file a project's regions point at, decoded again (a project opening, or the device moving to another rate) */
-async function loadFiles (project, tracks) {
-  const files = new Map()
-  for (const t of tracks) for (const L of [t].concat(t.alts || [])) for (const q of L.regs) if (!q.loop && q.file && !files.has(q.file)) files.set(q.file, await NAT.call('audioLoad', { project, file: q.file }))
+/* every file a project's regions point at, decoded again (a project opening, or the device moving to another rate).
+   step: told after each file (how many are done, of how many) */
+async function loadFiles (project, tracks, step) {
+  const files = new Map(), names = []
+  for (const t of tracks) for (const L of [t].concat(t.alts || [])) for (const q of L.regs) if (!q.loop && q.file && !names.includes(q.file)) names.push(q.file)
+  for (const f of names) { files.set(f, await NAT.call('audioLoad', { project, file: f })); if (step) step(files.size, names.length) }
   return files
 }
+/* ── a project being opened: a card in the middle of the window says whose it is, what is being done (its sounds made
+   ready, its plug-ins opened one after another — the long part: each is a program of its own starting up — its stretched
+   sounds rendered) and how far along it is. It comes up only when the opening takes more than a moment. How long each part
+   took is written into the app's log (Library/Logs/Slur/daw.log), so that a slow one can be found. ── */
+const OPENING = { on: false, t0: 0, show: 0, parts: [], marks: [] }
+function openingBegin (name, parts) {
+  OPENING.on = true; OPENING.t0 = performance.now(); OPENING.parts = parts; OPENING.marks = []
+  const el = $('loading')
+  if (!el) return
+  $('ld-word').textContent = LANG_WORDS('opening'); $('ld-name').textContent = String(name); $('ld-fill').style.width = '0'; $('ld-what').textContent = ''
+  el.style.left = Math.round((W - 340) / 2) + 'px'; el.style.top = Math.round((H - 96) / 2) + 'px'
+  clearTimeout(OPENING.show); OPENING.show = setTimeout(() => { if (OPENING.on) el.hidden = false }, 300)
+}
+/* part: which part is under way (its place in `parts`: [name, how many things]); done: how many of its things are done; what: the thing being done now */
+function openingSay (part, done, what) {
+  if (!OPENING.on) return
+  const ps = OPENING.parts, all = ps.reduce((n, p) => n + Math.max(1, p[1]), 0), before = ps.slice(0, part).reduce((n, p) => n + Math.max(1, p[1]), 0), p = ps[part]
+  if (!p) return
+  if (!OPENING.marks[part]) OPENING.marks[part] = performance.now()
+  const el = $('ld-fill'), w = $('ld-what')
+  if (el) el.style.width = (100 * Math.min(all, before + Math.min(done, Math.max(1, p[1]))) / Math.max(1, all)).toFixed(1) + '%'
+  if (w) w.textContent = (p[1] > 1 ? LANG_WORDS(`${p[0]} ${Math.min(done + 1, p[1])} of ${p[1]}`) : LANG_WORDS(p[0])) + (what ? '   ' + String(what).toLowerCase() : '')
+}
+function openingEnd (ok) {
+  if (!OPENING.on) return
+  OPENING.on = false; clearTimeout(OPENING.show)
+  const el = $('loading'); if (el) el.hidden = true
+  const now = performance.now(), ms = OPENING.marks, took = OPENING.parts.map((p, i) => { if (!ms[i]) return null; let j = i + 1; while (j < ms.length && !ms[j]) j++; return `${p[0]} ${p[1]} in ${(((ms[j] || now) - ms[i]) / 1000).toFixed(1)} s` }).filter(Boolean)
+  if (NAT) NAT.call('log', { text: `${ok ? 'opened' : 'would not open'} in ${((now - OPENING.t0) / 1000).toFixed(1)} s: ${took.join(', ')}` })
+}
 /* key: the project, as projKey says it. json: the song as it was at another time (a copy put aside), opened in this project's place */
+/* ── a print under way (the mix or stems handed off, a bounce in place): the same card says what is being printed and how
+   far along it is — file by file, and within the file being written. It is up at once (a print is never over in a moment)
+   and goes when the print ends, done or not. ── */
+const PRINT = { on: false, total: 1, done: 0, part: 0 }
+function printBegin (word, name, total) {
+  if (OPENING.on) return
+  PRINT.on = true; PRINT.total = Math.max(1, total || 1); PRINT.done = 0; PRINT.part = 0
+  const el = $('loading')
+  if (!el) return
+  $('ld-word').textContent = LANG_WORDS(word); $('ld-name').textContent = String(name)
+  el.style.left = Math.round((W - 340) / 2) + 'px'; el.style.top = Math.round((H - 96) / 2) + 'px'
+  printDraw(); el.hidden = false
+}
+/* d: what the app says while it prints — done: how many files are written; part: how far along the one being written is */
+function printTell (d) {
+  if (!PRINT.on || !d) return
+  if (d.done != null && d.done >= 0) { if (d.done !== PRINT.done) PRINT.part = 0; PRINT.done = Math.min(PRINT.total, d.done) } else if (d.part != null) PRINT.part = clamp(+d.part || 0, 0, 1)
+  printDraw()
+}
+function printDraw () {
+  const f = clamp((PRINT.done + (PRINT.done < PRINT.total ? PRINT.part : 0)) / PRINT.total, 0, 1), el = $('ld-fill'), w = $('ld-what')
+  if (el) el.style.width = (f * 100).toFixed(1) + '%'
+  if (w) w.textContent = (PRINT.total > 1 ? LANG_WORDS(`file ${Math.min(PRINT.done + 1, PRINT.total)} of ${PRINT.total}`) + '   ' : '') + Math.round(f * 100) + '%'
+}
+function printEnd () { if (!PRINT.on) return; PRINT.on = false; const el = $('loading'); if (el && !OPENING.on) el.hidden = true }
 async function loadProject (key, json) {
   PROJ.hold++
-  try { return await loadProjectNow(key, json) } finally { PROJ.hold-- }
+  let ok = false
+  try { ok = await loadProjectNow(key, json); return ok } finally { PROJ.hold--; openingEnd(ok) }
 }
 /* Plug-ins the app has learnt not to open by itself (one was playing, or being opened, when the app last went down), and what
    was left out of the song being opened. A plug-in left out keeps its place in the patch and its settings: it is drawn
@@ -236,10 +304,15 @@ async function loadProjectNow (key, json) {
   let d
   try { d = JSON.parse(r.json) } catch (e) { return false }
   if (!d || !Array.isArray(d.tracks) || !d.tracks.length) return false
+  /* how much there is to do: its sounds, its plug-ins (those of the stereo out too), and the stretched sounds at the end */
+  { const fs = new Set(); for (const t of d.tracks) for (const L of [t].concat(t.alts || [])) for (const q of L.regs || []) if (!q.loop && q.file) fs.add(q.file)
+    const plugs = d.tracks.reduce((n, t) => n + (t.inserts || []).filter(i => !i.out).length, 0) + ((d.out && d.out.inserts) || []).filter(i => !i.out).length
+    openingBegin(projNameOf(key), [['sounds', fs.size], ['plug-ins', plugs], ['getting ready', 1]]) }
+  openingSay(0, 0)
   resetSession()
   await NAT.call('session', { tempo: S.tempo, end: SONG_END, tracks: [] })                           // everything out of the engine first, plug-ins too
   dropAllAudio()
-  const files = await loadFiles(key, d.tracks)
+  const files = await loadFiles(key, d.tracks, done => openingSay(0, done))
   const meter = Array.isArray(d.meter) && MEASURES.some(m => m[0] === d.meter[0] && m[1] === d.meter[1]) ? d.meter.slice(0, 2) : [4, 4]
   if (d.tempo !== S.tempo || meter[0] !== S.meter[0] || meter[1] !== S.meter[1]) { S.tempo = d.tempo; S.meter = meter; LOOPS = songLoops(S.tempo); await natSendLoops() }
   PROJ.fresh = !!d.fresh; setProj(key); PROJ.demo = d.demo == null ? !(d.v >= 2) : !!d.demo                    // it is called what its folder is called: a copy made in the Finder must not write into the one it was copied from
@@ -270,16 +343,19 @@ async function loadProjectNow (key, json) {
   normalizeOrder(); repaint()
   resync(); pushTransport(); pushMaster(); pushClick(); applyAll()
   LOAD.left = []
+  let plugN = 0
   for (let i = 0; i < d.tracks.length; i++) for (const ins of d.tracks[i].inserts || []) {
     const t = byId(d.tracks[i].id)
     if (!t) continue
+    if (!ins.out) openingSay(1, plugN++, ins.name)
     const kept = { uid: 0, name: ins.name || 'plug-in', fmt: ins.fmt || '', id: ins.id, state: ins.state || '', off: !!ins.off, key: ins.key || 0, n: ins.n || 0, pn: ins.pn || null, out: true }
     if (ins.out || LOAD.bare || DISTRUST.has(ins.id)) { t.inserts.push(kept); if (!ins.out) LOAD.left.push(kept.name); continue }
     const rr = await NAT.call('insert', { track: t.id, id: ins.id, state: ins.state || '', show: 0 })
     if (rr && rr.ok) { const got = { uid: rr.uid, name: rr.name, fmt: rr.fmt, id: ins.id, state: ins.state || '', off: !!ins.off, key: ins.key || 0, n: ins.n || 0, pn: ins.pn || null, sc: !!rr.key }; t.inserts.push(got); if (ins.off) NAT.call('bypass', { track: t.id, uid: rr.uid, off: 1 }); keyTold(t, got) }
     else { t.inserts.push(kept); LOAD.left.push(kept.name) }                              // it would not open: its place and its settings stay in the song
   }
-  if (typeof wallOutLoad === 'function') await wallOutLoad(d.out)                         // (wall.js: the stereo out's own wall and plug-ins)
+  if (typeof wallOutLoad === 'function') await wallOutLoad(d.out, name => openingSay(1, plugN++, name))      // (wall.js: the stereo out's own wall and plug-ins)
+  openingSay(2, 0)
   await rewarpAll()
   PROJ.last = json ? '' : serialize(); PROJ.saved = !json; PROJ.savedAt = ''; PROJ.savedMs = r.saved || 0
   rememberProj()
@@ -464,7 +540,7 @@ async function revertTo (file, when) {
 async function projectBoot (hello) {
   if (!NAT) return
   PROJ.test = !!(hello && hello.selftest)
-  CAP.mp3 = !!(hello && hello.mp3)
+  CAP.mp3 = !!(hello && hello.mp3); CAP.lame = (hello && hello.lame) || ''          // (lame: where the program that makes an mp3 lies — inside the app, unless this build has none)
   if (hello && hello.ins) INPUTS = hello.ins
   NAT.on('dawDevice', d => { if (!d) return; if (d.ins) INPUTS = d.ins; if (d.block) STAT.buf = d.block; if (d.bits) STAT.bits = d.bits; uiDirty('cmd', 'dock') })
   NAT.on('dawMenu', d => { if (START.on) { startMenu(d && d.id); return } const f = d && MENU_DO[d.id]; if (f) f() })

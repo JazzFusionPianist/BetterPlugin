@@ -319,7 +319,7 @@ private:
             if (! keysToPage && getPeer() != nullptr) keysToPage = slurKeysToPage (getPeer()->getNativeHandle());      // (the page is up: command x, c, v and a are its keys from here on)
             auto* o = new juce::DynamicObject();
             o->setProperty ("ok", true); o->setProperty ("sr", engine.sr);
-            o->setProperty ("mp3", engine.lame.existsAsFile()); o->setProperty ("mic", slurMicStatus()); o->setProperty ("ins", engine.inputCount());
+            o->setProperty ("mp3", engine.lame.existsAsFile()); o->setProperty ("lame", engine.lame.getFullPathName()); o->setProperty ("mic", slurMicStatus()); o->setProperty ("ins", engine.inputCount());
             o->setProperty ("selftest", selfTestMode());
             o->setProperty ("up", slurSecondsUp());                  // from the press that opened the app to the page asking its first question
             o->setProperty ("diskFree", (double) projectsRoot().getBytesFreeOnVolume());      // the room left on the disk the projects lie on: said once when it is little
@@ -1067,15 +1067,24 @@ private:
             const auto typed = juce::File::createLegalFileName (d["name"].toString().trim());
             const auto name = typed.isEmpty() ? juce::String ("bounce") : typed;
             const bool test = selfTestMode().isNotEmpty();
-            const auto answer = [done] (const juce::File& f)
+            /* ext: what is printed is ONE file of that kind (the mix): the panel asks for the file itself — "song mix.wav" — and
+               the answer is the folder it goes into and its name; without it, a folder is made for the files (stems) */
+            const auto ext = d["ext"].toString().trim().toLowerCase().retainCharacters ("abcdefghijklmnopqrstuvwxyz0123456789");
+            const auto answer = [done, ext] (const juce::File& f)
             {
                 if (f == juce::File()) { done (okVar (false)); return; }
-                if (f.existsAsFile()) { done (whyNot ("file")); return; }                   // (what is made is a folder: a file of that name is not written over)
                 auto* o = new juce::DynamicObject();
+                if (ext.isNotEmpty())
+                {
+                    if (f.isDirectory()) { done (whyNot ("file")); return; }
+                    o->setProperty ("ok", true); o->setProperty ("dir", f.getParentDirectory().getFullPathName()); o->setProperty ("name", f.getFileNameWithoutExtension()); o->setProperty ("single", true);
+                    done (juce::var (o)); return;
+                }
+                if (f.existsAsFile()) { done (whyNot ("file")); return; }                   // (what is made is a folder: a file of that name is not written over)
                 o->setProperty ("ok", true); o->setProperty ("dir", f.getFullPathName()); o->setProperty ("name", f.getFileName());
                 done (juce::var (o));
             };
-            if (test && (int) d["panel"] == 0) { answer (daw::musicRoot().getNonexistentChildFile (name, "", false)); return; }      // the check has no hands for a panel
+            if (test && (int) d["panel"] == 0) { answer (daw::musicRoot().getNonexistentChildFile (name, ext.isNotEmpty() ? "." + ext : juce::String(), false)); return; }      // the check has no hands for a panel
             auto in = daw::musicRoot();
             if (! test)
             {
@@ -1083,7 +1092,7 @@ private:
                 if (last.isNotEmpty() && juce::File::isAbsolutePath (last) && juce::File (last).isDirectory()) in = juce::File (last);
             }
             in.createDirectory();
-            chooser = std::make_unique<juce::FileChooser> ("Bounce", in.getNonexistentChildFile (name, "", false), "");
+            chooser = std::make_unique<juce::FileChooser> ("Bounce", in.getNonexistentChildFile (name, ext.isNotEmpty() ? "." + ext : juce::String(), false), ext.isNotEmpty() ? "*." + ext : juce::String());
             chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting, [answer, test] (const juce::FileChooser& fc)
             {
                 const auto f = fc.getResult();
@@ -1108,7 +1117,9 @@ private:
             engine.exportAudio (opts, [self] (int n, int total)
             {
                 if (self == nullptr) return;
-                auto* o = new juce::DynamicObject(); o->setProperty ("done", n); o->setProperty ("total", total);
+                auto* o = new juce::DynamicObject();
+                if (n >= 0) { o->setProperty ("done", n); o->setProperty ("total", total); }       // (a file more is done; without these: only how far along the file under way is)
+                o->setProperty ("part", n >= 0 ? 1.0 : (double) total / 1000.0);                  // (told with -1: `total` carries how far along, in thousandths, as it was when this was sent)
                 self->web->emitEventIfBrowserIsVisible ("dawBounce", juce::var (o));
             }, [done] (juce::var r) { done (r); });
             return;

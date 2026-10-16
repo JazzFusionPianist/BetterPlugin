@@ -526,9 +526,10 @@ public:
     }
 
     /** Empty when it opened; otherwise why not. */
-    String open (const juce::File& fileIn, const String& fmtIn, double fromRate, double toRate, int bitsIn, const juce::File& lameIn)
+    String open (const juce::File& fileIn, const String& fmtIn, double fromRate, double toRate, int bitsIn, const juce::File& lameIn, int kbpsIn = 320)
     {
         file = fileIn; fmt = fmtIn; bits = bitsIn; lame = lameIn;
+        kbps = kbpsIn <= 128 ? 128 : kbpsIn <= 192 ? 192 : kbpsIn <= 256 ? 256 : 320;      // an mp3's rate: one of the four the page offers
         rate = toRate;
         if (fmt == "m4a" || fmt == "mp3") { rate = juce::jmin (48000.0, rate); bits = 16; }
         if (fmt == "aiff" || fmt == "flac") bits = juce::jmin (24, bits);
@@ -581,7 +582,7 @@ public:
         if (fmt == "mp3" && ok)
         {
             juce::ChildProcess cp;
-            ok = cp.start (juce::StringArray { lame.getFullPathName(), "--silent", "-b", "320", tmp.getFullPathName(), file.getFullPathName() });
+            ok = cp.start (juce::StringArray { lame.getFullPathName(), "--silent", "-b", String (kbps), tmp.getFullPathName(), file.getFullPathName() });
             for (int i = 0; ok && cp.isRunning(); ++i)                       // ten minutes at most; and not a moment longer than the app itself stays
             {
                 if (i >= 30000 || (stop != nullptr && stop->load())) { cp.kill(); ok = false; break; }
@@ -632,6 +633,7 @@ private:
     }
 
     juce::File file, tmp, lame;
+    int kbps = 320;
     String fmt;
     int bits = 24, dropLeft = 0;
     double rate = 48000.0, ratio = 1.0;
@@ -707,7 +709,10 @@ public:
     {
         fm.addDefaultFormats();
         afm.registerBasicFormats();
-        for (auto* p : { "/opt/homebrew/bin/lame", "/usr/local/bin/lame" }) if (juce::File (p).existsAsFile()) { lame = juce::File (p); break; }
+        /* an mp3 is made by LAME, a program of its own that travels inside the app (Contents/Helpers: build.sh lays it there);
+           a build without it uses one the Mac has, when it has one */
+        lame = juce::File::getSpecialLocation (juce::File::currentApplicationFile).getChildFile ("Contents/Helpers/lame");
+        if (! lame.existsAsFile()) for (auto* p : { "/opt/homebrew/bin/lame", "/usr/local/bin/lame" }) if (juce::File (p).existsAsFile()) { lame = juce::File (p); break; }
         if (! juce::JUCEApplicationBase::getCommandLineParameters().contains ("--selftest")) tidySound();
     }
     ~Engine() override
@@ -994,6 +999,7 @@ public:
     std::atomic<double> posBars { 0.0 }, queued { -1.0 }, tempo { 92.0 }, loopA { 0.0 }, loopB { 0.0 };
     std::atomic<int> beats { 4 }, unit { 4 };          // the measure (see PlayHead)
     std::atomic<float>  master { 1.0f };
+    std::atomic<float>  printPart { 0.0f };       // how much of the file being printed is done, 0 to 1 (for the page's bar)
     std::atomic<int>    jumps { 0 };
     std::atomic<bool>   bouncing { false }, inputOn { false };
     bool quiet = false;                       // the self-test: no folders popping open
@@ -2438,7 +2444,7 @@ public:
             {
                 Sink sink;
                 sink.stop = &leaving;
-                const auto err = sink.open (file, fmt, sr, rate, bits, lame);
+                const auto err = sink.open (file, fmt, sr, rate, bits, lame, opts.hasProperty ("kbps") ? (int) opts["kbps"] : 320);
                 if (err.isNotEmpty()) { ok = false; why = err; return; }
                 struct Making { Engine& e; Making (Engine& en, const juce::File& f, bool mp3) : e (en) { const juce::ScopedLock sl (e.printFileLock); e.printFile = f; e.printTmp = mp3 ? f.getSiblingFile (f.getFileNameWithoutExtension() + ".tmp.wav") : juce::File(); }
                                 ~Making() { const juce::ScopedLock sl (e.printFileLock); e.printFile = juce::File(); e.printTmp = juce::File(); } } making { *this, file, fmt == "mp3" };
@@ -2455,10 +2461,16 @@ public:
                     renderGraph (p, n, true, true, nullptr, a1, tap);
                     p += n;
                 }
+                printPart.store (0.0f);
+                auto partTold = juce::Time::getMillisecondCounter(); float partWas = 0.0f;
                 for (juce::int64 p = s0; p < s1 + tail && ! leaving.load(); p += maxBlock)
                 {
                     const int n = (int) juce::jmin ((juce::int64) maxBlock, s1 + tail - p);
                     renderGraph (p, n, true, true, nullptr, a1, tap);
+                    /* how far along this file is, told about ten times a second, and at every tenth of the way (progress with -1: no file more is done, only this) */
+                    const float part = (float) ((double) (p - s0 + n) / (double) juce::jmax ((juce::int64) 1, s1 + tail - s0));
+                    printPart.store (part);
+                    if (const auto nowMs = juce::Time::getMillisecondCounter(); nowMs - partTold > 90 || part - partWas >= 0.1f) { partTold = nowMs; partWas = part; juce::MessageManager::callAsync ([progress, part] { progress (-1, juce::roundToInt (part * 1000.0f)); }); }
                     if (tap != nullptr) sink.write (tap->buf, n);
                     else
                     {
@@ -2511,7 +2523,8 @@ public:
                     }
                 }
             limG = keepLim;
-            if (! ok && ! place && dir.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0) dir.deleteFile();
+            const bool single = (int) opts["single"] != 0;                 // the mix as one file in a folder that is the person's own (not one made for the print): that folder is never taken away, and the file is what is shown
+            if (! ok && ! place && ! single && dir.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0) dir.deleteFile();
             end.finish();
             auto* o = new juce::DynamicObject();
             o->setProperty ("ok", ok); o->setProperty ("dir", dir.getFullPathName()); o->setProperty ("count", doneN);
@@ -2519,7 +2532,8 @@ public:
             if (place) o->setProperty ("placed", placed);
             logLine ("print: " + kind + ", " + String (doneN) + " files in " + dir.getFullPathName() + (why.isNotEmpty() ? "  (" + why + ")" : String()));
             const bool show = ok && ! quiet && ! place;
-            end.answer (juce::var (o), show ? std::function<void()> ([dir] { dir.revealToUser(); }) : std::function<void()>());
+            const auto shown = single ? dir.getChildFile (juce::File::createLegalFileName (opts["name"].toString()) + "." + fmt) : dir;
+            end.answer (juce::var (o), show ? std::function<void()> ([shown] { shown.revealToUser(); }) : std::function<void()>());
         });
     }
 

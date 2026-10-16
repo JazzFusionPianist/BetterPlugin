@@ -96,7 +96,7 @@ function wallOutSaved () {
   if (!OUT.wall || !OUT.wall.nodes.length) return undefined
   return { wall: wallSaved(OUT), patch: copy(OUT.patch), inserts: OUT.inserts.filter(i => i.id).map(i => Object.assign({ id: i.id, name: i.name, fmt: i.fmt, state: i.state || '' }, i.off ? { off: true } : {}, i.out ? { out: true } : {})) }
 }
-async function wallOutLoad (d) {
+async function wallOutLoad (d, step) {
   OUT.inserts = []; OUT.wall = null; OUT.patch = NO_PATCH(); OUT.used = false; OUT._told = null; WALL.out = false
   if (!d || !d.wall || !Array.isArray(d.wall.nodes) || !d.wall.nodes.length) { await wallPushOut(); return }
   OUT.wall = d.wall; if (d.patch) OUT.patch = d.patch
@@ -104,6 +104,7 @@ async function wallOutLoad (d) {
   for (const ins of d.inserts || []) {
     const kept = { uid: 0, name: ins.name || 'plug-in', fmt: ins.fmt || '', id: ins.id, state: ins.state || '', off: !!ins.off, out: true }
     const bare = typeof LOAD !== 'undefined' && LOAD.bare, no = typeof DISTRUST !== 'undefined' && DISTRUST.has(ins.id)
+    if (step && !ins.out) step(ins.name)
     const rr = !NAT || ins.out || bare || no ? null : await NAT.call('insert', { track: OUT_ID, id: ins.id, state: ins.state || '', show: 0 })
     if (rr && rr.ok) { OUT.inserts.push({ uid: rr.uid, name: rr.name, fmt: rr.fmt, id: ins.id, state: ins.state || '', off: !!ins.off, sc: !!rr.key }); if (ins.off) NAT.call('bypass', { track: OUT_ID, uid: rr.uid, off: 1 }) }
     else { OUT.inserts.push(kept); if (!ins.out && typeof LOAD !== 'undefined' && LOAD.left) LOAD.left.push(kept.name) }

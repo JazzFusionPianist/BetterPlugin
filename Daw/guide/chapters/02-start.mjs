@@ -77,7 +77,7 @@ export default () => chapter('start', t('the start page and projects', '시작 �
         ['{{no earlier copy of this song yet}}', ['nothing to revert to yet', '아직 되돌아갈 사본이 없음']]) + `</div>` }),
 
   page(t('bringing sound in', '소리 가져오기'), { kind: 'split', tw: 106, mid: true, txt:
-    lead('Drag files from the Finder onto the window, or press [[⌘I]]. Either way each file is copied into the project.', 'Finder에서 파일을 창으로 끌어다 놓거나 [[⌘I]]를 누릅니다. 어느 쪽이든 파일은 프로젝트 안으로 복사됩니다.') +
+    lead('Drag files from the Finder onto the window, or press [[⌘I]]. Either way each file is copied into the project; while dragged files come in, a card shows how far along it is.', 'Finder에서 파일을 창으로 끌어다 놓거나 [[⌘I]]를 누릅니다. 어느 쪽이든 파일은 프로젝트 안으로 복사됩니다. 끌어다 놓은 파일이 들어오는 동안에는 카드가 진행 상황을 보여줍니다.') +
     table(null,
       [['kinds', '종류'], ['wav, aif, aiff, mp3, m4a, flac, ogg, caf. A dropped .mid file becomes tracks of notes', 'wav, aif, aiff, mp3, m4a, flac, ogg, caf. .mid 파일을 떨어뜨리면 노트 트랙이 됩니다']],
       [['dragged', '드래그'], ['Lands at the bar under the pointer. Over an audio lane the first file goes on that lane and the others on new tracks below; anywhere else each file gets a new track. A dashed frame shows where it will land', '포인터 아래 마디에 놓입니다. 오디오 레인 위라면 첫 파일은 그 레인에, 나머지는 아래 새 트랙에. 다른 곳이면 파일마다 새 트랙. 점선 테두리가 놓일 자리를 보여 줍니다']],

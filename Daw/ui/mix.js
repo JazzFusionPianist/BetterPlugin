@@ -468,7 +468,9 @@ async function bounceInPlace () {
   if (S.playing) halt(false)
   say('bouncing')
   await natSession(r => only.has(r.id))                                                // for the print, only the chosen regions sound
+  printBegin('bouncing', tracks.map(t => t.name).join(', '), tracks.length)
   const res = await NAT.call('bounce', { kind: 'place', project: projKey(), a0, a1, tail: 2, tracks: tracks.map(t => ({ id: t.id, name: `${t.name} bounce` })) })
+  printEnd()
   if (!res || !res.ok || !Array.isArray(res.placed)) { resync(); say('could not bounce'); return }
   edit(() => {
     const ids = []

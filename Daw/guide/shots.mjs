@@ -186,9 +186,9 @@ const SHOTS = {
     const line = async (text, name) => { await key(b, '/'); await b.type(text); await key(b, '↩'); await b.sleep(350); await b.pic(name, [0, H - 22, 620, 22], 2.5); await key(b, 'esc') }
     await line('kick -3', 'say-1')
     await line('drums 2db down then solo bass', 'say-2')
-    await line('코러스 선택', 'say-3')
+    await line('select chorus', 'say-3')
     await b.ev(`const T = __daw.S.tracks; T[0].name = 'kick in'; T[1].name = 'kick out'; __daw.repaint(); __daw.redraw()`)
-    await line('킥 뮤트', 'say-4')
+    await line('kick mute', 'say-4')
     await line('tuba mute', 'say-5')
   },
 }

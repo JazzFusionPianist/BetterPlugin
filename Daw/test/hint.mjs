@@ -128,20 +128,21 @@ await fresh(); await typed('sol'); await tab(); await typed('ser'); await tab();
 ok('a plain act and a track (solo, serum 2) is done by the line’s own reader', (await ev(`return S.tracks.find(t => t.name === 'serum 2').solo`)) === true)
 await ev(`S.tracks.find(t => t.name === 'serum 2').solo = false; applyAll(); dirtyAll(); flush()`)
 
-/* korean: the same cells, the act last and in korean; a syllable still being typed finds its word */
+/* the room shown in korean: the words of the line stay english (the command line is english only); only what the
+   list says about each row is in korean, as the rest of the room */
 await ev(`setLang('ko'); flush()`); await fresh(); await typed('k'); await tab()
-{ const s = await seen(); ok('in korean: what is on a track is named in korean, names stay as given', s.items.includes('볼륨') && s.items.includes('팬') && s.items[0] === 'pro-c 2' && s.texts.includes('플러그인'), [s.items, s.texts.slice(0, 6)]) }
+{ const s = await seen(); ok('in korean: what is on a track is still offered in english, its kind in korean', s.items.includes('volume') && s.items.includes('pan') && s.items[0] === 'pro-c 2' && s.texts.includes('플러그인') && !s.items.some(w => /[가-힣]/.test(w)), [s.items, s.texts.slice(0, 6)]) }
 await typed('pro'); await tab(); await typed('thr'); await tab(); await typed('19'); await tab(); await typed('3'); await tab()
-{ const s = await seen(); ok('…the acts are in korean, with how each uses the stretch', s.items[0] === '점점 줄여줘' && s.items.includes('줄여줘') && s.texts.includes('구간에 걸쳐') && s.texts.includes('구간 동안만'), [s.items, s.texts.slice(-6)]) }
-await ev(`const cmd = document.getElementById('cmd'); cmd.value = '저'; cmd.dispatchEvent(new Event('input')); flush()`); await b.sleep(80)
-{ const s = await seen(); ok('…and 저, on its way to 점, already finds 점점 줄여줘', s.up && s.items[0] === '점점 줄여줘', s.items) }
+{ const s = await seen(); ok('…the acts are english, with how each uses the stretch said in korean', s.items[0] === 'lower gradually' && s.items.includes('lower') && s.texts.includes('구간에 걸쳐') && s.texts.includes('구간 동안만'), [s.items, s.texts.slice(-6)]) }
 await ev(`const cmd = document.getElementById('cmd'); cmd.value = '줄'; cmd.dispatchEvent(new Event('input')); flush()`); await b.sleep(80)
-{ const s = await seen(); ok('…줄 finds 줄여줘, and 점점 줄여줘 after it', s.items.join() === '줄여줘,점점 줄여줘', s.items) }
+{ const s = await seen(); ok('…a korean word finds nothing', !s.up, s.items) }
+await ev(`const cmd = document.getElementById('cmd'); cmd.value = 'lo'; cmd.dispatchEvent(new Event('input')); flush()`); await b.sleep(80)
+{ const s = await seen(); ok('…lo finds lower gradually and lower', s.up && s.items.join() === 'lower gradually,lower', s.items) }
 await ev(`setLang('en'); flush()`)
 
 /* a line with no cell in it is read as before */
 await fresh(); await typed('serum 2 mute')
-{ const s = await seen(); ok('a whole line typed out: nothing is offered', !s.up && s.parts.length === 0, s.items) }
+{ const s = await seen(); ok('a whole line typed out: no cell is made, only longer words of the grammar may be offered (muted)', s.parts.length === 0 && s.items.every(w => w.length > 'mute'.length && w.startsWith('mute')), s.items) }
 await ret(); await b.sleep(150)
 ok('…and return runs it as ever (the track is muted)', (await ev(`return S.tracks.find(t => t.name === 'serum 2').mute`)) === true)
 await fresh(); await typed('k'); await tab(); await typed('vol'); await tab()

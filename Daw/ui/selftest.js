@@ -1907,6 +1907,39 @@ async function runSelfTest (mode) {
     res.ok = !!(res.lfo && res.lfo.ok && res.lfoIs.hi > res.lfoIs.lo * 3 && res.lfoIs.turns === res.lfoIs.want && res.lfoIs.explained > .7 && res.held && res.held.ok && res.heldIs.hi - res.heldIs.lo < .05 && Math.abs(res.heldIs.hi - 1) < .05 && res.scene && res.scene.ok && Math.abs(res.sceneIs - .1) < .02)
     return res
   })
+  /* low latency mode (the transport's bolt): a pitch (its fine engine is late) on a track's wall is stepped past only while the
+     track is heard live, and the wall is then on time; a print is still made with it (the page puts the mode aside for one, and
+     back); turned off, the wall is as late as it was */
+  await step('lowLatency', async () => {
+    const t = S.tracks.find(sounding)
+    if (!t) return { skipped: 'no track with sound on it' }
+    const a0 = firstBar(t), back = allHeard(), was = { wall: t.wall ? copy(wallSaved(t)) : null, patch: copy(t.patch), mon: t.mon, lowLat: S.lowLat }, res = { track: t.name }
+    const node = (id, k, more) => Object.assign(wallNew(k, 200 + id * 120, 0), { id }, more || {})
+    const set = async (nodes, wires) => { const w = wallOf(t); w.nodes = nodes; w.wires = wires; WALL.sent.delete(t.id); const r = await NAT.call('wall', wallMsg(t)); await sleep(150); return r }
+    const facts = async () => (await NAT.call('wallFacts', { track: t.id })) || {}
+    const print = async name => { const b = await NAT.call('bounce', { kind: 'stems', a0, a1: a0 + 2, modes: ['wet'], tracks: [{ id: t.id, name }], folder: 'low latency', name, fmt: 'wav', rate: 0, bits: 24 }); await sleep(120); return b && b.ok ? `${b.dir}/${name}.wav` : null }
+    const against = async (dry, f) => { if (!dry || !f) return null; const m = await NAT.call('testLag', { a: dry, b: f }); return { lag: m.lag, alike: +(+m.alike).toFixed(4) } }
+    for (const k of PRINTS3) setPrint(t, k, 0)
+    pushTrack(t)
+    await set([], [{ from: WALL_IN, to: WALL_OUT, gain: 1, port: 0 }]); const dry = await print('dry')
+    await set([node(0, 'pitch', { amount: 1 })], [{ from: WALL_IN, to: 0, gain: 1, port: 0 }, { from: 0, to: WALL_OUT, gain: 1, port: 0 }])
+    res.late = (await facts()).latency
+    t.mon = false; pushTrack(t); await sleep(150)
+    S.lowLat = true
+    res.notHeard = await NAT.call('lowLatency', { on: 1, ms: 5 })
+    t.mon = true; pushTrack(t); await sleep(150)
+    res.heard = await NAT.call('lowLatFacts'); res.heardLate = (await facts()).latency
+    res.printIs = await against(dry, await print('with the pitch'))      // (the page puts the mode aside for the print)
+    res.after = await NAT.call('lowLatFacts')
+    S.lowLat = false
+    res.off = await NAT.call('lowLatency', { on: 0 }); res.offLate = (await facts()).latency
+    t.mon = was.mon; pushTrack(t); S.lowLat = was.lowLat
+    if (was.wall) t.wall = was.wall; else delete t.wall
+    t.patch = was.patch; WALL.sent.delete(t.id); pushTrack(t); wallPush(t); back(); await sleep(300)
+    const mine = f => ((f && f.skipped) || []).filter(k => k.track === t.id)
+    res.ok = !!(res.late > 48 * 5 && !mine(res.notHeard).length && mine(res.heard).some(k => k.node === 0 && k.ms > 5) && res.heardLate === 0 && res.printIs && res.printIs.alike < .6 && mine(res.after).length === 1 && !mine(res.off).length && res.offLate === res.late)
+    return res
+  })
   await step('wallWays', async () => {
     if (typeof wallOf !== 'function') return { skipped: 'this page has no wall' }
     const t = S.tracks.find(sounding)

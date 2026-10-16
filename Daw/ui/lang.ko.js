@@ -93,6 +93,7 @@ LANG.lists.ko = {
   /* the settings window */
   'general': '일반', 'recording': '녹음', 'editing': '편집', 'plug-ins': '플러그인', 'command line': '명령줄', 'storage': '저장 공간',
   'language': '언어', 'device': '장치', 'what comes in': '들어오는 소리', 'listen': '듣기', 'time': '시간', 'latency': '지연 시간',
+  'low latency': '저지연', 'skipped · # ms': '건너뜀 · # ms', 'low latency off': '저지연 꺼짐', 'low latency: # stepped past': '저지연: #개 건너뜀', 'low latency: nothing to step past': '저지연: 건너뛸 것 없음',
   'in # ms': '입력 # ms', 'out # ms': '출력 # ms', 'there and back # ms': '왕복 # ms', 'samples': '샘플',
   'work': '처리', 'threads': '스레드', 'test tone': '테스트 톤', 'play': '재생',
   'not while a take or a print is under way': '녹음이나 바운스 중에는 바꿀 수 없음', 'that could not be set': '설정하지 못함', 'the input would not open': '입력을 열지 못함',

@@ -94,6 +94,7 @@ function pTop () {
     { g: (x, y, c) => Cc(x, y, 4.2, { fill: c === K1 ? K1 : REC }), on: !!S.rec, c: REC, a: 'rec' },
     { g: g('M-5.5 .5V-1a3 3 0 0 1 3 -3H3.4M1.4 -6.2L3.8 -4L1.4 -1.8M5.5 -.5V1a3 3 0 0 1 -3 3H-3.4M-1.4 6.2L-3.8 4L-1.4 1.8', true), gc: S.cycle.on ? SOLO : INK, ga: S.cycle.on ? 1 : .78, a: 'loop' },
     { g: g('M-4 5.2L-1.7 -5.2H1.7L4 5.2ZM0 2.2L3.8 -3.2', true), on: S.click, a: 'click' },
+    { g: g('M1.3 -5.8L-3.8 .7H-.2L-1.3 5.8L3.8 -.7H.2Z'), on: !!S.lowLat, c: MON, a: 'lowlat' },      // low latency mode (llm.js): lit in the monitor's orange
   ]
   /* the right end */
   let x = W - 12
@@ -1210,6 +1211,7 @@ function onDown (e) {
     case 'rec': record(); break
     case 'click': toggleClick(); break
     case 'loop': KEYS.KeyC(); break
+    case 'lowlat': if (typeof toggleLowLat === 'function') toggleLowLat(); break
     case 'tempo': startRename('tempo'); break
     case 'meter': if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(p.x - 20, BAR_H - 6, MEASURES.map(m => ({ t: `${m[0]}/${m[1]}`, v: m, on: m[0] === S.meter[0] && m[1] === S.meter[1] })), it => setMeter(it.v[0], it.v[1]), { w: 84 }); break
     case 'key': startRename('key'); break

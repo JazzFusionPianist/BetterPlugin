@@ -191,6 +191,7 @@ struct Insert
     juce::MidiBuffer midi;
     int ins = 2, outs = 2;
     std::atomic<bool> off { false };                   // stepped past: the sound goes by untouched
+    std::atomic<bool> llmSkip { false };               // low latency mode: too late for what is heard live — stepped past, and counted as on time
     int keyFrom = 0;                                   // the track it listens to on its second input (a compressor that ducks to a kick listens to the kick), 0: none
     Track* key = nullptr;                              // … found again whenever the tracks are wired; nullptr while that track is not there
     int keyCh = 0;                                     // how many channels that second input has, while it is open
@@ -298,6 +299,8 @@ struct Insert
 
     /** How late it hands sound over, as it is now. An audio unit is asked itself: the library only hears of a change on
         the main thread's own time, and one told it is offline (see above) may answer otherwise from that moment on. */
+    /** How late it makes what goes through it: as late as it is, or nothing while low latency mode steps past it. */
+    int latencyHeard() const { return llmSkip.load() ? 0 : latencyNow(); }
     int latencyNow() const
     {
         if (own != nullptr) return juce::jmax (0, own->latency());
@@ -318,7 +321,7 @@ struct Insert
     {
         if (own != nullptr)
         {
-            if (outs < 1 || ins < 1 || off.load()) return;
+            if (outs < 1 || ins < 1 || off.load() || llmSkip.load()) return;
             if (ins - keyCh == 1) for (int i = 0; i < n; ++i) L[i] = 0.5f * (L[i] + R[i]);      // one channel in: left and right together, at half
             const float* k0 = nullptr; const float* k1 = nullptr;
             if (keyCh > 0 && kL != nullptr)
@@ -334,7 +337,7 @@ struct Insert
             own->process (L, R, n, k0, k1, nullptr, 0, clock());
             return;
         }
-        if (inst == nullptr || outs < 1 || ins < 1 || off.load()) return;
+        if (inst == nullptr || outs < 1 || ins < 1 || off.load() || llmSkip.load()) return;
         const int ch = buf.getNumChannels(), own = ins - keyCh;                       // own: the channels of its first input
         if (own < 1) return;
         if (own == 1) { auto* d = buf.getWritePointer (0); for (int i = 0; i < n; ++i) d[i] = 0.5f * (L[i] + R[i]); }
@@ -372,7 +375,7 @@ struct Insert
                 }
             const Inside inside (uid);
             own->process (buf.getWritePointer (0), buf.getWritePointer (1), n, nullptr, nullptr, notes, count, clock());
-            if (off.load()) return;
+            if (off.load() || llmSkip.load()) return;
             juce::FloatVectorOperations::add (L, buf.getReadPointer (0), n);
             juce::FloatVectorOperations::add (R, buf.getReadPointer (1), n);
             return;
@@ -383,7 +386,7 @@ struct Insert
         juce::AudioBuffer<float> view (buf.getArrayOfWritePointers(), ch, n);
         const Inside inside (uid);
         inst->processBlock (view, played);
-        if (off.load()) return;
+        if (off.load() || llmSkip.load()) return;
         juce::FloatVectorOperations::add (L, buf.getReadPointer (0), n);
         juce::FloatVectorOperations::add (R, buf.getReadPointer (outs >= 2 ? 1 : 0), n);
     }
@@ -459,6 +462,8 @@ struct Track
     orbfx::Modulator mod;                        // the hands its control prints play (lfos, macros, scenes…): Patch on Slur's own, from the engine
     orbfx::NodeParams prmNow[orbfx::kMaxNodes];  // audio thread: this block's hands, as the control prints have moved them (prm is where they are set)
     int slotType[orbfx::kMaxNodes] {};           // what stands at each node (changed under the lock, with the program)
+    bool fast = false;                           // low latency mode: what is heard live goes this way (message thread)
+    std::vector<std::pair<int, int>> wallSkipped;   // …and what its wall steps past for it: node, how late it is (samples)
     Insert* slotIns[orbfx::kMaxNodes] {};        // the plug-in that stands at a node (changed under the lock, with the program that names it)
     std::unique_ptr<Meter> meterOwn[orbfx::kMaxNodes];   // a meter that stands at a node: made when one first stands there, and kept as long as the track is
     Meter* slotMeter[orbfx::kMaxNodes] {};       // … and the one the audio thread hands the sound to as it passes (changed under the lock)
@@ -2869,7 +2874,11 @@ public:
         WallCtx ctx { &chain, {} };
         for (int i = 0; i < kMaxNodes; ++i) ctx.at[i] = at[i];
         Program p;
-        if (! compile (g, p, err, &wallLatency, &ctx)) return false;
+        Graph heard = g;                                                      // (low latency mode: on the way of what is heard live, what is later than the limit is stepped past)
+        auto skipped = wallSkips (t, chain, g, at);
+        for (auto& nd : heard.nodes) for (auto& sk : skipped) if (sk.first == nd.id) nd.bypass = true;
+        if (! compile (heard, p, err, &wallLatency, &ctx)) return false;
+        t.wallSkipped = skipped;
         const bool alone = bouncing.load();                                   // (a print plays the graph by itself and holds no lock)
         if (! alone) lock.enter();
         if (made != nullptr) t.chain = std::move (made);
@@ -3075,10 +3084,80 @@ private:
     /** How late each track's sound comes out of its plug-ins and the buses after it. Message thread — or a print's own
         thread while it runs (nothing else plays the plug-ins then, and none comes or goes): a plug-in told it is
         offline may be later, or earlier, than it was on the device. */
+    /** Low latency mode (the transport's bolt): what is heard live — a track that listens to its input, one played by
+        hand — goes its way without what is later than the limit. Every plug-in and print on that track, on the buses it
+        flows into and on the stereo out, later than the limit, is stepped past (and counted as on time) until the mode is
+        turned off; nothing written in the song changes. Message thread; a print is never made with it (the page turns it
+        off for one). Called whenever the lateness is looked at again, so what is armed and listened to is followed. */
+    void lowLatency()
+    {
+        std::set<Track*> heard;
+        std::function<void (Track*, int)> along = [&] (Track* t, int depth) { if (t == nullptr || depth > 16 || ! heard.insert (t).second) return; along (t->out, depth + 1); for (auto& s : t->sends) along (s.dst, depth + 1); };
+        if (lowLat.load() && ! bouncing.load()) for (auto& tp : tracks) if (tp->mon.load() || tp->live.load()) along (tp.get(), 0);
+        const int lim = lowLatLimit();
+        for (auto& tp : tracks)
+        {
+            auto& t = *tp;
+            const bool was = t.fast;
+            t.fast = heard.count (&t) > 0;
+            for (auto& i : t.inserts) i->llmSkip.store (! t.wall && t.fast && i->latencyNow() > lim);
+            if (! t.wall || t.chain == nullptr) continue;
+            Insert* at[orbfx::kMaxNodes]; for (int i = 0; i < orbfx::kMaxNodes; ++i) at[i] = t.slotIns[i];
+            if (was == t.fast && wallSkips (t, *t.chain, t.wallGraph, at) == t.wallSkipped) continue;
+            String err;
+            compileWall (t, *t.chain, t.wallGraph, at, nullptr, nullptr, nullptr, err);
+        }
+    }
+    /** What a wall steps past in low latency mode: each print or plug-in on it later than the limit (node, samples). */
+    std::vector<std::pair<int, int>> wallSkips (const Track& t, const orbfx::Chain& chain, const orbfx::Graph& g, Insert* const* at) const
+    {
+        std::vector<std::pair<int, int>> out;
+        if (! t.fast || ! lowLat.load() || bouncing.load()) return out;
+        const int lim = lowLatLimit();
+        for (auto& nd : g.nodes)
+        {
+            if (nd.id < 0 || nd.id >= orbfx::kMaxNodes || nd.bypass) continue;
+            const int late = nd.type == orbfx::kOutside ? (at[nd.id] != nullptr ? at[nd.id]->latencyNow() : 0) : chain.nodeLatency (nd);
+            if (late > lim) out.push_back ({ nd.id, late });
+        }
+        return out;
+    }
+    int lowLatLimit() const { return (int) std::lround (juce::jlimit (1, 100, lowLatMs.load()) * sr / 1000.0); }
+public:
+    /** The mode turned on or off, or its limit changed: what it steps past now. */
+    juce::var setLowLatency (bool on, int ms)
+    {
+        lowLat.store (on); if (ms > 0) lowLatMs.store (juce::jlimit (1, 100, ms));
+        measureLatency();
+        return lowLatFacts();
+    }
+    /** What the page shows: whether it is on, its limit, the tracks what is heard live goes through, and what is stepped past
+        (a print or plug-in on a wall: its node; a plug-in in a row: its uid) and how late it is, in milliseconds. */
+    juce::var lowLatFacts()
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("on", lowLat.load()); o->setProperty ("ms", lowLatMs.load());
+        juce::Array<juce::var> fastIds, skipped;
+        auto msOf = [this] (int samples) { return juce::roundToInt (samples * 1000.0 / sr * 10.0) / 10.0; };
+        for (auto& tp : tracks)
+        {
+            if (! tp->fast) continue;
+            fastIds.add (tp->id);
+            for (auto& sk : tp->wallSkipped) { auto* k = new juce::DynamicObject(); k->setProperty ("track", tp->id); k->setProperty ("node", sk.first); k->setProperty ("ms", msOf (sk.second)); skipped.add (juce::var (k)); }
+            for (auto& i : tp->inserts) if (i->llmSkip.load()) { auto* k = new juce::DynamicObject(); k->setProperty ("track", tp->id); k->setProperty ("uid", i->uid); k->setProperty ("ms", msOf (i->latencyNow())); skipped.add (juce::var (k)); }
+        }
+        o->setProperty ("fast", fastIds); o->setProperty ("skipped", skipped);
+        return juce::var (o);
+    }
+    std::atomic<bool> lowLat { false };
+    std::atomic<int>  lowLatMs { 5 };
+private:
+
     void measureLatency()
     {
         checkWalls();
-        auto own = [] (const Track& t) { int n = t.plug != nullptr ? t.plug->latencyNow() : 0; if (t.wall) return n + t.wallLat; for (auto& i : t.inserts) n += i->latencyNow(); return n; };
+        lowLatency();
+        auto own = [] (const Track& t) { int n = t.plug != nullptr ? t.plug->latencyNow() : 0; if (t.wall) return n + t.wallLat; for (auto& i : t.inserts) n += i->latencyHeard(); return n; };
         /*  How far it still is from where a track's sound leaves it to the stereo out, counted in the lateness of the
             buses on the way — by its longest way, when it has several (its own way out, and each bus it sends into).
             A track's regions are read that much early, and by its own plug-ins' lateness, so what goes the longest way
@@ -3113,7 +3192,7 @@ private:
             for (auto& i : t.inserts)
             {
                 wants.push_back ({ &i->keyHold, i->key != nullptr && i->keyCh > 0 ? juce::jmax (0, longest (i->key, 1) - own (t) - all + before) : 0 });
-                if (! t.wall) before += i->latencyNow();               // (on a wall the plug-ins are not in a row: what stands before one is not counted — its key is lined up with the wall's way in)
+                if (! t.wall) before += i->latencyHeard();               // (on a wall the plug-ins are not in a row: what stands before one is not counted — its key is lined up with the wall's way in)
             }
             wants.push_back ({ &t.sideHold, t.side != nullptr ? juce::jmax (0, longest (t.side, 1) - own (t) - all) : 0 });      // (a side is lined up with the wall's way in, as a key on the wall is)
         }

@@ -32,6 +32,7 @@ export default () => chapter('recording', t('recording', '녹음'),
       [['where', '위치'], ['at the playhead, exactly. With the count-in on, the song starts one bar earlier; that bar plays and the click counts it', '정확히 플레이헤드에서. 카운트인이 켜져 있으면 한 마디 앞에서 재생이 시작되고 클릭이 그 마디를 셉니다']],
       [['count-in', '카운트인'], ['[[⇧K]] turns it off and on; it is on at first, one bar long. Through the count-in the click sounds whether or not the click is on', '[[⇧K]]로 끄고 켭니다. 처음엔 켜져 있고 길이는 한 마디. 카운트인 동안에는 클릭이 꺼져 있어도 클릭이 납니다']],
       [['click', '클릭'], ['[[K]]: a blip on every beat, the first of a bar higher. It is never printed', '[[K]]: 박마다 짧은 소리, 마디 첫 박은 높게. 내보내는 파일에는 들어가지 않습니다']],
+      [['low latency', '저지연'], ['the bolt in the transport. Lit, what is heard live skips what is later than the limit (settings > audio, 5 ms): those say {{skipped}} on the wall. Prints keep everything', '트랜스포트의 번개. 켜져 있는 동안 지금 들리는 소리는 기준(설정 > audio, 처음엔 5 ms)보다 늦은 것을 건너뜁니다. 그 길의 플러그인과 프린트는 벽에 {{skipped}}로 표시됩니다. 내보내는 파일에는 모두 들어갑니다']],
       [['stop and keep', '멈추고 보관'], ['[[space]], [[R]] again, stop, or the red dot', '[[space]], 다시 [[R]], 정지, 또는 빨간 점']],
       [['stop and throw away', '멈추고 버리기'], ['[[⌘.]]: the files are deleted', '[[⌘.]]: 파일이 지워집니다']]) +
     h('when it stops', '멈추면') +

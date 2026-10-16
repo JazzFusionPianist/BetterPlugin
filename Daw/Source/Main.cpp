@@ -199,6 +199,7 @@ public:
         }
         if (! test) engine.devices().addChangeListener (this);
         if (! test) { const auto prefs = juce::JSON::parse (prefsFile()); if (prefs["hands"].isInt() && (int) prefs["hands"] >= 0) engine.setHands ((int) prefs["hands"]); }      // how many threads were asked for in the settings
+        if (! test) { const auto prefs = juce::JSON::parse (prefsFile()); if (prefs["llm"].isInt() && (int) prefs["llm"] > 0) engine.lowLatMs.store (juce::jlimit (1, 100, (int) prefs["llm"])); }      // low latency mode's limit, as it was set (the mode itself begins off)
         if (! test) engine.openKeys();                                 // every keyboard the machine has is listened to (the check plays its own keys)
         {
             /* audio units opened by the app itself, not through the library: only where asked for (see Engine::ownAu) */
@@ -350,6 +351,8 @@ private:
         if (op == "settings")      { showSettings (d["part"].toString()); done (okVar()); return; }
         if (op == "settingsClose") { if (settings != nullptr) settings->setVisible (false); done (okVar()); return; }
         if (op == "settingsRead")  { done (settingsNow()); return; }
+        if (op == "lowLatency")    { done (engine.setLowLatency ((int) d["on"] != 0, (int) d["ms"])); return; }      // the transport's bolt: what is heard live goes without what is too late (Engine::lowLatency)
+        if (op == "lowLatFacts")   { done (engine.setLowLatency (engine.lowLat.load(), 0)); return; }      // (looked at again first: what is armed and listened to may have changed)
         if (op == "settingsSet")   { done (settingsSet (d)); return; }
         if (op == "settingsSize")  { if (settings != nullptr) settings->sizeTo ((int) d["w"], (int) d["h"]); done (okVar()); return; }      // (display asks for a larger window than the other parts)
         if (op == "slurLook")                                                  // slur's panel turns light when the room's ground has grown light (ui/look.js), and dark again
@@ -1290,6 +1293,7 @@ private:
             if (in.isEmpty()) { const int def = type->getDefaultDeviceIndex (true); if (def >= 0 && def < names.size()) in = names[def]; }      // none chosen: the one the Mac would give
         }
         o->setProperty ("lang", lang);
+        o->setProperty ("llm", engine.lowLatMs.load());
         if (settings != nullptr) { const auto part = settings->takeAsked(); if (part.isNotEmpty()) o->setProperty ("part", part); }
         o->setProperty ("outs", outs); o->setProperty ("ins", ins); o->setProperty ("out", setup.outputDeviceName); o->setProperty ("in", in);
         if (auto* dev = dm.getCurrentAudioDevice())
@@ -1326,6 +1330,21 @@ private:
             }
             for (auto* page : { web.get(), settings != nullptr ? &settings->page() : nullptr })
                 if (page != nullptr) { auto* o = new juce::DynamicObject(); o->setProperty ("lang", lang); page->emitEventIfBrowserIsVisible ("dawLang", juce::var (o)); }
+            return okVar();
+        }
+        if (what == "llm")                                                     // settings > audio: low latency mode's limit — kept, and the room told (what is stepped past may change)
+        {
+            const int ms = juce::jlimit (1, 100, (int) d["value"]);
+            if (selfTestMode().isEmpty())
+            {
+                auto v = juce::JSON::parse (prefsFile());
+                if (! v.isObject()) v = juce::var (new juce::DynamicObject());
+                v.getDynamicObject()->setProperty ("llm", ms);
+                prefsFile().getParentDirectory().createDirectory();
+                prefsFile().replaceWithText (juce::JSON::toString (v));
+            }
+            const auto facts = engine.setLowLatency (engine.lowLat.load(), ms);
+            if (web != nullptr) web->emitEventIfBrowserIsVisible ("dawLowLat", facts);
             return okVar();
         }
         if (what == "look")                                                    // settings > display: the look the room wears (ui/look.js) — kept, and the room told at once

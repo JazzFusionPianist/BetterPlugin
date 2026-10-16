@@ -30,7 +30,7 @@ const NAT = (() => {
     on: (ev, fn) => J.backend.addEventListener(ev, fn),
   }
 })()
-const STAND_IN = { lang: LANG.now, outs: ['MacBook Pro Speakers', 'Scarlett 2i2 USB'], ins: ['MacBook Pro Microphone', 'Scarlett 2i2 USB'], out: 'MacBook Pro Speakers', in: 'Scarlett 2i2 USB', rates: [44100, 48000, 88200, 96000], rate: 48000, blocks: [32, 64, 128, 256, 512, 1024], block: 128, outLat: 45, inLat: 21, inputOn: true, level: .3, threads: 10, asked: -1, cores: 10, busy: false }
+const STAND_IN = { llm: 5, lang: LANG.now, outs: ['MacBook Pro Speakers', 'Scarlett 2i2 USB'], ins: ['MacBook Pro Microphone', 'Scarlett 2i2 USB'], out: 'MacBook Pro Speakers', in: 'Scarlett 2i2 USB', rates: [44100, 48000, 88200, 96000], rate: 48000, blocks: [32, 64, 128, 256, 512, 1024], block: 128, outLat: 45, inLat: 21, inputOn: true, level: .3, threads: 10, asked: -1, cores: 10, busy: false }
 
 const V = { part: new URLSearchParams(location.search).get('part') || 'audio', now: null, menu: null, said: '', key: '' }
 if (!THERE.has(V.part)) V.part = 'audio'
@@ -75,6 +75,7 @@ function audio (d) {
       ['rate', choice('rate', rates, d.rate, 'khz')],
       ['buffer', choice('block', blocks, d.block, 'samples')],
       ['latency', delay],
+      ['low latency', choice('llm', [['1', 1], ['3', 3], ['5', 5], ['10', 10], ['20', 20]], d.llm || 5, 'ms')],      // the transport's bolt steps past what is later than this, on the way of what is heard live
     ]],
     ['work', [
       ['threads', choice('threads', threads, d.asked < 0 ? 0 : d.threads)],

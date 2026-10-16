@@ -26,7 +26,7 @@ const PC = PATCH_CATALOG
 /* where each print stands in the list of what can be added: among the plug-ins of its kind (cats.js) */
 const WALL_KIND = { cut: 'eq', tone: 'eq', air: 'eq', carve: 'eq', match: 'eq', sieve: 'eq', tape: 'saturation', crush: 'saturation', radio: 'saturation', ring: 'saturation', fold: 'saturation', amp: 'amp', glue: 'dynamics', comp: 'dynamics', gate: 'dynamics', swell: 'dynamics',
   delay: 'delay', repeat: 'delay', stutter: 'delay', space: 'reverb', shimmer: 'reverb', freeze: 'reverb', smear: 'reverb', doubler: 'modulation', mod: 'modulation', tremolo: 'modulation', wow: 'modulation', stereo: 'stereo', pan: 'stereo', 'l/r': 'stereo', 'm/s': 'stereo',
-  pitch: 'pitch', formant: 'pitch', harmony: 'pitch', arp: 'pitch', grain: 'pitch', vocode: 'pitch', shift: 'pitch', gain: 'channel', mix: 'channel', side: 'channel', bands: 'channel',
+  pitch: 'pitch', formant: 'pitch', harmony: 'pitch', arp: 'pitch', grain: 'pitch', tune: 'pitch', vocode: 'pitch', shift: 'pitch', gain: 'channel', mix: 'channel', side: 'channel', bands: 'channel',
   lfo: 'modulation', drift: 'modulation', pulse: 'modulation', env: 'modulation', follow: 'modulation', macro: 'modulation', scene: 'modulation' }
 /* the prints this wall leaves off (none now: every print of Patch on Slur stands here; one the plug-in gains is refused by
    the build until it is given a place above or named here) */

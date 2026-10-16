@@ -20,7 +20,7 @@ import { openExternalUrl } from '../../lib/linkify'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
-  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_SIDE, FX_FOLLOW, FX_COMP, FX_BANDS, FX_CARVE, FX_MATCH, FX_VOCODE, FX_FREEZE, FX_SHIFT, FX_SMEAR, FX_PAN, FX_REPEAT, FX_ENV, FX_FOLD, FX_DRIFT, FX_PULSE, FX_SCENE, FX_SIEVE, SCENE_HANDS, SCENE_STRIDE, sceneRow, isSpectralType, outPortsOf, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, playsHandsType, noInputType, hasKeyType, hasAmountType, wireRef, paramGesture,
+  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_SIDE, FX_FOLLOW, FX_COMP, FX_BANDS, FX_CARVE, FX_MATCH, FX_VOCODE, FX_FREEZE, FX_SHIFT, FX_SMEAR, FX_PAN, FX_REPEAT, FX_ENV, FX_FOLD, FX_DRIFT, FX_PULSE, FX_SCENE, FX_SIEVE, FX_TUNE, SCENE_HANDS, SCENE_STRIDE, sceneRow, isSpectralType, outPortsOf, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, playsHandsType, noInputType, hasKeyType, hasAmountType, wireRef, paramGesture,
   type FxGraph, type FxGraphNode, type FxGraphEdge,
 } from '../../lib/fxBridge'
 
@@ -312,7 +312,7 @@ export default function FxWall ({ size: frame }: Props) {
   const [shelfFam, setShelfFam] = useState(() => { try { return Math.min(FAMILIES.length - 1, Math.max(0, Number(localStorage.getItem('orb_wall_fam') ?? 0))) } catch { return 0 } })
   const pickFam = (i: number) => { setShelfFam(i); try { localStorage.setItem('orb_wall_fam', String(i)) } catch { /* fine */ } }
   const shelfTypes = useMemo(() => {
-    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE], ['macro', FX_MACRO], ['side', FX_SIDE], ['follow', FX_FOLLOW], ['comp', FX_COMP], ['bands', FX_BANDS], ['carve', FX_CARVE], ['match', FX_MATCH], ['vocode', FX_VOCODE], ['freeze', FX_FREEZE], ['shift', FX_SHIFT], ['smear', FX_SMEAR], ['pan', FX_PAN], ['repeat', FX_REPEAT], ['env', FX_ENV], ['fold', FX_FOLD], ['drift', FX_DRIFT], ['pulse', FX_PULSE], ['scene', FX_SCENE], ['sieve', FX_SIEVE]])
+    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE], ['macro', FX_MACRO], ['side', FX_SIDE], ['follow', FX_FOLLOW], ['comp', FX_COMP], ['bands', FX_BANDS], ['carve', FX_CARVE], ['match', FX_MATCH], ['vocode', FX_VOCODE], ['freeze', FX_FREEZE], ['shift', FX_SHIFT], ['smear', FX_SMEAR], ['pan', FX_PAN], ['repeat', FX_REPEAT], ['env', FX_ENV], ['fold', FX_FOLD], ['drift', FX_DRIFT], ['pulse', FX_PULSE], ['scene', FX_SCENE], ['sieve', FX_SIEVE], ['tune', FX_TUNE]])
     return FAMILIES[shelfFam][1].map(n => byName.get(n)).filter((t): t is number => t !== undefined)
   }, [shelfFam])
   useEffect(() => {

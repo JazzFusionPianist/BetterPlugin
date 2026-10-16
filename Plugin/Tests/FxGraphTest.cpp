@@ -478,6 +478,20 @@ int main()
         std::printf ("    sieve @0.8: diff %.4f peak %.4f\n", d, peakOf (sv, 4096, input.getNumSamples()));
         CHECK (finite (sv) && d > 0.05f && peakOf (sv, 4096, input.getNumSamples()) < 1.2f, "sieve: keeps a few partials, sane level");
     }
+    { // tune: a sine 20 cents sharp of A (455 Hz) in C major comes out on A; at rest it comes out as it went in
+        auto sine = [] (float hz) { juce::AudioBuffer<float> b (2, kBlock * 90); for (int ch = 0; ch < 2; ++ch) for (int i = 0; i < b.getNumSamples(); ++i) b.setSample (ch, i, 0.4f * std::sin (2.0f * juce::MathConstants<float>::pi * hz * (float) i / (float) kSr)); return b; };
+        auto runOn = [&] (const Graph& g, juce::AudioBuffer<float> buf) { Chain chain; chain.prepare (kSr, kBlock); Program prog; juce::String e; if (! compile (g, prog, e)) { buf.clear(); return buf; } chain.publish (prog); NodeParams params[kMaxNodes]; paramsFor (g, params); for (int blk = 0; blk < buf.getNumSamples() / kBlock; ++blk) { float* ptrs[2] = { buf.getWritePointer (0, blk * kBlock), buf.getWritePointer (1, blk * kBlock) }; juce::AudioBuffer<float> view (ptrs, 2, kBlock); float gr = 0.0f; chain.process (view, (float) kSr, params, gr); } return buf; };
+        auto hzOf = [] (const juce::AudioBuffer<float>& b, int from, int to) { int z = 0; for (int i = from + 1; i < to; ++i) if ((b.getSample (0, i) >= 0) != (b.getSample (0, i - 1) >= 0)) ++z; return (double) z / 2.0 * kSr / (double) (to - from); };
+        Graph g; auto n = node (3, kTune, 1.0f, 0); n.aux[0] = 0; n.aux[1] = 0; n.aux[2] = 0; n.aux[3] = 0; n.aux[4] = 0; n.aux[5] = 0; g.nodes.push_back (n);
+        g.edges.push_back ({ kPortIn, 3, 1.0f }); g.edges.push_back ({ 3, kPortOut, 1.0f });
+        const auto out = runOn (g, sine (455.0f));
+        const int N = out.getNumSamples(); const double hz = hzOf (out, N - 14400, N), hzIn = hzOf (sine (455.0f), N - 14400, N);
+        std::printf ("    tune: in %.1f hz → out %.1f hz (A is 440)\n", hzIn, hz);
+        CHECK (finite (out) && std::abs (hz - 440.0) < 4.0, "tune at full pulls a sharp A onto A");
+        Graph g0 = g; g0.nodes[0].amount = 0.0f;
+        const auto out0 = runOn (g0, sine (455.0f)); const double hz0 = hzOf (out0, N - 14400, N);
+        CHECK (finite (out0) && std::abs (hz0 - 455.0) < 4.0, "tune at rest leaves the pitch as it is");
+    }
     { // pan in the middle is transparent; hard left leaves the right silent
         const auto mid = run (one (kPan, 0.5f, 0));
         float d = 0.0f; for (int i = 0; i < input.getNumSamples(); ++i) d = std::max (d, std::abs (mid.getSample (0, i) - input.getSample (0, i)));

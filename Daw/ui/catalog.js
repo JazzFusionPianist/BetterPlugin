@@ -132,6 +132,7 @@ var PATCH_CATALOG = (() => {
   var FX_PULSE = 48;
   var FX_SCENE = 49;
   var FX_SIEVE = 50;
+  var FX_TUNE = 52;
   var isUtilityType = (t) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_BANDS || t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_SIDE || t === FX_FOLLOW || t === FX_ENV || t === FX_DRIFT || t === FX_PULSE || t === FX_SCENE;
   var isSplitterType = (t) => t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_BANDS;
   var outPortsOf = (t, aux) => t === FX_BANDS ? Math.max(2, Math.min(6, (aux[5] || 1) + 1)) : isSplitterType(t) ? 2 : 1;
@@ -193,13 +194,13 @@ var PATCH_CATALOG = (() => {
     { id: 26, name: "gate" },
     { id: 27, name: "wow" }
   ];
-  var nameOf = (type) => type === FX_MIX_TYPE ? "mix" : type === FX_SPLIT_LR ? "L/R" : type === FX_SPLIT_MS ? "M/S" : type === FX_LFO ? "LFO" : type === FX_RATE ? "rate" : type === FX_MACRO ? "macro" : type === FX_SIDE ? "side" : type === FX_FOLLOW ? "follow" : type === FX_COMP ? "comp" : type === FX_BANDS ? "bands" : type === FX_CARVE ? "carve" : type === FX_MATCH ? "match" : type === FX_VOCODE ? "vocode" : type === FX_FREEZE ? "freeze" : type === FX_SHIFT ? "shift" : type === FX_SMEAR ? "smear" : type === FX_PAN ? "pan" : type === FX_REPEAT ? "repeat" : type === FX_ENV ? "env" : type === FX_FOLD ? "fold" : type === FX_DRIFT ? "drift" : type === FX_PULSE ? "pulse" : type === FX_SCENE ? "scene" : type === FX_SIEVE ? "sieve" : MODES.find((m) => m.id === type)?.name ?? "";
+  var nameOf = (type) => type === FX_MIX_TYPE ? "mix" : type === FX_SPLIT_LR ? "L/R" : type === FX_SPLIT_MS ? "M/S" : type === FX_LFO ? "LFO" : type === FX_RATE ? "rate" : type === FX_MACRO ? "macro" : type === FX_SIDE ? "side" : type === FX_FOLLOW ? "follow" : type === FX_COMP ? "comp" : type === FX_BANDS ? "bands" : type === FX_CARVE ? "carve" : type === FX_MATCH ? "match" : type === FX_VOCODE ? "vocode" : type === FX_FREEZE ? "freeze" : type === FX_SHIFT ? "shift" : type === FX_SMEAR ? "smear" : type === FX_PAN ? "pan" : type === FX_REPEAT ? "repeat" : type === FX_ENV ? "env" : type === FX_FOLD ? "fold" : type === FX_DRIFT ? "drift" : type === FX_PULSE ? "pulse" : type === FX_SCENE ? "scene" : type === FX_SIEVE ? "sieve" : type === FX_TUNE ? "tune" : MODES.find((m) => m.id === type)?.name ?? "";
   var FAMILIES = [
     ["tone", ["cut", "amp", "tone", "tape", "glue", "comp", "air"]],
     ["grit", ["crush", "radio", "ring", "fold"]],
     ["space", ["delay", "space", "shimmer", "doubler", "stereo"]],
     ["motion", ["mod", "tremolo", "swell", "stutter", "gate", "wow", "repeat"]],
-    ["pitch", ["pitch", "formant", "harmony", "arp", "grain"]],
+    ["pitch", ["pitch", "formant", "harmony", "arp", "grain", "tune"]],
     ["utility", ["gain", "mix", "L/R", "M/S", "pan", "bands", "side"]],
     ["control", ["LFO", "macro", "follow", "env", "drift", "pulse", "scene"]],
     ["spectral", ["carve", "match", "vocode", "freeze", "shift", "smear", "sieve"]]
@@ -270,13 +271,13 @@ var PATCH_CATALOG = (() => {
     ["wow", "flutter", "both"]
     // wow
   ];
-  var NEW_VARIANTS = { [FX_ENV]: ["level", "wire"], [FX_FOLD]: ["sine", "triangle"] };
+  var NEW_VARIANTS = { [FX_ENV]: ["level", "wire"], [FX_FOLD]: ["sine", "triangle"], [FX_TUNE]: ["natural", "raw"] };
   var flavoursOf = (type) => type === FX_MIX_TYPE ? ["blend", "sum"] : VARIANTS[type] ?? NEW_VARIANTS[type] ?? [];
-  var VARIANT_LABEL = { 1: "drive", 2: "room", 6: "kind", 7: "pass", 8: "stage", 9: "spread", 10: "type", 13: "order", 14: "band", 15: "mode", 16: "mode", 18: "mode", 20: "target", 21: "interval", 22: "floor", 23: "grid", 24: "mode", 25: "mode", 26: "release", 27: "motion" };
+  var VARIANT_LABEL = { 1: "drive", 2: "room", 6: "kind", 7: "pass", 8: "stage", 9: "spread", 10: "type", 13: "order", 14: "band", 15: "mode", 16: "mode", 18: "mode", 20: "target", 21: "interval", 22: "floor", 23: "grid", 24: "mode", 25: "mode", 26: "release", 27: "motion", [FX_TUNE]: "formant" };
   var WET_TYPES = /* @__PURE__ */ new Set([2, 10, 9, 6, 15, 18, 21]);
-  var MAIN_HAND = { 7: "cutoff", [FX_COMP]: "threshold", [FX_CARVE]: "depth", [FX_PAN]: "pan", [FX_FOLD]: "drive", [FX_FREEZE]: "hold", [FX_SIEVE]: "keep", [FX_SHIFT]: "mix", [FX_SMEAR]: "mix", [FX_REPEAT]: "mix" };
+  var MAIN_HAND = { 7: "cutoff", [FX_COMP]: "threshold", [FX_CARVE]: "depth", [FX_PAN]: "pan", [FX_FOLD]: "drive", [FX_FREEZE]: "hold", [FX_SIEVE]: "keep", [FX_TUNE]: "retune", [FX_SHIFT]: "mix", [FX_SMEAR]: "mix", [FX_REPEAT]: "mix" };
   var neutralOf = (type) => type === 0 || type === 3 || type === 16 || type === 17 || type === FX_PAN ? 0.5 : type === 5 ? 0.75 : 0;
-  var auxOf = (type, macroNo = 0) => type === 7 ? [2, 0, 0] : type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_LFO ? [0, 3, 0, 200, 0, 100, 0, 0] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : type === FX_COMP ? [40, 100, 150, 6, 0] : type === FX_BANDS ? [250, 0, 0, 0, 0, 1, 0, 0] : type === FX_CARVE ? [20, 200, 20, 2e4] : type === FX_MATCH ? [1, 12, 0] : type === FX_VOCODE ? [24, 10, 80] : type === FX_SHIFT ? [200, 0, 0] : type === FX_SMEAR ? [800, 0, 0] : type === FX_SIEVE ? [5, 80, 100] : type === FX_REPEAT ? [0, 3, 0, 200, -30, 0] : type === FX_ENV ? [10, 200, 70, 300, -30, 0] : type === FX_DRIFT ? [0, 3, 0, 200, 60, 100, 0, 0] : type === FX_PULSE ? [0, 1, 0, 200, 8, 3, 0, 50] : [0, 0, 0];
+  var auxOf = (type, macroNo = 0) => type === 7 ? [2, 0, 0] : type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_LFO ? [0, 3, 0, 200, 0, 100, 0, 0] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : type === FX_COMP ? [40, 100, 150, 6, 0] : type === FX_BANDS ? [250, 0, 0, 0, 0, 1, 0, 0] : type === FX_CARVE ? [20, 200, 20, 2e4] : type === FX_MATCH ? [1, 12, 0] : type === FX_VOCODE ? [24, 10, 80] : type === FX_SHIFT ? [200, 0, 0] : type === FX_SMEAR ? [800, 0, 0] : type === FX_SIEVE ? [5, 80, 100] : type === FX_TUNE ? [0, 0, 20, 0, 50, 0] : type === FX_REPEAT ? [0, 3, 0, 200, -30, 0] : type === FX_ENV ? [10, 200, 70, 300, -30, 0] : type === FX_DRIFT ? [0, 3, 0, 200, 60, 100, 0, 0] : type === FX_PULSE ? [0, 1, 0, 200, 8, 3, 0, 50] : [0, 0, 0];
   var variantOf = (type) => type === 7 ? 1 : 0;
   var DIV_LABELS = ["1/16", "1/8t", "1/8", "1/8.", "1/4", "1/4.", "1/2", "1/32"];
   var DIV_ORDER = [7, 0, 1, 2, 3, 4, 5, 6];
@@ -535,6 +536,7 @@ var PATCH_CATALOG = (() => {
       const keep = Math.max(1, Math.round(Math.pow(2, (1 - a) * 10)));
       return a < 4e-3 ? "all" : `${keep}`;
     }
+    if (type === FX_TUNE) return a < 4e-3 ? "off" : a >= 0.995 ? "hard" : `${Math.round(2 + 400 * (1 - a) * (1 - a))} ms`;
     if (type === 7) {
       if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`;
       const hz = variant === 0 ? 20 * Math.pow(1e3, a) : 2e4 * Math.pow(1e3, -a);
@@ -554,6 +556,10 @@ var PATCH_CATALOG = (() => {
       if (t === "b") return 1;
     }
     if (type === FX_SIEVE && t === "all") return 0;
+    if (type === FX_TUNE) {
+      if (t === "off") return 0;
+      if (t === "hard") return 1;
+    }
     if (type === FX_PAN) {
       if (t === "c" || t === "centre" || t === "center") return 0.5;
       const lr = /^([lr])\s*(\d*\.?\d+)/.exec(t);
@@ -575,6 +581,7 @@ var PATCH_CATALOG = (() => {
     if (type === FX_COMP) return clamp(-v / 60, 0, 1);
     if (type === FX_CARVE) return clamp(-v / 24, 0, 1);
     if (type === FX_SIEVE) return clamp(1 - Math.log2(Math.max(1, v)) / 10, 0, 1);
+    if (type === FX_TUNE) return clamp(1 - Math.sqrt(Math.max(0, v - 2) / 400), 0, 1);
     if (type === FX_PAN) return clamp(v / 200 + 0.5, 0, 1);
     if (type === 7) {
       if (variant === 2) return clamp(1 - (v - 0.3) / 9, 0, 1);
@@ -594,6 +601,7 @@ var PATCH_CATALOG = (() => {
     [FX_SMEAR]: [{ key: "aux0", label: "time" }, { key: "aux1", label: "blur" }],
     [FX_REPEAT]: [{ key: "aux4", label: "threshold" }],
     [FX_SIEVE]: [{ key: "aux0", label: "attack" }, { key: "aux1", label: "release" }, { key: "aux2", label: "mix" }],
+    [FX_TUNE]: [{ key: "aux2", label: "humanize" }, { key: "aux3", label: "flex" }, { key: "aux4", label: "vibrato" }],
     [FX_COMP]: [{ key: "aux0", label: "ratio" }, { key: "aux1", label: "attack" }, { key: "aux2", label: "release" }, { key: "aux3", label: "knee" }, { key: "aux4", label: "makeup" }],
     15: [{ key: "aux2", label: "interval" }],
     16: [{ key: "aux0", label: "cents" }],
@@ -726,6 +734,18 @@ var PATCH_CATALOG = (() => {
       gauge("release", "release", 1, (n) => n.aux[1] || 80, 20, 2e3, 80, { fine: 320, format: ms }),
       gauge("smix", "mix", 2, (n) => n.aux[2] ?? 100, 0, 100, 100, { unit: "%" })
     ];
+    add(
+      FX_TUNE,
+      choice("key", "key", 0, KEY_NAMES, (n) => ((n.aux[0] || 0) % 12 + 12) % 12, { fill: true, when: (n) => (n.aux[1] || 0) !== 2 }),
+      choice("scale", "scale", 1, ["major", "minor", "chromatic"], (n) => Math.min(2, Math.max(0, n.aux[1] || 0))),
+      gauge("humanize", "humanize", 2, (n) => n.aux[2] ?? 20, 0, 100, 20, { unit: "%" }),
+      // slows the pull once a note has settled: long notes keep their life
+      gauge("flex", "flex", 3, (n) => n.aux[3] || 0, 0, 100, 0, { unit: "%" }),
+      // leaves a pitch far from any note (a slide, a bend) alone
+      gauge("vibrato", "vibrato", 4, (n) => n.aux[4] ?? 50, 0, 100, 50, { unit: "%" }),
+      // how much of the voice's own quiver is kept
+      choice("engine", "engine", 5, ["fine", "live"], (n) => n.aux[5] || 0)
+    );
     h[FX_REPEAT] = [...CLOCK_HANDS, gauge("threshold", "threshold", 4, (n) => n.aux[4] || -30, -60, -1, -30, { format: (v) => `${Math.round(v)} dB` })];
     h[FX_FREEZE] = [{ kind: "switch", key: "hold", label: "hold", at: "amount", get: (n) => n.amount > 0.5, set: (on) => ({ amount: on ? 1 : 0 }) }];
     const round = (v) => `${Math.round(v)}`;

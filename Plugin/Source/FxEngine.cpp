@@ -166,7 +166,22 @@ static float trackPitch (NodeState& st, float sr)
         prev = nac;
     }
     if (bestLag <= 0) return -1.0f;
-    const float hz = sr / (float) bestLag;
+    // the peak between the samples: a parabola through the three correlations around it (a whole-sample lag would be
+    // ~10 cents coarse at A4 and worse above — not enough for a correction to land on the note)
+    auto nacAt = [&] (int lag)
+    {
+        float ac = 0.0f, e0 = 0.0f, e1 = 0.0f;
+        for (int i = 0; i + lag < N; i += 2) { ac += x[i] * x[i + lag]; e0 += x[i] * x[i]; e1 += x[i + lag] * x[i + lag]; }
+        return ac / (std::sqrt (e0 * e1) + 1.0e-9f);
+    };
+    float lagF = (float) bestLag;
+    if (bestLag > minLag && bestLag < maxLag)
+    {
+        const float ym = nacAt (bestLag - 1), y0 = nacAt (bestLag), yp = nacAt (bestLag + 1);
+        const float den = ym - 2.0f * y0 + yp;
+        if (std::abs (den) > 1.0e-6f) lagF += juce::jlimit (-0.5f, 0.5f, 0.5f * (ym - yp) / den);
+    }
+    const float hz = sr / lagF;
     return 69.0f + 12.0f * std::log2 (hz / 440.0f);
 }
 
@@ -1503,6 +1518,73 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             break;
         }
 
+        case kTune:
+        {
+            // Pitch correction, as the studio ones do it (the public parts: Antares' 1997 patent, since expired; YIN-style
+            // tracking; a formant-keeping shifter). The tracker hears the note; its quiver is taken off (`vibrato` says how
+            // much is left alone); the nearest note of the key is the target, held a little at the border so it never
+            // flutters; the correction is pulled toward it at the retune speed — the knob: slow (400 ms) at rest, instant at
+            // full — and `humanize` slows that pull once a note has settled, so long notes keep their life. `flex` leaves a
+            // pitch that sits far from any note (a slide, a bend) alone. `natural` keeps the formants where they were.
+            if (shifter == nullptr) break;
+            const bool liveMode = p.aux[5] == 1;
+            auto& eng = shifter->st (liveMode);
+            const int  keyRoot = ((p.aux[0] % 12) + 12) % 12, scale = juce::jlimit (0, 2, p.aux[1]);
+            const float humanize = juce::jlimit (0, 100, p.aux[2]) / 100.0f, flex = juce::jlimit (0, 100, p.aux[3]) / 100.0f, keep = juce::jlimit (0, 100, p.aux[4]) / 100.0f;
+            // the tracker, fed mono, asked every 512 samples (a quick ear: ~11 ms)
+            const int plen = (int) pdBuf.size();
+            for (int i = 0; i < n; ++i) { pdBuf[(size_t) pdWrite] = R != nullptr ? 0.5f * (L[i] + R[i]) : L[i]; pdWrite = pdWrite + 1 < plen ? pdWrite + 1 : 0; }
+            pdCountdown -= n;
+            if (pdCountdown <= 0)
+            {
+                pdCountdown = 512;
+                const float note = trackPitch (*this, sr);
+                if (note > 0.0f) { pdNote = note; tuneQuiet = 0; } else tuneQuiet += 512;
+            }
+            if (tuneQuiet > (int) (0.3f * sr)) { pdNote = -1.0f; tuneCenter = -1.0f; tuneTarget = -1.0f; tuneHeld = 0; }   // silence: start afresh on the next note
+            if (pdNote > 0.0f)
+            {
+                // the centre of the pitch: its quiver smoothed off, as much as `vibrato` keeps (0: the pitch as heard, corrected whole)
+                const float keepS = 0.004f + 0.12f * keep;
+                if (tuneCenter < 0.0f || std::abs (pdNote - tuneCenter) > 2.0f) tuneCenter = pdNote;   // a new note (a leap): no gliding in from the old one
+                else tuneCenter += (pdNote - tuneCenter) * (1.0f - std::exp (-(float) n / (keepS * sr)));
+                // the target: the nearest note of the key — kept while the centre stays within 60 cents of it (no flutter at a border)
+                auto nearest = [&] (float c) -> float
+                {
+                    if (scale == 2) return std::round (c);
+                    static const int major[7] = { 0, 2, 4, 5, 7, 9, 11 }, minor[7] = { 0, 2, 3, 5, 7, 8, 10 };
+                    const int* sc = scale == 1 ? minor : major;
+                    float best = 0.0f, bestD = 99.0f;
+                    for (int o = -1; o <= 1; ++o) for (int d = 0; d < 7; ++d)
+                    {
+                        const float cand = (float) (keyRoot + sc[d]) + 12.0f * (std::floor ((c - (float) keyRoot) / 12.0f) + (float) o);
+                        const float dd = std::abs (cand - c); if (dd < bestD) { bestD = dd; best = cand; }
+                    }
+                    return best;
+                };
+                const float near = nearest (tuneCenter);
+                if (tuneTarget < 0.0f || std::abs (tuneCenter - tuneTarget) > 0.6f) { if (near != tuneTarget) tuneHeld = 0; tuneTarget = near; }
+                // settled on the note? (humanize slows the pull from then on)
+                if (std::abs (pdNote - tuneTarget) < 0.5f) tuneHeld += n; else tuneHeld = 0;
+                const bool settled = tuneHeld > (int) (0.15f * sr);
+                // how much of the way: all of it, unless flex says a pitch this far from the note is meant
+                const float dist = std::abs (tuneCenter - tuneTarget);
+                const float window = 0.5f - 0.4f * flex;
+                const float w = flex <= 0.0f ? 1.0f : juce::jlimit (0.0f, 1.0f, 1.0f - (dist - window) / 0.2f);
+                const float want = (tuneTarget - tuneCenter) * w;
+                // the retune speed: 400 ms at rest, instant at full; humanize slows it (up to 4×) once the note has settled
+                float tau = 0.002f + 0.4f * (1.0f - a) * (1.0f - a);
+                if (settled) tau *= 1.0f + 3.0f * humanize;
+                tuneShiftSm += (want - tuneShiftSm) * (1.0f - std::exp (-(float) n / (tau * sr)));
+            }
+            else tuneShiftSm += (0.0f - tuneShiftSm) * (1.0f - std::exp (-(float) n / (0.25f * sr)));   // nothing periodic: the correction eases off
+            eng.setTransposeSemitones (tuneShiftSm, 8000.0f / sr);
+            eng.setFormantSemitones (0.0f, variant == 0);   // `natural` (0) keeps the formants; `raw` (1) moves everything
+            eng.setFormantBase (0.0f);
+            shiftBlock (*this, liveMode, n, L, R);
+            break;
+        }
+
         case kFormant:
         {
             // The vowel colour moves, the pitch does not: ±12 semitones of
@@ -2520,6 +2602,7 @@ int Chain::nodeLatency (const Graph::Node& n) const noexcept
     switch (n.type)
     {
         case kPitch:   return n.aux[1] == 1 ? latencyLive : latencyFine;
+        case kTune:    return n.aux[5] == 1 ? latencyLive : latencyFine;
         case kFormant: return n.aux[0] == 1 ? latencyLive : latencyFine;
         case kVoice:   return latencyFine;
         case kHarmony: return latencyFine;
@@ -2980,6 +3063,7 @@ void auxRange (int type, int k, int& lo, int& hi)
         case orbfx::kArp:     if (k == 0) { lo = 1; hi = 12; } break;
         case orbfx::kHarmony: if (k == 0) { lo = 0; hi = 11; } else if (k == 1) { lo = 0; hi = 1; } else if (k == 2) { lo = -12; hi = 12; } break;
         case orbfx::kPitch:   if (k == 0) { lo = -100; hi = 100; } else if (k == 1) { lo = 0; hi = 1; } break;
+        case orbfx::kTune:    if (k == 0) { lo = 0; hi = 11; } else if (k == 1) { lo = 0; hi = 2; } else if (k == 5) { lo = 0; hi = 1; } else { lo = 0; hi = 100; } break;   // key, scale (major minor chromatic), humanize %, flex %, vibrato %, engine
         case orbfx::kFormant: if (k == 0) { lo = 0; hi = 1; } break;
         case orbfx::kGrain:   if (k == 0) { lo = 10; hi = 600; } else if (k == 1) { lo = 0; hi = 1500; } else if (k == 2) { lo = 0; hi = 24; } else if (k == 3) { lo = 0; hi = 11; } else if (k == 4) { lo = 0; hi = 1; } else { lo = 0; hi = 100; } break;
         case orbfx::kSwell:   if (k == 0) { lo = 0; hi = 100; } else if (k == 1) { lo = 0; hi = 1; } break;

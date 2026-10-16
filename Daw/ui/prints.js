@@ -54,6 +54,7 @@ var PATCH_PRINTS = (() => {
   var FX_PULSE = 48;
   var FX_SCENE = 49;
   var FX_SIEVE = 50;
+  var FX_TUNE = 52;
   var SCENE_HANDS = ["amount", "variant", "decay", "fb", "div", "wet", "aux0", "aux1", "aux2", "aux3", "aux4", "aux5", "aux6", "aux7"];
   var SCENE_STRIDE = SCENE_HANDS.length + 1;
 
@@ -97,13 +98,13 @@ var PATCH_PRINTS = (() => {
     { id: 26, name: "gate" },
     { id: 27, name: "wow" }
   ];
-  var nameOf = (type) => type === FX_MIX_TYPE ? "mix" : type === FX_SPLIT_LR ? "L/R" : type === FX_SPLIT_MS ? "M/S" : type === FX_LFO ? "LFO" : type === FX_RATE ? "rate" : type === FX_MACRO ? "macro" : type === FX_SIDE ? "side" : type === FX_FOLLOW ? "follow" : type === FX_COMP ? "comp" : type === FX_BANDS ? "bands" : type === FX_CARVE ? "carve" : type === FX_MATCH ? "match" : type === FX_VOCODE ? "vocode" : type === FX_FREEZE ? "freeze" : type === FX_SHIFT ? "shift" : type === FX_SMEAR ? "smear" : type === FX_PAN ? "pan" : type === FX_REPEAT ? "repeat" : type === FX_ENV ? "env" : type === FX_FOLD ? "fold" : type === FX_DRIFT ? "drift" : type === FX_PULSE ? "pulse" : type === FX_SCENE ? "scene" : type === FX_SIEVE ? "sieve" : MODES.find((m) => m.id === type)?.name ?? "";
+  var nameOf = (type) => type === FX_MIX_TYPE ? "mix" : type === FX_SPLIT_LR ? "L/R" : type === FX_SPLIT_MS ? "M/S" : type === FX_LFO ? "LFO" : type === FX_RATE ? "rate" : type === FX_MACRO ? "macro" : type === FX_SIDE ? "side" : type === FX_FOLLOW ? "follow" : type === FX_COMP ? "comp" : type === FX_BANDS ? "bands" : type === FX_CARVE ? "carve" : type === FX_MATCH ? "match" : type === FX_VOCODE ? "vocode" : type === FX_FREEZE ? "freeze" : type === FX_SHIFT ? "shift" : type === FX_SMEAR ? "smear" : type === FX_PAN ? "pan" : type === FX_REPEAT ? "repeat" : type === FX_ENV ? "env" : type === FX_FOLD ? "fold" : type === FX_DRIFT ? "drift" : type === FX_PULSE ? "pulse" : type === FX_SCENE ? "scene" : type === FX_SIEVE ? "sieve" : type === FX_TUNE ? "tune" : MODES.find((m) => m.id === type)?.name ?? "";
   var FAMILIES = [
     ["tone", ["cut", "amp", "tone", "tape", "glue", "comp", "air"]],
     ["grit", ["crush", "radio", "ring", "fold"]],
     ["space", ["delay", "space", "shimmer", "doubler", "stereo"]],
     ["motion", ["mod", "tremolo", "swell", "stutter", "gate", "wow", "repeat"]],
-    ["pitch", ["pitch", "formant", "harmony", "arp", "grain"]],
+    ["pitch", ["pitch", "formant", "harmony", "arp", "grain", "tune"]],
     ["utility", ["gain", "mix", "L/R", "M/S", "pan", "bands", "side"]],
     ["control", ["LFO", "macro", "follow", "env", "drift", "pulse", "scene"]],
     ["spectral", ["carve", "match", "vocode", "freeze", "shift", "smear", "sieve"]]
@@ -174,10 +175,10 @@ var PATCH_PRINTS = (() => {
     ["wow", "flutter", "both"]
     // wow
   ];
-  var NEW_VARIANTS = { [FX_ENV]: ["level", "wire"], [FX_FOLD]: ["sine", "triangle"] };
+  var NEW_VARIANTS = { [FX_ENV]: ["level", "wire"], [FX_FOLD]: ["sine", "triangle"], [FX_TUNE]: ["natural", "raw"] };
   var flavoursOf = (type) => type === FX_MIX_TYPE ? ["blend", "sum"] : VARIANTS[type] ?? NEW_VARIANTS[type] ?? [];
-  var VARIANT_LABEL = { 1: "drive", 2: "room", 6: "kind", 7: "pass", 8: "stage", 9: "spread", 10: "type", 13: "order", 14: "band", 15: "mode", 16: "mode", 18: "mode", 20: "target", 21: "interval", 22: "floor", 23: "grid", 24: "mode", 25: "mode", 26: "release", 27: "motion" };
-  var MAIN_HAND = { 7: "cutoff", [FX_COMP]: "threshold", [FX_CARVE]: "depth", [FX_PAN]: "pan", [FX_FOLD]: "drive", [FX_FREEZE]: "hold", [FX_SIEVE]: "keep", [FX_SHIFT]: "mix", [FX_SMEAR]: "mix", [FX_REPEAT]: "mix" };
+  var VARIANT_LABEL = { 1: "drive", 2: "room", 6: "kind", 7: "pass", 8: "stage", 9: "spread", 10: "type", 13: "order", 14: "band", 15: "mode", 16: "mode", 18: "mode", 20: "target", 21: "interval", 22: "floor", 23: "grid", 24: "mode", 25: "mode", 26: "release", 27: "motion", [FX_TUNE]: "formant" };
+  var MAIN_HAND = { 7: "cutoff", [FX_COMP]: "threshold", [FX_CARVE]: "depth", [FX_PAN]: "pan", [FX_FOLD]: "drive", [FX_FREEZE]: "hold", [FX_SIEVE]: "keep", [FX_TUNE]: "retune", [FX_SHIFT]: "mix", [FX_SMEAR]: "mix", [FX_REPEAT]: "mix" };
   var DIV_LABELS = ["1/16", "1/8t", "1/8", "1/8.", "1/4", "1/4.", "1/2", "1/32"];
   var DIV_ORDER = [7, 0, 1, 2, 3, 4, 5, 6];
   var RATE_DIVS = ["1/32", "1/16", "1/8", "1/4", "1/2", "1/1", "2/1", "4/1"];
@@ -311,6 +312,7 @@ var PATCH_PRINTS = (() => {
     [FX_SMEAR]: [{ key: "aux0", label: "time" }, { key: "aux1", label: "blur" }],
     [FX_REPEAT]: [{ key: "aux4", label: "threshold" }],
     [FX_SIEVE]: [{ key: "aux0", label: "attack" }, { key: "aux1", label: "release" }, { key: "aux2", label: "mix" }],
+    [FX_TUNE]: [{ key: "aux2", label: "humanize" }, { key: "aux3", label: "flex" }, { key: "aux4", label: "vibrato" }],
     [FX_COMP]: [{ key: "aux0", label: "ratio" }, { key: "aux1", label: "attack" }, { key: "aux2", label: "release" }, { key: "aux3", label: "knee" }, { key: "aux4", label: "makeup" }],
     15: [{ key: "aux2", label: "interval" }],
     16: [{ key: "aux0", label: "cents" }],
@@ -438,6 +440,18 @@ var PATCH_PRINTS = (() => {
       gauge("release", "release", 1, (n) => n.aux[1] || 80, 20, 2e3, 80, { fine: 320, format: ms }),
       gauge("smix", "mix", 2, (n) => n.aux[2] ?? 100, 0, 100, 100, { unit: "%" })
     ];
+    add(
+      FX_TUNE,
+      choice("key", "key", 0, KEY_NAMES, (n) => ((n.aux[0] || 0) % 12 + 12) % 12, { fill: true, when: (n) => (n.aux[1] || 0) !== 2 }),
+      choice("scale", "scale", 1, ["major", "minor", "chromatic"], (n) => Math.min(2, Math.max(0, n.aux[1] || 0))),
+      gauge("humanize", "humanize", 2, (n) => n.aux[2] ?? 20, 0, 100, 20, { unit: "%" }),
+      // slows the pull once a note has settled: long notes keep their life
+      gauge("flex", "flex", 3, (n) => n.aux[3] || 0, 0, 100, 0, { unit: "%" }),
+      // leaves a pitch far from any note (a slide, a bend) alone
+      gauge("vibrato", "vibrato", 4, (n) => n.aux[4] ?? 50, 0, 100, 50, { unit: "%" }),
+      // how much of the voice's own quiver is kept
+      choice("engine", "engine", 5, ["fine", "live"], (n) => n.aux[5] || 0)
+    );
     h[FX_REPEAT] = [...CLOCK_HANDS, gauge("threshold", "threshold", 4, (n) => n.aux[4] || -30, -60, -1, -30, { format: (v) => `${Math.round(v)} dB` })];
     h[FX_FREEZE] = [{ kind: "switch", key: "hold", label: "hold", at: "amount", get: (n) => n.amount > 0.5, set: (on) => ({ amount: on ? 1 : 0 }) }];
     const round = (v) => `${Math.round(v)}`;
@@ -589,6 +603,7 @@ var PATCH_PRINTS = (() => {
     15: "#B79CFF",
     13: "#3FB872",
     18: "#E9C46A",
+    [FX_TUNE]: "#86D8C8",
     5: "#FBFAF7",
     [FX_MIX_TYPE]: "#ECE2C8",
     [FX_SPLIT_LR]: "#FBFAF7",
@@ -715,6 +730,18 @@ var PATCH_PRINTS = (() => {
       return P(poly(pts), 0.08);
     },
     // pitch
+    [FX_TUNE]: (n) => {
+      const a = Math.min(1, Math.max(0, n.amount));
+      const pts = [];
+      for (let i = 0; i <= 64; i++) {
+        const t = i / 64;
+        const x = -0.7 + 1.4 * t;
+        const free = 0.18 * Math.sin(t * 9) + 0.22 * Math.sin(t * 2.3 + 1);
+        const rail = Math.round(free / 0.25) * 0.25;
+        pts.push([x, free + (rail - free) * a]);
+      }
+      return [-0.5, -0.25, 0, 0.25, 0.5].map((y) => P(`M -.7 ${y} H .7`, 0.04, 0.3, ".05 .07")).join("") + P(poly(pts), 0.09);
+    },
     17: () => P("M -.7 .5 C -.55 .5 -.5 -.45 -.32 -.45 C -.14 -.45 -.1 .25 0 .25 C .1 .25 .12 -.2 .28 -.2 C .44 -.2 .5 .5 .7 .5"),
     // formant
     15: () => P(wave(-0.7, 0.7, 0.22, 0.22, 2), 0.08) + P(wave(-0.7, 0.7, -0.25, 0.22, 3, 0.5), 0.08, 0.6),

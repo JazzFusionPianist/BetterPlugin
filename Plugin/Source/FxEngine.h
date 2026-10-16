@@ -62,6 +62,7 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kPulse = 48,            // a control print: a gate that fires on a euclidean pattern, one step per clock
             kScene = 49,            // a control print: two snapshots of the wall's hands (A, B) and a knob that slides between them
             kSieve = 50,            // keeps only the loudest partials: the knob says how few (all → one)
+            kTune = 52,             // pitch correction: the voice drawn to the nearest note of the key, as fast as the knob says
             // not a print: something the host keeps and plays itself (a DAW's plug-in standing on a wall). The engine gives it a
             // place in the graph like a print's — wires in and out, its lateness lined up beside the other ways — and calls the
             // host for its sound (Chain::setOutside). It has no state here: its slot needs no memory.
@@ -73,7 +74,7 @@ constexpr int kSpecBands = 40, kSpecN = kSpecBands * 3;   // a spectral print's 
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
 inline bool isSpectral (int t) noexcept { return t == kCarve || t == kMatch || t == kVocode || t == kFreeze || t == kShift || t == kSmear || t == kSieve; }
-inline bool isEffect (int t) noexcept { return (t >= 0 && t < kNumFx && t != kMixSlot) || t == kComp || isSpectral (t) || t == kPan || t == kRepeat || t == kFold || t == kOutside; }
+inline bool isEffect (int t) noexcept { return (t >= 0 && t < kNumFx && t != kMixSlot) || t == kComp || isSpectral (t) || t == kPan || t == kRepeat || t == kFold || t == kTune || t == kOutside; }
 constexpr int kFft = 2048, kHop = kFft / 4, kBins = kFft / 2 + 1;   // the spectral prints' frame: 2048 samples, a quarter apart, so their latency is one frame
 inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS || t == kSplitBands; }
 constexpr int kMaxCross = 5;   // crossovers a bands print can have (so six bands)
@@ -245,6 +246,11 @@ struct NodeState
     int   pdCountdown = 0;
     float pdNote = -1.0f;         // last detected MIDI note (fractional), <0 = none
     float harmShiftSm = 0.0f;     // semitones, glided
+    float tuneShiftSm = 0.0f;     // tune: the correction now, semitones (glided at the retune speed)
+    float tuneCenter = -1.0f;     // tune: the pitch heard, without its quiver (MIDI note, fractional); <0 = none yet
+    float tuneTarget = -1.0f;     // tune: the note of the key it is drawn to
+    int   tuneHeld = 0;           // tune: samples the pitch has stayed on its target (humanize slows the pull once it has)
+    int   tuneQuiet = 0;          // tune: samples since anything periodic was heard
     // pitch / formant / voice: a spectral shifter (Signalsmith Stretch),
     // one per slot, built in prepare()
     struct Shifter;

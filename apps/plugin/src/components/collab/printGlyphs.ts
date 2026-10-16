@@ -7,7 +7,7 @@
 
 import {
   FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_SIDE, FX_FOLLOW, FX_COMP, FX_BANDS, FX_CARVE, FX_MATCH, FX_VOCODE,
-  FX_FREEZE, FX_SHIFT, FX_SMEAR, FX_PAN, FX_REPEAT, FX_ENV, FX_FOLD, FX_DRIFT, FX_PULSE, FX_SCENE, FX_SIEVE,
+  FX_FREEZE, FX_SHIFT, FX_SMEAR, FX_PAN, FX_REPEAT, FX_ENV, FX_FOLD, FX_DRIFT, FX_PULSE, FX_SCENE, FX_SIEVE, FX_TUNE,
 } from '../../lib/fxBridge'
 import { shapeAt, SINE_PTS, randomStep } from './printCatalog'
 
@@ -38,7 +38,7 @@ export const PLATE_TINT: Record<number, string> = {
   20: '#9C7A5C', 14: '#B38F62', 25: '#D9A441', [FX_FOLD]: '#E06A48',
   10: '#4AA3A0', 2: '#5C80FF', 21: '#8FA8FF', 9: '#6C9AC8', 3: '#7FB3C8',
   6: '#A7B04A', 12: '#C2547A', 22: '#B48ACF', 23: '#C97B5C', 26: '#8C9E6C', 27: '#C8A05C', [FX_REPEAT]: '#E0A050',
-  16: '#5C80FF', 17: '#F27BA6', 15: '#B79CFF', 13: '#3FB872', 18: '#E9C46A',
+  16: '#5C80FF', 17: '#F27BA6', 15: '#B79CFF', 13: '#3FB872', 18: '#E9C46A', [FX_TUNE]: '#86D8C8',
   5: '#FBFAF7', [FX_MIX_TYPE]: '#ECE2C8', [FX_SPLIT_LR]: '#FBFAF7', [FX_SPLIT_MS]: '#FBFAF7', [FX_PAN]: '#E6E2F0', [FX_BANDS]: '#ECD654', [FX_SIDE]: '#5CE0A8',
   [FX_LFO]: '#B79CFF', [FX_RATE]: '#FFA848', [FX_MACRO]: '#F27B5A', [FX_FOLLOW]: '#FFD660', [FX_ENV]: '#FFAC78', [FX_DRIFT]: '#AAC8FF', [FX_PULSE]: '#FF8C8C', [FX_SCENE]: '#F6E296',
   [FX_CARVE]: '#E0607E', [FX_MATCH]: '#78D8FF', [FX_VOCODE]: '#A58BF0', [FX_FREEZE]: '#96E8FF', [FX_SHIFT]: '#FF96D2', [FX_SMEAR]: '#BAC4FF', [FX_SIEVE]: '#FFD078',
@@ -110,6 +110,11 @@ const pictures: Record<number, (n: GlyphNode) => string> = {
     return s + P('M -.68 -.62 V .62', .04, .5, '.05 .06')
   },
   16: () => { const pts: Array<[number, number]> = []; for (let i = 0; i <= 80; i++) { const t = i / 80; pts.push([-.7 + 1.4 * t, .35 * Math.sin(2 * Math.PI * (1.2 * t + 2.2 * t * t)) * (1 - .3 * t)]) } return P(poly(pts), .08) },   // pitch
+  [FX_TUNE]: (n) => {   // tune: a wavering line drawn onto the notes' rails — the more the knob, the straighter it lands
+    const a = Math.min(1, Math.max(0, n.amount)); const pts: Array<[number, number]> = []
+    for (let i = 0; i <= 64; i++) { const t = i / 64; const x = -.7 + 1.4 * t; const free = .18 * Math.sin(t * 9) + .22 * Math.sin(t * 2.3 + 1); const rail = Math.round(free / .25) * .25; pts.push([x, free + (rail - free) * a]) }
+    return [-.5, -.25, 0, .25, .5].map(y => P(`M -.7 ${y} H .7`, .04, .3, '.05 .07')).join('') + P(poly(pts), .09)
+  },
   17: () => P('M -.7 .5 C -.55 .5 -.5 -.45 -.32 -.45 C -.14 -.45 -.1 .25 0 .25 C .1 .25 .12 -.2 .28 -.2 C .44 -.2 .5 .5 .7 .5'),   // formant
   15: () => P(wave(-.7, .7, .22, .22, 2), .08) + P(wave(-.7, .7, -.25, .22, 3, .5), .08, .6),   // harmony
   13: () => [0, 1, 2, 3, 4].map(i => C(-.6 + i * .3, .45 - i * .22, .07)).join('') + P('M -.6 .45 L .6 -.43', .04, .35, '.05 .07'),   // arp

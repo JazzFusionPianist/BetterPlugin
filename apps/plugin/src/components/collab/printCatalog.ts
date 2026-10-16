@@ -12,7 +12,7 @@
  */
 import {
   FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_SIDE, FX_FOLLOW, FX_COMP, FX_BANDS, FX_CARVE, FX_MATCH,
-  FX_VOCODE, FX_FREEZE, FX_SHIFT, FX_SMEAR, FX_PAN, FX_REPEAT, FX_ENV, FX_FOLD, FX_DRIFT, FX_PULSE, FX_SCENE, FX_SIEVE,
+  FX_VOCODE, FX_FREEZE, FX_SHIFT, FX_SMEAR, FX_PAN, FX_REPEAT, FX_ENV, FX_FOLD, FX_DRIFT, FX_PULSE, FX_SCENE, FX_SIEVE, FX_TUNE,
   isUtilityType, type FxMode, type FxGraphNode,
 } from '../../lib/fxBridge'
 /** A scene's snapshot: one row per print, led by its id, of the hands SCENE_HANDS names. */
@@ -41,14 +41,14 @@ export const MODES: Array<{ id: FxMode; name: string }> = [
   { id: 27, name: 'wow' },
 ]
 /** A print's name, whatever its number. */
-export const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : type === FX_MACRO ? 'macro' : type === FX_SIDE ? 'side' : type === FX_FOLLOW ? 'follow' : type === FX_COMP ? 'comp' : type === FX_BANDS ? 'bands' : type === FX_CARVE ? 'carve' : type === FX_MATCH ? 'match' : type === FX_VOCODE ? 'vocode' : type === FX_FREEZE ? 'freeze' : type === FX_SHIFT ? 'shift' : type === FX_SMEAR ? 'smear' : type === FX_PAN ? 'pan' : type === FX_REPEAT ? 'repeat' : type === FX_ENV ? 'env' : type === FX_FOLD ? 'fold' : type === FX_DRIFT ? 'drift' : type === FX_PULSE ? 'pulse' : type === FX_SCENE ? 'scene' : type === FX_SIEVE ? 'sieve' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
+export const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : type === FX_MACRO ? 'macro' : type === FX_SIDE ? 'side' : type === FX_FOLLOW ? 'follow' : type === FX_COMP ? 'comp' : type === FX_BANDS ? 'bands' : type === FX_CARVE ? 'carve' : type === FX_MATCH ? 'match' : type === FX_VOCODE ? 'vocode' : type === FX_FREEZE ? 'freeze' : type === FX_SHIFT ? 'shift' : type === FX_SMEAR ? 'smear' : type === FX_PAN ? 'pan' : type === FX_REPEAT ? 'repeat' : type === FX_ENV ? 'env' : type === FX_FOLD ? 'fold' : type === FX_DRIFT ? 'drift' : type === FX_PULSE ? 'pulse' : type === FX_SCENE ? 'scene' : type === FX_SIEVE ? 'sieve' : type === FX_TUNE ? 'tune' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
 /** The shelf's families: one row of prints at a time. */
 export const FAMILIES: Array<[string, string[]]> = [
   ['tone', ['cut', 'amp', 'tone', 'tape', 'glue', 'comp', 'air']],
   ['grit', ['crush', 'radio', 'ring', 'fold']],
   ['space', ['delay', 'space', 'shimmer', 'doubler', 'stereo']],
   ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow', 'repeat']],
-  ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
+  ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain', 'tune']],
   ['utility', ['gain', 'mix', 'L/R', 'M/S', 'pan', 'bands', 'side']],
   ['control', ['LFO', 'macro', 'follow', 'env', 'drift', 'pulse', 'scene']],
   ['spectral', ['carve', 'match', 'vocode', 'freeze', 'shift', 'smear', 'sieve']],
@@ -93,20 +93,20 @@ export const VARIANTS: string[][] = [
   ['wow', 'flutter', 'both'],      // wow
 ]
 /** The flavours of the prints that came after the first twenty-eight. */
-export const NEW_VARIANTS: Record<number, string[]> = { [FX_ENV]: ['level', 'wire'], [FX_FOLD]: ['sine', 'triangle'] }
+export const NEW_VARIANTS: Record<number, string[]> = { [FX_ENV]: ['level', 'wire'], [FX_FOLD]: ['sine', 'triangle'], [FX_TUNE]: ['natural', 'raw'] }
 export const flavoursOf = (type: number) => (type === FX_MIX_TYPE ? ['blend', 'sum'] : VARIANTS[type] ?? NEW_VARIANTS[type] ?? [])
 /** What each print's flavours are called in its study. */
-export const VARIANT_LABEL: Record<number, string> = { 1: 'drive', 2: 'room', 6: 'kind', 7: 'pass', 8: 'stage', 9: 'spread', 10: 'type', 13: 'order', 14: 'band', 15: 'mode', 16: 'mode', 18: 'mode', 20: 'target', 21: 'interval', 22: 'floor', 23: 'grid', 24: 'mode', 25: 'mode', 26: 'release', 27: 'motion' }
+export const VARIANT_LABEL: Record<number, string> = { 1: 'drive', 2: 'room', 6: 'kind', 7: 'pass', 8: 'stage', 9: 'spread', 10: 'type', 13: 'order', 14: 'band', 15: 'mode', 16: 'mode', 18: 'mode', 20: 'target', 21: 'interval', 22: 'floor', 23: 'grid', 24: 'mode', 25: 'mode', 26: 'release', 27: 'motion', [FX_TUNE]: 'formant' }
 /** The prints that can drop their dry sound (wet only). */
 export const WET_TYPES = new Set<number>([2, 10, 9, 6, 15, 18, 21])   // space, delay, doubler, mod, harmony, grain, shimmer
 
 /* ── where a new print rests ── */
 /** A new print's amount: tone, stereo, pitch, formant and pan rest in the middle, gain at unity. */
 /** What a print's big knob is, where "amount" would be vague. */
-export const MAIN_HAND: Record<number, string> = { 7: 'cutoff', [FX_COMP]: 'threshold', [FX_CARVE]: 'depth', [FX_PAN]: 'pan', [FX_FOLD]: 'drive', [FX_FREEZE]: 'hold', [FX_SIEVE]: 'keep', [FX_SHIFT]: 'mix', [FX_SMEAR]: 'mix', [FX_REPEAT]: 'mix' }
+export const MAIN_HAND: Record<number, string> = { 7: 'cutoff', [FX_COMP]: 'threshold', [FX_CARVE]: 'depth', [FX_PAN]: 'pan', [FX_FOLD]: 'drive', [FX_FREEZE]: 'hold', [FX_SIEVE]: 'keep', [FX_TUNE]: 'retune', [FX_SHIFT]: 'mix', [FX_SMEAR]: 'mix', [FX_REPEAT]: 'mix' }
 export const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 || type === FX_PAN ? 0.5 : type === 5 ? 0.75 : 0)
 /** A new print's other hands (a macro's are its number, given by the wall). */
-export const auxOf = (type: number, macroNo = 0): number[] => type === 7 ? [2, 0, 0] : type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_LFO ? [0, 3, 0, 200, 0, 100, 0, 0] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : type === FX_COMP ? [40, 100, 150, 6, 0] : type === FX_BANDS ? [250, 0, 0, 0, 0, 1, 0, 0] : type === FX_CARVE ? [20, 200, 20, 20000] : type === FX_MATCH ? [1, 12, 0] : type === FX_VOCODE ? [24, 10, 80] : type === FX_SHIFT ? [200, 0, 0] : type === FX_SMEAR ? [800, 0, 0] : type === FX_SIEVE ? [5, 80, 100] : type === FX_REPEAT ? [0, 3, 0, 200, -30, 0] : type === FX_ENV ? [10, 200, 70, 300, -30, 0] : type === FX_DRIFT ? [0, 3, 0, 200, 60, 100, 0, 0] : type === FX_PULSE ? [0, 1, 0, 200, 8, 3, 0, 50] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz; lfo: the same, not random, full depth
+export const auxOf = (type: number, macroNo = 0): number[] => type === 7 ? [2, 0, 0] : type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_LFO ? [0, 3, 0, 200, 0, 100, 0, 0] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : type === FX_COMP ? [40, 100, 150, 6, 0] : type === FX_BANDS ? [250, 0, 0, 0, 0, 1, 0, 0] : type === FX_CARVE ? [20, 200, 20, 20000] : type === FX_MATCH ? [1, 12, 0] : type === FX_VOCODE ? [24, 10, 80] : type === FX_SHIFT ? [200, 0, 0] : type === FX_SMEAR ? [800, 0, 0] : type === FX_SIEVE ? [5, 80, 100] : type === FX_TUNE ? [0, 0, 20, 0, 50, 0] : type === FX_REPEAT ? [0, 3, 0, 200, -30, 0] : type === FX_ENV ? [10, 200, 70, 300, -30, 0] : type === FX_DRIFT ? [0, 3, 0, 200, 60, 100, 0, 0] : type === FX_PULSE ? [0, 1, 0, 200, 8, 3, 0, 50] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz; lfo: the same, not random, full depth
 /** A new print's flavour: a cut begins as a low pass, open. */
 export const variantOf = (type: number) => (type === 7 ? 1 : 0)
 
@@ -335,6 +335,7 @@ export function fmtValue (type: number, a: number, variant = 0): string {
   if (type === FX_FREEZE) return a > 0.5 ? 'held' : 'open'
   if (type === FX_SCENE) return a <= 0.005 ? 'A' : a >= 0.995 ? 'B' : `${Math.round(a * 100)} %`
   if (type === FX_SIEVE) { const keep = Math.max(1, Math.round(Math.pow(2, (1 - a) * 10))); return a < 0.004 ? 'all' : `${keep}` }
+  if (type === FX_TUNE) return a < 0.004 ? 'off' : a >= 0.995 ? 'hard' : `${Math.round(2 + 400 * (1 - a) * (1 - a))} ms`
   if (type === 7) {
     if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
     const hz = variant === 0 ? 20 * Math.pow(1000, a) : 20000 * Math.pow(1000, -a)   // the engine's sweep: 20 Hz ↔ 20 kHz, more knob is more cut
@@ -350,6 +351,7 @@ export function parseAmount (type: number, s: string, variant = 0): number | nul
   if (type === FX_FREEZE) return /^(held|hold|on|1)/.test(t) ? 1 : /^(open|off|0)/.test(t) ? 0 : null
   if (type === FX_SCENE) { if (t === 'a') return 0; if (t === 'b') return 1 }
   if (type === FX_SIEVE && t === 'all') return 0
+  if (type === FX_TUNE) { if (t === 'off') return 0; if (t === 'hard') return 1 }
   if (type === FX_PAN) {
     if (t === 'c' || t === 'centre' || t === 'center') return 0.5
     const lr = /^([lr])\s*(\d*\.?\d+)/.exec(t); if (lr) return clamp((lr[1] === 'l' ? -1 : 1) * Number(lr[2]) / 200 + 0.5, 0, 1)
@@ -366,6 +368,7 @@ export function parseAmount (type: number, s: string, variant = 0): number | nul
   if (type === FX_COMP) return clamp(-v / 60, 0, 1)
   if (type === FX_CARVE) return clamp(-v / 24, 0, 1)
   if (type === FX_SIEVE) return clamp(1 - Math.log2(Math.max(1, v)) / 10, 0, 1)
+  if (type === FX_TUNE) return clamp(1 - Math.sqrt(Math.max(0, v - 2) / 400), 0, 1)
   if (type === FX_PAN) return clamp(v / 200 + 0.5, 0, 1)
   if (type === 7) {
     if (variant === 2) return clamp(1 - (v - 0.3) / 9, 0, 1)
@@ -390,6 +393,7 @@ export const PLAY_HANDS: Record<number, Array<{ key: string; label: string }>> =
   [FX_SMEAR]: [{ key: 'aux0', label: 'time' }, { key: 'aux1', label: 'blur' }],
   [FX_REPEAT]: [{ key: 'aux4', label: 'threshold' }],
   [FX_SIEVE]: [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'mix' }],
+  [FX_TUNE]: [{ key: 'aux2', label: 'humanize' }, { key: 'aux3', label: 'flex' }, { key: 'aux4', label: 'vibrato' }],
   [FX_COMP]: [{ key: 'aux0', label: 'ratio' }, { key: 'aux1', label: 'attack' }, { key: 'aux2', label: 'release' }, { key: 'aux3', label: 'knee' }, { key: 'aux4', label: 'makeup' }],
   15: [{ key: 'aux2', label: 'interval' }],
   16: [{ key: 'aux0', label: 'cents' }],
@@ -521,6 +525,13 @@ export const STUDY_HANDS: Record<number, Hand[]> = (() => {
     gauge('release', 'release', 1, n => n.aux[1] || 80, 20, 2000, 80, { fine: 320, format: ms }),
     gauge('smix', 'mix', 2, n => n.aux[2] ?? 100, 0, 100, 100, { unit: '%' }),
   ]
+  add(FX_TUNE,
+    choice('key', 'key', 0, KEY_NAMES, n => (((n.aux[0] || 0) % 12) + 12) % 12, { fill: true, when: n => (n.aux[1] || 0) !== 2 }),
+    choice('scale', 'scale', 1, ['major', 'minor', 'chromatic'], n => Math.min(2, Math.max(0, n.aux[1] || 0))),
+    gauge('humanize', 'humanize', 2, n => n.aux[2] ?? 20, 0, 100, 20, { unit: '%' }),   // slows the pull once a note has settled: long notes keep their life
+    gauge('flex', 'flex', 3, n => n.aux[3] || 0, 0, 100, 0, { unit: '%' }),              // leaves a pitch far from any note (a slide, a bend) alone
+    gauge('vibrato', 'vibrato', 4, n => n.aux[4] ?? 50, 0, 100, 50, { unit: '%' }),      // how much of the voice's own quiver is kept
+    choice('engine', 'engine', 5, ['fine', 'live'], n => n.aux[5] || 0))
   h[FX_REPEAT] = [...CLOCK_HANDS, gauge('threshold', 'threshold', 4, n => n.aux[4] || -30, -60, -1, -30, { format: v => `${Math.round(v)} dB` })]
   h[FX_FREEZE] = [{ kind: 'switch', key: 'hold', label: 'hold', at: 'amount', get: n => n.amount > 0.5, set: on => ({ amount: on ? 1 : 0 }) }]   // the knob is this switch: a wire on it (an lfo's square, a follow) throws it
   /* the control prints: what plays other prints' hands */

@@ -57,8 +57,12 @@ const dirtyAll = () => { for (const p in PARTS) uiDirty(p) }
 
 /* ── how the window is cut, worked out again when it is resized or a panel opens ── */
 function relayout () {
+  const fold = typeof RTB !== 'undefined' && RTB.on ? rtbFold() : 0                 // a realtime print folds the heads, the tool row, the bars and the foot away: the bar, the markers and the sound are left (realtime.js)
+  X0 = Math.round(HEAD_W * (1 - fold)); MK_Y = BAR_H + TOOL_H * (1 - fold); RU_Y = MK_Y + MK_H; TY = RU_Y + RU_H * (1 - fold)
+  for (const [id, a] of [['g-head', 0], ['g-info', 1], ['g-ruler', 1], ['g-cmd', 1]]) { const el = $(id); if (!el) continue; if (a) { el.style.opacity = fold ? String(1 - fold) : ''; el.style.visibility = fold >= 1 ? 'hidden' : '' } else el.setAttribute('transform', fold ? `translate(${n(-HEAD_W * fold)} 0)` : '') }
+  if ($('cmd')) $('cmd').style.visibility = fold > 0 ? 'hidden' : ''
   S.panel.h = clamp(S.panel.h, MIN_PANEL, Math.max(MIN_PANEL, H - FOOT_H - TY - 4 * 25))
-  RX = W - SLUR_W * VIEW.s; X1 = RX; BY = H - FOOT_H - S.panel.h * VIEW.p; LANES_H = Math.max(0, BY - TY)
+  RX = W - SLUR_W * VIEW.s; X1 = RX; BY = H - FOOT_H * (1 - fold) - S.panel.h * VIEW.p; LANES_H = Math.max(0, BY - TY)
   const set = (id, x, y, w, h) => { const r = $(id).firstChild; r.setAttribute('x', n(x)); r.setAttribute('y', n(y)); r.setAttribute('width', n(Math.max(0, w))); r.setAttribute('height', n(Math.max(0, h))) }
   set('tl', X0, MK_Y, X1 - X0, BY - MK_Y); set('ln', X0, TY, X1 - X0, LANES_H); set('hdc', 0, TY, HEAD_W, LANES_H)
   PXB = Math.max(PXB, fitPXB()); VX = clamp(VX, 0, maxVX()); VY = clamp(VY, 0, maxVY())
@@ -215,7 +219,7 @@ function setLook (what, v) {
    along time. A press goes there (while the song runs: at the next bar line); twice makes it the cycle. ── */
 function pScenes () {
   const y = MK_Y, cur = sceneAt(curPos()).i, xe = bx(SONG_END + 1)
-  let s = R(0, y, RX, MK_H, { fill: K1 }) + T(12, y + 14.2, 'markers', { size: 9, a: .38 })
+  let s = R(0, y, RX, MK_H, { fill: K1 }) + (X0 > 70 ? T(12, y + 14.2, 'markers', { size: 9, a: .38 }) : '')      // (no word when the heads are folded away: realtime.js)
   let g = R(bx(1) + .5, y + 4.5, xe - bx(1) - 1, 13, { rx: 2, stroke: INK, sa: .22 }), hits = hit(X0, y, X1 - X0, MK_H, 'scenebar', '', 'default')
   SCENES.forEach((sc, i) => {
     const xa = bx(sc.a), xb = bx(sc.b), on = i === cur, xl = Math.max(xa, X0), xr = Math.min(xb, X1)
@@ -259,7 +263,7 @@ function deepLines (D) {
   return out
 }
 function pRuler () {
-  if (typeof RTB !== 'undefined' && RTB.on) return R(0, RU_Y, RX, RU_H, { fill: lkC('bars.ground', K1) }) + T(12, RU_Y + 15.3, 'bars', { size: 9, a: .38 }) + hline(0, RX, RU_Y + RU_H - .5, .1) + vline(HEAD_W - .5, RU_Y, RU_Y + RU_H, .08)      // (a realtime print: no bar lines, no numbers)
+  if (typeof RTB !== 'undefined' && RTB.on) return ''                                 // (a realtime print folds the bars away: realtime.js)
   const y = RU_Y, span = (X1 - X0) / PXB, lab = [1, 2, 4, 8, 16, 32, 64].find(k => k * PXB >= 56) || 64, major = lab > 1 && lab / 2 * PXB >= 14 ? lab / 2 : lab, minor = PXB >= 6
   let s = R(0, y, RX, RU_H, { fill: lkC('bars.ground', K1) }) + T(12, y + 15.3, 'bars', { size: 9, a: .38 }) + T(HEAD_W - 10, y + 15.3, meterName(), { size: 9, a: .38, anchor: 'end' })
   let g = '', t1 = '', t4 = ''
@@ -361,16 +365,16 @@ function headRow (i) {
   if (tag) s += T(x0 + tw(nm, hs, wt) + 6, by, tag, { size: 9, it: !!t.theirs, a: .4 })
   if (grp) s += T(x0 + tw(nm, hs, wt) + 6 + tagW, by, grp, { size: 9, w: 500, a: S.grpOff ? .22 : .62 })
   s += hit(0, y, cx - 4, rh, 'sel', ` data-i="${i}"`) + (stack ? hit(deep ? x0 - 13 : 27, y, 14, rh, 'fold', ` data-i="${i}"`) : '')      // from its number to its cells, a press chooses it
-  s += miniCells(cx, y + rh / 2 - 7, its, cw, 14, 8.5, i)
+  c += miniCells(cx, y + rh / 2 - 7, its, cw, 14, 8.5, i)
   const vol = shown(t, 'vol'), led = autoPts(t, 'vol').length > 0
   if (S.auto) {
     const k = apOf(t)
-    s += R(219.5, y + rh / 2 - 6.5, 40, 13, { rx: 1.5, stroke: INK, sa: .22 }) + T(223, by - .6, fit(autoName(t, k), 34, 8.5), { size: 8.5, a: .8 }) + hit(218, y, 43, rh, 'ap', ` data-i="${i}"`)
-    s += T(HEAD_W - 6, by - .6, AUTO[k].fmt(shown(t, k)), { size: 8.5, a: autoPts(t, k).length ? .9 : .56, anchor: 'end' })
+    c += R(219.5, y + rh / 2 - 6.5, 40, 13, { rx: 1.5, stroke: INK, sa: .22 }) + T(223, by - .6, fit(autoName(t, k), 34, 8.5), { size: 8.5, a: .8 }) + hit(218, y, 43, rh, 'ap', ` data-i="${i}"`)
+    c += T(HEAD_W - 6, by - .6, AUTO[k].fmt(shown(t, k)), { size: 8.5, a: autoPts(t, k).length ? .9 : .56, anchor: 'end' })
   } else {
-    s += levelBar(HEAD_FX, y + rh / 2 - 1, HEAD_FW, t, vol) + hit(HEAD_FX - 6, y + 1, HEAD_FW + 12, rh - 2, 'vol', ` data-i="${i}"`, 'ew-resize')
-    s += T(HEAD_W - 8, by - .4, fmtDb(vol), { size: 9, a: t.ghost != null || led || sel ? .9 : .56, anchor: 'end' })
-    if (!led) s += hit(HEAD_FX + HEAD_FW + 7, y + 1, HEAD_W - HEAD_FX - HEAD_FW - 8, rh - 2, 'volnum', ` data-i="${i}"`, 'default')      // what it reads: pressed twice, a level can be typed
+    c += levelBar(HEAD_FX, y + rh / 2 - 1, HEAD_FW, t, vol) + hit(HEAD_FX - 6, y + 1, HEAD_FW + 12, rh - 2, 'vol', ` data-i="${i}"`, 'ew-resize')
+    c += T(HEAD_W - 8, by - .4, fmtDb(vol), { size: 9, a: t.ghost != null || led || sel ? .9 : .56, anchor: 'end' })
+    if (!led) c += hit(HEAD_FX + HEAD_FW + 7, y + 1, HEAD_W - HEAD_FX - HEAD_FW - 8, rh - 2, 'volnum', ` data-i="${i}"`, 'default')      // what it reads: pressed twice, a level can be typed
   }
   const gone = typeof RTB !== 'undefined' ? rtbHideOf(i) : 0
   s += gone <= 0 ? c : gone < 1 ? G(c, `translate(${n(-16 * gone)} 0)`, ` opacity="${n(1 - gone)}"`) : ''

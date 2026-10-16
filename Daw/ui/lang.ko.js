@@ -184,5 +184,5 @@ LANG.menuKo = {
 /* a realtime print (realtime.js) */
 Object.assign(LANG.lists.ko, {
   'bounce': '바운스', 'offline': '오프라인', 'realtime': '실시간', 'realtime bounce': '실시간 바운스', 'in place': '제자리', 'esc stops it': 'esc로 멈춤',
-  '#:# of #:#': '#:# / #:#', 'realtime bounce stopped: nothing was kept': '실시간 바운스를 멈춤: 남긴 것 없음',
+  '#:# of #:#': '#:# / #:#', 'realtime bounce stopped: nothing was kept': '실시간 바운스를 멈춤: 남긴 것 없음', 'stopping': '멈추는 중', 'stopped: nothing was kept': '멈춤: 남긴 것 없음', 'stopped': '멈춤',
 })

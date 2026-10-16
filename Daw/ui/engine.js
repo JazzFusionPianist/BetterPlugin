@@ -25,7 +25,7 @@ let SCENES = mkScenes(DEMO_SCENES)
    Below the lanes a panel opens (patch or mixer); at the right, slur. VIEW says how far each is open, as it is drawn now.
    The bars are cut in two along their length: the top (RU_CY of it) is the cycle's, the rest is the playhead's. */
 const BAR_H = 44, TOOL_H = 26, MK_H = 22, RU_H = 24, RU_CY = 10, HEAD_W = 292, FOOT_H = 22, PH = 26, SLUR_W = 300, MIN_PANEL = 232
-const X0 = HEAD_W, TY = BAR_H + TOOL_H + MK_H + RU_H, TOOL_Y = BAR_H, MK_Y = BAR_H + TOOL_H, RU_Y = BAR_H + TOOL_H + MK_H
+let X0 = HEAD_W, TY = BAR_H + TOOL_H + MK_H + RU_H, TOOL_Y = BAR_H, MK_Y = BAR_H + TOOL_H, RU_Y = BAR_H + TOOL_H + MK_H      // (let: a realtime print folds the heads, the tool row and the bars away — relayout)
 const VIEW = { p: 0, s: 0 }
 let RX = W, X1 = W, BY = H - FOOT_H, LANES_H = H - FOOT_H - TY
 let PXB = 19.6, VX = 0, VY = 0                           // the view: pixels per bar, the position (bars from zero) at the left edge, and how far down the rows are scrolled

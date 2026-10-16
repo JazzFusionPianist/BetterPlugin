@@ -216,10 +216,11 @@ async function runSelfTest (mode) {
       const res = {}, t0 = performance.now()
       const p = rtbRun({ kind: 'mix', a0: 16, a1: 18, modes: ['wet'], tracks: [], folder: 'realtime mix', name: 'rt mix', fmt: 'wav', rate: 0, bits: 24 })
       await sleep(2600)
-      res.during = { on: RTB.on, k: +RTB.k.toFixed(2), lanes: !!$('ln-rtb'), grid: $('ln-grid') ? $('ln-grid').style.display : null, playhead: !!$('ph'), buttons: document.querySelectorAll('#g-head [data-a="mute"]').length, outs: RTB.out.size, points: [...RTB.out.values()].reduce((a, x) => a + x.length / 2, 0), playing: S.playing, at: +curPos().toFixed(2) }
+      res.during = { on: RTB.on, k: +RTB.k.toFixed(2), lanes: !!$('ln-rtb'), grid: $('ln-grid') ? $('ln-grid').style.display : null, playhead: !!$('ph'), buttons: document.querySelectorAll('#g-head [data-a="mute"]').length, outs: RTB.out.size, points: [...RTB.out.values()].reduce((a, x) => a + x.length / 2, 0), playing: S.playing, at: +curPos().toFixed(2), x0: X0, ty: TY, vx: +VX.toFixed(2), toolRow: $('g-info').style.visibility, foot: $('g-cmd').style.visibility }
+      await sleep(1500); res.later = { vx: +VX.toFixed(2), at: +curPos().toFixed(2) }
       await snap('selftest-realtime-room.png')
       const r = await p
-      res.mix = { ok: !!(r && r.ok), dir: r && r.dir, count: r && r.count, error: r && r.error, secs: +((performance.now() - t0) / 1000).toFixed(1), after: { on: RTB.on, lanes: !!$('ln-rtb'), playhead: !!$('ph'), buttons: document.querySelectorAll('#g-head [data-a="mute"]').length } }
+      res.mix = { ok: !!(r && r.ok), dir: r && r.dir, count: r && r.count, error: r && r.error, secs: +((performance.now() - t0) / 1000).toFixed(1), after: { on: RTB.on, lanes: !!$('ln-rtb'), playhead: !!$('ph'), buttons: document.querySelectorAll('#g-head [data-a="mute"]').length, x0: X0, ty: TY, toolRow: $('g-info').style.visibility } }
       /* the same range printed offline: the two must be the same sound at the same place (a stem must line up in another program) */
       const off = await NAT.call('bounce', { kind: 'mix', a0: 16, a1: 18, modes: ['wet'], tracks: [], folder: 'offline mix', name: 'off mix', fmt: 'wav', rate: 0, bits: 24 })
       if (off && off.ok && r && r.ok) res.againstOffline = await NAT.call('testLag', { a: off.dir + '/off mix.wav', b: r.dir + '/rt mix.wav' })
@@ -231,6 +232,11 @@ async function runSelfTest (mode) {
       const p3 = rtbRun({ kind: 'mix', a0: 16, a1: 24, modes: ['wet'], tracks: [], folder: 'realtime stopped', name: 'rt stopped', fmt: 'wav', rate: 0, bits: 24 })
       await sleep(1500); rtbStop(); const r3 = await p3
       res.stopped = { ok: !!(r3 && r3.ok), error: r3 && r3.error, dir: r3 && r3.dir, on: RTB.on }
+      /* esc on an offline print: it stops, and what it wrote goes */
+      const all = S.tracks.filter(t => t.kind === 'audio').map(t => ({ id: t.id, name: t.name }))
+      const p4 = NAT.call('bounce', { kind: 'stems', a0: 0, a1: 40, modes: ['wet', 'dry'], tracks: all, folder: 'offline stopped', name: 'off stopped', fmt: 'wav', rate: 0, bits: 24 })
+      await sleep(120); await NAT.call('bounceStop'); const r4 = await p4
+      res.offlineStopped = { ok: !!(r4 && r4.ok), error: r4 && r4.error, dir: r4 && r4.dir, count: r4 && r4.count, of: all.length * 2 }
       return res
     })
     await note('page', { errors: window.__errs || [] })

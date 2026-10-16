@@ -1167,7 +1167,8 @@ private:
             engine.liveStart (opts, [done] (juce::var r) { done (r); });
             return;
         }
-        if (op == "bounceLiveStop") { engine.liveStop(); done (okVar()); return; }      // (its answer is the one bounceLive gives)
+        if (op == "bounceLiveStop") { engine.liveStop(); done (okVar()); return; }
+        if (op == "bounceStop")     { engine.printStop(); done (okVar()); return; }      // esc while a print is under way, offline or not: it stops, and nothing of it is kept      // (its answer is the one bounceLive gives)
         if (op == "bounceLiveNow")  { done (engine.liveNow()); return; }
         if (op == "join")                                                      // regions made one sound: a file of its own in the project's folder for each stretch (see Engine::joinRegions)
         {

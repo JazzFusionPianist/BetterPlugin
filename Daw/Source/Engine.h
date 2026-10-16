@@ -2443,6 +2443,7 @@ public:
         {kind, a0, a1, tracks: [{id, name}], modes, folder | dir, name, fmt, rate, bits} */
     void exportAudio (const juce::var& opts, std::function<void (int, int)> progress, std::function<void (juce::var)> done)
     {
+        printCancel.store (false);                                     // (esc, while it prints: printStop)
         if (recording.load() || bouncing.exchange (true)) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); done (juce::var (o)); return; }
         playing.store (false);
         startPrint (done, [this, opts, progress] (PrintEnd& end)
@@ -2451,6 +2452,8 @@ public:
             { const juce::ScopedLock sl (lock); printBufs = bufs; }    // let a callback that is mid-block finish (after this it sees `bouncing`), and take the sounds as they are now
             const String kind = opts["kind"].toString();
             const bool place = kind == "place", mixdown = kind == "mix";
+            auto halted = [this] { return leaving.load() || printCancel.load(); };
+            std::vector<juce::File> written;                           // (what it has finished writing: taken away again if it is stopped)
             const double a0 = (double) opts["a0"], a1 = (double) opts["a1"], barS = barSamples();
             String fmt = place ? String ("wav") : opts["fmt"].toString();
             if (fmt.isEmpty()) fmt = "wav";
@@ -2481,12 +2484,12 @@ public:
                                 ~Making() { const juce::ScopedLock sl (e.printFileLock); e.printFile = juce::File(); e.printTmp = juce::File(); } } making { *this, file, fmt == "mp3" };
                 const juce::int64 tail = (juce::int64) (sr * tailSec);
                 for (auto& tp : tracks) { tp->gainSm = dbGainOf (*tp, a0); tp->panSm = tp->pan.load(); quietNotes (*tp); }
-                for (juce::int64 k = 0; k < (juce::int64) (sr * 1.5) && ! leaving.load(); k += maxBlock) renderGraph (s0, maxBlock, false, true, nullptr, a1, tap);   // let old tails die away
+                for (juce::int64 k = 0; k < (juce::int64) (sr * 1.5) && ! halted(); k += maxBlock) renderGraph (s0, maxBlock, false, true, nullptr, a1, tap);   // let old tails die away
                 measureLatency();                                      // (some only say how late they are offline once they have played a block that way)
                 limG = 1.0f; float mSm = master.load();
                 juce::AudioBuffer<float> outBuf (2, maxBlock);
                 int lead = 0; for (auto& tp : tracks) lead = juce::jmax (lead, tp->ahead.load());
-                for (juce::int64 p = s0 - lead; p < s0 && ! leaving.load(); )
+                for (juce::int64 p = s0 - lead; p < s0 && ! halted(); )
                 {
                     const int n = (int) juce::jmin ((juce::int64) maxBlock, s0 - p);
                     renderGraph (p, n, true, true, nullptr, a1, tap);
@@ -2494,7 +2497,7 @@ public:
                 }
                 printPart.store (0.0f);
                 auto partTold = juce::Time::getMillisecondCounter(); float partWas = 0.0f;
-                for (juce::int64 p = s0; p < s1 + tail && ! leaving.load(); p += maxBlock)
+                for (juce::int64 p = s0; p < s1 + tail && ! halted(); p += maxBlock)
                 {
                     const int n = (int) juce::jmin ((juce::int64) maxBlock, s1 + tail - p);
                     renderGraph (p, n, true, true, nullptr, a1, tap);
@@ -2512,8 +2515,9 @@ public:
                         sink.write (outBuf, n);
                     }
                 }
-                if (leaving.load()) { sink.abandon(); ok = false; if (why.isEmpty()) why = "the app was closed"; return; }      // the app is going: half a file is no file
+                if (halted()) { sink.abandon(); ok = false; if (why.isEmpty()) why = leaving.load() ? "the app was closed" : "stopped"; return; }      // the app is going, or esc was pressed: half a file is no file
                 if (! sink.close()) { ok = false; if (why.isEmpty()) why = "the file would not close"; }
+                written.push_back (file);
             };
 
             const String ext = "." + fmt;
@@ -2526,11 +2530,11 @@ public:
             else if (list != nullptr)
                 for (auto& tv : *list)
                 {
-                    if (leaving.load()) break;
+                    if (halted()) break;
                     auto* t = find ((int) tv["id"]);
                     for (auto& mode : modes)
                     {
-                        if (leaving.load()) break;
+                        if (halted()) break;
                         if (t != nullptr)
                         {
                             Tap tap;
@@ -2554,6 +2558,13 @@ public:
                     }
                 }
             limG = keepLim;
+            if (printCancel.load() && ! leaving.load())                    // stopped by hand: nothing of it is kept — what it had written goes, and its folder if that is now empty
+            {
+                ok = false; why = "stopped";
+                for (auto& wf : written) wf.deleteFile();
+                placed.clear();
+                if (! place && dir.isDirectory() && dir.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0) dir.deleteFile();
+            }
             const bool single = (int) opts["single"] != 0;                 // the mix as one file in a folder that is the person's own (not one made for the print): that folder is never taken away, and the file is what is shown
             if (! ok && ! place && ! single && dir.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0) dir.deleteFile();
             end.finish();
@@ -2627,6 +2638,8 @@ public:
         play (juce::jmax (0.0, a0 - 0.25 * sr / barS));                      // a quarter of a second before it: what is already sounding there has begun
         logLine ("realtime print: " + kind + ", " + String ((int) lives.size()) + " files, bars " + String (a0 + 1.0) + " to " + String (a1 + 1.0));
     }
+    /** Stop a print (offline: printCancel; realtime: liveStop): nothing of it is kept. */
+    void printStop() { printCancel.store (true); liveStop(); }
     /** Stop a realtime print before its end: nothing it wrote is kept. */
     void liveStop() { if (livePhase.load() == 1 || livePhase.load() == 2) liveFinish (false); }
     /** Called by the app about thirty times a second: a realtime print whose range and tail have gone by is made into its files. */
@@ -4044,6 +4057,7 @@ private:
             });
         });
     }
+    std::atomic<bool> printCancel { false };                       // an offline print is asked to stop (esc)
     std::vector<std::unique_ptr<LiveOut>> lives;                    // a realtime print's files (changed under the lock)
     LiveOut* liveMixOut = nullptr;                                 // … the one that is the mix (changed under the lock)
     std::atomic<int> livePhase { 0 };                              // 0 none, 1 waiting for its first sample, 2 writing, 3 done

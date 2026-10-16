@@ -132,7 +132,7 @@ if (NAT) {
     }
     ho.state = 'idle'; printEnd()
     if (r && r.ok) { ho.done = ho.total; ho.note = 'saved as'; ho.at = at.single ? `${at.name}.${f.fmt}` : at.name } else {      // (what is printed is the sound and nothing else: wav picked, a wav; the notes, a page about the song, the patches and the project are not laid beside it any more)
-    ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render' }
+    ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render'; if (r && r.error === 'stopped') say('stopped: nothing was kept') }
     resync(); applyAll()
     uiDirty('hand')
   }

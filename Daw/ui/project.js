@@ -294,6 +294,16 @@ function printBegin (word, name, total) {
   $('ld-word').textContent = LANG_WORDS(word); $('ld-name').textContent = String(name)
   el.style.left = Math.round((W - 340) / 2) + 'px'; el.style.top = Math.round((H - 96) / 2) + 'px'
   printDraw(); el.hidden = false; ldNote()
+  addEventListener('keydown', printKey, true)
+}
+/* esc while a print is under way: it stops, and nothing of it is kept (Engine::printStop) */
+function printKey (e) {
+  if (!PRINT.on || e.code !== 'Escape') return
+  e.preventDefault(); e.stopImmediatePropagation()
+  if (PRINT.stopping) return
+  PRINT.stopping = true
+  if (NAT) NAT.call('bounceStop')
+  const w = $('ld-what'); if (w) w.textContent = LANG_WORDS('stopping')
 }
 /* d: what the app says while it prints — done: how many files are written; part: how far along the one being written is */
 function printTell (d) {
@@ -304,9 +314,9 @@ function printTell (d) {
 function printDraw () {
   const f = clamp((PRINT.done + (PRINT.done < PRINT.total ? PRINT.part : 0)) / PRINT.total, 0, 1), el = $('ld-fill'), w = $('ld-what')
   if (el) el.style.width = (f * 100).toFixed(1) + '%'
-  if (w) w.textContent = (PRINT.total > 1 ? LANG_WORDS(`file ${Math.min(PRINT.done + 1, PRINT.total)} of ${PRINT.total}`) + '   ' : '') + Math.round(f * 100) + '%'
+  if (w && !PRINT.stopping) w.textContent = (PRINT.total > 1 ? LANG_WORDS(`file ${Math.min(PRINT.done + 1, PRINT.total)} of ${PRINT.total}`) + '   ' : '') + Math.round(f * 100) + '%' + '   ' + LANG_WORDS('esc stops it')
 }
-function printEnd () { if (!PRINT.on) return; PRINT.on = false; const el = $('loading'); if (el && !OPENING.on) el.hidden = true }
+function printEnd () { if (!PRINT.on) return; PRINT.on = false; PRINT.stopping = false; removeEventListener('keydown', printKey, true); const el = $('loading'); if (el && !OPENING.on) el.hidden = true }
 async function loadProject (key, json) {
   PROJ.hold++
   let ok = false

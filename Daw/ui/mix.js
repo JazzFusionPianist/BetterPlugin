@@ -472,7 +472,7 @@ async function bounceInPlace (live) {                                           
   let res
   if (live) res = await rtbRun(opts, only)
   else { printBegin('bouncing', tracks.map(t => t.name).join(', '), tracks.length); res = await NAT.call('bounce', opts); printEnd() }
-  if (!res || !res.ok || !Array.isArray(res.placed)) { resync(); say('could not bounce'); return }
+  if (!res || !res.ok || !Array.isArray(res.placed)) { resync(); say(res && res.error === 'stopped' ? 'stopped: nothing was kept' : 'could not bounce'); return }
   edit(() => {
     const ids = []
     for (const d of res.placed) {

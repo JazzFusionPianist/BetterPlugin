@@ -267,7 +267,7 @@ async function runSelfTest (mode) {
     { const [x, y] = mid('[data-a="vol"][data-i="1"]'); fire('pointerdown', x, y); fire('pointermove', x - 12, y, window); fire('pointerup', x - 12, y, window) }      // the snare's fader, down
     tap('[data-a="mute"][data-i="3"]')                                                                                // the bass's m
     tap('[data-a="sel"][data-i="5"]'); flush()                                                                        // choose the guitar
-    tap('[data-a="patch"]'); await sleep(250); flush()                                                                // its patch, below: nothing on it yet
+    togglePanel('patch'); await sleep(250); flush()                                                                // its patch, below: nothing on it yet
     const empty = document.querySelectorAll('#g-dock [data-a="print"], #g-dock [data-a="wall"][data-k="node"]').length === 0
     tap('[data-a="plugs"]'); await sleep(700)                                                                         // the place to add: the list of prints and plug-ins
     const offered = ['tape', 'space', 'delay'].filter(k => document.querySelector('#pk-list .pk-row[data-print="' + k + '"]'))      // (they are in the list, among the rest of patch on slur's prints)
@@ -1867,6 +1867,36 @@ async function runSelfTest (mode) {
      ways side by side that add up to the sound again; a print that changes the sound; a plug-in on the wall, as late as it
      says and made up for; and a plug-in on one of two ways, where the other way must be held back by as much inside the
      wall — each printed and laid against the track printed with nothing on its wall. */
+  /* hand off in the middle of the window: stems or bounce; a bounce is wav or mp3 at hand, the rest under change (pictures) */
+  await step('handoffPanel', async () => {
+    const was = Object.assign({}, S.ho)
+    MENU_DO.handoff(); flush(); await sleep(200)
+    const res = { open: S.ho.open, keys: [...document.querySelectorAll('#g-hand [data-a="ho-set"][data-k="what"]')].map(e => e.dataset.v) }
+    await snap('selftest-handoff-stems.png')
+    S.ho.what = 'mix'; uiDirty('hand'); flush(); await sleep(150)
+    res.bounce = { mix: hoPlan().mix, formats: [...document.querySelectorAll('#g-hand [data-a="ho-set"][data-k="fmt"]')].map(e => e.dataset.v) }
+    await snap('selftest-handoff-bounce.png')
+    HO2.more = true; uiDirty('hand'); flush(); await sleep(150)
+    res.more = [...new Set([...document.querySelectorAll('#g-hand [data-a="ho-set"]')].map(e => e.dataset.k))]
+    await snap('selftest-handoff-change.png')
+    HO2.more = false; Object.assign(S.ho, was, { open: false }); uiDirty('hand', 'top'); flush()
+    return res
+  })
+
+  /* the Mac's Window menu has the panels and slur (the bar has no keys for them any more): each line opens what it names */
+  await step('windowMenu', async () => {
+    const titles = (await NAT.call('testMenus')).titles, win = (titles.split(' | ').find(m => m.startsWith('Window:')) || '')
+    const res = { window: win, bar: !!document.querySelector('#g-top [data-a="patch"], #g-top [data-a="mixer"], #g-top [data-a="slur"]') }
+    const was = { on: S.panel.on, tab: S.panel.tab, slur: !!S.slur }
+    S.panel.on = false; setView(true)
+    await NAT.call('testMenu', { id: 'winmixer' }); await sleep(400); res.mixer = S.panel.on && S.panel.tab === 'mixer'
+    await NAT.call('testMenu', { id: 'winpatch' }); await sleep(400); res.patch = S.panel.on && S.panel.tab === 'patch'
+    await NAT.call('testMenu', { id: 'winslur' }); await sleep(400); res.slur = !!S.slur
+    if (S.slur !== was.slur) toggleSlur()
+    S.panel.on = was.on; S.panel.tab = was.tab; setView(true); dirtyAll(); flush()
+    return res
+  })
+
   /* the prompt's own page, in the app's own web view: / opens it with the keys in its field; a thing said is listed with what came of it */
   await step('promptPage', async () => {
     if (typeof promptOpen !== 'function') return { skipped: 'this page has no prompt page' }

@@ -587,4 +587,5 @@ const MENU_DO = {
   newtracks: () => openNewTrack(), newaudio: () => newTrack('audio'), newbus: () => newTrack('bus'), duptrack: () => duplicateTrack(S.sel), deltrack: () => deleteTracks(chosen()), renametrack: () => startRename('track', S.sel),
   new: () => newProject(), open: () => openProjectAsk(), recent: () => openProjectMenu(), save: () => KEYS['⌘KeyS'](), saveas: () => saveAsAsk(), rename: () => startRename('proj'),
   import: () => importAudio(), handoff: () => KEYS['⌘KeyB'](), audio: () => NAT.call('audioSettings'),
+  winpatch: () => togglePanel('patch'), winmixer: () => togglePanel('mixer'), winslur: () => toggleSlur(),      // (Window: the panels and slur)
 }

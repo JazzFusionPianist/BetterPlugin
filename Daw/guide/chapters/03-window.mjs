@@ -5,7 +5,7 @@ export default () => chapter('window', t('the window', '창'),
 
   page(t('the window at a glance', '한눈에 보는 창'), { kind: 'split', tw: 88, txt:
     legend(
-      [1, '__control bar__ panels, transport, the display (position, time, tempo, measure, key, nudge, grid), the output level', '__컨트롤 바__ 패널, 트랜스포트, 디스플레이(위치, 시간, 템포, 박자, 키, 넛지, 그리드), 출력 레벨'],
+      [1, '__control bar__ transport, the display (position, time, tempo, measure, key, nudge, grid), the output level', '__컨트롤 바__ 패널, 트랜스포트, 디스플레이(위치, 시간, 템포, 박자, 키, 넛지, 그리드), 출력 레벨'],
       [2, '__the tracks’ bar__ new track, the two views, the tool, the mode, and what is chosen', '__트랙 바__ 새 트랙, 두 가지 보기, 도구, 모드, 선택된 것'],
       [3, '__markers__ the parts of the song, one cell each', '__마커__ 곡의 파트, 파트마다 칸 하나'],
       [4, '__bars__ the cycle on its upper strip, the playhead on its lower', '__마디 눈금__ 위쪽 띠에는 사이클, 아래쪽 띠에는 플레이헤드'],
@@ -14,34 +14,30 @@ export default () => chapter('window', t('the window', '창'),
       [7, '__playhead__', '__플레이헤드__'],
       [8, '__cycle__ yellow when on', '__사이클__ 켜지면 노란색'],
       [9, '__command line__ type what you want done', '__커맨드 라인__ 할 일을 글로 입력'],
-      [10, '{{keys}} every key command on one sheet', '{{keys}} 모든 단축키를 한 장에'],
-      [11, '{{hand off}} stems, the mix, the project, out to a folder', '{{hand off}} 스템, 믹스, 프로젝트를 폴더로'],
-      [12, '{{slur}} the Slur panel, down the right side', '{{slur}} 오른쪽에 서는 Slur 패널']) +
-    p('Under the lanes a panel opens for the {{patch}} [[B]] or the {{mixer}} [[X]]. The window is never smaller than 1100 by 668 and opens as large as the screen allows.', '레인 아래에는 {{patch}} [[B]]나 {{mixer}} [[X]] 패널이 열립니다. 창은 1100 x 668보다 작아지지 않고, 화면이 허락하는 가장 큰 크기로 열립니다.'),
-    art: fig('window', { w: 158, calls: [[1, [520, 22], 't'], [8, [714, 93], 't'], [11, [1065, 22], 't'], [12, [1143, 22], 't'], [2, [20, 57], 'l', -3], [3, [1160, 81], 'r', -2], [4, [1160, 104], 'r', 4], [5, [140, 330], 'l'], [6, [960, 330], 'r'], [7, [674, 470], 'b'], [9, [110, 709], 'b'], [10, [1152, 709], 'b']] }) }),
+      [10, '{{keys}} every key command on one sheet', '{{keys}} 모든 단축키를 한 장에']) +
+    p('Under the lanes a panel opens for the {{patch}} [[B]] or the {{mixer}} [[X]], and at the right the Slur panel [[O]]; the Mac’s ((Window)) menu opens each of them too. {{hand off}} (stems, the mix, out to a folder) comes up in the middle of the window from ((File > Hand Off…)) [[⌘B]]. The window is never smaller than 1100 by 668 and opens as large as the screen allows.', '레인 아래에는 {{patch}} [[B]]나 {{mixer}} [[X]] 패널이, 오른쪽에는 Slur 패널 [[O]]이 열립니다. 맥의 ((Window)) 메뉴로도 열 수 있습니다. {{hand off}}(스템, 믹스를 폴더로)는 ((File > Hand Off…)) [[⌘B]]로 창 가운데에 뜹니다. 창은 1100 x 668보다 작아지지 않고, 화면이 허락하는 가장 큰 크기로 열립니다.'),
+    art: fig('window', { w: 158, calls: [[1, [520, 22], 't'], [8, [714, 93], 't'], [2, [20, 57], 'l', -3], [3, [1160, 81], 'r', -2], [4, [1160, 104], 'r', 4], [5, [140, 330], 'l'], [6, [960, 330], 'r'], [7, [674, 470], 'b'], [9, [110, 709], 'b'], [10, [1152, 709], 'b']] }) }),
 
   page(t('the control bar', '컨트롤 바'), { kind: 'wide', cc: 3, txt:
     table(null,
-      [1, ['{{patch}} {{mixer}}: open the panel under the lanes on that page; again closes it. [[B]] [[X]]', '{{patch}} {{mixer}}: 레인 아래 패널을 그 페이지로 엽니다. 다시 누르면 닫힙니다. [[B]] [[X]]']],
-      [2, ['to the start [[↩]]', '처음으로 [[↩]]']],
-      [3, ['play. From the cycle’s start when the cycle is on, else from the playhead. [[space]]', '재생. 사이클이 켜져 있으면 사이클 시작에서, 아니면 플레이헤드에서. [[space]]']],
-      [4, ['stop. Pressed when already stopped: back to the cycle’s start, then to bar 1, and every instrument is silenced', '정지. 이미 멈춘 상태에서 누르면 사이클 시작으로, 다시 누르면 1마디로 가고 모든 악기 소리가 꺼집니다']],
-      [5, ['record [[R]]. See “recording”', '녹음 [[R]]. “녹음” 장 참고']]) +
+      [1, ['to the start [[↩]]', '처음으로 [[↩]]']],
+      [2, ['play. From the cycle’s start when the cycle is on, else from the playhead. [[space]]', '재생. 사이클이 켜져 있으면 사이클 시작에서, 아니면 플레이헤드에서. [[space]]']],
+      [3, ['stop. Pressed when already stopped: back to the cycle’s start, then to bar 1, and every instrument is silenced', '정지. 이미 멈춘 상태에서 누르면 사이클 시작으로, 다시 누르면 1마디로 가고 모든 악기 소리가 꺼집니다']],
+      [4, ['record [[R]]. See “recording”', '녹음 [[R]]. “녹음” 장 참고']]) +
     table(null,
-      [6, ['cycle on, off [[C]]. With none set, it takes the part of the song the playhead is in', '사이클 켜기, 끄기 [[C]]. 정해 둔 것이 없으면 플레이헤드가 있는 파트를 잡습니다']],
-      [7, ['click (metronome) [[K]]. The count-in has no cell: [[⇧K]]', '클릭(메트로놈) [[K]]. 카운트인은 칸이 없습니다. [[⇧K]]']],
-      [8, ['position, as bar.beat.sixteenth. Click to type: a bar (17), bar beat sixteenth (17.3.2), or a time (12.5s, 1:02.25)', '위치. 마디.박.16분. 클릭해서 입력: 마디(17), 마디 박 16분(17.3.2), 또는 시간(12.5s, 1:02.25)']],
-      [9, ['time, a readout only', '시간. 읽기 전용']],
-      [10, ['tempo. Click to type, 40 to 240', '템포. 클릭해서 입력, 40~240']]) +
+      [5, ['cycle on, off [[C]]. With none set, it takes the part of the song the playhead is in', '사이클 켜기, 끄기 [[C]]. 정해 둔 것이 없으면 플레이헤드가 있는 파트를 잡습니다']],
+      [6, ['click (metronome) [[K]]. The count-in has no cell: [[⇧K]]', '클릭(메트로놈) [[K]]. 카운트인은 칸이 없습니다. [[⇧K]]']],
+      [7, ['position, as bar.beat.sixteenth. Click to type: a bar (17), bar beat sixteenth (17.3.2), or a time (12.5s, 1:02.25)', '위치. 마디.박.16분. 클릭해서 입력: 마디(17), 마디 박 16분(17.3.2), 또는 시간(12.5s, 1:02.25)']],
+      [8, ['time, a readout only', '시간. 읽기 전용']],
+      [9, ['tempo. Click to type, 40 to 240', '템포. 클릭해서 입력, 40~240']]) +
     table(null,
-      [11, ['measure. Click for the list, 2/4 to 12/8', '박자. 클릭하면 목록, 2/4에서 12/8까지']],
-      [12, ['key, a label of up to 8 characters. It is saved and written into the hand-off’s info page; nothing else uses it', '키. 8자까지의 메모. 저장되고 내보내기의 info 파일에 적힙니다. 다른 데는 쓰이지 않습니다']],
-      [13, ['nudge: how far one nudge goes. Click for the list', '넛지: 한 번에 움직이는 거리. 클릭하면 목록']],
-      [14, ['{{grid}}: the division the lanes’ lines are drawn at, 1/4 to begin with. Click for the list. See “the five modes and the grid”', '{{grid}}: 레인에 그려지는 선의 간격. 처음에는 1/4. 클릭하면 목록. “다섯 가지 모드와 그리드” 참고']],
-      [15, ['{{out}}: the output meter and level. Drag up or down; double-click for 0 dB', '{{out}}: 출력 미터와 레벨. 위아래로 드래그, 더블 클릭하면 0 dB']],
-      [16, ['{{hand off}} [[⌘B]] and {{slur}} [[O]]', '{{hand off}} [[⌘B]], {{slur}} [[O]]']]) +
+      [10, ['measure. Click for the list, 2/4 to 12/8', '박자. 클릭하면 목록, 2/4에서 12/8까지']],
+      [11, ['key, a label of up to 8 characters. It is saved and written into the hand-off’s info page; nothing else uses it', '키. 8자까지의 메모. 저장되고 내보내기의 info 파일에 적힙니다. 다른 데는 쓰이지 않습니다']],
+      [12, ['nudge: how far one nudge goes. Click for the list', '넛지: 한 번에 움직이는 거리. 클릭하면 목록']],
+      [13, ['{{grid}}: the division the lanes’ lines are drawn at, 1/4 to begin with. Click for the list. See “the five modes and the grid”', '{{grid}}: 레인에 그려지는 선의 간격. 처음에는 1/4. 클릭하면 목록. “다섯 가지 모드와 그리드” 참고']],
+      [14, ['{{out}}: the output meter and level. Drag up or down; double-click for 0 dB', '{{out}}: 출력 미터와 레벨. 위아래로 드래그, 더블 클릭하면 0 dB']]) +
     note('While a take is being recorded, the tempo and the measure cannot be changed and the playhead cannot be moved.', '녹음 중에는 템포와 박자를 바꿀 수 없고 플레이헤드도 옮길 수 없습니다.'),
-    art: fig('bar', { w: 267, calls: [[1, 'patch', 't', 4], [2, 'tostart', 'b'], [3, 'play', 't'], [4, 'stop', 'b'], [5, 'rec', 't'], [6, 'loop', 'b'], [7, 'click', 't'], [8, 'pos', 'b'], [9, [598, 9], 't'], [10, 'tempo', 'b'], [11, 'meter', 't'], [12, 'key', 'b'], [13, 'nudge', 't'], [14, 'grid', 'b'], [15, 'master', 't'], [16, 'ho', 'b']] }) }),
+    art: fig('bar', { w: 267, calls: [[1, 'tostart', 'b'], [2, 'play', 't'], [3, 'stop', 'b'], [4, 'rec', 't'], [5, 'loop', 'b'], [6, 'click', 't'], [7, 'pos', 'b'], [8, [578, 9], 't'], [9, 'tempo', 'b'], [10, 'meter', 't'], [11, 'key', 'b'], [12, 'nudge', 't'], [13, 'grid', 'b'], [14, 'master', 't']] }) }),
 
   page(t('the tracks’ bar', '트랙 바'), { kind: 'wide', cc: 3, txt:
     table(null,

@@ -6,7 +6,7 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
   page(t('the slur panel', 'slur 패널'), { kind: 'split', tw: 104, mid: true, txt:
     lead('Slur itself, in a column down the right side of the window: your rooms, chats and shared files beside the song you are working on.', '창 오른쪽에 세로로 서는 Slur 자체입니다. 작업 중인 곡 옆에 방, 채팅, 공유 파일이 놓입니다.') +
     table(null,
-      [['open, close', '열기, 닫기'], ['[[O]], or {{slur}} at the right end of the control bar', '[[O]], 또는 컨트롤 바 오른쪽 끝의 {{slur}}']],
+      [['open, close', '열기, 닫기'], ['[[O]], or ((Window > Slur))', '[[O]], 또는 ((Window > Slur))']],
       [['what it shows', '보여 주는 것'], ['Slur’s own page, loaded from the net. With no connection the column has nothing to show', 'Slur의 자체 페이지. 인터넷에서 불러옵니다. 연결이 없으면 보여 줄 것이 없습니다']],
       [['signing in', '로그인'], ['in the panel itself, with your Slur account', '패널 안에서 Slur 계정으로']],
       [['links', '링크'], ['a link the page wants opened elsewhere opens in the Mac’s browser', '다른 곳에서 열어야 하는 링크는 Mac의 브라우저에서 열립니다']]) +

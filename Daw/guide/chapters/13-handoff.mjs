@@ -4,14 +4,14 @@ export default () => chapter('handoff', t('hand off and bounce', '내보내기�
   t('Hand off sends the stems or the mix, over a range, as sound files and nothing else: the stems into a folder, the mix as one file. Bounce in place prints regions onto a new track.', '내보내기는 정한 범위의 스템이나 믹스를 소리 파일로만 내보냅니다. 스템은 폴더 하나에, 믹스는 파일 하나로. 제자리 바운스는 리전을 새 트랙에 찍습니다.'), [
 
   page(t('the hand-off panel', '내보내기 패널'), { kind: 'split', tw: 138, txt:
-    p('Open it with {{hand off}} on the control bar, [[⌘B]], or ((File > Hand Off…)). [[⌘E]] opens it set to stems.', '컨트롤 바의 {{hand off}}, [[⌘B]], 또는 ((File > Hand Off…))로 엽니다. [[⌘E]]는 스템으로 맞춰서 엽니다.') +
+    p('Open it with [[⌘B]] or ((File > Hand Off…)); it comes up in the middle of the window. [[⌘E]] opens it set to stems. At the right, two large keys: {{stems}} (a file for each track) and {{bounce}} (the mix as it sounds). For a bounce, {{wav}} or {{mp3}} stands right under them. A line says how it will be printed; {{change}} opens every choice.', '[[⌘B]]나 ((File > Hand Off…))로 열면 창 가운데에 뜹니다. [[⌘E]]는 스템으로 맞춰서 엽니다. 오른쪽에 큰 키 둘: {{stems}}(트랙마다 파일 하나)와 {{bounce}}(지금 들리는 그대로의 믹스). bounce면 그 아래에 {{wav}}와 {{mp3}}가 바로 있습니다. 어떻게 찍힐지 한 줄로 나오고, {{change}}를 누르면 모든 선택이 열립니다.') +
     legend(
       [1, 'what will be sent, its length, rate and depth', '보낼 것과 그 길이, 레이트, 뎁스'],
       [2, 'for stems, one line for each track that sounds in the range, with the size of its file. A square fills when that track is done', '스템이면 범위 안에서 소리가 나는 트랙마다 한 줄, 파일 크기와 함께. 그 트랙이 끝나면 네모가 채워집니다'],
-      [3, 'the choices', '선택 항목'],
+      [3, '{{stems}} or {{bounce}}, how it will be printed, and {{change}}', '{{stems}}나 {{bounce}}, 어떻게 찍힐지, 그리고 {{change}}'],
       [4, '{{send}} first asks where it goes and what it is called, in the Mac’s save panel. Then the line beside it reads “rendering 3 of 12”, then “saved as” and the name, and the Finder shows the folder', '{{send}}를 누르면 먼저 Mac 저장 창에서 위치와 이름을 묻습니다. 이어서 옆에 “rendering 3 of 12”가 나오고, 끝나면 “saved as”와 이름이 나오며 Finder가 폴더를 보여 줍니다']) +
     table([['row', '줄'], ['choices', '선택'], ['notes', '참고']],
-      ['{{what}}', '{{stems}}  {{mix}}', ['the mix is everything, as it goes to the speakers', 'mix는 스피커로 나가는 그대로의 전체']],
+      [['the two keys', '두 키'], '{{stems}}  {{bounce}}', ['a bounce is everything, as it goes to the speakers', 'bounce는 스피커로 나가는 그대로의 전체']],
       [['the list', '목록'], ['click a row', '줄 클릭'], ['stems only. That track’s stem is left out, a dash by its name; click again to take it in. [[⌥]] click: that one alone, and again for all', '스템 전용. 그 트랙의 스템이 빠지고 이름 앞에 줄표가 생깁니다. 다시 클릭하면 들어갑니다. [[⌥]] 클릭: 그 하나만, 다시 하면 전부']],
       ['{{print}}', '{{with patch}}  {{dry}}  {{both}}', ['stems only. Dry steps past the track’s own prints and plug-ins; both writes two files a track', '스템 전용. dry는 그 트랙의 프린트와 플러그인을 건너뜁니다. both는 트랙마다 파일 둘']],
       ['{{range}}', ['the part the playhead is in, {{cycle}}, {{song}}', '플레이헤드가 있는 파트, {{cycle}}, {{song}}'], ['song runs from bar 1 to where the sound ends', 'song은 1마디에서 소리가 끝나는 곳까지']],
@@ -19,7 +19,7 @@ export default () => chapter('handoff', t('hand off and bounce', '내보내기�
       ['{{rate}}', '{{44.1}}  {{48}}  {{88.2}}  {{96}}', ['starts on the device’s rate; m4a and mp3 stop at 48', '장치 레이트에서 시작. m4a와 mp3는 48까지']],
       ['{{depth}}', '{{16}}  {{24}}  {{32 float}}', ['32 float for wav only; 16-bit files are dithered', '32 float는 wav만. 16비트 파일은 디더링됩니다']]) +
     note('The song stops when you press send. Hand off is not possible while recording. Mute and solo are printed as they stand: a muted track gives a silent stem.', 'send를 누르면 재생이 멈춥니다. 녹음 중에는 내보낼 수 없습니다. 뮤트와 솔로는 지금 상태 그대로 찍힙니다. 뮤트된 트랙은 무음 스템이 됩니다.'),
-    art: fig('handoff', { w: 106, calls: [[1, [120, 30], 't'], [2, [34, 150], 'l'], [3, [402, 280], 'r'], [4, [402, 329], 'r']], cap: ['in the app the panel also has the rows what, file, rate and depth', '앱에서는 패널에 what, file, rate, depth 줄도 있습니다'] }) }),
+    art: fig('handoff', { w: 100, calls: [[1, [140, 36], 't'], [2, [40, 150], 'l'], [3, [560, 120], 'r'], [4, [690, 345], 'b']], cap: ['in the app bounce can be chosen too, and the line shows the file’s rate and depth', '앱에서는 bounce도 고를 수 있고, 한 줄에 파일의 레이트와 뎁스도 나옵니다'] }) }),
 
   page(t('what is in the folder, and bounce in place', '폴더에 든 것, 그리고 제자리 바운스'), { kind: 'split', tw: 108, mid: true, txt:
     h('what is printed', '찍히는 것') +

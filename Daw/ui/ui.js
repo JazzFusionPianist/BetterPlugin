@@ -85,7 +85,6 @@ let METER_W = 76
 let HO_X = 0
 function pTop () {
   let s = R(0, 0, W, BAR_H, { fill: K2 })
-  s += cells(12, 10, 24, [{ t: 'patch', k: 'b', on: S.panel.on && S.panel.tab === 'patch', a: 'patch' }, { t: 'mixer', k: 'x', on: S.panel.on && S.panel.tab === 'mixer', a: 'mixer' }], { size: 10 })[0]
   const g = (d, line) => (x, y, c, a) => G(P(d, line ? { stroke: c, sa: a, sw: 1.2, cap: 'round' } : { fill: c, fa: a }), `translate(${x} ${y})`)
   const tr = [
     { g: g('M-5 -4.5H-3.6V4.5H-5ZM4.6 -4.5L-2.6 0L4.6 4.5Z'), a: 'tostart' },
@@ -98,9 +97,8 @@ function pTop () {
   ]
   /* the right end */
   let x = W - 12
-  const [c1, w1] = cells(0, 0, 24, [{ t: 'slur', k: 'o', on: S.slur, a: 'slur' }], { size: 10 }); x -= w1; s += G(c1, `translate(${x} 10)`)
-  x -= 13; s += vline(x, 12, 32, .1); x -= 13
-  const ho = { h: 24, size: 10, armed: S.ho.open, a: 'ho' }, kw1 = keyW('hand off', ho); x -= kw1; s += key(x, 10, 'hand off', ho)[0]; HO_X = x + kw1
+  /* (patch, mixer and slur are opened from the Mac's Window menu, and by b, x and o; hand off from the File menu and by
+     command b: the bar keeps no keys for them) */
   x -= 18
   /* the middle: where the playhead is, in bars and in time (pressed: a place can be typed); the tempo, the measure, the key; and how
      far one nudge goes (pressed: the list of them). It stands in the middle of the window, and gives way to the left where
@@ -965,10 +963,16 @@ function hoPlan () {
   const skip = new Set(ho.skip || []), list = mix ? cands : cands.filter(t => !skip.has(t.id))      // (which stems are printed is chosen in the panel: a row pressed is left out, pressed again it is in)
   return { sc, song: range === 'song', range, a0, a1, mix, modes, secs, list, cands, name: range === 'song' ? 'song' : range === 'cycle' ? `bars ${Math.floor(a0) + 1} to ${Math.ceil(a1)}` : (sc.name || 'song') }
 }
+/* the hand-off panel stands in the middle of the window, the room dimmed behind it: how high it is, to know where its top goes */
+function hoTop (pl) {
+  const maxRows = Math.max(4, Math.floor((H - 420) / 22)), n = pl.mix ? 0 : Math.min(S.tracks.length, maxRows), more = pl.mix ? 0 : S.tracks.length - n
+  const h = 60 + (pl.mix ? 22 : n * 22 + (more ? 20 : 0)) + 2 + ((NAT ? 4 : 0) + (pl.mix ? 0 : 1) + 1) * 28 + 52
+  return Math.max(BAR_H + 4, Math.round((H - h) / 2))
+}
 function pHand () {
   const ho = S.ho
   if (!ho.open) return ''
-  const pl = hoPlan(), f = hoFmt(), w = 396, x = clamp(Math.min(HO_X, VIEW.s > .5 ? RX - 8 : W) - w, 8, W - w - 8), y = BAR_H + 4, maxRows = Math.max(4, Math.floor((H - 420) / 22)), shownT = pl.mix ? [] : S.tracks.slice(0, maxRows), more = pl.mix ? 0 : S.tracks.length - shownT.length
+  const pl = hoPlan(), f = hoFmt(), w = 396, x = Math.round((W - w) / 2), y = hoTop(pl), maxRows = Math.max(4, Math.floor((H - 420) / 22)), shownT = pl.mix ? [] : S.tracks.slice(0, maxRows), more = pl.mix ? 0 : S.tracks.length - shownT.length
   const rowsY = y + 60, listH = pl.mix ? 22 : shownT.length * 22 + (more ? 20 : 0), ctlY = rowsY + listH + 2, L = x + 18, Rr = x + w - 18
   const ctl = []
   if (NAT) ctl.push(['what', 'what', ['stems', 'mix'], ho.what])
@@ -982,8 +986,8 @@ function pHand () {
   const h = ctlY - y + ctl.length * 28 + 52
   const bytes = m => pl.secs(m) * (f.fmt === 'm4a' ? 32000 : f.fmt === 'mp3' ? f.kbps * 125 : f.rate * 2 * (f.bits / 8) * (f.fmt === 'flac' ? .6 : 1))
   const per = pl.modes.reduce((a, m) => a + bytes(m) / 1e6, 0)
-  let s = hit(0, 0, W, H, 'ho-close', '', 'default')
-  s += R(x, y, w, h, { rx: 3, fill: K2 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 3, stroke: INK, sa: .28 }) + hit(x, y, w, h, 'ho-pane', '', 'default')
+  let s = R(0, 0, W, H, { fill: '#000', fa: .45 }) + hit(0, 0, W, H, 'ho-close', '', 'default')
+  s += R(x - 1, y - 1, w + 2, h + 2, { rx: 4, fill: '#000', fa: .4 }) + R(x, y, w, h, { rx: 3, fill: K2 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 3, stroke: INK, sa: .28 }) + hit(x, y, w, h, 'ho-pane', '', 'default')
   s += run(L, y + 27, [['hand off', { size: 11.5, w: 500 }], [pl.mix ? 'the mix' : `${pl.list.length * pl.modes.length} stems`, { size: 11.5, a: .45 }]], 7)[0]
   const meta = [[mmss(pl.secs(pl.modes[0])), { size: 10, a: .7 }], [`${+(f.rate / 1000).toFixed(1)}k`, { size: 10, a: .7 }]].concat(f.bits ? [[`${f.bits} bit`, { size: 10, a: .7 }]] : [[f.fmt === 'mp3' ? `mp3 ${f.kbps}` : f.fmt, { size: 10, a: .7 }]])
   s += run(Rr - runW(meta, 8), y + 27, meta, 8)[0] + hline(x + 1, x + w - 1, y + 40, .08)

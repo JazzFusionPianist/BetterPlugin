@@ -178,6 +178,8 @@ void slurFakeDrop (void* nsView, const char* path, double x, double y, void (*do
     pressed while the page has the keys goes to the page first, as before; these lines catch what it leaves.
     Its words are written the Mac's way (File, Save As…), as is everything else the Mac draws for the app — window
     bars, panels, the kind the Finder shows. Only the room's own page is all lowercase.                            */
+static bool slurTypingNow();
+static bool slurRoomHasKeysNow();
 @interface SlurMenuTarget : NSObject
 @property (assign) void (*picked) (const char*, void*);
 @property (assign) void* context;
@@ -186,6 +188,12 @@ void slurFakeDrop (void* nsView, const char* path, double x, double y, void (*do
 @implementation SlurMenuTarget
 - (void) pick: (NSMenuItem*) item
 {
+    NSString* sys = objc_getAssociatedObject (item, "slurSys");
+    if (sys != nil && (! [@[ @"undo", @"redo", @"cut", @"copy", @"paste", @"selectAll" ] containsObject: sys] || slurTypingNow() || ! slurRoomHasKeysNow()))
+    {
+        [NSApp sendAction: NSSelectorFromString ([sys stringByAppendingString: @":"]) to: nil from: item];      // the Mac's own (in a box, or a window's line)
+        return;
+    }
     NSString* ident = (NSString*) item.representedObject;
     if (self.picked != nullptr && ident != nil) self.picked ([ident UTF8String], self.context);
 }
@@ -308,7 +316,7 @@ std::string slurMenuTitles()
     for (NSMenuItem* top in [[NSApp mainMenu] itemArray])
     {
         NSMutableArray<NSString*>* lines = [NSMutableArray array];
-        for (NSMenuItem* it in top.submenu.itemArray) if (! it.isSeparatorItem) [lines addObject: it.title];
+        for (NSMenuItem* it in top.submenu.itemArray) if (! it.isSeparatorItem) [lines addObject: it.state == NSControlStateValueOn ? [@"✓" stringByAppendingString: it.title] : it.title];      // (✓: a line that is ticked)
         [out addObject: [NSString stringWithFormat: @"%@: %@", top.submenu.title ?: @"", [lines componentsJoinedByString: @", "]]];
     }
     const char* utf8 = [[out componentsJoinedByString: @" | "] UTF8String];
@@ -455,6 +463,192 @@ std::string slurCommandKeyOn()
     const bool round = slurTestKeyCameRound;
     slurTestKey = nil; slurTestKeyCameRound = false;
     return round ? "left alone by the page: the Mac's" : "kept by the page";
+}
+
+/*  The menu bar as the page writes it (ui/menus.js; design/menu draft 1): every function of the room, so that Help's
+    search — the Mac's own, which looks through every line of every menu — finds it. What was built above stands until
+    the page has sent its bar. Each line shows the key the room answers to; which keys the menu itself answers is the
+    line's tag: 0 none (the key is shown and stays the page's: a bare letter, an arrow, ⌥ or ⇧ alone), 1 only while the
+    room's page has the keys and no box in it is being typed in, 2 wherever the keys are (⌘N, ⌘S… mean nothing in a box).
+    The Mac's own lines (Edit's undo, cut, copy, paste, select all; Window's) do the Mac's thing in a box being typed in,
+    and the room's thing otherwise. */
+static NSMutableDictionary<NSString*, NSMenuItem*>* slurLines = nil;        // every line of the page's, by its id (for its tick)
+static NSMutableArray<NSMenuItem*>* slurAppLines = nil;                      // what the page put into the app's own menu
+static bool slurTyping = false;
+static bool slurTypingNow() { return slurTyping; }
+static bool slurRoomHasKeys()
+{
+    WKWebView* web = slurPageWeb;
+    NSWindow* w = NSApp.keyWindow;
+    if (web == nil || w == nil || web.window != w) return false;
+    id fr = w.firstResponder;
+    return [fr isKindOfClass: [NSView class]] && [(NSView*) fr isDescendantOf: web];
+}
+static bool slurRoomHasKeysNow() { return slurRoomHasKeys(); }
+static NSString* slurSysOf (NSMenuItem* it) { return objc_getAssociatedObject (it, "slurSys"); }
+static bool slurEditSys (NSString* sys) { return [@[ @"undo", @"redo", @"cut", @"copy", @"paste", @"selectAll" ] containsObject: sys]; }
+/* the key a key-down is, on the Mac's ANSI keyboard whatever the language it is set to type in (a Korean keyboard gives
+   Hangul for the letters, and the menu's keys are Latin) */
+static NSString* slurKeyOfCode (unsigned short c)
+{
+    static NSDictionary<NSNumber*, NSString*>* map = nil;
+    if (map == nil)
+    {
+        NSMutableDictionary* m = [NSMutableDictionary dictionary];
+        const char* letters = "asdfhgzxcv?bqweryt123465=97-80]ou[ip?lj'k;\\,/nm.";      // key codes 0…47 (? : none)
+        for (int i = 0; letters[i] != 0; ++i) if (letters[i] != '?') m[@(i)] = [NSString stringWithFormat: @"%c", letters[i]];
+        m[@50] = @"`"; m[@49] = @" "; m[@36] = @"\r"; m[@76] = @"\r"; m[@48] = @"\t"; m[@51] = @"\b";
+        const unichar fk[][2] = { { 123, NSLeftArrowFunctionKey }, { 124, NSRightArrowFunctionKey }, { 125, NSDownArrowFunctionKey }, { 126, NSUpArrowFunctionKey },
+                                  { 115, NSHomeFunctionKey }, { 119, NSEndFunctionKey }, { 116, NSPageUpFunctionKey }, { 121, NSPageDownFunctionKey },
+                                  { 122, NSF1FunctionKey }, { 120, NSF2FunctionKey }, { 99, NSF3FunctionKey }, { 118, NSF4FunctionKey } };
+        for (auto& f : fk) m[@(f[0])] = [NSString stringWithCharacters: &f[1] length: 1];
+        const int pad[] = { 82, 83, 84, 85, 86, 87, 88, 89, 91, 92 };
+        for (int d = 0; d < 10; ++d) m[@(pad[d])] = [NSString stringWithFormat: @"%d", d];
+        map = m;
+    }
+    return map[@(c)];
+}
+static NSMenuItem* slurMatch (NSMenu* menu, NSString* key, NSEventModifierFlags mods)
+{
+    for (NSMenuItem* it in menu.itemArray)
+    {
+        if (it.submenu != nil) { if (NSMenuItem* got = slurMatch (it.submenu, key, mods)) return got; continue; }
+        if (it.target != slurMenuTarget || it.keyEquivalent.length == 0) continue;
+        if ((it.keyEquivalentModifierMask & (NSEventModifierFlagCommand | NSEventModifierFlagControl | NSEventModifierFlagOption | NSEventModifierFlagShift)) != mods) continue;
+        if ([it.keyEquivalent isEqualToString: key]) return it;
+    }
+    return nil;
+}
+@interface SlurMainMenu : NSMenu
+@end
+@implementation SlurMainMenu
+- (BOOL) performKeyEquivalent: (NSEvent*) e
+{
+    if (e.type == NSEventTypeKeyDown && slurLines != nil)
+    {
+        const NSEventModifierFlags mods = e.modifierFlags & (NSEventModifierFlagCommand | NSEventModifierFlagControl | NSEventModifierFlagOption | NSEventModifierFlagShift);
+        NSString* key = slurKeyOfCode (e.keyCode);
+        NSMenuItem* it = key != nil ? slurMatch (self, key, mods) : nil;
+        if (it == nil && e.charactersIgnoringModifiers.length > 0) it = slurMatch (self, e.charactersIgnoringModifiers.lowercaseString, mods);
+        if (it != nil)
+        {
+            const NSInteger how = it.tag;
+            if (how == 0 || ! it.isEnabled) return NO;                               // shown, and the page's
+            if (how == 1 && (slurTyping || ! slurRoomHasKeys())) return NO;
+            NSMenu* m = it.menu;
+            [m performActionForItemAtIndex: [m indexOfItem: it]];                    // (the menu's title flashes, as the Mac does it)
+            return YES;
+        }
+    }
+    return [super performKeyEquivalent: e];
+}
+@end
+static NSMenu* slurBuildMenu (NSString* title, NSArray* lines)
+{
+    NSMenu* menu = [[NSMenu alloc] initWithTitle: title];
+    menu.autoenablesItems = NO;
+    for (NSDictionary* l in lines)
+    {
+        if (l[@"sep"] != nil) { [menu addItem: [NSMenuItem separatorItem]]; continue; }
+        NSMenuItem* it = [[NSMenuItem alloc] initWithTitle: l[@"t"] ?: @"" action: nil keyEquivalent: @""];
+        if (NSArray* sub = l[@"sub"]) { it.submenu = slurBuildMenu (it.title, sub); [menu addItem: it]; continue; }
+        it.action = @selector (pick:); it.target = slurMenuTarget; it.representedObject = l[@"id"];
+        if (NSDictionary* k = l[@"k"])
+        {
+            it.keyEquivalent = k[@"key"] ?: @"";
+            NSEventModifierFlags m = 0;
+            if ([k[@"cmd"] intValue]) m |= NSEventModifierFlagCommand;
+            if ([k[@"ctrl"] intValue]) m |= NSEventModifierFlagControl;
+            if ([k[@"opt"] intValue]) m |= NSEventModifierFlagOption;
+            if ([k[@"shift"] intValue]) m |= NSEventModifierFlagShift;
+            it.keyEquivalentModifierMask = m;
+        }
+        it.tag = [l[@"answers"] intValue];
+        if (l[@"sys"] != nil) objc_setAssociatedObject (it, "slurSys", l[@"sys"], OBJC_ASSOCIATION_RETAIN);
+        if ([l[@"dim"] intValue]) it.enabled = NO;
+        if (it.representedObject != nil) slurLines[it.representedObject] = it;
+        [menu addItem: it];
+    }
+    return menu;
+}
+/** The page's bar, put up in place of what stood (the app's own menu keeps its lines and gets the page's first menu
+    at its top; Window is the system's windows menu, Help its help menu, where the Mac puts its search). */
+bool slurSetMenus (const char* json)
+{
+    NSMenu* bar = [NSApp mainMenu];
+    if (bar == nil || bar.numberOfItems < 1 || slurMenuTarget == nil || json == nullptr) return false;
+    NSArray* menus = [NSJSONSerialization JSONObjectWithData: [NSData dataWithBytes: json length: strlen (json)] options: 0 error: nil];
+    if (! [menus isKindOfClass: [NSArray class]] || menus.count < 2) return false;
+    if (! [bar isKindOfClass: [SlurMainMenu class]]) object_setClass (bar, [SlurMainMenu class]);      // (the bar answers the keys by the rules above)
+    slurLines = [NSMutableDictionary dictionary];
+    NSMenu* app = [bar itemAtIndex: 0].submenu;
+    if (app != nil)
+    {
+        for (NSMenuItem* it in slurAppLines ?: @[]) [app removeItem: it];
+        for (NSInteger i = app.numberOfItems - 1; i >= 0; --i) { NSMenuItem* it = [app itemAtIndex: i]; if (it.target == slurMenuTarget) [app removeItem: it]; }      // (what slurInstallMenus put there)
+        while (app.numberOfItems > 0 && [app itemAtIndex: 0].isSeparatorItem) [app removeItemAtIndex: 0];
+        slurAppLines = [NSMutableArray array];
+        NSInteger at = 0;
+        auto put = [&] (NSMenuItem* it) { [app insertItem: it atIndex: at++]; [slurAppLines addObject: it]; };
+        NSMenuItem* about = [[NSMenuItem alloc] initWithTitle: @"About Slur Studio" action: @selector (orderFrontStandardAboutPanel:) keyEquivalent: @""];
+        put (about); put ([NSMenuItem separatorItem]);
+        NSMenuItem* settings = [[NSMenuItem alloc] initWithTitle: @"Settings…" action: @selector (pick:) keyEquivalent: @","];
+        settings.keyEquivalentModifierMask = NSEventModifierFlagCommand; settings.target = slurMenuTarget; settings.representedObject = @"settings"; settings.tag = 2;
+        put (settings);
+        NSMenu* first = slurBuildMenu (@"", menus[0][@"sub"]);
+        while (first.numberOfItems > 0) { NSMenuItem* it = [first itemAtIndex: 0]; [first removeItemAtIndex: 0]; put (it); }
+        put ([NSMenuItem separatorItem]);
+    }
+    while (bar.numberOfItems > 1) [bar removeItemAtIndex: 1];
+    for (NSUInteger i = 1; i < menus.count; ++i)
+    {
+        NSString* title = menus[i][@"t"];
+        NSMenu* m = slurBuildMenu (title, menus[i][@"sub"]);
+        slurAddMenu (bar, m);
+        if ([title isEqualToString: @"Window"]) [NSApp setWindowsMenu: m];
+        if ([title isEqualToString: @"Help"]) [NSApp setHelpMenu: m];
+    }
+    return true;
+}
+/** Which of the page's lines are ticked: {"on": {id: 1, …}}; every other line of the page's is not. */
+void slurSetMenuState (const char* json)
+{
+    if (slurLines == nil || json == nullptr) return;
+    NSDictionary* d = [NSJSONSerialization JSONObjectWithData: [NSData dataWithBytes: json length: strlen (json)] options: 0 error: nil];
+    NSDictionary* on = [d isKindOfClass: [NSDictionary class]] ? d[@"on"] : nil;
+    for (NSString* ident in slurLines) slurLines[ident].state = [on isKindOfClass: [NSDictionary class]] && on[ident] != nil ? NSControlStateValueOn : NSControlStateValueOff;
+}
+/** A box in the room's page is being typed in (or no longer is): the menu answers none of the page's keys meanwhile. */
+void slurSetTyping (bool on) { slurTyping = on; }
+/** For the self-test: a key sent to the menu bar as the Mac would (the room's page given the keys first, as a press on it
+    does): whether the bar took it, and the id of the line it would be. */
+std::string slurTestMenuKey (void* nsView, const char* chars, unsigned short keyCode, unsigned long mods)
+{
+    NSView* v = (__bridge NSView*) nsView;
+    NSWindow* w = v.window;
+    if (w == nil) return "no window";
+    WKWebView* web = findWeb (w.contentView != nil ? w.contentView : v);
+    if (web != nil) [w makeFirstResponder: web];
+    NSString* ch = [NSString stringWithUTF8String: chars];
+    NSEvent* ev = [NSEvent keyEventWithType: NSEventTypeKeyDown location: NSZeroPoint modifierFlags: (NSEventModifierFlags) mods timestamp: NSProcessInfo.processInfo.systemUptime
+                               windowNumber: w.windowNumber context: nil characters: ch charactersIgnoringModifiers: ch isARepeat: NO keyCode: keyCode];
+    const BOOL took = [NSApp.mainMenu performKeyEquivalent: ev];
+    return took ? "taken" : NSApp.keyWindow != w ? "left (the room's window is not the key window)" : slurTyping ? "left (a box is being typed in)" : "left";
+}
+
+/** For the self-test: a key pressed as the Mac delivers one — put on the app's own queue, so that it goes the whole way
+    (the menu bar's keys, then the window, its views, the page). The window is made the key one first. */
+std::string slurTestRealKey (void* nsView, const char* chars, unsigned short keyCode, unsigned long mods)
+{
+    NSView* v = (__bridge NSView*) nsView;
+    NSWindow* w = v.window;
+    if (w == nil) return "no window";
+    if (NSApp.keyWindow != w) { [NSApp activateIgnoringOtherApps: YES]; [w makeKeyAndOrderFront: nil]; }
+    NSString* ch = [NSString stringWithUTF8String: chars];
+    for (NSEventType t : { NSEventTypeKeyDown, NSEventTypeKeyUp })
+        [NSApp postEvent: [NSEvent keyEventWithType: t location: NSZeroPoint modifierFlags: (NSEventModifierFlags) mods timestamp: NSProcessInfo.processInfo.systemUptime
+                                       windowNumber: w.windowNumber context: nil characters: ch charactersIgnoringModifiers: ch isARepeat: NO keyCode: keyCode] atStart: NO];
+    return NSApp.keyWindow == w ? "sent" : "sent (not the key window)";
 }
 
 /** For the self-test: how the system has the window (as JSON), and a picture of the top of its frame, where its bar is. */

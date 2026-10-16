@@ -543,7 +543,7 @@ async function projectBoot (hello) {
   CAP.mp3 = !!(hello && hello.mp3); CAP.lame = (hello && hello.lame) || ''          // (lame: where the program that makes an mp3 lies — inside the app, unless this build has none)
   if (hello && hello.ins) INPUTS = hello.ins
   NAT.on('dawDevice', d => { if (!d) return; if (d.ins) INPUTS = d.ins; if (d.block) STAT.buf = d.block; if (d.bits) STAT.bits = d.bits; uiDirty('cmd', 'dock') })
-  NAT.on('dawMenu', d => { if (START.on) { startMenu(d && d.id); return } const f = d && MENU_DO[d.id]; if (f) f() })
+  NAT.on('dawMenu', d => { if (typeof menuDo === 'function') { menuDo(d && d.id); return } if (START.on) { startMenu(d && d.id); return } const f = d && MENU_DO[d.id]; if (f) f() })
   NAT.on('dawOpen', d => { if (d && d.name) openProject(String(d.name)) })
   let opened = false
   /* the run before this one did not end by itself: the plug-in that was playing on the thread that failed (or was just being

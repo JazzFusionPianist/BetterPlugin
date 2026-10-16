@@ -178,6 +178,34 @@ async function runSelfTest (mode) {
     await note('page', { errors: window.__errs || [] })
     await NAT.call('testDone'); return
   }
+  if (mode === 'menus') {                                                          // only this: the menu bar the page writes (ui/menus.js)
+    await step('menus', async () => {
+      for (let k = 0; k < 30 && !MENUS.sent; k++) await sleep(200)
+      await sleep(600)
+      const titles = (await NAT.call('testMenus')).titles, res = { menus: titles.split(' | ').map(m => m.split(':')[0]), length: titles.length }
+      const CMD = 1 << 20, SHIFT = 1 << 17, CTRL = 1 << 18, OPT = 1 << 19, RIGHT = String.fromCharCode(0xF703)
+      const key = async (k, code, mods) => (await NAT.call('testMenuKey', { key: k, code, mods })).took
+      const idOf = (menu, title) => { let id = null; const walk = items => { for (const it of items) { if (it.sub) walk(it.sub); else if (it.t === title && !id) id = it.id } }; const m = JSON.parse(MENUS.sent).find(x => x.t === menu); if (m) walk(m.sub); return id }
+      const p0 = S.panel.on; res.bareB = { took: await key('b', 11, 0) }; await sleep(150); res.bareB.panelMoved = S.panel.on !== p0          // shown, and left to the page
+      res.newTracks = { took: await key('n', 45, OPT | CMD) }; await sleep(250); res.newTracks.open = !!S.newT; closeNewTrack(); flush()
+      let z = PXB; res.zoomIn = { took: await key(RIGHT, 124, CMD) }; await sleep(250); res.zoomIn.zoomed = PXB > z
+      $('cmd').focus(); await sleep(300); z = PXB
+      res.typing = { took: await key(RIGHT, 124, CMD), save: await key('n', 45, OPT | CMD) }; await sleep(250); res.typing.zoomed = PXB > z; closeNewTrack(); $('cmd').blur(); await sleep(300); flush()
+      const cyc = idOf('Transport', 'Cycle'), was = !!S.cycle.on
+      await NAT.call('testMenu', { id: cyc }); await sleep(700); res.cycle = { id: cyc, was, now: !!S.cycle.on, ticked: (await NAT.call('testMenus')).titles.includes('✓Cycle') }
+      await NAT.call('testMenu', { id: cyc }); await sleep(700); res.cycle.back = !!S.cycle.on === was && !(await NAT.call('testMenus')).titles.includes('✓Cycle')
+      await NAT.call('testMenu', { id: idOf('Tools', 'Pencil') }); await sleep(200); res.tool = S.tool; await NAT.call('testMenu', { id: idOf('Tools', 'Pointer') })
+      /* the whole way, as the keyboard does it: x (the mixer: a key the menu shows and leaves) reaches the room; typed in the
+         command line it is a letter in the box; ⌘→ zooms */
+      const real = async (k, code, mods) => { const r = await NAT.call('testRealKey', { key: k, code, mods }); await sleep(400); flush(); return r.sent }
+      S.panel.on = false; setView(true); res.realX = { sent: await real('x', 7, 0) }; res.realX.mixer = S.panel.on && S.panel.tab === 'mixer'; S.panel.on = false; setView(true)
+      $('cmd').value = ''; $('cmd').focus(); await sleep(300); res.realTyped = { sent: await real('x', 7, 0) }; res.realTyped.box = $('cmd').value; res.realTyped.mixer = S.panel.on; $('cmd').value = ''; $('cmd').blur(); await sleep(300)
+      z = PXB; res.realZoom = { sent: await real(RIGHT, 124, CMD) }; res.realZoom.zoomed = PXB > z
+      return res
+    })
+    await note('page', { errors: window.__errs || [] })
+    await NAT.call('testDone'); return
+  }
   if (mode === 'display') {                                                        // only this: settings > display, the room wearing what is set there, and slur following its ground (needs the net)
     await step('display', async () => {
       const res = {}, slurDark = async () => { const r = await NAT.call('testSlur', { js: `JSON.stringify({ dark: document.documentElement.classList.contains('slur-dark') })` }); return r ? r.dark : null }

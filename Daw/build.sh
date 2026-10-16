@@ -18,6 +18,8 @@ cmake --build $B -j "${SLUR_JOBS:-10}"
 APP="$B/SlurDaw_artefacts/Release/Slur Studio.app"
 # the page travels inside the app, so the app reads nothing outside itself
 mkdir -p "$APP/Contents/Resources" && rsync -a --delete ui/ "$APP/Contents/Resources/ui/"
+# and the user guide, for Help > Slur Studio Help (guide/build.mjs makes the PDFs; a tree without them builds an app without them)
+rm -rf "$APP/Contents/Resources/Guide"; if ls guide/pdf/*.pdf > /dev/null 2>&1; then mkdir -p "$APP/Contents/Resources/Guide" && cp guide/pdf/*.pdf "$APP/Contents/Resources/Guide/"; fi
 # and so does the program an mp3 is made with (vendor/lame: LAME, as it is, with its licence — ./lame.sh makes it), so that
 # an mp3 can be printed on any Mac the app runs on
 if [ -x vendor/lame/lame ]; then mkdir -p "$APP/Contents/Helpers" && cp vendor/lame/lame "$APP/Contents/Helpers/lame" && cp vendor/lame/COPYING "$APP/Contents/Resources/lame COPYING.txt"; else echo "no vendor/lame/lame: this build cannot print an mp3 (./lame.sh makes it)"; fi

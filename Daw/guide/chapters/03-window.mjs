@@ -117,4 +117,22 @@ export default () => chapter('window', t('the window', '창'),
         [2, 'the command line, and beside it what the last line did and anything the app has to say', '커맨드 라인. 그 옆에는 마지막 줄이 한 일과 앱이 하는 말이 나옵니다'],
         [3, '{{keys}} opens the sheet of key commands [[⇧/]]', '{{keys}}는 단축키 표를 엽니다 [[⇧/]]']) +
       p('In the app the right end also shows {{cpu}}, {{rate}}, {{buffer}} and {{saved}} with the time of the last save.', '앱에서는 오른쪽 끝에 {{cpu}}, {{rate}}, {{buffer}}, 그리고 마지막 저장 시각이 붙은 {{saved}}도 보입니다.') + `</div>` }),
+  page(t('the menu bar, and finding a thing', '메뉴 바, 그리고 기능 찾기'), { kind: 'text', cc: 3, txt:
+    lead('Everything the app does is a line of the Mac’s menu bar, with the key that does the same at its right. When you know what you want but not where it is, the bar is the place to look.', '앱이 하는 모든 일은 Mac 메뉴 바의 한 줄이고, 그 오른쪽에 같은 일을 하는 키가 적혀 있습니다. 하고 싶은 일은 아는데 어디 있는지 모를 때 메뉴 바를 보면 됩니다.') +
+    h('finding a thing', '기능 찾기') +
+    p('Open ((Help)) and type a word into its search field: “fade”, “transpose”, “marker”. Every line with that word is listed with its menu; point at one and the Mac opens its menu and shows where it is. Press it to do it.', '((Help))를 열고 검색 칸에 단어를 칩니다. “fade”, “transpose”, “marker” 같은 식입니다. 그 단어가 든 모든 줄이 메뉴와 함께 나옵니다. 하나에 포인터를 올리면 Mac이 그 메뉴를 열어 위치를 보여 주고, 누르면 실행됩니다.') +
+    h('the menus', '메뉴') +
+    table(null,
+      ['((Slur Studio))', ['settings and each of their parts, the key commands', '설정과 그 각 항목, 단축키 표']],
+      ['((File))', ['new, open, recent projects, save, import, hand off, bounce in place', '새로 만들기, 열기, 최근 프로젝트, 저장, 가져오기, 내보내기, 제자리 바운스']],
+      ['((Edit))', ['undo, cut, copy, paste, every way of choosing, split, join, the song’s time by the cycle', '실행 취소, 잘라내기, 복사, 붙여넣기, 모든 선택 방법, 나누기, 합치기, 사이클 기준 곡 시간 편집']],
+      ['((Region))', ['what is done to the chosen regions: gain, transpose and fine tune, fades, nudge, tempo, quantize', '선택한 리전에 하는 일: 게인, 트랜스포즈와 미세 조정, 페이드, 넛지, 템포, 퀀타이즈']],
+      ['((Track))', ['new tracks, duplicate, delete, mute, solo, stacks, groups, the typing keyboard', '새 트랙, 복제, 삭제, 뮤트, 솔로, 스택, 그룹, 타이핑 키보드']],
+      ['((Transport))', ['play, record, going around the song, the cycle, click and count-in', '재생, 녹음, 곡 안에서 이동, 사이클, 클릭과 카운트인']],
+      ['((Markers))', ['adding, naming, going to them', '추가, 이름 붙이기, 이동']],
+      ['((Tools))', ['the tool, the edit mode, the grid, the nudge value, the quantize value', '도구, 편집 모드, 그리드, 넛지 값, 퀀타이즈 값']],
+      ['((View))', ['the panels, automation, flex, zoom, scrolling, the command line', '패널, 오토메이션, 플렉스, 줌, 스크롤, 커맨드 라인']],
+      ['((Window)) ((Help))', ['the panels and the window; this guide, the key commands', '패널과 창. 이 설명서, 단축키 표']]) +
+    h('ticks and keys', '체크와 키') +
+    p('A line that is on or off carries a tick: the tool in use, the grid, the cycle, the click, the panels that are open. A key shown on a line works the same pressed in the room. Keys without [[⌘]] or [[⌃]] (a letter, an arrow) are the room’s: while you type in a box they type, as everywhere else in the app.', '켜고 끄는 줄에는 체크가 붙습니다. 쓰고 있는 도구, 그리드, 사이클, 클릭, 열린 패널 같은 것입니다. 줄에 적힌 키는 방에서 눌러도 똑같이 동작합니다. [[⌘]]나 [[⌃]]가 없는 키(글자, 화살표)는 방의 키라서, 칸에 글을 쓰는 동안에는 앱의 다른 곳과 마찬가지로 글자가 쳐집니다.') }),
 ])

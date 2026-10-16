@@ -25,6 +25,11 @@ void slurStyleWindow (void* nsView);
 bool slurKeysToPage (void* nsView);
 std::string slurCommandKey (void* nsView, const char* letter, unsigned short keyCode);
 std::string slurCommandKeyOn();
+bool slurSetMenus (const char* json);
+void slurSetMenuState (const char* json);
+void slurSetTyping (bool on);
+std::string slurTestMenuKey (void* nsView, const char* chars, unsigned short keyCode, unsigned long mods);
+std::string slurTestRealKey (void* nsView, const char* chars, unsigned short keyCode, unsigned long mods);
 int slurRunningCopy (bool forward, bool amongChecks);
 double slurFootprintMb();
 double slurSecondsUp();
@@ -252,7 +257,19 @@ public:
     void menuPicked (const juce::String& id)
     {
         if (id == "settings") { showSettings ({}); return; }           // a window of its own, whatever the room is showing
+        if (id.startsWith ("settings:")) { showSettings (id.fromFirstOccurrenceOf (":", false, false)); return; }      // (on one of its parts)
+        if (id == "guide") { openGuide(); return; }
         auto* o = new juce::DynamicObject(); o->setProperty ("id", id); web->emitEventIfBrowserIsVisible ("dawMenu", juce::var (o));
+    }
+    /** Help > Slur Studio Help: the user guide (Daw/guide), in the language the program speaks, opened as the Mac opens a PDF.
+        It travels inside the app (build.sh puts it in Resources/Guide); a build without it says so at the foot. */
+    void openGuide()
+    {
+        const auto dir = juce::File::getSpecialLocation (juce::File::currentApplicationFile).getChildFile ("Contents/Resources/Guide");
+        auto f = dir.getChildFile (lang == "ko" ? juce::String (juce::CharPointer_UTF8 ("Slur Studio \xec\x82\xac\xec\x9a\xa9 \xec\x84\xa4\xeb\xaa\x85\xec\x84\x9c.pdf")) : juce::String ("Slur Studio User Guide.pdf"));
+        if (! f.existsAsFile()) f = dir.getChildFile ("Slur Studio User Guide.pdf");
+        if (f.existsAsFile() && selfTestMode().isEmpty()) { f.startAsProcess(); return; }
+        auto* o = new juce::DynamicObject(); o->setProperty ("id", "guideMissing"); web->emitEventIfBrowserIsVisible ("dawMenu", juce::var (o));
     }
     /** The settings window, brought forward (made the first time); `part`: on that part, else where it was left. */
     void showSettings (const juce::String& part)
@@ -870,6 +887,21 @@ private:
             }
             o->setProperty ("frames", n); o->setProperty ("lag", lag); o->setProperty ("alike", ea > 0.0 && eb > 0.0 ? best / std::sqrt (ea * eb) : 0.0);
             o->setProperty ("levelA", n > 0 ? std::sqrt (ea / n) : 0.0); o->setProperty ("levelB", n > 0 ? std::sqrt (eb / n) : 0.0);
+            done (juce::var (o)); return;
+        }
+        if (op == "menus")     { done (okVar (slurSetMenus (juce::JSON::toString (d["bar"], true).toRawUTF8()))); return; }      // the menu bar as the page writes it (ui/menus.js)
+        if (op == "menuState") { slurSetMenuState (juce::JSON::toString (d, true).toRawUTF8()); done (okVar()); return; }          // which of its lines are ticked
+        if (op == "typing")    { slurSetTyping ((int) d["on"] != 0); done (okVar()); return; }                                     // a box in the page is being typed in
+        if (op == "testRealKey")                                               // the check: a key put on the app's queue, as the keyboard does
+        {
+            auto* o = new juce::DynamicObject();
+            if (selfTestMode().isNotEmpty() && getPeer() != nullptr) o->setProperty ("sent", juce::String (juce::CharPointer_UTF8 (slurTestRealKey (getPeer()->getNativeHandle(), d["key"].toString().toRawUTF8(), (unsigned short) (int) d["code"], (unsigned long) (juce::int64) d["mods"]).c_str())));
+            done (juce::var (o)); return;
+        }
+        if (op == "testMenuKey")                                               // the check: a key given to the menu bar (the page's web view having the keys): taken or left
+        {
+            auto* o = new juce::DynamicObject();
+            if (selfTestMode().isNotEmpty() && getPeer() != nullptr) o->setProperty ("took", juce::String (juce::CharPointer_UTF8 (slurTestMenuKey (getPeer()->getNativeHandle(), d["key"].toString().toRawUTF8(), (unsigned short) (int) d["code"], (unsigned long) (juce::int64) d["mods"]).c_str())));
             done (juce::var (o)); return;
         }
         if (op == "testCmdKey")                                                // the check: a key with command held, sent as the Mac sends one (the window's views first, then the menu bar)

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>slur studio, menu bar, draft 1</title>
+<style>
+/* Slur Studio's menu bar, draft 1: the Mac's own menus (drawn here as the system draws them, dark), opened one after
+   another. ?s=1..4 a sheet of them. The lines come from menus.js, which the build would use as it is. */
+* { box-sizing: border-box; margin: 0; padding: 0 }
+body { width: 1680px; background: #111; font: 13px -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif; color: #EDEDED; -webkit-font-smoothing: antialiased }
+#stage { position: relative; width: 1680px; overflow: hidden }
+#room { position: absolute; left: 0; top: 24px; width: 1680px; opacity: .5; filter: blur(1px) }
+.bar { position: absolute; left: 0; top: 0; width: 100%; height: 24px; background: rgba(46, 44, 42, .96); display: flex; align-items: center; padding-left: 14px; gap: 2px; z-index: 2 }
+.bar span { padding: 1px 9px; border-radius: 4px; font-weight: 400 }
+.bar span.app { font-weight: 700 }
+.bar span.on { background: rgba(255, 255, 255, .18) }
+.bar .apple { width: 14px; height: 16px; margin: 0 8px 0 4px }
+.menu { position: absolute; z-index: 3; background: rgba(36, 36, 36, .97); border: .5px solid rgba(255, 255, 255, .16); border-radius: 7px; padding: 5px; box-shadow: 0 12px 40px rgba(0, 0, 0, .55); min-width: 220px }
+.it { display: grid; grid-template-columns: 16px 1fr auto 14px; align-items: center; height: 22px; padding: 0 6px 0 4px; border-radius: 4px; white-space: nowrap; gap: 4px }
+.it .k { color: rgba(255, 255, 255, .5); padding-left: 22px; letter-spacing: .04em; font-size: 12.5px }
+.it .chk { color: #EDEDED; font-size: 12px; text-align: center }
+.it .arr { color: rgba(255, 255, 255, .6); text-align: right; font-size: 12px }
+.it.hot { background: #2F6BD8; color: #fff }
+.it.hot .k, .it.hot .arr { color: rgba(255, 255, 255, .85) }
+.it.dim { color: rgba(255, 255, 255, .32) }
+.sep { height: 1px; background: rgba(255, 255, 255, .12); margin: 5px 6px }
+.note { position: absolute; z-index: 4; font: 12px 'Instrument Sans', -apple-system, sans-serif; color: #ECEAE4; background: #1B1B1A; border: 1px solid rgba(236, 234, 228, .3); border-radius: 3px; padding: 7px 10px; max-width: 300px; line-height: 1.45 }
+.note b { font-weight: 600 }
+.search { display: flex; align-items: center; gap: 6px; height: 26px; margin: 2px 2px 6px; padding: 0 8px; border-radius: 5px; background: rgba(255, 255, 255, .1); border: 1.5px solid #2F6BD8 }
+.search i { font-style: normal; color: rgba(255, 255, 255, .55) }
+.hdr { padding: 2px 8px 4px; color: rgba(255, 255, 255, .45); font-size: 11.5px; font-weight: 600 }
+.res { display: grid; grid-template-columns: 1fr auto; height: 22px; align-items: center; padding: 0 8px; border-radius: 4px; white-space: nowrap }
+.res span:last-child { color: rgba(255, 255, 255, .45); padding-left: 18px; font-size: 12px }
+.res.hot { background: #2F6BD8 } .res.hot span:last-child { color: rgba(255, 255, 255, .85) }
+.arrowpin { position: absolute; z-index: 5; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #2F6BD8; box-shadow: 0 0 0 4px rgba(47, 107, 216, .25) }
+</style>
+</head>
+<body>
+<div id="stage"><img id="room" src="../../guide/pics/window.png"></div>
+<script src="menus.js"></script>
+<script>
+const q = new URLSearchParams(location.search), sheet = +(q.get('s') || 1)
+const stage = document.getElementById('stage')
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+const titles = MENU_BAR.map(m => m[0])
+/* what each sheet opens: [menu, x, open submenus [[item title, which]]], and how tall it is */
+const SHEETS = {
+  1: { h: 760, open: [['Slur Studio', ['Settings']], ['File', ['Open Recent']], ['Edit', ['Select']]] },
+  2: { h: 820, open: [['Region', ['Transpose']], ['Track', ['Stack']]] },
+  3: { h: 760, open: [['Transport', ['Cycle Area']], ['Markers', ['Go to Marker']], ['Tools', ['Grid']]] },
+  4: { h: 760, open: [['View', []], ['Window', []], ['Help', []]] },
+}
+const S = SHEETS[sheet]
+stage.style.height = S.h + 'px'
+// the bar
+const bar = document.createElement('div'); bar.className = 'bar'
+bar.innerHTML = `<svg class="apple" viewBox="0 0 14 17"><path fill="#EDEDED" d="M11.6 9c0-2 1.7-3 1.8-3.1-1-1.4-2.5-1.6-3-1.7-1.3-.1-2.5.8-3.1.8-.7 0-1.7-.8-2.7-.7C3.2 4.3 2 5.1 1.4 6.4.1 8.7 1 12.1 2.3 14c.6.9 1.4 2 2.3 1.9.9 0 1.3-.6 2.4-.6s1.4.6 2.4.6c1 0 1.6-.9 2.2-1.8.7-1 1-2 1-2.1 0 0-1.9-.8-1.9-3zM9.6 3.1c.5-.7.9-1.6.8-2.5-.8 0-1.7.5-2.3 1.2-.5.6-.9 1.5-.8 2.4.9.1 1.8-.4 2.3-1.1z"/></svg>` + titles.map(t => `<span class="${t === 'Slur Studio' ? 'app' : ''}" data-t="${esc(t)}">${esc(t)}</span>`).join('')
+stage.appendChild(bar)
+const rows = (lines, hot, lineTitles) => lines.map(l => {
+  if (l === '-') return '<div class="sep"></div>'
+  if (typeof l === 'string') return ''
+  const [t, k, o = {}] = l
+  if (o.search) return ''
+  return `<div class="it${hot && hot.includes(t) ? ' hot' : ''}" data-t="${esc(t)}"><span class="chk">${o.check && (t === 'Cycle' || t === 'Click' || t === 'Smart' || t === '1/4' || t === 'Beat' || t === 'Pointer' || t === 'Slur') ? '✓' : ''}</span><span>${esc(t)}</span><span class="k">${esc(keySign(k))}</span><span class="arr">${o.sub ? '›' : ''}</span></div>`
+}).join('')
+let gapX = 0
+requestAnimationFrame(() => {
+  const spans = [...bar.querySelectorAll('span')]
+  let nextX = 0
+  for (const [name, subs] of S.open) {
+    const m = MENU_BAR.find(x => x[0] === name), span = spans.find(s => s.dataset.t === name)
+    span.classList.add('on')
+    const x0 = Math.max(span.offsetLeft - 4, nextX)
+    const el = document.createElement('div'); el.className = 'menu'
+    if (name === 'Help') el.innerHTML = `<div class="search"><i>⌕</i>fade</div><div class="hdr">Menu Items</div>` +
+      [['Region › Fades › Fades for Selection', 'F'], ['Region › Fades › Fade In up to the Playhead', 'D'], ['Region › Fades › Fade Out from the Playhead', 'G']].map(([t, k], i) => `<div class="res${i === 0 ? ' hot' : ''}"><span>${esc(t)}</span><span>${esc(k)}</span></div>`).join('') +
+      '<div class="sep"></div>' + rows(m[1].filter(l => l === '-' || !(l[2] && l[2].search)), [])
+    else el.innerHTML = rows(m[1], subs)
+    el.style.left = x0 + 'px'; el.style.top = '26px'
+    stage.appendChild(el)
+    let right = x0 + el.offsetWidth
+    for (const st of subs) {
+      const it = [...el.querySelectorAll('.it')].find(e => e.dataset.t === st), line = m[1].find(l => l[0] === st)
+      const sub = document.createElement('div'); sub.className = 'menu'; sub.innerHTML = rows(line[2].sub, [])
+      sub.style.left = (x0 + el.offsetWidth - 6) + 'px'; sub.style.top = (26 + it.offsetTop - 5) + 'px'
+      stage.appendChild(sub)
+      if (subs.length > 1 && st !== subs[subs.length - 1]) { sub.style.left = (x0 + el.offsetWidth - 6) + 'px' }
+      right = Math.max(right, x0 + el.offsetWidth - 6 + sub.offsetWidth)
+    }
+    nextX = right + 24
+  }
+  const notes = {
+    1: [[980, 560, '<b>Every line can be pressed.</b> A key at its right is the key that does the same in the room. Bare-letter keys (B, X, O…) are shown here but stay the page’s: typing in a box never sets them off.']],
+    2: [[1160, 600, '<b>Lines that are on or off</b> carry a tick (the tool in use, the grid, cycle, click, the panels that are open).']],
+    3: [[1180, 640, '<b>Tools</b> is new: the tool, the edit mode, the grid, the nudge value and the quantize value — what the control bar sets, now also from the bar at the top.']],
+    4: [[1080, 520, '<b>Help’s search</b> is the Mac’s own: it looks through every line of every menu. Typed “fade”, it finds the region’s fades; the arrow it puts on the screen opens the menu and points at the line.']],
+  }[sheet] || []
+  for (const [x, y, h] of notes) { const n = document.createElement('div'); n.className = 'note'; n.style.left = x + 'px'; n.style.top = y + 'px'; n.innerHTML = h; stage.appendChild(n) }
+  setTimeout(() => { document.title = 'ready ' + S.h }, 300)
+})
+</script>
+</body>
+</html>

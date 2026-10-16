@@ -100,7 +100,7 @@ endif()
 
 # Each product's own version: hosts cache a plugin's buses and names by version, so every release counts its own up.
 set(ORB_VERSION_CHAT   1.0.4)    # Slur
-set(ORB_VERSION_SOUNDS 1.0.32)   # Patch on Slur
+set(ORB_VERSION_SOUNDS 1.0.33)   # Patch on Slur
 set(ORB_VERSION_GAMES  1.0.28)   # Slur Games
 
 target_sources(OrbPlugin PRIVATE

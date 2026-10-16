@@ -36,7 +36,7 @@ export default () => chapter('recording', t('recording', '녹음'),
       [['stop and keep', '멈추고 보관'], ['[[space]], [[R]] again, stop, or the red dot', '[[space]], 다시 [[R]], 정지, 또는 빨간 점']],
       [['stop and throw away', '멈추고 버리기'], ['[[⌘.]]: the files are deleted', '[[⌘.]]: 파일이 지워집니다']]) +
     h('when it stops', '멈추면') +
-    p('Each take becomes a region on its track, already moved back by how late the device runs, and chosen. What lay under it gives way. The file is a 24-bit WAV at the device’s rate, in the project’s audio folder, named after the track.', '테이크는 각 트랙의 리전이 됩니다. 장치의 지연만큼 이미 당겨져 있고, 선택된 상태입니다. 밑에 있던 것은 자리를 내줍니다. 파일은 장치 레이트의 24비트 WAV로, 프로젝트의 audio 폴더에 트랙 이름으로 저장됩니다.') +
+    p('Each take becomes a region on its track, already moved back by how late the device runs, and chosen. What lay under it gives way. The file is a 24-bit WAV at the device’s rate, in the project’s Audio Files, named after the track.', '테이크는 각 트랙의 리전이 됩니다. 장치의 지연만큼 이미 당겨져 있고, 선택된 상태입니다. 밑에 있던 것은 자리를 내줍니다. 파일은 장치 레이트의 24비트 WAV로, 프로젝트의 audio 폴더에 트랙 이름으로 저장됩니다.') +
     h('what ends a take by itself', '테이크가 저절로 끝나는 경우') +
     list(
       ['The device moves to another sample rate, or stops giving sound for half a second (unplugged, the Mac slept). The take is kept as far as it got.', '장치의 샘플 레이트가 바뀌거나 0.5초 이상 소리를 주지 않을 때(뽑힘, Mac 잠자기). 테이크는 거기까지 보관됩니다.'],

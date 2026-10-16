@@ -18,6 +18,7 @@ cmake --build $B -j "${SLUR_JOBS:-10}"
 APP="$B/SlurDaw_artefacts/Release/Slur Studio.app"
 # the page travels inside the app, so the app reads nothing outside itself
 mkdir -p "$APP/Contents/Resources" && rsync -a --delete ui/ "$APP/Contents/Resources/ui/"
+cp Resources/project-folder.png "$APP/Contents/Resources/project-folder.png"      # (the icon a project's own folder wears in the Finder: design/project folder icon draft 4)
 # and the user guide, for Help > Slur Studio Help (guide/build.mjs makes the PDFs; a tree without them builds an app without them)
 rm -rf "$APP/Contents/Resources/Guide"; if ls guide/pdf/*.pdf > /dev/null 2>&1; then mkdir -p "$APP/Contents/Resources/Guide" && cp guide/pdf/*.pdf "$APP/Contents/Resources/Guide/"; fi
 # and so does the program an mp3 is made with (vendor/lame: LAME, as it is, with its licence — ./lame.sh makes it), so that

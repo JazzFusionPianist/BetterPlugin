@@ -113,7 +113,7 @@ if (NAT) {
     const pl = hoPlan(), f = hoFmt()
     if (!pl.mix && !pl.list.length) { ho.note = pl.cands.length ? 'no stem is chosen' : 'nothing sounds in this range'; uiDirty('hand'); return }
     ho.asking = true
-    const at = await NAT.call('bouncePick', Object.assign({ name: `${PROJ.name} ${pl.name} ${pl.mix ? 'mix' : 'stems'}`, panel: ho.panel ? 1 : 0 }, pl.mix ? { ext: f.fmt } : null))      // (the mix is one file: the panel asks for that file, of the kind picked; stems go into a folder)
+    const at = await NAT.call('bouncePick', Object.assign({ name: `${PROJ.name} ${pl.name} ${pl.mix ? 'mix' : 'stems'}`, panel: ho.panel ? 1 : 0, project: projKey() }, pl.mix ? { ext: f.fmt } : null))      // (the mix is one file: the panel asks for that file, of the kind picked; stems go into a folder)
     ho.asking = false
     if (!at || !at.ok) { ho.note = at && at.why === 'file' ? 'a file of that name is there' : ''; uiDirty('hand'); return }
     if (S.playing) { halt(false); uiDirty('top') }

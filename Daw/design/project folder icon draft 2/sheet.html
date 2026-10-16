@@ -1,0 +1,71 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>project folder icon, draft 2</title>
+<!-- a DRAFT, from his pick of draft 1 (b: the black folder) — drawn again to look made by hand:
+     b1 lacquer      black with a sheen across its top, the staff engraved (a dark cut and its light edge), the note lit
+     b2 room         matte black, only the note, large and low at the right, run off the front's edge; the staff stops short of it
+     b3 two layers   a blue sheet stands inside, showing over the black front's edge; the staff and the note on the black
+     b4 the note     the blue whole note is the folder's tab; the staff runs across the front
+   Each large, then at the Finder's sizes on a light and a dark Finder. Every one has a hairline of light round its edge,
+   so the black is a folder on a dark Finder too. -->
+<style>
+  body { margin: 0; background: #1B1B1A; color: #ECEAE4; font: 400 15px 'Instrument Sans', -apple-system, sans-serif; }
+  .sheet { padding: 40px 48px 48px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; width: 1800px; box-sizing: border-box; }
+  h1 { grid-column: 1 / -1; margin: 0 0 4px; font-weight: 500; font-size: 20px; letter-spacing: -.01em; }
+  .way { background: #151514; border: 1px solid rgba(236,234,228,.12); border-radius: 6px; padding: 20px 18px 16px; }
+  .way b { font-weight: 500; font-size: 16px; } .way span { opacity: .5; margin-left: 8px; }
+  .big { display: block; margin: 16px auto 8px; width: 300px; height: 300px; }
+  .row { display: flex; align-items: flex-end; gap: 18px; padding: 14px 14px 10px; border-radius: 4px; margin-top: 10px; }
+  .row.light { background: #F4F4F2; color: #222; } .row.dark { background: #1E1E1E; color: #ddd; }
+  .row figure { margin: 0; text-align: center; font-size: 11px; }
+  .row figcaption { margin-top: 5px; }
+</style>
+<div class="sheet" id="sheet"><h1>project folder icon, draft 2</h1></div>
+<script>
+const NOTE = 'M553 417 C630 417 683 456 683 517 C683 600 572 683 467 683 C390 683 341 643 341 582 C341 499 452 417 553 417 Z M527 465 C484 465 432 524 432 570 C432 609 456 635 494 635 C537 635 593 576 593 529 C593 491 566 465 527 465 Z'
+const note = (cx, cy, k, attrs) => `<g transform="translate(${cx} ${cy}) scale(${k}) translate(-512 -550)"><path fill-rule="evenodd" d="${NOTE}" ${attrs}/></g>`
+const BACK = 'M92 252 Q92 196 148 196 H392 Q424 196 446 220 L472 248 Q486 262 510 262 H876 Q932 262 932 318 V820 Q932 880 872 880 H152 Q92 880 92 820 Z'
+/* the parts every way shares: its shadow, its back, its front with a sheen and a hairline of light */
+function base (id, o) {
+  const { back = ['#2B2B29', '#1A1A19'], front = ['#232322', '#0D0D0C'], fy = 300, sheen = .1, rim = .22, extra = '', inside = '' } = o
+  return `<defs>
+    <linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${back[0]}"/><stop offset="1" stop-color="${back[1]}"/></linearGradient>
+    <linearGradient id="${id}f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${front[0]}"/><stop offset="1" stop-color="${front[1]}"/></linearGradient>
+    <linearGradient id="${id}h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="${sheen}"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="${id}r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="${rim}"/><stop offset="1" stop-color="#fff" stop-opacity="${rim * .25}"/></linearGradient>
+    <filter id="${id}s" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity=".32"/></filter>
+    <clipPath id="${id}c"><rect x="92" y="${fy}" width="840" height="${880 - fy}" rx="58"/></clipPath>
+    ${extra}
+  </defs>
+  <g filter="url(#${id}s)">
+    <path d="${BACK}" fill="url(#${id}b)"/><path d="${BACK}" fill="none" stroke="url(#${id}r)" stroke-width="2"/>
+    ${inside}
+    <rect x="92" y="${fy}" width="840" height="${880 - fy}" rx="58" fill="url(#${id}f)"/>
+    <g clip-path="url(#${id}c)">${o.front2 || ''}<rect x="92" y="${fy}" width="840" height="${880 - fy}" fill="url(#${id}h)"/></g>
+    <rect x="93" y="${fy + 1}" width="838" height="${878 - fy}" rx="57" fill="none" stroke="url(#${id}r)" stroke-width="2"/>
+  </g>`
+}
+/* a staff line cut into the black: the cut, and the light catching its lower edge */
+const engraved = (x0, x1, y) => `<rect x="${x0}" y="${y}" width="${x1 - x0}" height="5" fill="#000" fill-opacity=".75"/><rect x="${x0}" y="${y + 5}" width="${x1 - x0}" height="2" fill="#fff" fill-opacity=".1"/>`
+const BLUE = '#5B7FFF'
+const ways = [
+  ['b1', 'lacquer', id => base(id, { sheen: .16, extra: `<radialGradient id="${id}g" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="${BLUE}" stop-opacity=".45"/><stop offset="1" stop-color="${BLUE}" stop-opacity="0"/></radialGradient>
+      <linearGradient id="${id}n" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8AA4FF"/><stop offset=".55" stop-color="${BLUE}"/><stop offset="1" stop-color="#3E5FE6"/></linearGradient>`,
+    front2: [440, 500, 560, 620, 680].map(y => engraved(92, 932, y)).join('') + `<ellipse cx="512" cy="566" rx="240" ry="190" fill="url(#${id}g)"/>` + note(512, 566, .9, `fill="url(#${id}n)"`) }) ],
+  ['b2', 'room', id => base(id, { sheen: .07, front: ['#1C1C1B', '#0B0B0B'],
+    front2: [470, 520, 570, 620, 670].map((y, i) => `<rect x="160" y="${y}" width="${300 + i * 12}" height="5" fill="#ECEAE4" fill-opacity=".16"/>`).join('') + note(760, 700, 1.25, `fill="${BLUE}"`) }) ],
+  ['b3', 'two layers', id => base(id, { fy: 340, inside: `<rect x="176" y="236" width="672" height="260" rx="22" fill="${BLUE}"/><rect x="176" y="236" width="672" height="40" rx="22" fill="#fff" fill-opacity=".14"/>`,
+    front2: [470, 520, 570, 620, 670].map(y => engraved(92, 932, y)).join('') + note(512, 586, .78, `fill="${BLUE}"`) }) ],
+  ['b4', 'the note is the tab', id => base(id, { sheen: .1, extra: '',
+    front2: [470, 530, 590, 650, 710].map(y => engraved(92, 932, y)).join('') }).replace(`<path d="${BACK}" fill="url(#${id}b)"/>`, `<path d="M92 300 Q92 262 140 262 H876 Q932 262 932 318 V820 Q932 880 872 880 H152 Q92 880 92 820 Z" fill="url(#${id}b)"/>`) + note(300, 238, .62, `fill="${BLUE}"`) ],
+]
+const sheet = document.getElementById('sheet')
+for (const [k, words, draw] of ways) {
+  const el = document.createElement('div'); el.className = 'way'
+  const icon = s => `<svg viewBox="0 0 1024 1024" width="${s}" height="${s}">${draw(k + s)}</svg>`
+  const sizes = [128, 64, 32, 16].map(s => `<figure>${icon(s)}<figcaption>${s === 128 ? 'night bus ep' : s}</figcaption></figure>`).join('')
+  el.innerHTML = `<b>${k}</b><span>${words}</span><div class="big">${icon(300)}</div><div class="row light">${sizes}</div><div class="row dark">${sizes}</div>`
+  sheet.appendChild(el)
+}
+document.documentElement.dataset.ready = '1'
+</script>

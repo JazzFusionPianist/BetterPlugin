@@ -22,6 +22,7 @@ std::string slurWindowReport (void* nsView, const char* pngPath);
 std::string slurMenuTitles();
 std::string slurPanelUp (bool cancel);
 void slurStyleWindow (void* nsView);
+void slurProjectIcon (const char* folder);
 bool slurKeysToPage (void* nsView);
 std::string slurCommandKey (void* nsView, const char* letter, unsigned short keyCode);
 std::string slurCommandKeyOn();
@@ -71,23 +72,67 @@ juce::String selfTestMode()
     return word.isEmpty() ? juce::String ("all") : word;
 }
 
-/*  Where things are kept. A project is <name>.sls (a folder the Finder shows as one file: project.json + audio/). A new
-    one is made in Music/Slur Studio/Projects, which macOS lets an app use without asking; Save As puts one wherever the
-    Mac's own panel is pointed. The page knows a project by its bare name while it lies in that first place, and by its
-    whole path anywhere else. Settings are in Application Support. A project from before the name was settled
-    (<name>.slur) is read and written where it is. (daw::musicRoot, in Engine.h.) */
+/*  Where things are kept. A project made since 2026-10-16 lies in a folder of its own, as Logic's do (his ask: "새 프로젝트를
+    만들때 프로젝트 파일이 폴더로… 그 폴더 안에는 .sls 파일, audio files 폴더, bounce 폴더"):
+        <name>/<name>.sls      the project itself (a folder the Finder shows as one file: project.json + backups/)
+        <name>/Audio Files     every sound the project uses: brought in, recorded, joined, bounced in place
+        <name>/Bounces         where its hand-offs go unless another place is picked
+    A project from before is <name>.sls alone, its sounds inside it (audio/): it is read and written as it is, and stays
+    so (nothing of his is moved by itself). A new one is made in Music/Slur Studio/Projects, which macOS lets an app use
+    without asking; Save As puts one wherever the Mac's own panel is pointed. The page knows a project by its bare name
+    while it (or its folder) lies in that first place, and by its whole path anywhere else. Settings are in Application
+    Support. A project from before the name was settled (<name>.slur) is read and written where it is. (daw::musicRoot,
+    in Engine.h.) */
 juce::File projectsRoot() { return daw::musicRoot().getChildFile ("Projects"); }
 bool isProjectKind (const juce::File& f) { const auto ext = f.getFileExtension().toLowerCase(); return ext == ".sls" || ext == ".slur"; }
+const char* const AUDIO_FILES = "Audio Files";
+const char* const BOUNCES = "Bounces";
+/** The folder a project lies in when it has one of its own (<name>/<name>.sls beside Audio Files); none for one from before. */
+juce::File projectHome (const juce::File& dir)
+{
+    const auto p = dir.getParentDirectory();
+    if (p.getFileName() != dir.getFileNameWithoutExtension() || p == projectsRoot()) return {};
+    return p.getChildFile (AUDIO_FILES).isDirectory() || ! dir.exists() ? p : juce::File();      // (one not made yet, in a folder of its own: that folder is its home — a sound brought in before it is first saved goes to its Audio Files)
+}
+/** The project a folder of a project's own holds, or none: the folder is then a plain one (a person's, among the projects). */
+juce::File projectIn (const juce::File& home)
+{
+    if (! home.isDirectory() || isProjectKind (home) || ! home.getChildFile (AUDIO_FILES).isDirectory()) return {};
+    for (auto* ext : { ".sls", ".slur" }) { const auto f = home.getChildFile (home.getFileName() + ext); if (f.getChildFile ("project.json").existsAsFile()) return f; }
+    return {};
+}
+bool isProjectHome (const juce::File& d) { return projectIn (d) != juce::File(); }
+/** Where a project's sounds are, and where its bounces go by themselves (none for one from before: as it always was). */
+juce::File audioDirOf (const juce::File& dir) { const auto h = projectHome (dir); return h != juce::File() ? h.getChildFile (AUDIO_FILES) : dir.getChildFile ("audio"); }
+juce::File bouncesDirOf (const juce::File& dir) { const auto h = projectHome (dir); return h != juce::File() ? h.getChildFile (BOUNCES) : juce::File(); }
+/** A project about to be written for the first time in a folder of its own: the folder, Audio Files and Bounces are made first */
+void makeHome (const juce::File& dir)
+{
+    const auto p = projectHome (dir);
+    if (dir.exists() || p == juce::File()) return;
+    p.getChildFile (AUDIO_FILES).createDirectory(); p.getChildFile (BOUNCES).createDirectory();
+    slurProjectIcon (p.getFullPathName().toRawUTF8());      // (its own icon in the Finder: Mac.mm)
+}
 juce::File projectDir (const juce::String& key)
 {
     const auto k = key.trim();
-    if (juce::File::isAbsolutePath (k)) { const juce::File f (k); return isProjectKind (f) ? f : juce::File (f.getFullPathName() + ".sls"); }
+    if (juce::File::isAbsolutePath (k)) { const juce::File f (k); if (isProjectHome (f)) return projectIn (f); return isProjectKind (f) ? f : juce::File (f.getFullPathName() + ".sls"); }
     const auto n = juce::File::createLegalFileName (k.isEmpty() ? juce::String ("untitled") : k);
+    const auto home = projectsRoot().getChildFile (n), inHome = projectIn (home);
+    if (inHome != juce::File()) return inHome;
     const auto now = projectsRoot().getChildFile (n + ".sls"), old = projectsRoot().getChildFile (n + ".slur");
-    return ! now.exists() && old.isDirectory() ? old : now;
+    if (now.exists()) return now;
+    if (old.isDirectory()) return old;
+    return home.exists() && ! home.getChildFile (AUDIO_FILES).isDirectory() ? now : home.getChildFile (n + ".sls");      // a new one: in a folder of its own (unless a person's folder of that name is there already)
 }
 /** What the page calls the project that lies here. */
-juce::String projectKey (const juce::File& dir) { return dir.getParentDirectory() == projectsRoot() ? dir.getFileNameWithoutExtension() : dir.getFullPathName(); }
+juce::String projectKey (const juce::File& dir)
+{
+    const auto h = projectHome (dir), at = h != juce::File() ? h : dir;
+    return at.getParentDirectory() == projectsRoot() ? dir.getFileNameWithoutExtension() : dir.getFullPathName();
+}
+/** What is the project's to move, copy, rename or put away: its folder when it has one, else the project itself */
+juce::File projectWhole (const juce::File& dir) { const auto h = projectHome (dir); return h != juce::File() ? h : dir; }
 /** The project a file handed to the app stands for, when it is one of ours — wherever on the disk it lies. */
 juce::String projectNamed (const juce::String& path)
 {
@@ -98,7 +143,7 @@ juce::String projectNamed (const juce::String& path)
 /** A place inside a project is no place for another one. */
 bool insideAProject (const juce::File& f)
 {
-    for (auto p = f.getParentDirectory(); ! p.isRoot(); p = p.getParentDirectory()) if (isProjectKind (p)) return true;
+    for (auto p = f.getParentDirectory(); ! p.isRoot(); p = p.getParentDirectory()) if (isProjectKind (p) || isProjectHome (p)) return true;
     return false;
 }
 juce::int64 bytesIn (const juce::File& dir)
@@ -431,7 +476,7 @@ private:
         {
             auto* o = new juce::DynamicObject();
             o->setProperty ("bar", d["bar"]); o->setProperty ("countIn", d["countIn"]); o->setProperty ("tracks", d["tracks"]);
-            o->setProperty ("dir", projectDir (d["project"].toString()).getChildFile ("audio").getFullPathName());
+            o->setProperty ("dir", audioDirOf (projectDir (d["project"].toString())).getFullPathName());
             done (engine.recStart (juce::var (o))); return;
         }
         if (op == "recStop") { done (engine.recStop (! d.hasProperty ("keep") || (int) d["keep"] != 0)); return; }
@@ -472,8 +517,10 @@ private:
         {
             juce::Array<juce::var> out;
             juce::StringArray seen;
-            for (auto* pattern : { "*.sls", "*.slur" })
-                for (auto& f : projectsRoot().findChildFiles (juce::File::findDirectories, false, pattern))
+            juce::Array<juce::File> top;
+            for (auto* pattern : { "*.sls", "*.slur" }) top.addArray (projectsRoot().findChildFiles (juce::File::findDirectories, false, pattern));
+            for (auto& h : projectsRoot().findChildFiles (juce::File::findDirectories, false, "*")) if (isProjectHome (h)) top.add (projectIn (h));      // (one in a folder of its own)
+            for (auto& f : top)
                     if (f.getChildFile ("project.json").existsAsFile() && ! seen.contains (f.getFileNameWithoutExtension()))
                     {
                         seen.add (f.getFileNameWithoutExtension());
@@ -484,9 +531,12 @@ private:
                     }
             juce::StringArray inFolders;                                       // the ones in a folder a person made among the projects (one level deep): by their whole path, with the folder's name
             for (auto& folder : projectsRoot().findChildFiles (juce::File::findDirectories, false, "*"))
-                if (! isProjectKind (folder) && ! folder.getFileName().startsWithChar ('.'))
-                    for (auto* pattern : { "*.sls", "*.slur" })
-                        for (auto& f : folder.findChildFiles (juce::File::findDirectories, false, pattern))
+                if (! isProjectKind (folder) && ! isProjectHome (folder) && ! folder.getFileName().startsWithChar ('.'))
+                {
+                    juce::Array<juce::File> in;
+                    for (auto* pattern : { "*.sls", "*.slur" }) in.addArray (folder.findChildFiles (juce::File::findDirectories, false, pattern));
+                    for (auto& h : folder.findChildFiles (juce::File::findDirectories, false, "*")) if (isProjectHome (h)) in.add (projectIn (h));
+                    for (auto& f : in)
                             if (f.getChildFile ("project.json").existsAsFile())
                             {
                                 auto* o = new juce::DynamicObject();
@@ -495,6 +545,7 @@ private:
                                 o->setProperty ("modified", f.getChildFile ("project.json").getLastModificationTime().toMilliseconds());
                                 out.add (juce::var (o)); inFolders.add (f.getFullPathName());
                             }
+                }
             if (auto* also = d["also"].getArray())                             // the ones kept somewhere else that the page remembers, while they are still there
                 for (auto& k : *also)
                 {
@@ -502,7 +553,7 @@ private:
                     if (! juce::File::isAbsolutePath (k.toString()) || projectKey (f) != k.toString() || ! f.getChildFile ("project.json").existsAsFile() || inFolders.contains (f.getFullPathName())) continue;
                     auto* o = new juce::DynamicObject();
                     o->setProperty ("name", f.getFileNameWithoutExtension()); o->setProperty ("key", k.toString());
-                    o->setProperty ("in", f.getParentDirectory().getFileName());
+                    o->setProperty ("in", projectWhole (f).getParentDirectory().getFileName());
                     o->setProperty ("modified", f.getChildFile ("project.json").getLastModificationTime().toMilliseconds());
                     out.add (juce::var (o));
                 }
@@ -513,7 +564,7 @@ private:
         {
             juce::Array<juce::var> out;
             for (auto& f : projectsRoot().findChildFiles (juce::File::findDirectories, false, "*"))
-                if (! isProjectKind (f) && ! f.getFileName().startsWithChar ('.'))
+                if (! isProjectKind (f) && ! isProjectHome (f) && ! f.getFileName().startsWithChar ('.'))
                 { auto* o = new juce::DynamicObject(); o->setProperty ("name", f.getFileName()); out.add (juce::var (o)); }
             done (out); return;
         }
@@ -529,7 +580,7 @@ private:
         if (op == "folderDrop")                                                // an empty folder is taken away; one that holds anything is left as it is
         {
             const auto f = projectsRoot().getChildFile (juce::File::createLegalFileName (d["name"].toString().trim()));
-            if (! f.isDirectory() || isProjectKind (f) || f.getParentDirectory() != projectsRoot()) { done (whyNot ("no such folder")); return; }
+            if (! f.isDirectory() || isProjectKind (f) || isProjectHome (f) || f.getParentDirectory() != projectsRoot()) { done (whyNot ("no such folder")); return; }
             for (auto& c : f.findChildFiles (juce::File::findFilesAndDirectories, false, "*")) if (c.getFileName() != ".DS_Store") { done (whyNot ("the folder is not empty")); return; }
             done (okVar (f.deleteRecursively())); return;
         }
@@ -539,18 +590,21 @@ private:
             const auto toName = d["to"].toString().trim();
             const auto dest = toName.isEmpty() ? projectsRoot() : projectsRoot().getChildFile (juce::File::createLegalFileName (toName));
             if (! from.isDirectory() || ! isProjectKind (from) || ! from.getChildFile ("project.json").existsAsFile()) { done (whyNot ("no such project")); return; }
-            if (! dest.isDirectory() || isProjectKind (dest)) { done (whyNot ("no such folder")); return; }
-            if (! (from.getParentDirectory() == projectsRoot() || from.getParentDirectory().getParentDirectory() == projectsRoot())) { done (whyNot ("it is kept somewhere else")); return; }      // (one a person keeps in a place of their own stays there)
-            const auto to = dest.getChildFile (from.getFileName());
-            if (to != from && to.exists()) { done (whyNot ("there is one of that name there")); return; }
-            const bool ok = to == from || from.moveFileTo (to);
-            auto* o = new juce::DynamicObject(); o->setProperty ("ok", ok); o->setProperty ("key", projectKey (ok ? to : from));
+            if (! dest.isDirectory() || isProjectKind (dest) || isProjectHome (dest)) { done (whyNot ("no such folder")); return; }
+            const auto whole = projectWhole (from);                            // (one in a folder of its own goes with its folder: its sounds and bounces)
+            if (! (whole.getParentDirectory() == projectsRoot() || whole.getParentDirectory().getParentDirectory() == projectsRoot())) { done (whyNot ("it is kept somewhere else")); return; }      // (one a person keeps in a place of their own stays there)
+            const auto to = dest.getChildFile (whole.getFileName());
+            if (to != whole && to.exists()) { done (whyNot ("there is one of that name there")); return; }
+            const bool ok = to == whole || whole.moveFileTo (to);
+            const auto now = whole == from ? to : to.getChildFile (from.getFileName());
+            auto* o = new juce::DynamicObject(); o->setProperty ("ok", ok); o->setProperty ("key", projectKey (ok ? now : from));
             done (juce::var (o)); return;
         }
         if (op == "projSave")
         {
             auto dir = projectDir (d["name"].toString());
-            dir.getChildFile ("audio").createDirectory();
+            makeHome (dir);
+            dir.createDirectory(); audioDirOf (dir).createDirectory();
             keepBackup (dir, dir.getChildFile ("project.json"), (int) d["backup"] != 0);
             daw::Marker::set ("project", d["name"].toString());
             done (okVar (dir.getChildFile ("project.json").replaceWithText (d["json"].toString()))); return;
@@ -578,7 +632,7 @@ private:
             }
             const auto v = juce::JSON::parse (f);
             juce::int64 bytes = 0;
-            for (const auto& e : juce::RangedDirectoryIterator (dir, true, "*", juce::File::findFiles)) bytes += e.getFileSize();
+            for (const auto& e : juce::RangedDirectoryIterator (projectWhole (dir), true, "*", juce::File::findFiles)) bytes += e.getFileSize();
             o->setProperty ("bytes", (double) bytes);
             for (auto* k : { "tempo", "meter", "key" }) o->setProperty (k, v[k]);
             juce::Array<juce::var> tracks;
@@ -612,7 +666,7 @@ private:
             if (f.existsAsFile()) o->setProperty ("json", f.loadFileAsString());
             done (juce::var (o)); return;
         }
-        if (op == "takesLeft") { done (engine.takesLeft (projectDir (d["project"].toString()).getChildFile ("audio"))); return; }
+        if (op == "takesLeft") { done (engine.takesLeft (audioDirOf (projectDir (d["project"].toString())))); return; }
         if (op == "distrust")                                                  // the plug-ins the app has learnt not to open by itself: read, or written
         {
             const auto file = stateDir().getChildFile ("distrust.json");
@@ -631,8 +685,19 @@ private:
         if (op == "testHang")  { if (selfTestMode().isNotEmpty()) { daw::hangLive.store ((int) d["live"] != 0); daw::hangOnUid.store ((int) d["uid"]); } done (okVar()); return; }      // the check: a print (live: the device) never comes back from this plug-in       // the check: this plug-in brings the app down the next time it plays
         if (op == "projRename")                                                // a new name where the project lies; always a .sls (projectDir gives the old kind only for a folder that is there)
         {
-            const auto from = projectDir (d["from"].toString());
-            const auto to = juce::File::isAbsolutePath (d["from"].toString().trim()) ? from.getSiblingFile (juce::File::createLegalFileName (d["to"].toString().trim()) + ".sls") : projectDir (d["to"].toString());
+            const auto from = projectDir (d["from"].toString()), home = projectHome (from);
+            const auto name = juce::File::createLegalFileName (d["to"].toString().trim());
+            if (home != juce::File())                                          // in a folder of its own: the folder takes the name, and the project in it
+            {
+                const auto newHome = home.getSiblingFile (name), newDir = newHome.getChildFile (name + ".sls");
+                const bool caps = newHome.getFullPathName() != home.getFullPathName() && newHome.getFullPathName().equalsIgnoreCase (home.getFullPathName());
+                bool ok = name.isNotEmpty() && (caps || ! newHome.exists());
+                if (ok) ok = caps ? std::rename (home.getFullPathName().toRawUTF8(), newHome.getFullPathName().toRawUTF8()) == 0 : home.moveFileTo (newHome);
+                if (ok && newHome.getChildFile (from.getFileName()).getFullPathName() != newDir.getFullPathName()) ok = std::rename (newHome.getChildFile (from.getFileName()).getFullPathName().toRawUTF8(), newDir.getFullPathName().toRawUTF8()) == 0;
+                auto* o = new juce::DynamicObject(); o->setProperty ("ok", ok); o->setProperty ("key", projectKey (ok ? newDir : from));
+                done (juce::var (o)); return;
+            }
+            const auto to = juce::File::isAbsolutePath (d["from"].toString().trim()) ? from.getSiblingFile (name + ".sls") : projectsRoot().getChildFile (name + ".sls");      // (one from before stays as it is: one file, renamed)
             auto* o = new juce::DynamicObject();
             const bool capsOnly = to.getFullPathName() != from.getFullPathName() && to.getFullPathName().equalsIgnoreCase (from.getFullPathName());      // ("song" to "Song": the disk takes them for one name)
             o->setProperty ("ok", from.isDirectory() ? (capsOnly ? std::rename (from.getFullPathName().toRawUTF8(), to.getFullPathName().toRawUTF8()) == 0 : (! to.exists() && from.moveFileTo (to))) : capsOnly || ! to.exists());
@@ -647,14 +712,16 @@ private:
             {
                 if (to == juce::File()) { done (okVar (false)); return; }
                 if (! isProjectKind (to)) to = juce::File (to.getFullPathName() + ".sls");
+                const auto home = to.getParentDirectory().getChildFile (to.getFileNameWithoutExtension());      // (it goes into a folder of its own of that name: the name.sls, Audio Files, Bounces)
+                to = home.getChildFile (to.getFileName());
                 if (to == from) { done (whyNot ("same")); return; }
-                if (insideAProject (to)) { done (whyNot ("inside")); return; }
+                if (insideAProject (home)) { done (whyNot ("inside")); return; }
                 auto* o = new juce::DynamicObject();
-                o->setProperty ("ok", true); o->setProperty ("key", projectKey (to)); o->setProperty ("there", to.exists());
+                o->setProperty ("ok", true); o->setProperty ("key", projectKey (to)); o->setProperty ("there", home.exists());
                 done (juce::var (o));
             };
             if (selfTestMode().isNotEmpty() && (int) d["panel"] == 0) { answer (daw::musicRoot().getChildFile ("Elsewhere").getNonexistentChildFile (name.upToLastOccurrenceOf (".", false, false), ".sls", false)); return; }      // the check has no hands for a panel: a place of its own, outside where projects are kept
-            const auto in = from.getParentDirectory().isDirectory() ? from.getParentDirectory() : projectsRoot();
+            const auto in = projectWhole (from).getParentDirectory().isDirectory() ? projectWhole (from).getParentDirectory() : projectsRoot();
             if (in == projectsRoot()) in.createDirectory();
             chooser = std::make_unique<juce::FileChooser> ("Save As", in.getChildFile (name), "*.sls");
             chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles, [answer] (const juce::FileChooser& fc) { answer (fc.getResult()); });
@@ -664,11 +731,12 @@ private:
         {
             if (selfTestMode().isNotEmpty() && (int) d["panel"] == 0) { done (okVar (false)); return; }
             const auto from = projectDir (d["from"].toString());
-            chooser = std::make_unique<juce::FileChooser> ("Open", from.getParentDirectory().isDirectory() ? from.getParentDirectory() : projectsRoot(), "*.sls;*.slur");
+            chooser = std::make_unique<juce::FileChooser> ("Open", projectWhole (from).getParentDirectory().isDirectory() ? projectWhole (from).getParentDirectory() : projectsRoot(), "*.sls;*.slur");
             chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::canSelectDirectories, [done] (const juce::FileChooser& fc)      // (a .slur from before is a plain folder to the Finder)
             {
-                const auto f = fc.getResult();
+                auto f = fc.getResult();
                 if (f == juce::File()) { done (okVar (false)); return; }
+                if (isProjectHome (f)) f = projectIn (f);                              // (its folder picked: the project in it)
                 if (! isProjectKind (f) || ! f.getChildFile ("project.json").existsAsFile()) { done (whyNot ("not")); return; }
                 auto* o = new juce::DynamicObject();
                 o->setProperty ("ok", true); o->setProperty ("key", projectKey (f));
@@ -678,19 +746,33 @@ private:
         }
         if (op == "projCopy")                                                  // the project as it lies on the disk, once more in another place; `replace`: what is there goes to the Trash first
         {
-            const auto from = projectDir (d["from"].toString()), to = projectDir (d["to"].toString());
-            if (to == from || to.isAChildOf (from)) { done (whyNot ("same")); return; }
-            if (insideAProject (to)) { done (whyNot ("inside")); return; }
-            if (to.exists() && (int) d["replace"] == 0) { done (whyNot ("taken")); return; }
-            const auto in = to.getParentDirectory();
+            const auto from = projectDir (d["from"].toString());
+            auto to = projectDir (d["to"].toString());
+            const bool own = to.getParentDirectory().getFileName() == to.getFileNameWithoutExtension() && to.getParentDirectory() != projectsRoot();      // (it goes into a folder of its own)
+            const auto whole = own ? to.getParentDirectory() : to, was = projectWhole (from), fromSounds = audioDirOf (from);
+            if (to == from || whole == was || whole.isAChildOf (was)) { done (whyNot ("same")); return; }
+            if (insideAProject (whole)) { done (whyNot ("inside")); return; }
+            if (whole.exists() && (int) d["replace"] == 0) { done (whyNot ("taken")); return; }
+            const auto in = whole.getParentDirectory();
             if (! in.createDirectory().wasOk()) { done (whyNot ("write")); return; }
-            if (from.isDirectory() && bytesIn (from) + 64 * 1048576 > in.getBytesFreeOnVolume()) { done (whyNot ("room")); return; }
-            if (to.exists() && ! to.moveToTrash()) { done (whyNot ("write")); return; }
-            const bool ok = from.isDirectory() ? from.copyDirectoryTo (to) : to.getChildFile ("audio").createDirectory().wasOk();
-            if (! ok) { to.deleteRecursively(); done (whyNot ("write")); return; }     // half a copy is no project: only what was just laid there is taken away
+            if (from.isDirectory() && bytesIn (was) + 64 * 1048576 > in.getBytesFreeOnVolume()) { done (whyNot ("room")); return; }
+            if (whole.exists() && ! whole.moveToTrash()) { done (whyNot ("write")); return; }
+            bool ok = true;
+            if (own)
+            {
+                ok = whole.getChildFile (AUDIO_FILES).createDirectory().wasOk() && whole.getChildFile (BOUNCES).createDirectory().wasOk() && to.createDirectory().wasOk();
+                if (ok && from.isDirectory())                                  // the project (its file and backups), and its sounds into Audio Files
+                    for (auto& c : from.findChildFiles (juce::File::findFilesAndDirectories, false, "*"))
+                        if (c.getFileName() != "audio" && ok) ok = c.isDirectory() ? c.copyDirectoryTo (to.getChildFile (c.getFileName())) : c.copyFileTo (to.getChildFile (c.getFileName()));
+                if (ok && fromSounds.isDirectory()) ok = fromSounds.copyDirectoryTo (whole.getChildFile (AUDIO_FILES));
+                if (ok && (int) d["move"] != 0 && bouncesDirOf (from).isDirectory()) ok = bouncesDirOf (from).copyDirectoryTo (whole.getChildFile (BOUNCES));      // (moved: what it had printed goes along)
+                if (ok) slurProjectIcon (whole.getFullPathName().toRawUTF8());
+            }
+            else ok = from.isDirectory() ? from.copyDirectoryTo (to) : to.getChildFile ("audio").createDirectory().wasOk();
+            if (! ok) { whole.deleteRecursively(); done (whyNot ("write")); return; }     // half a copy is no project: only what was just laid there is taken away
             /* `move`: the project is from now on the one just laid there, and what it was kept as goes (a song that was never
                given a name, saved for the first time: "untitled" does not stay behind beside it). To the Trash, not away. */
-            if ((int) d["move"] != 0 && from.isDirectory()) { if (selfTestMode().isNotEmpty()) from.deleteRecursively(); else from.moveToTrash(); }
+            if ((int) d["move"] != 0 && from.isDirectory()) { if (selfTestMode().isNotEmpty()) was.deleteRecursively(); else was.moveToTrash(); }
             auto* o = new juce::DynamicObject();
             o->setProperty ("ok", true); o->setProperty ("key", projectKey (to));
             done (juce::var (o)); return;
@@ -961,7 +1043,7 @@ private:
             juce::MemoryBlock mb;
             { juce::MemoryOutputStream os (mb, false); juce::Base64::convertFromBase64 (os, d["data"].toString()); }
             const juce::File given (juce::File::createLegalFileName (d["name"].toString()));
-            auto dir = projectDir (d["project"].toString()).getChildFile ("audio");
+            auto dir = audioDirOf (projectDir (d["project"].toString()));
             dir.createDirectory();
             auto file = dir.getNonexistentChildFile (given.getFileNameWithoutExtension(), given.getFileExtension(), false);
             file.replaceWithData (mb.getData(), mb.getSize());
@@ -975,7 +1057,7 @@ private:
             else
             {
                 const juce::File given (juce::File::createLegalFileName (d["name"].toString()));
-                auto dir = projectDir (d["project"].toString()).getChildFile ("audio");
+                auto dir = audioDirOf (projectDir (d["project"].toString()));
                 dir.createDirectory();
                 file = dir.getNonexistentChildFile (given.getFileNameWithoutExtension(), given.getFileExtension(), false);
                 uploads[id] = file;
@@ -990,7 +1072,7 @@ private:
         if (op == "audioList")
         {
             juce::Array<juce::var> out;
-            for (auto& f : projectDir (d["project"].toString()).getChildFile ("audio").findChildFiles (juce::File::findFiles, false))
+            for (auto& f : audioDirOf (projectDir (d["project"].toString())).findChildFiles (juce::File::findFiles, false))
             {
                 const double sec = engine.fileSeconds (f);
                 if (sec <= 0.0) continue;
@@ -1001,7 +1083,7 @@ private:
             }
             done (out); return;
         }
-        if (op == "audioLoad") { auto file = projectDir (d["project"].toString()).getChildFile ("audio").getChildFile (d["file"].toString()); done (withFile (engine.decodeFile (file), file.getFileName(), file.getFileNameWithoutExtension())); return; }
+        if (op == "audioLoad") { auto file = audioDirOf (projectDir (d["project"].toString())).getChildFile (d["file"].toString()); done (withFile (engine.decodeFile (file), file.getFileName(), file.getFileNameWithoutExtension())); return; }
         if (op == "patchPreset")                                               // a track's patch as a file Patch on Slur opens (for the hand-off folder)
         {
             auto* o = new juce::DynamicObject();
@@ -1024,7 +1106,7 @@ private:
             chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::canSelectMultipleItems, [this, done, project] (const juce::FileChooser& fc)
             {
                 juce::Array<juce::var> out;
-                auto dir = projectDir (project).getChildFile ("audio");
+                auto dir = audioDirOf (projectDir (project));
                 dir.createDirectory();
                 for (auto& src : fc.getResults())
                 {
@@ -1119,9 +1201,12 @@ private:
                 o->setProperty ("ok", true); o->setProperty ("dir", f.getFullPathName()); o->setProperty ("name", f.getFileName());
                 done (juce::var (o));
             };
-            if (test && (int) d["panel"] == 0) { answer (daw::musicRoot().getNonexistentChildFile (name, ext.isNotEmpty() ? "." + ext : juce::String(), false)); return; }      // the check has no hands for a panel
+            const auto own = d["project"].isString() ? bouncesDirOf (projectDir (d["project"].toString())) : juce::File();      // (a project in a folder of its own: its Bounces, always)
+            if (own != juce::File()) own.createDirectory();
+            if (test && (int) d["panel"] == 0) { answer ((own != juce::File() ? own : daw::musicRoot()).getNonexistentChildFile (name, ext.isNotEmpty() ? "." + ext : juce::String(), false)); return; }      // the check has no hands for a panel
             auto in = daw::musicRoot();
-            if (! test)
+            if (own != juce::File()) in = own;
+            else if (! test)
             {
                 const auto last = juce::JSON::parse (prefsFile())["bounceDir"].toString();
                 if (last.isNotEmpty() && juce::File::isAbsolutePath (last) && juce::File (last).isDirectory()) in = juce::File (last);
@@ -1148,7 +1233,7 @@ private:
             juce::Component::SafePointer<MainComponent> self (this);
             juce::var opts = d;
             if (d["kind"].toString() == "place")                      // a bounce in place lands in the project's own folder
-                if (auto* o = d.getDynamicObject()) { auto c = o->clone(); c->setProperty ("dir", projectDir (d["project"].toString()).getChildFile ("audio").getFullPathName()); opts = juce::var (c.release()); }
+                if (auto* o = d.getDynamicObject()) { auto c = o->clone(); c->setProperty ("dir", audioDirOf (projectDir (d["project"].toString())).getFullPathName()); opts = juce::var (c.release()); }
             engine.exportAudio (opts, [self] (int n, int total)
             {
                 if (self == nullptr) return;
@@ -1159,11 +1244,12 @@ private:
             }, [done] (juce::var r) { done (r); });
             return;
         }
+        if (op == "listen") { engine.listen (d, [done] (juce::var r) { done (r); }); return; }      // how tracks sound over a stretch, as numbers (Engine::listen)
         if (op == "bounceLive")                                                // a print played through in real time (Engine::liveStart): the room draws it as it goes
         {
             juce::var opts = d;
             if (d["kind"].toString() == "place")
-                if (auto* o = d.getDynamicObject()) { auto c = o->clone(); c->setProperty ("dir", projectDir (d["project"].toString()).getChildFile ("audio").getFullPathName()); opts = juce::var (c.release()); }
+                if (auto* o = d.getDynamicObject()) { auto c = o->clone(); c->setProperty ("dir", audioDirOf (projectDir (d["project"].toString())).getFullPathName()); opts = juce::var (c.release()); }
             engine.liveStart (opts, [done] (juce::var r) { done (r); });
             return;
         }
@@ -1173,19 +1259,19 @@ private:
         if (op == "join")                                                      // regions made one sound: a file of its own in the project's folder for each stretch (see Engine::joinRegions)
         {
             juce::var opts = d;
-            if (auto* o = d.getDynamicObject()) { auto c = o->clone(); c->setProperty ("dir", projectDir (d["project"].toString()).getChildFile ("audio").getFullPathName()); opts = juce::var (c.release()); }
+            if (auto* o = d.getDynamicObject()) { auto c = o->clone(); c->setProperty ("dir", audioDirOf (projectDir (d["project"].toString())).getFullPathName()); opts = juce::var (c.release()); }
             engine.joinRegions (opts, [done] (juce::var r) { done (r); });
             return;
         }
         if (op == "log") { daw::logLine ("page: " + d["text"].toString()); done (okVar()); return; }
         if (op == "testPerf")  { done (engine.takePerf()); return; }
-        if (op == "testSound") { done (engine.testSound (projectDir (d["project"].toString()).getChildFile ("audio").getChildFile (d["file"].toString()))); return; }
+        if (op == "testSound") { done (engine.testSound (audioDirOf (projectDir (d["project"].toString())).getChildFile (d["file"].toString()))); return; }
         if (op == "testHands") { engine.setHands ((int) d["n"]); auto* o = new juce::DynamicObject(); o->setProperty ("threads", engine.hands() + 1); done (juce::var (o)); return; }       // how many threads share a block (-1: as the machine allows)
         if (op == "testFile")                                                  // a sound of a given length, made here and laid in the project's folder (the same every time: bursts of noise over a low tone)
         {
             const double sec = juce::jlimit (0.5, 3600.0, (double) d["sec"]), rate = d.hasProperty ("rate") ? (double) d["rate"] : engine.sr;
             const int ch = juce::jlimit (1, 2, d.hasProperty ("ch") ? (int) d["ch"] : 2);
-            auto dir = projectDir (d["project"].toString()).getChildFile ("audio");
+            auto dir = audioDirOf (projectDir (d["project"].toString()));
             dir.createDirectory();
             auto file = dir.getChildFile (juce::File::createLegalFileName (d["name"].toString()) + ".wav");
             file.deleteFile();
@@ -1242,7 +1328,7 @@ private:
         if (op == "testDrop")                                                  // a file let go over the page, as the Finder would do it
         {
             auto* cb = new juce::WebBrowserComponent::NativeFunctionCompletion (std::move (done));
-            const auto file = projectDir (d["project"].toString()).getChildFile ("audio").getChildFile (d["file"].toString());
+            const auto file = audioDirOf (projectDir (d["project"].toString())).getChildFile (d["file"].toString());
             if (auto* p = getPeer()) slurFakeDrop (p->getNativeHandle(), file.getFullPathName().toRawUTF8(), (double) d["x"], (double) d["y"],
                                                    [] (int took, void* c) { std::unique_ptr<juce::WebBrowserComponent::NativeFunctionCompletion> f (static_cast<juce::WebBrowserComponent::NativeFunctionCompletion*> (c)); auto* o = new juce::DynamicObject(); o->setProperty ("took", took); (*f) (juce::var (o)); }, cb);
             else { (*cb) (okVar (false)); delete cb; }

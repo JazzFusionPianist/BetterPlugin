@@ -27,7 +27,7 @@ export default () => chapter('start', t('the start page and projects', '시작 �
         ['{{band}}', ['drums, bass, keys, guitar left, guitar right, lead vox, backing vox; bus plate', 'drums, bass, keys, guitar left, guitar right, lead vox, backing vox. 버스 plate']],
         ['{{beat}}', ['kit, bass, keys, pad as tracks of notes; lead vox; bus plate', 'kit, bass, keys, pad는 노트 트랙. lead vox. 버스 plate']],
         ['{{mixing}}', ['buses drums, bass, music, vocals, plate, slap, all playing into a bus print', '버스 drums, bass, music, vocals, plate, slap. 모두 print 버스로 나갑니다']]) +
-        note('There is no way back to this page from inside a project, and a project cannot be renamed or removed here. Rename with ((File > Rename…)); remove by putting its .sls file in the Trash.', '프로젝트 안에서 이 화면으로 돌아올 수는 없습니다. 이름은 ((File > Rename…))로 바꾸고, 지울 때는 .sls 파일을 휴지통에 넣습니다.') + `</div>` }),
+        note('There is no way back to this page from inside a project, and a project cannot be renamed or removed here. Rename with ((File > Rename…)); remove by putting its folder (one from before: its .sls file) in the Trash.', '프로젝트 안에서 이 화면으로 돌아올 수는 없습니다. 이름은 ((File > Rename…))로 바꾸고, 지울 때는 .sls 파일을 휴지통에 넣습니다.') + `</div>` }),
 
   page(t('folders', '폴더'), { kind: 'split', tw: 104, txt:
     p('Projects can be kept in folders on the start page. A folder is a row of the list: a mark that opens it, its name, how many projects it holds. Open, its projects stand under it, set in.', '시작 화면에서 프로젝트를 폴더에 넣어 둘 수 있습니다. 폴더는 목록의 한 줄입니다. 여닫는 표시, 이름, 들어 있는 프로젝트 수. 열면 그 안의 프로젝트가 한 칸 들어간 채 아래에 섭니다.') +

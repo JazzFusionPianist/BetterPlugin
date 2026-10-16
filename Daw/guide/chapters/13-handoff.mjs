@@ -34,7 +34,7 @@ export default () => chapter('handoff', t('hand off and bounce', '내보내기�
     list(
       ['The result is a new track right under the source, named after it with “bounce”, with the source’s level, pan, out and sends, and an empty patch.', '결과는 원본 바로 아래의 새 트랙입니다. 원본 이름에 “bounce”가 붙고, 원본의 레벨, 팬, 아웃, 센드를 가지며 패치는 비어 있습니다.'],
       ['The regions that were printed are muted, not removed.', '찍힌 리전은 지워지지 않고 뮤트됩니다.'],
-      ['The file is a 24-bit WAV in the project’s audio folder. One step to undo.', '파일은 프로젝트 audio 폴더의 24비트 WAV입니다. 실행 취소 한 번.']) +
+      ['The file is a 24-bit WAV in the project’s Audio Files. One step to undo.', '파일은 프로젝트 Audio Files의 24비트 WAV입니다. 실행 취소 한 번.']) +
     note('Only the chosen regions sound during a bounce, so a plug-in that listens to another track hears it only if that track’s regions are chosen too.', '바운스 중에는 선택한 리전만 소리가 나므로, 다른 트랙을 듣는 플러그인은 그 트랙의 리전도 선택했을 때만 그것을 듣습니다.'),
     art: draw(150, 98,
       D.txt(0, 4, '~/Music/Slur Studio', '~/Music/Slur Studio', 'b') +

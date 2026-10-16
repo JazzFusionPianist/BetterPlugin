@@ -1,0 +1,48 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>project folder icon, draft 3</title>
+<!-- a DRAFT, from his words on draft 2: no gradient at all — a plain folder — and a better colour for the note, white say.
+     Two flat blacks only (the back a shade lighter than the front, so the folder reads as a folder), a hairline round it,
+     the staff as flat lines. Two ways of laying it out (the note in the middle on the staff; the note large and low at
+     the right), each with the note in four colours: white, paper white, the app's blue, ochre. -->
+<style>
+  body { margin: 0; background: #1B1B1A; color: #ECEAE4; font: 400 15px 'Instrument Sans', -apple-system, sans-serif; }
+  .sheet { padding: 36px 44px 44px; width: 1800px; box-sizing: border-box; }
+  h1 { margin: 0 0 18px; font-weight: 500; font-size: 20px; letter-spacing: -.01em; }
+  .grid { display: grid; grid-template-columns: 120px repeat(4, 1fr); gap: 18px; align-items: start; }
+  .lab { font-size: 15px; padding-top: 110px; } .lab b { font-weight: 500; display: block; } .lab span { opacity: .5; font-size: 13px; }
+  .head { font-size: 14px; opacity: .6; text-align: center; }
+  .cell { background: #151514; border: 1px solid rgba(236,234,228,.12); border-radius: 6px; padding: 12px; }
+  .big { display: block; margin: 0 auto 6px; width: 240px; height: 240px; }
+  .row { display: flex; align-items: flex-end; justify-content: center; gap: 16px; padding: 10px 10px 6px; border-radius: 4px; margin-top: 8px; }
+  .row.light { background: #F4F4F2; } .row.dark { background: #1E1E1E; }
+</style>
+<div class="sheet"><h1>project folder icon, draft 3</h1><div class="grid" id="grid"></div></div>
+<script>
+const NOTE = 'M553 417 C630 417 683 456 683 517 C683 600 572 683 467 683 C390 683 341 643 341 582 C341 499 452 417 553 417 Z M527 465 C484 465 432 524 432 570 C432 609 456 635 494 635 C537 635 593 576 593 529 C593 491 566 465 527 465 Z'
+const note = (cx, cy, k, fill) => `<g transform="translate(${cx} ${cy}) scale(${k}) translate(-512 -550)"><path fill-rule="evenodd" d="${NOTE}" fill="${fill}"/></g>`
+const BACK = 'M92 252 Q92 196 148 196 H392 Q424 196 446 220 L472 248 Q486 262 510 262 H876 Q932 262 932 318 V820 Q932 880 872 880 H152 Q92 880 92 820 Z'
+/* the folder: two flat blacks, a hairline of light round it; what stands on its front is clipped to it */
+const folder = (id, front) => `<defs><clipPath id="${id}c"><rect x="92" y="300" width="840" height="580" rx="58"/></clipPath></defs>
+  <path d="${BACK}" fill="#262625"/><path d="${BACK}" fill="none" stroke="#ECEAE4" stroke-opacity=".16" stroke-width="3"/>
+  <rect x="92" y="300" width="840" height="580" rx="58" fill="#121211"/>
+  <g clip-path="url(#${id}c)">${front}</g>
+  <rect x="93.5" y="301.5" width="837" height="577" rx="57" fill="none" stroke="#ECEAE4" stroke-opacity=".16" stroke-width="3"/>`
+const COLOURS = [['white', '#FFFFFF'], ['paper', '#ECEAE4'], ['blue', '#5B7FFF'], ['ochre', '#D8B24A']]
+const WAYS = [
+  ['middle', 'on the staff', c => [440, 500, 560, 620, 680].map(y => `<rect x="92" y="${y}" width="840" height="6" fill="#ECEAE4" fill-opacity=".14"/>`).join('') + note(512, 566, .9, c)],
+  ['room', 'large, low, run off', c => [470, 520, 570, 620, 670].map((y, i) => `<rect x="160" y="${y}" width="${300 + i * 12}" height="6" fill="#ECEAE4" fill-opacity=".14"/>`).join('') + note(760, 700, 1.25, c)],
+]
+const grid = document.getElementById('grid')
+grid.insertAdjacentHTML('beforeend', '<div></div>' + COLOURS.map(([n, c]) => `<div class="head">${n}<br><span style="opacity:.6">${c}</span></div>`).join(''))
+let uid = 0
+for (const [w, words, front] of WAYS) {
+  grid.insertAdjacentHTML('beforeend', `<div class="lab"><b>${w}</b><span>${words}</span></div>`)
+  for (const [, c] of COLOURS) {
+    const icon = s => { const id = 'f' + (++uid); return `<svg viewBox="0 0 1024 1024" width="${s}" height="${s}">${folder(id, front(c))}</svg>` }
+    const small = [64, 32, 16].map(s => icon(s)).join('')
+    grid.insertAdjacentHTML('beforeend', `<div class="cell"><div class="big">${icon(240)}</div><div class="row light">${icon(96)}${small}</div><div class="row dark">${icon(96)}${small}</div></div>`)
+  }
+}
+document.documentElement.dataset.ready = '1'
+</script>

@@ -51,12 +51,12 @@ export default () => chapter('welcome', t('before you begin', '시작하기 전�
     p('Short messages (“saved”, “nudge beat”, “2 crossfades, 3 fades”) appear at the foot of the window, beside the command line.', '“saved”, “nudge beat”, “2 crossfades, 3 fades” 같은 짧은 말은 창 맨 아래, 커맨드 라인 옆에 나타납니다.') }),
 
   page(t('where your work is kept', '작업물이 놓이는 곳'), { kind: 'split', tw: 104, mid: true, txt:
-    lead('A project is one file in the Finder. Inside it are the song, every sound it uses, and earlier copies of the song.', '프로젝트는 Finder에서 파일 하나로 보입니다. 그 안에 곡, 곡이 쓰는 모든 소리, 곡의 이전 사본이 들어 있습니다.') +
+    lead('A project is a folder of its own, as in Logic: in it the project file (the song and earlier copies of it), Audio Files (every sound it uses) and Bounces (what it hands off).', '프로젝트는 Logic처럼 자기 폴더입니다. 그 안에 프로젝트 파일(곡과 곡의 이전 사본), Audio Files(곡이 쓰는 모든 소리), Bounces(내보낸 것)가 있습니다.') +
     table(null,
-      [['new projects', '새 프로젝트'], ['~/Music/Slur Studio/Projects, as __name.sls__. Save As can put one anywhere', '~/Music/Slur Studio/Projects 안에 __이름.sls__로. Save As로 어디에나 둘 수 있습니다']],
-      [['sounds', '소리'], ['every file brought in, every take and every bounce is copied into the project’s own audio folder. A project never points at files elsewhere', '가져온 파일, 테이크, 바운스는 모두 프로젝트 안의 audio 폴더로 복사됩니다. 프로젝트가 바깥 파일을 가리키는 일은 없습니다']],
+      [['new projects', '새 프로젝트'], ['~/Music/Slur Studio/Projects, as a folder __name__ holding __name.sls__. Save As can put one anywhere, in a folder of its own. A project from before stays as it was: one __name.sls__ with its sounds inside', '~/Music/Slur Studio/Projects 안에 __이름__ 폴더로, 그 안에 __이름.sls__. Save As로 어디에나, 역시 자기 폴더로 둘 수 있습니다. 예전 프로젝트는 그대로입니다: 소리를 안에 품은 __이름.sls__ 하나']],
+      [['sounds', '소리'], ['every file brought in, every take and every bounce in place is copied into the project’s Audio Files as it comes. A project never points at files elsewhere', '가져온 파일, 테이크, 제자리 바운스는 들어오는 대로 프로젝트의 Audio Files로 복사됩니다. 프로젝트가 바깥 파일을 가리키는 일은 없습니다']],
       [['earlier copies', '이전 사본'], ['at most one every ten minutes of work, the newest 24 kept. ((File > Revert To…)) goes back to one', '작업 10분에 하나까지, 최근 24개를 보관합니다. ((File > Revert To…))로 되돌아갑니다']],
-      [['hand-off folders', '내보내기 폴더'], ['wherever you say, under the name you give; the panel opens on the last place used, ~/Music/Slur Studio to begin with', '정한 위치에 정한 이름으로. 저장 창은 마지막에 쓴 위치에서 열리고, 처음에는 ~/Music/Slur Studio']]) +
+      [['hand-off folders', '내보내기 폴더'], ['wherever you say, under the name you give; the panel opens on the project’s own Bounces (for a project from before: the last place used, ~/Music/Slur Studio to begin with)', '정한 위치에 정한 이름으로. 저장 창은 그 프로젝트의 Bounces에서 열립니다(예전 프로젝트는 마지막에 쓴 위치, 처음에는 ~/Music/Slur Studio)']]) +
     h('good to know', '알아 둘 것') +
     list(
       ['The app saves the song every 3 seconds when something changed.', '바뀐 것이 있으면 3초마다 곡을 저장합니다.'],
@@ -70,12 +70,12 @@ export default () => chapter('welcome', t('before you begin', '시작하기 전�
       D.line(2, 14, 2, 86, 'soft') +
       D.line(2, 22, 8, 22, 'soft') + D.txt(10, 23, 'Projects', 'Projects', 'b') +
       D.line(12, 25, 12, 60, 'soft') +
-      D.line(12, 32, 18, 32, 'soft') + D.cell(20, 27.5, 40, 9, 'low tide ep.sls', 'low tide ep.sls', 'on') + D.txt(63, 33, 'one project, one file in the Finder', '프로젝트 하나, Finder에서는 파일 하나', 's') +
+      D.line(12, 32, 18, 32, 'soft') + D.cell(20, 27.5, 40, 9, 'low tide ep', 'low tide ep', 'on') + D.txt(63, 33, 'one project, a folder of its own', '프로젝트 하나, 자기 폴더 하나', 's') +
       D.line(24, 36.5, 24, 60, 'soft') +
-      D.line(24, 43, 30, 43, 'soft') + D.txt(32, 44, 'project.json', 'project.json') + D.txt(63, 44, 'the song: tracks, regions, mix, markers', '곡: 트랙, 리전, 믹스, 마커', 's') +
-      D.line(24, 51, 30, 51, 'soft') + D.txt(32, 52, 'audio', 'audio') + D.txt(63, 52, 'sounds brought in, takes, bounces', '가져온 소리, 테이크, 바운스', 's') +
-      D.line(24, 59, 30, 59, 'soft') + D.txt(32, 60, 'backups', 'backups') + D.txt(63, 60, 'the song as it was, up to 24 copies', '이전의 곡, 최대 24개', 's') +
-      D.line(2, 72, 8, 72, 'soft') + D.cell(10, 67.5, 62, 9, 'low tide ep chorus stems 142233', 'low tide ep chorus stems 142233', 'dash') + D.txt(75, 73, 'a hand-off folder', '내보내기 폴더', 's') +
-      D.line(2, 85, 8, 85, 'soft') + D.cell(10, 80.5, 62, 9, 'low tide ep song mix 151002', 'low tide ep song mix 151002', 'dash') + D.txt(75, 86, 'named for the project, the range, the time', '프로젝트, 범위, 시각으로 이름', 's') +
+      D.line(24, 43, 30, 43, 'soft') + D.txt(32, 44, 'low tide ep.sls', 'low tide ep.sls') + D.txt(63, 44, 'the song, and earlier copies of it', '곡, 그리고 곡의 이전 사본', 's') +
+      D.line(24, 51, 30, 51, 'soft') + D.txt(32, 52, 'Audio Files', 'Audio Files') + D.txt(63, 52, 'sounds brought in, takes, bounces in place', '가져온 소리, 테이크, 제자리 바운스', 's') +
+      D.line(24, 59, 30, 59, 'soft') + D.txt(32, 60, 'Bounces', 'Bounces') + D.txt(63, 60, 'stems and mixes handed off', '내보낸 스템과 믹스', 's') +
+      D.line(36, 63, 36, 72, 'soft') + D.line(36, 72, 42, 72, 'soft') + D.cell(44, 67.5, 50, 9, 'low tide ep chorus stems', 'low tide ep chorus stems', 'dash') + D.txt(97, 73, 'a hand-off', '내보낸 것', 's') +
+      D.line(36, 72, 36, 85, 'soft') + D.line(36, 85, 42, 85, 'soft') + D.cell(44, 80.5, 50, 9, 'low tide ep song mix.wav', 'low tide ep song mix.wav', 'dash') + D.txt(97, 86, 'named for the project and the range', '프로젝트와 범위로 이름', 's') +
       D.txt(0, 98, '~/Library/Application Support/Slur Studio', '~/Library/Application Support/Slur Studio', 'b') + D.txt(75, 98, 'settings: device, language, what was open', '설정: 장치, 언어, 열려 있던 것', 's')) }),
 ])

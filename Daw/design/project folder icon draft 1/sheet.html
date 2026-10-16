@@ -1,0 +1,72 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>project folder icon, draft 1</title>
+<!-- a DRAFT: the icon a project's own folder wears in the Finder (<name>/ holding <name>.sls, Audio Files, Bounces).
+     a  the Mac's own blue folder, the whole note pressed into its front
+     b  a black folder: the app's own black, its staff across the front and the blue whole note
+     c  the Mac's folder with the app's icon standing in it, half tucked in
+     Each drawn large, then at the Finder's sizes (128, 64, 32, 16), on a light and a dark Finder. -->
+<style>
+  body { margin: 0; background: #1B1B1A; color: #ECEAE4; font: 400 15px 'Instrument Sans', -apple-system, sans-serif; }
+  .sheet { padding: 40px 48px 48px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; width: 1500px; box-sizing: border-box; }
+  h1 { grid-column: 1 / -1; margin: 0 0 4px; font-weight: 500; font-size: 20px; letter-spacing: -.01em; }
+  .way { background: #151514; border: 1px solid rgba(236,234,228,.12); border-radius: 6px; padding: 22px 22px 18px; }
+  .way b { font-weight: 500; font-size: 16px; } .way span { opacity: .5; margin-left: 8px; }
+  .big { display: block; margin: 18px auto 10px; width: 300px; height: 300px; }
+  .row { display: flex; align-items: flex-end; gap: 22px; padding: 16px 18px 12px; border-radius: 4px; margin-top: 10px; }
+  .row.light { background: #F4F4F2; color: #222; } .row.dark { background: #1E1E1E; color: #ddd; }
+  .row figure { margin: 0; text-align: center; font-size: 11px; }
+  .row figcaption { margin-top: 5px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+<div class="sheet" id="sheet">
+  <h1>project folder icon, draft 1</h1>
+</div>
+<script>
+/* the folder of the Mac (Big Sur and after): a back with its tab, a front over it */
+const BLUE = { backTop: '#4FA0E8', backBot: '#3B8DDA', frontTop: '#79BDF4', frontBot: '#58A7EE', line: '#3E8CD6' }
+const BLACK = { backTop: '#2A2A28', backBot: '#1C1C1B', frontTop: '#262625', frontBot: '#121211', line: '#000' }
+function folder (id, c, front = '') {
+  return `<defs>
+    <linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.backTop}"/><stop offset="1" stop-color="${c.backBot}"/></linearGradient>
+    <linearGradient id="${id}f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.frontTop}"/><stop offset="1" stop-color="${c.frontBot}"/></linearGradient>
+    <filter id="${id}s" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity=".28"/></filter>
+    <clipPath id="${id}c"><rect x="92" y="300" width="840" height="580" rx="62"/></clipPath>
+  </defs>
+  <g filter="url(#${id}s)">
+    <path d="M92 252 Q92 196 148 196 H392 Q424 196 446 220 L472 248 Q486 262 510 262 H876 Q932 262 932 318 V820 Q932 880 872 880 H152 Q92 880 92 820 Z" fill="url(#${id}b)"/>
+    <rect x="92" y="300" width="840" height="580" rx="62" fill="url(#${id}f)"/>
+    <rect x="92.5" y="300.5" width="839" height="579" rx="62" fill="none" stroke="#fff" stroke-opacity=".22"/>
+    <g clip-path="url(#${id}c)">${front}</g>
+  </g>`
+}
+/* the whole note of the app's icon, about (cx, cy) at size k (1 = as in the app's icon) */
+const note = (cx, cy, k, fill, hole) => `<g transform="translate(${cx} ${cy}) scale(${k}) translate(-512 -550)"><path fill-rule="evenodd" fill="${fill}" d="M553 417 C630 417 683 456 683 517 C683 600 572 683 467 683 C390 683 341 643 341 582 C341 499 452 417 553 417 Z M527 465 C484 465 432 524 432 570 C432 609 456 635 494 635 C537 635 593 576 593 529 C593 491 566 465 527 465 Z"/>${hole ? '' : ''}</g>`
+const ways = [
+  ['a', 'the mac’s blue folder, the note pressed into it', folder('a', BLUE,
+    `<g opacity=".95">${note(512, 590, .78, '#3F8FD8')}</g><g transform="translate(0 -4)" opacity=".55">${note(512, 590, .78, '#9ED0F8')}</g><g>${note(512, 586, .78, '#4A9BE2')}</g>`)],
+  ['b', 'a black folder, its staff and the blue note', folder('b', BLACK,
+    [430, 490, 550, 610, 670].map(y => `<rect x="92" y="${y}" width="840" height="7" fill="#ECEAE4" fill-opacity=".18"/>`).join('') + note(512, 560, .92, '#5B7FFF'))],
+  ['c', 'the mac’s folder, the app’s icon standing in it', (() => {
+    const icon = `<g transform="translate(300 128) scale(.42)"><rect x="100" y="100" width="824" height="824" rx="190" fill="#0E0E0E"/>${[358, 435, 511, 588, 663].map(y => `<rect x="100" y="${y}" width="824" height="6" fill="#ECEAE4" fill-opacity=".22"/>`).join('')}${note(512, 550, 1, '#5B7FFF')}</g>`
+    return `<defs>
+      <linearGradient id="cb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${BLUE.backTop}"/><stop offset="1" stop-color="${BLUE.backBot}"/></linearGradient>
+      <linearGradient id="cf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${BLUE.frontTop}"/><stop offset="1" stop-color="${BLUE.frontBot}"/></linearGradient>
+      <filter id="cs" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity=".28"/></filter>
+    </defs><g filter="url(#cs)">
+      <path d="M92 252 Q92 196 148 196 H392 Q424 196 446 220 L472 248 Q486 262 510 262 H876 Q932 262 932 318 V820 Q932 880 872 880 H152 Q92 880 92 820 Z" fill="url(#cb)"/>
+      ${icon}
+      <rect x="92" y="420" width="840" height="460" rx="62" fill="url(#cf)"/>
+      <rect x="92.5" y="420.5" width="839" height="459" rx="62" fill="none" stroke="#fff" stroke-opacity=".22"/>
+    </g>`
+  })()],
+]
+const sheet = document.getElementById('sheet')
+for (const [k, words, svg] of ways) {
+  const el = document.createElement('div'); el.className = 'way'
+  const icon = s => `<svg viewBox="0 0 1024 1024" width="${s}" height="${s}">${svg.replaceAll('id="' + k, 'id="' + k + s).replaceAll('#' + k, '#' + k + s)}</svg>`
+  const sizes = [128, 64, 32, 16].map(s => `<figure>${icon(s)}<figcaption>${s === 128 ? 'night bus ep' : s}</figcaption></figure>`).join('')
+  el.innerHTML = `<b>${k}</b><span>${words}</span><div class="big">${icon(300)}</div><div class="row light">${sizes}</div><div class="row dark">${sizes}</div>`
+  sheet.appendChild(el)
+}
+document.documentElement.dataset.ready = '1'
+</script>

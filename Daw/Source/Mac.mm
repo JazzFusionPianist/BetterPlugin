@@ -713,3 +713,13 @@ double slurSecondsUp()
     const struct timeval st = kp.kp_proc.p_starttime;
     return (double) (now.tv_sec - st.tv_sec) + (double) (now.tv_usec - st.tv_usec) / 1.0e6;
 }
+
+/** A project's own folder gets the project folder's icon in the Finder (project-folder.png in the app's Resources; none there
+    yet: the folder looks as a folder does). */
+void slurProjectIcon (const char* folder)
+{
+    NSString* png = [[NSBundle mainBundle] pathForResource: @"project-folder" ofType: @"png"];
+    if (png == nil || folder == nullptr) return;
+    NSImage* img = [[NSImage alloc] initWithContentsOfFile: png];
+    if (img != nil) [[NSWorkspace sharedWorkspace] setIcon: img forFile: [NSString stringWithUTF8String: folder] options: 0];
+}

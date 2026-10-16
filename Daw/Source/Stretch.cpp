@@ -113,67 +113,7 @@ juce::AudioBuffer<float> warp (const juce::AudioBuffer<float>& src, double sr, d
     return out;
 }
 
-/*  Onsets: the level of the file in short steps, in two bands (all of it,
-    and its bright part), and the places where the level jumps well above
-    what it has just been doing.                                          */
-std::vector<double> onsets (const juce::AudioBuffer<float>& src, double sr)
-{
-    std::vector<double> found;
-    const int n = src.getNumSamples(), ch = src.getNumChannels();
-    const int hop = juce::jmax (32, (int) (sr * 0.004)), frames = n / hop;
-    if (frames < 8 || ch < 1) return found;
-    std::vector<float> lo ((size_t) frames, 0.0f), hi ((size_t) frames, 0.0f);
-    float prev = 0.0f;
-    for (int f = 0; f < frames; ++f)
-    {
-        double a = 0.0, b = 0.0;
-        for (int i = f * hop; i < (f + 1) * hop; ++i)
-        {
-            float v = 0.0f;
-            for (int c = 0; c < ch; ++c) v += src.getSample (c, i);
-            v /= (float) ch;
-            const float d = v - prev; prev = v;
-            a += (double) v * v; b += (double) d * d;
-        }
-        lo[(size_t) f] = (float) std::sqrt (a / hop); hi[(size_t) f] = (float) std::sqrt (b / hop);
-    }
-    float top = 0.0f;
-    for (auto v : lo) top = juce::jmax (top, v);
-    if (top < 1.0e-4f) return found;
-    const float floorLo = top * 0.003f, floorHi = floorLo * 0.25f;
-    // how much louder a step is than the two before it, in both bands
-    std::vector<float> odf ((size_t) frames, 0.0f);
-    for (int f = 2; f < frames; ++f)
-    {
-        const float pl = juce::jmax (lo[(size_t) f - 1], lo[(size_t) f - 2]) + floorLo, ph = juce::jmax (hi[(size_t) f - 1], hi[(size_t) f - 2]) + floorHi;
-        const float a = std::log ((lo[(size_t) f] + floorLo) / pl), b = std::log ((hi[(size_t) f] + floorHi) / ph);
-        odf[(size_t) f] = juce::jmax (0.0f, a) + 0.7f * juce::jmax (0.0f, b);
-    }
-    const int near = juce::jmax (2, (int) (0.030 * sr / hop)), wide = juce::jmax (8, (int) (0.40 * sr / hop)), gap = juce::jmax (3, (int) (0.070 * sr / hop));
-    int last = -gap;
-    std::vector<float> win;
-    for (int f = 2; f < frames - 1; ++f)
-    {
-        const float v = odf[(size_t) f];
-        if (v < 0.35f) continue;
-        bool peak = true;
-        for (int k = juce::jmax (0, f - near); k <= juce::jmin (frames - 1, f + near) && peak; ++k) if (odf[(size_t) k] > v) peak = false;
-        if (! peak || f - last < gap) continue;
-        win.assign (odf.begin() + juce::jmax (0, f - wide), odf.begin() + juce::jmin (frames, f + wide));
-        std::nth_element (win.begin(), win.begin() + (long) (win.size() / 2), win.end());
-        const float med = win[win.size() / 2];
-        if (v < med * 2.5f + 0.25f) continue;
-        if (lo[(size_t) juce::jmin (frames - 1, f + 1)] < top * 0.02f && lo[(size_t) f] < top * 0.02f) continue;    // too quiet to be worth a line
-        // walk back to where the rise starts
-        int g = f;
-        while (g > 1 && g > f - near && odf[(size_t) g - 1] > 0.12f) --g;
-        found.push_back (juce::jmax (0.0, ((double) g * hop - hop * 0.5) / sr));
-        last = f;
-        if (found.size() >= 4000) break;
-    }
-    return found;
-}
-/*  Tempo: how much louder each short step is than the ones just before it (the same two bands as for onsets),
+/*  Tempo: how much louder each short step is than the ones just before it (in two bands: all of it, and its bright part),
     set against itself a while later. Where that agrees best — at one lag and at twice, three and four times
     it — is one beat. Between a speed and its half or its double the sound alone cannot always tell: the one
     nearer to what most songs do (about 110) is taken. The beat is then measured again over longer and longer

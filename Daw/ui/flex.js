@@ -3,7 +3,18 @@
    long as the old one played at the region's rate, so trimming, splitting and moving go on as before.
    r.tr: semitones; r.ft: cents, −100…100, on top of them (fine tune). r.flex: pins [{s, d}], s seconds into the file landing at d seconds of what is played.
    r.fx: follow the tempo by stretching, not by turning the tape faster. r.rev: backwards. */
-const TRANS = new Map()            // a file's key -> where things begin in it, seconds
+const TRANS = new Map()            // a file's key -> where things begin in it, seconds (those the sensitivity shows)
+/* everything the app heard begin in a file: [{s: seconds, k: 0 a hit | 1 a note — the pitch changed without one, v: how
+   sure, 1 as sure as the clearest of that file}]. How many of them are shown is the sensitivity's (TRANS_SENS: the
+   least sureness shown, for hits and for notes), chosen afterwards, without the file being listened to again. */
+const TRANS_ALL = new Map()
+const TRANS_SENS = { hit: .12, note: .15 }
+const transShown = list => list.filter(h => typeof h === 'number' || h.v >= (h.k ? TRANS_SENS.note : TRANS_SENS.hit)).map(h => typeof h === 'number' ? h : h.s)
+function heardTransients (k, list) {
+  list = Array.isArray(list) ? list : []
+  TRANS_ALL.set(k, list)
+  TRANS.set(k, transShown(list))
+}
 const WARPS = new Map()            // what was asked for -> what came back (or the promise of it)
 const LIVEW = new Map()            // a rendered buffer the app still holds -> what it was asked as
 const srcKey = r => r.loop ? r.buf : r.key
@@ -70,11 +81,11 @@ function ensureTransients (r) {
   if (!NAT) return Promise.resolve()                                                    // in a browser there is no one to ask: whatever is in TRANS is all there is
   if (!TRANS_WAIT.has(k)) {
     if (!TRANS.has(k)) TRANS.set(k, [])
-    TRANS_WAIT.set(k, NAT.call('onsets', { key: k }).then(list => { TRANS.set(k, Array.isArray(list) ? list : []); uiDirty('lanes') }))
+    TRANS_WAIT.set(k, NAT.call('onsets', { key: k }).then(list => { heardTransients(k, list); uiDirty('lanes') }))
   }
   return TRANS_WAIT.get(k)
 }
-const forgetTransients = () => { TRANS.clear(); TRANS_WAIT.clear(); TEMPO_WAIT.clear() }
+const forgetTransients = () => { TRANS.clear(); TRANS_ALL.clear(); TRANS_WAIT.clear(); TEMPO_WAIT.clear() }
 function toggleFlex () {
   S.flex = !S.flex
   if (S.flex) { if (S.auto) { S.auto = false; S.selP = [] } for (const t of S.tracks) for (const r of t.regs) ensureTransients(r) }
@@ -125,7 +136,7 @@ function flexDown (e, p, r, t, tool, before) {
   /* a stretch may not be squeezed below a quarter nor pulled beyond four times */
   const lo = Math.max(L.d + (pin.s - L.s) / k / 4, Rr.d - (Rr.s - pin.s) / k * 4), hi = Math.min(L.d + (pin.s - L.s) / k * 4, Rr.d - (Rr.s - pin.s) / k / 4)
   S.selR = [r.id]; S.sel = S.tracks.indexOf(t)
-  drag = { a: 'flex', id: r.id, pin, lo, hi, d0: pin.d, grab: pin.d - dOfBar(r, barAt(p.x)), keep, before }                // it is held where it was taken, so it does not jump to the pointer
+  drag = { a: 'flex', id: r.id, pin, lo, hi, d0: pin.d, grab: pin.d - dOfBar(r, barAt(p.x)), keep, before, mates: flexMates(r, keep).map(x => x.id) }                // it is held where it was taken, so it does not jump to the pointer (mates: those stretched with it, which follow it as it goes)
   return true
 }
 function flexMove (e, p) {
@@ -133,9 +144,25 @@ function flexMove (e, p) {
   if (!r) return
   d.pin.d = clamp(dOfBar(r, snapPos(barOfD(r, dOfBar(r, barAt(p.x)) + d.grab), e, new Set([r.id]))), d.lo, d.hi)
   if (Math.abs(d.pin.d - d.d0) > 1e-5) d.moved = true
+  for (const id of d.mates || []) { const [x] = regOf(id); if (x) x.flex = r.flex.map(m => Object.assign({}, m)) }
   uiDirty('lanes')
 }
-function restoreFlex (d) { const [r] = regOf(d.id); if (r) r.flex = d.keep }                                // a press that moved nothing leaves no pin
+function restoreFlex (d) { const [r] = regOf(d.id); if (r) r.flex = d.keep; for (const id of d.mates || []) { const [x] = regOf(id); if (x) x.flex = d.keep.map(m => Object.assign({}, m)) } }      // a press that moved nothing leaves no pin
+/* while a pin is pulled, the region — and those stretched with it — is drawn from its file through the pins as they stand
+   at that moment (bufPeaks): the sound follows the hand. The app renders it once the pin is let go. */
+const flexLive = r => !!drag && drag.a === 'flex' && !!drag.moved && (drag.id === r.id || (drag.mates || []).includes(r.id)) && !!r.peaksAll && r.sec > 0
+function livePeaks (r, steps, g0, g1) {
+  const out = new Float32Array(steps), pk = r.peaksAll, N = pk.length, whole = srcSec(r), len = r.b - r.a, spb = SPB()
+  const sAt = g => dToS(r, ((r.off || 0) + len * g) * spb) / whole * N
+  let a = sAt(g0)
+  for (let i = 0; i < steps; i++) {
+    const b = sAt(g0 + (g1 - g0) * (i + 1) / steps), i0 = Math.floor(a), i1 = Math.max(i0 + 1, Math.floor(b)), stride = Math.max(1, Math.floor((i1 - i0) / 48))
+    let m = 0
+    for (let j = Math.max(0, i0); j < i1 && j < N; j += stride) { const v = Math.abs(pk[j]); if (v > m) m = v }
+    out[i] = m; a = b
+  }
+  return out
+}
 function flexDbl (e, p) {                                                                                    // twice on a pin: it lets go
   const ti = laneAt(p.y), r = hitRegion(ti, barAt(p.x))
   if (!r || !r.flex) return

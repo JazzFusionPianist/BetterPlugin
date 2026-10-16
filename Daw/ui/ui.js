@@ -394,6 +394,7 @@ function pHead () {
 function peakOf (chs) { let m = 0; for (const a of chs) for (let i = 0; i < a.length; i += 3) { const v = Math.abs(a[i]); if (v > m) m = v } return m || 1 }
 /* the outline of the stretch of a file a region shows, from f0 to f1 of that stretch */
 function bufPeaks (r, steps, g0 = 0, g1 = 1) {
+  if (typeof flexLive === 'function' && flexLive(r)) { if (!r.peak) r.peak = peakOf([r.peaksAll]); return livePeaks(r, steps, g0, g1) }      // (a pin being pulled: flex.js)
   const out = new Float32Array(steps), len = r.b - r.a, total = r.srcBars || len, e0 = clamp((r.off || 0) / total, 0, 1), e1 = clamp(((r.off || 0) + len) / total, 0, 1), f0 = e0 + (e1 - e0) * g0, f1 = e0 + (e1 - e0) * g1
   const chs = []
   let N
@@ -459,8 +460,8 @@ function fineFor (r, slot, v0, v1) {
 function wavePath (r, w, yc, hmax, outline, lh, v0, v1, slot = '') {
   if (r.loop && !(LOOPS && LOOPS[r.buf])) return ''                                          // (the loops are made once the fonts are in: drawn before that, no sound is drawn yet)
   const fiP = DRAFT.fades && r.fi > 0 ? r.fi * PXB : 0, foP = DRAFT.fades && r.fo > 0 ? r.fo * PXB : 0                      // under a fade the outline tapers as the sound does
-  const fine = fineFor(r, slot, v0, v1)
-  const len = r.b - r.a, k = `${S.tempo}|${n(w)}|${n(hmax)}|${n(yc)}|${n(len * 1000)}|${n((r.off || 0) * 1000)}|${r.gain || 0}|${r.wsig || ''}|${outline}|${v0}|${v1}|${n(fiP)}|${n(foP)}|${r.fic || 0}|${r.foc || 0}|${fine ? fine.stamp + ':' + n(PXB) : ''}|${S.wz || 1}|${LOOK_STAMP}`
+  const live = typeof flexLive === 'function' && flexLive(r), fine = live ? null : fineFor(r, slot, v0, v1)      // (a pin being pulled: drawn from the file through the pins as they stand — flex.js)
+  const len = r.b - r.a, k = `${live ? (r.flex || []).map(m => m.d.toFixed(5)).join(',') : ''}|${S.tempo}|${n(w)}|${n(hmax)}|${n(yc)}|${n(len * 1000)}|${n((r.off || 0) * 1000)}|${r.gain || 0}|${r.wsig || ''}|${outline}|${v0}|${v1}|${n(fiP)}|${n(foP)}|${r.fic || 0}|${r.foc || 0}|${fine ? fine.stamp + ':' + n(PXB) : ''}|${S.wz || 1}|${LOOK_STAMP}`
   if (r['_p' + slot] && r['_k' + slot] === k) return r['_p' + slot]
   const steps = Math.max(1, v1 - v0), gk = dbLin(r.gain || 0) * (S.wz || 1), room = roomOf(SHAPES[outline], w, lh), half = lk('snd.drawn') === 'half'      // (half: the sound stands on the region's foot, as tall as the region; yc is then its foot)
   const taper = x => (fiP && x < fiP ? fadeShape(r.fic || 0, x / fiP) : 1) * (foP && w - x < foP ? fadeShape(r.foc || 0, (w - x) / foP) : 1)
@@ -604,7 +605,12 @@ function laneRow (i, sel, xEnd) {
   if (isChosen(i)) s += R(X0, 0, X1 - X0, rh, { fill: lkC('lanes.chosen'), fa: lkA('lanes.chosen') })
   if (t.kind === 'stack') g += stackOverview(t, ly, lh, xEnd)
   const [cross, entered] = DRAFT.fades ? crossMarks(t, ly, lh, xEnd, sel) : ['', null]
-  for (const r of t.regs) {
+  /* what is being carried is drawn over everything else in the lane, its name too, until it is put down (put down, it
+     covers its stretch: settle) — with ⌥ held, what stays behind is a copy, and it would hide the one under the hand */
+  const carried = drag && drag.a === 'move' && drag.moved && drag.orig, held = carried ? t.regs.filter(r => carried.has(r.id)) : []
+  let under = null
+  for (const r of held.length ? t.regs.filter(r => !carried.has(r.id)).concat(held) : t.regs) {
+    if (!under && held.length && carried.has(r.id)) { under = [g, tags]; g = ''; tags = '' }      // (from here on, what is drawn is what is carried)
     const xa = bx(r.a), xb = Math.min(bx(r.b), xEnd)
     if (xb < X0 - 2 || xa > X1 + 2) continue
     const x = n(xa + .5), w = n(xb - xa - 1), on = sel.has(r.id)
@@ -632,7 +638,7 @@ function laneRow (i, sel, xEnd) {
     g += r.mute ? G(q, '', ' opacity=".34"') : q
     tags += r.mute ? G(tagQ, '', ' opacity=".34"') : tagQ
   }
-  g += cross + tags
+  g = under ? under[0] + cross + under[1] + g + tags : g + cross + tags
   const dim = (heard(t) ? 1 : .34) * (S.auto ? .4 : 1)
   s += dim < 1 ? G(g, '', ` opacity="${n(dim)}"`) : g
   if (S.auto || lineOwn(t)) s += autoLane(t, 0, rh, xEnd)

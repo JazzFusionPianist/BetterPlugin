@@ -10,11 +10,12 @@ node test/fuzz.cjs "${1:-12}" "${2:-1500}" || BAD=1
 node test/catalog.mjs | tail -1 | grep -q "all passed" && echo "catalog: all passed" || { echo "catalog: SOMETHING FAILED (node test/catalog.mjs)"; BAD=1; }      # the build's check that Patch on Slur and the wall agree
 ./test/inst/run.sh | tail -1 | grep -q " 0 failed" && echo "instruments: all passed" || { echo "instruments: SOMETHING FAILED (./test/inst/run.sh)"; BAD=1; }      # the room's own instruments, played by themselves and measured
 ./test/host/run.sh | tail -1 | grep -q " 0 wrong" && echo "audio-unit host: all passed" || { echo "audio-unit host: SOMETHING FAILED (./test/host/run.sh)"; BAD=1; }      # the app's own way of opening an audio unit, alone (not yet what the app uses)
+./test/hits/run.sh | tail -1 | grep -q "hits: 0 wrong" && echo "where things begin: all passed" || { echo "where things begin: SOMETHING FAILED (./test/hits/run.sh)"; BAD=1; }      # the ear for hits and notes (Source/Transients.h), against sounds made with their truth
 run () {                                                    # one browser check: its last line says how it went
   local OUT; OUT="$(node "test/$1.mjs" ${2:+"$2"} ${3:+"$3"} 2>&1 | tail -1)"
   case "$OUT" in *"all passed"*) echo "$1${2:+ $2 x $3}: all passed";; *) echo "$1${2:+ $2 x $3}: $OUT"; BAD=1;; esac
 }
-for T in edit edit2 basics group time alt deep meter mixed mixed2 small hands start say chords join inst keys stretch doors folders grid roll autonudge fadekeys study caps prompt trimmany rowh busrow hint grammar wavez picker wall autoseg away nest preset opening fades meternode stems macro side units ctl llm; do run "$T"; done
+for T in edit edit2 basics group time alt deep meter mixed mixed2 small hands start say chords join inst keys stretch doors folders grid roll autonudge fadekeys study caps prompt trimmany rowh busrow hint grammar wavez picker wall autoseg away nest preset opening fades meternode stems macro side units ctl llm carry rubato; do run "$T"; done
 run hands 1100 640
 run picker 1100 640
 run wall 1100 640

@@ -21,9 +21,6 @@ juce::AudioBuffer<float> warp (const juce::AudioBuffer<float>& src, double sr, d
                                std::vector<WarpPoint> map, double outSec, bool loop, bool reverse,
                                const std::atomic<bool>* cancel = nullptr);
 
-/** Where things begin in a file, in seconds. */
-std::vector<double> onsets (const juce::AudioBuffer<float>& src, double sr);
-
 /** How fast a sound goes, heard from the sound itself.
     bpm: beats a minute (0 when nothing regular was found). sure: 0…1, how regular it is — how much of what
     happens comes again a beat later. first: seconds to the first beat (roughly: a hundredth of a second late

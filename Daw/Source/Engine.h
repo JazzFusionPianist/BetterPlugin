@@ -5,6 +5,7 @@
 #include <thread>
 #include "FxEngine.h"
 #include "Stretch.h"
+#include "Transients.h"
 #include "Pool.h"
 #include "Recover.h"
 #include "Instruments.h"
@@ -2344,16 +2345,24 @@ public:
         });
     }
 
-    /** Where things begin in a buffer, in seconds. Runs on its own thread. */
+    /** Where things begin in a buffer (Transients.h): [{s: seconds, k: 0 a hit | 1 a note, v: how sure}], every place
+        that could be wanted — which of them are shown is the page's to choose, by a sensitivity. Runs on its own thread. */
     void findOnsets (const String& key, std::function<void (juce::var)> done)
     {
         auto src = buffer (key);
         if (src == nullptr) { done (juce::Array<juce::var>()); return; }
         juce::Thread::launch ([sr0 = sr, src, done]
         {
-            const auto found = onsets (src->data, sr0);
+            const auto found = slur::transients (src->data.getArrayOfReadPointers(), src->data.getNumChannels(), src->data.getNumSamples(), sr0);
             juce::Array<juce::var> out;
-            for (auto t : found) out.add (juce::roundToInt (t * 10000.0) / 10000.0);
+            for (const auto& h : found)
+            {
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("s", juce::roundToInt (h.s * 100000.0) / 100000.0);
+                o->setProperty ("k", h.kind);
+                o->setProperty ("v", juce::roundToInt (h.score * 1000.0f) / 1000.0);
+                out.add (juce::var (o));
+            }
             juce::MessageManager::callAsync ([done, out] { done (out); });
         });
     }

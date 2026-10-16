@@ -1762,7 +1762,7 @@ function lanesUp () {
     else if (A && B && !xfadeOf(A, B)) { for (const [a, b] of pairsOf(d)) crossfade(a, b, defaultXfade()); commit(d.before); S.selX = [A.id, B.id] }
   }
   else if (d.a === 'join') { if (d.moved) commit(d.before) }
-  else if (d.a === 'flex') { if (d.moved) { const r = regOf(d.id)[0], ms = r ? flexShare(r, d.keep) : []; commit(d.before); rewarp([r].concat(ms).filter(Boolean)) } else restoreFlex(d) }
+  else if (d.a === 'flex') { if (d.moved) { const r = regOf(d.id)[0], ms = r ? (d.mates ? d.mates.map(id => regOf(id)[0]).filter(Boolean) : flexShare(r, d.keep)) : []; for (const x of ms) x.flex = (r.flex || []).map(m => Object.assign({}, m)); commit(d.before); rewarp([r].concat(ms).filter(Boolean)) } else restoreFlex(d) }      // (its mates followed it as it went: flex.js)
   else if (d.before && d.moved) {
     if (d.a === 'move') {
       if (d.last && Math.abs(d.last[0]) < 1e-9 && !d.last[1]) {                        // carried off and brought back to where it was taken up: as if it had not been touched (the crossfades it left to be carried are there again, nothing stays behind as a copy)

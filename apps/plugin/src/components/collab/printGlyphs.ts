@@ -9,7 +9,7 @@ import {
   FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_SIDE, FX_FOLLOW, FX_COMP, FX_BANDS, FX_CARVE, FX_MATCH, FX_VOCODE,
   FX_FREEZE, FX_SHIFT, FX_SMEAR, FX_PAN, FX_REPEAT, FX_ENV, FX_FOLD, FX_DRIFT, FX_PULSE, FX_SCENE, FX_SIEVE,
 } from '../../lib/fxBridge'
-import { shapeAt, SINE_PTS, randomStep } from './LfoEditor'
+import { shapeAt, SINE_PTS, randomStep } from './printCatalog'
 
 export const PAPER = '#FBFAF7'
 

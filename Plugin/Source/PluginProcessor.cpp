@@ -900,9 +900,9 @@ void OrbAudioProcessor::timerCallback()
     }
     // a follow's meter: what it heard (peak since the last event, after its sense) and where its envelope is, both linear
     script << "],lph:[";
-    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (ratePhaseOut[(size_t) i].load (std::memory_order_relaxed), 4);
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (modulator.phaseOf (i), 4);
     script << "],lcy:[";
-    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << rateCycleOut[(size_t) i].load (std::memory_order_relaxed);
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << modulator.cycleOf (i);
     // a comp's meter: the key's peak since the last event and its reduction now, both dB-ready (linear peak, dB reduction)
     script << "],cin:[";
     for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (slotTypes[(size_t) i].load() == orbfx::kComp ? fxChain.takeCompIn (i) : 0.0f, 5);
@@ -1395,15 +1395,7 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
     for (int i = 0; i < orbfx::kAuxCount; ++i) s.aux[(size_t) i].store (nd.aux[i], std::memory_order_relaxed);
     for (int i = 0; i < orbfx::kCurveLen; ++i)
         s.curve[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.curve[i]), std::memory_order_relaxed);
-    s.hasCurve.store (nd.hasCurve, std::memory_order_relaxed);
-    for (int i = 0; i < orbfx::kLfoLen; ++i)
-    {
-        s.lfo[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.lfo[i]), std::memory_order_relaxed);
-        s.lfoCliff[(size_t) i].store (std::abs (nd.lfo[(i + 1) % orbfx::kLfoLen] - nd.lfo[i]) > 0.12f ? 1 : 0, std::memory_order_relaxed);   // one step of the table is 1/1024 of a turn: a change this big in it is a drawn cliff (or the shape's seam)
-    }
-    s.hasLfo.store (nd.hasLfo, std::memory_order_relaxed);
-    for (int i = 0; i < orbfx::kLfoLen; ++i) s.lfo2[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.lfo2[i]), std::memory_order_relaxed);
-    s.hasLfo2.store (nd.hasLfo2, std::memory_order_relaxed);
+    s.hasCurve.store (nd.hasCurve, std::memory_order_relaxed);   // (an lfo's shape goes to the modulator, with the wall: applyGraph)
 }
 
 bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
@@ -1418,74 +1410,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
     for (auto& nd : g.nodes) writeSlot (nd);
     syncHandNames();
     fxChain.publish (prog);
-    {
-        ModTable t;
-        bool isLfo[orbfx::kMaxNodes] {};
-        int  typeOf[orbfx::kMaxNodes]; for (auto& x : typeOf) x = orbfx::kNone;
-        for (auto& nd : g.nodes)
-        {
-            if (nd.id < 0 || nd.id >= orbfx::kMaxNodes) continue;
-            typeOf[nd.id] = nd.type;
-            if (nd.type == orbfx::kRate)  t.isRate[nd.id] = true;
-            if (nd.type == orbfx::kLfo)   isLfo[nd.id] = true;
-            if (nd.type == orbfx::kMacro) t.macroOf[nd.id] = juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0]);
-            if (nd.type == orbfx::kFollow || nd.type == orbfx::kEnv) t.isFollow[nd.id] = true;
-            if (nd.type == orbfx::kLfo)   { t.isRate[nd.id] = true; t.isLfo[nd.id] = true; t.shapeOf[nd.id] = nd.id; }   // an lfo plays hands itself: its own clock, its own shape
-            if (nd.type == orbfx::kDrift) { t.isRate[nd.id] = true; t.isLfo[nd.id] = true; t.isDrift[nd.id] = true; }   // a drift is an lfo with a wandering shape
-            if (nd.type == orbfx::kPulse) { t.isRate[nd.id] = true; t.isPulse[nd.id] = true; }                          // a pulse is a rate whose value is a gate
-            if (nd.type == orbfx::kScene && t.sceneSlot < 0)
-            {
-                t.sceneSlot = nd.id;
-                auto take = [] (const std::vector<float>& src, float (&dst)[orbfx::kMaxNodes][orbfx::kSceneHands], bool (&has)[orbfx::kMaxNodes])
-                {
-                    for (size_t i = 0; i + orbfx::kSceneStride <= src.size(); i += orbfx::kSceneStride)
-                    {
-                        const int id = (int) src[i]; if (id < 0 || id >= orbfx::kMaxNodes) continue;
-                        has[id] = true;
-                        for (int k = 0; k < orbfx::kSceneHands; ++k) dst[id][k] = src[i + 1 + (size_t) k];
-                    }
-                };
-                bool hasA[orbfx::kMaxNodes] {}, hasB[orbfx::kMaxNodes] {};
-                take (nd.sceneA, t.sceneA, hasA); take (nd.sceneB, t.sceneB, hasB);
-                for (int s = 0; s < orbfx::kMaxNodes; ++s)
-                    for (int k = 0; k < orbfx::kSceneHands; ++k)
-                        t.sceneHeld[s][k] = hasA[s] && hasB[s] && s != nd.id && std::abs (t.sceneA[s][k] - t.sceneB[s][k]) > 1.0e-4f;
-            }
-        }
-        for (auto& e : g.edges)
-        {
-            const bool nodes = e.from >= 0 && e.from < orbfx::kMaxNodes && e.to >= 0 && e.to < orbfx::kMaxNodes;
-            if (! nodes) continue;
-            const bool src = t.isRate[e.from] || t.macroOf[e.from] >= 0 || t.isFollow[e.from];
-            if ((e.hand != orbfx::kHandNone || e.refHand != orbfx::kHandNone) && src && t.count < orbfx::kMaxEdges)
-            {
-                auto& w = t.wires[t.count++];
-                w = { e.from, e.to, e.hand, juce::jlimit (-1.0f, 1.0f, e.gain), typeOf[e.to], t.macroOf[e.from] >= 0 || t.isFollow[e.from], -1 };
-                w.uni = e.pol == 1 || (e.pol == 0 && (w.fromMacro || t.isPulse[e.from]));   // a pulse pushes one way too: off is the setting, on is the throw
-                if (e.refHand != orbfx::kHandNone) { w.hand = orbfx::kHandNone; w.target = -2; }   // resolved below
-            }
-            else if (e.hand == orbfx::kHandNone && isLfo[e.from] && t.isRate[e.to])
-                t.shapeOf[e.to] = e.from;
-        }
-        // a wire that plays another wire's depth: find that wire by (from, to, hand)
-        {
-            int k = 0;
-            for (auto& e : g.edges)
-            {
-                if (! (e.from >= 0 && e.from < orbfx::kMaxNodes && e.to >= 0 && e.to < orbfx::kMaxNodes)) continue;
-                const bool src = t.isRate[e.from] || t.macroOf[e.from] >= 0 || t.isFollow[e.from];
-                if (! ((e.hand != orbfx::kHandNone || e.refHand != orbfx::kHandNone) && src)) continue;
-                if (k >= t.count) break;
-                if (e.refHand != orbfx::kHandNone)
-                    for (int j = 0; j < t.count; ++j)
-                        if (t.wires[j].from == e.refFrom && t.wires[j].to == e.to && t.wires[j].hand == e.refHand) { t.wires[k].target = j; break; }
-                ++k;
-            }
-        }
-        const juce::SpinLock::ScopedLockType sl (modLock);
-        modPending = t;
-        modPendingFlag.store (true, std::memory_order_release);
-    }
+    modulator.setGraph (g);   // the control wires and the lfos' shapes (FxEngine: shared with Slur Studio)
     // the host lines the track up by this much (mix aligned, monitoring late)
     if (getLatencySamples() != prog.latency) setLatencySamples (prog.latency);
     return true;
@@ -1545,37 +1470,7 @@ const char* OrbAudioProcessor::auxName (int type, int k)
         default: return nullptr;
     }
 }
-void OrbAudioProcessor::auxRange (int type, int k, int& lo, int& hi)
-{
-    lo = 0; hi = 100;
-    switch (type)
-    {
-        case orbfx::kCut:     if (k == 0) { lo = 0; hi = 4; } break;   // 1..4 = 12, 24, 36, 48 dB per octave (0 = unset = 24)
-        case orbfx::kTremolo: if (k == 0) { lo = 0; hi = 1; } else if (k == 2) { lo = 0; hi = 13; } break;
-        case orbfx::kArp:     if (k == 0) { lo = 1; hi = 12; } break;
-        case orbfx::kHarmony: if (k == 0) { lo = 0; hi = 11; } else if (k == 1) { lo = 0; hi = 1; } else if (k == 2) { lo = -12; hi = 12; } break;
-        case orbfx::kPitch:   if (k == 0) { lo = -100; hi = 100; } else if (k == 1) { lo = 0; hi = 1; } break;
-        case orbfx::kFormant: if (k == 0) { lo = 0; hi = 1; } break;
-        case orbfx::kGrain:   if (k == 0) { lo = 10; hi = 600; } else if (k == 1) { lo = 0; hi = 1500; } else if (k == 2) { lo = 0; hi = 24; } else if (k == 3) { lo = 0; hi = 11; } else if (k == 4) { lo = 0; hi = 1; } else { lo = 0; hi = 100; } break;
-        case orbfx::kSwell:   if (k == 0) { lo = 0; hi = 100; } else if (k == 1) { lo = 0; hi = 1; } break;
-        case orbfx::kRate:    if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } break;
-        case orbfx::kLfo:     if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = 0; hi = 32; } else if (k == 5) { lo = 0; hi = 100; } else if (k == 6) { lo = 0; hi = 1; } break;
-        case orbfx::kSplitBands: if (k < 5) { lo = 20; hi = 20000; } else if (k == 5) { lo = 1; hi = 5; } break;
-        case orbfx::kCarve:   if (k == 0) { lo = 1; hi = 200; } else if (k == 1) { lo = 20; hi = 2000; } else if (k == 2 || k == 3) { lo = 20; hi = 20000; } break;
-        case orbfx::kMatch:   if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 1; hi = 48; } break;
-        case orbfx::kVocode:  if (k == 0) { lo = 8; hi = 64; } else if (k == 1) { lo = 1; hi = 200; } else if (k == 2) { lo = 10; hi = 2000; } break;
-        case orbfx::kComp:    if (k == 0) { lo = 10; hi = 200; } else if (k == 1) { lo = 1; hi = 1000; } else if (k == 2) { lo = 10; hi = 2000; } else if (k == 3) { lo = 0; hi = 24; } else if (k == 4) { lo = 0; hi = 24; } break;   // ratio ×10, attack ×10 ms, release ms, knee dB, makeup dB
-        case orbfx::kFollow:  if (k == 0) { lo = 1; hi = 500; } else if (k == 1) { lo = 5; hi = 2000; } else if (k == 2) { lo = 0; hi = 100; } else if (k == 3) { lo = -60; hi = -1; } break;
-        case orbfx::kShift:   if (k == 0) { lo = -2000; hi = 2000; } else if (k == 1) { lo = 0; hi = 95; } break;
-        case orbfx::kSmear:   if (k == 0) { lo = 50; hi = 5000; } else if (k == 1) { lo = 0; hi = 100; } break;
-        case orbfx::kRepeat:  if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = -60; hi = -1; } break;
-        case orbfx::kSieve:   if (k == 0) { lo = 1; hi = 200; } else if (k == 1) { lo = 20; hi = 2000; } else if (k == 2) { lo = 0; hi = 100; } break;
-        case orbfx::kDrift:   if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = 0; hi = 100; } else if (k == 5) { lo = 0; hi = 100; } break;
-        case orbfx::kPulse:   if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = 1; hi = 32; } else if (k == 5) { lo = 0; hi = 32; } else if (k == 6) { lo = 0; hi = 31; } else if (k == 7) { lo = 0; hi = 100; } break;
-        case orbfx::kEnv:     if (k == 0) { lo = 1; hi = 5000; } else if (k == 1) { lo = 1; hi = 5000; } else if (k == 2) { lo = 0; hi = 100; } else if (k == 3) { lo = 1; hi = 10000; } else if (k == 4) { lo = -60; hi = -1; } else if (k == 5) { lo = 0; hi = 1; } break;
-        default: break;
-    }
-}
+void OrbAudioProcessor::auxRange (int type, int k, int& lo, int& hi) { orbfx::auxRange (type, k, lo, hi); }   // (the engine's table, shared with Slur Studio)
 
 juce::AudioProcessorParameter* OrbAudioProcessor::handParam (int slot, const juce::String& hand) const
 {
@@ -1729,7 +1624,9 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer, const juce:
         p.playing  = playing;
     }
 
-    applyModulation (params, n, sr, bpm, playing, ppq);
+    float macros[orbfx::kNumMacros];
+    for (int m = 0; m < orbfx::kNumMacros; ++m) macros[m] = macroParam[m] != nullptr ? macroParam[m]->get() : 0.0f;
+    modulator.apply (params, n, sr, bpm, playing, ppq, macros, fxChain);
     // what is actually being played, for the study to show moving
     for (int i = 0; i < orbfx::kMaxNodes; ++i)
     {
@@ -1746,236 +1643,12 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer, const juce:
     glueGrDb.store (gr, std::memory_order_relaxed);
 }
 
-/*  The rates tick and play their shapes into the hands they are wired
-    to. Block-rate: each effect smooths its own hand, so a block's step
-    is a slope, not a click. A synced rate is locked to the transport
-    while it plays and free-runs at the tempo otherwise.               */
-void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSamples, float sr, float bpm, bool playing, double ppq)
-{
-    if (modPendingFlag.load (std::memory_order_acquire) && modLock.tryEnter())
-    {
-        modActive = modPending;
-        modPendingFlag.store (false, std::memory_order_relaxed);
-        modLock.exit();
-    }
-    const auto& t = modActive;
-    if (t.count == 0) return;
-    float macroVal[orbfx::kNumMacros];
-    for (int m = 0; m < orbfx::kNumMacros; ++m) macroVal[m] = macroParam[m] != nullptr ? macroParam[m]->get() : 0.0f;
-    static const double kBeats[8] = { 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0 };   // 1/32 … 4/1 in quarter notes
-    float value[orbfx::kMaxNodes];
-    for (int r = 0; r < orbfx::kMaxNodes; ++r) value[r] = 0.5f;
-    for (int r = 0; r < orbfx::kMaxNodes; ++r) if (t.macroOf[r] >= 0) value[r] = macroVal[t.macroOf[r]];
-    for (int r = 0; r < orbfx::kMaxNodes; ++r) if (t.isFollow[r]) value[r] = fxChain.followValue (r);   // what it heard last block
-    // a wire's push: a rate swings both ways around the setting, a macro pushes one way from it
-    // (a push of 1 moves a hand half its travel: a rate at full depth swings the whole travel around the setting;
-    //  a macro or a follow pushes one way, so at full depth it carries the hand the whole travel from the setting)
-    // one way: the source's 0..1 carries the hand from the setting as far as the depth says (depth 1 = the whole travel).
-    // both ways: the source swings round its middle, the hand goes depth/2 of its travel to either side of the setting.
-    auto pushOf = [&] (const ModTable::Wire& w, float depth) { return w.uni ? value[w.from] * depth * 2.0f : (value[w.from] - 0.5f) * 2.0f * depth; };
-    auto pushAux = [&] (orbfx::NodeParams& p, int type, int a, float k)
-    {
-        int lo, hi; auxRange (type, a, lo, hi);
-        p.aux[a] = juce::jlimit (lo, hi, p.aux[a] + (int) std::lround (k * 0.5f * (float) (hi - lo)));
-    };
-    // first the wires that set other wires' depths (a macro on a played hand becomes that play's depth): a macro's value is known already
-    float depth[orbfx::kMaxEdges];
-    for (int i = 0; i < t.count; ++i) depth[i] = t.wires[i].depth;
-    for (int i = 0; i < t.count; ++i)
-    {
-        const auto& w = t.wires[i];
-        if (w.target >= 0 && w.target < t.count) depth[w.target] = juce::jlimit (-1.0f, 1.0f, value[w.from] * w.depth);   // the macro's knob IS the depth, as it reads
-    }
-    // the scene: its knob (the host's, pushed by the macros and follows now, by a rate as it read last block) slides every hand the
-    // two snapshots disagree on between A and B — before the rates tick, so a held clock is the blended clock
-    if (t.sceneSlot >= 0)
-    {
-        float pos = params[t.sceneSlot].amount;
-        for (int i = 0; i < t.count; ++i)
-        {
-            const auto& w = t.wires[i];
-            if (w.to != t.sceneSlot || w.hand != orbfx::kHandAmount || w.target != -1) continue;
-            const float src = t.isRate[w.from] ? rateValue[(size_t) w.from].load (std::memory_order_relaxed) : value[w.from];
-            pos += (w.uni ? src * depth[i] * 2.0f : (src - 0.5f) * 2.0f * depth[i]) * 0.5f;
-        }
-        pos = juce::jlimit (0.0f, 1.0f, pos);
-        for (int s = 0; s < orbfx::kMaxNodes; ++s)
-        {
-            const bool* held = t.sceneHeld[s];
-            auto mix = [&] (int k) { return t.sceneA[s][k] + (t.sceneB[s][k] - t.sceneA[s][k]) * pos; };
-            auto pick = [&] (int k) { return pos < 0.5f ? t.sceneA[s][k] : t.sceneB[s][k]; };
-            auto& p = params[s];
-            if (held[0]) p.amount = juce::jlimit (0.0f, 1.0f, mix (0));
-            if (held[1]) p.variant = (int) std::lround (pick (1));
-            if (held[2]) p.decay = juce::jlimit (0.0f, 1.0f, mix (2));
-            if (held[3]) p.delayFb = juce::jlimit (0.0f, 1.0f, mix (3));
-            if (held[4]) p.delayDiv = (int) std::lround (pick (4));
-            if (held[5]) p.wet = pick (5) > 0.5f;
-            for (int k = 0; k < orbfx::kAuxCount; ++k) if (held[6 + k]) p.aux[k] = (int) std::lround (mix (6 + k));
-        }
-    }
-    // Whatever plays an lfo's own hands (its clock, its depth) must land BEFORE that lfo ticks, or the lfo runs a block on the
-    // setting it was supposed to be moved off (an lfo whose depth another lfo holds at 0 kept on playing). So: the macros and
-    // follows first (their values are known), then the lfos in the order they feed one another.
-    auto landOnLfo = [&] (int i)
-    {
-        const auto& w = t.wires[i];
-        const int a = w.hand - orbfx::kHandAux0;
-        if (a == 6)
-        {
-            // the reset hand: what lands here restarts the lfo when it rises past the middle (a follow's hit, a macro flicked up)
-            const bool on = value[w.from] > 0.5f;
-            if (on && ! resetWas[i]) rateReset[w.to] = true;
-            resetWas[i] = on;
-            return;
-        }
-        if (a >= 0 && a < orbfx::kAuxCount) pushAux (params[w.to], w.toType, a, pushOf (w, depth[i]));
-    };
-    auto playsAnLfo = [&] (const ModTable::Wire& w) { return w.target == -1 && w.to >= 0 && w.to < orbfx::kMaxNodes && t.isRate[w.to]; };
-    for (int i = 0; i < t.count; ++i) if (playsAnLfo (t.wires[i]) && t.wires[i].fromMacro) landOnLfo (i);
-    bool ticked[orbfx::kMaxNodes] {};
-    int order[orbfx::kMaxNodes]; int nOrder = 0;
-    for (int pass = 0; pass < orbfx::kMaxNodes; ++pass)
-        for (int r = 0; r < orbfx::kMaxNodes; ++r)
-        {
-            if (! t.isRate[r] || ticked[r]) continue;
-            bool waits = false;   // does an lfo that has not ticked yet play this one's hands?
-            for (int i = 0; i < t.count && ! waits; ++i) { const auto& w = t.wires[i]; waits = playsAnLfo (w) && w.to == r && ! w.fromMacro && w.from != r && t.isRate[w.from] && ! ticked[w.from]; }
-            if (waits && pass < orbfx::kMaxNodes - 1) continue;   // (a ring of lfos playing one another: the last pass takes them as they come)
-            ticked[r] = true; order[nOrder++] = r;
-        }
-    for (int q = 0; q < nOrder; ++q)
-    {
-        const int r = order[q];
-        const auto& rp = params[r];   // the host's clock, as pushed
-        const int mode = rp.aux[0];
-        double phase = ratePhase[r];
-        if (rateReset[r] && (mode == 1 || ! playing)) phase = 0.0;   // free-running: back to the start now
-        if (mode == 1)
-        {
-            const double hz = juce::jlimit (0.01, 20.0, rp.aux[3] / 100.0);
-            phase += hz * numSamples / (double) sr;
-        }
-        else
-        {
-            const int div = juce::jlimit (0, 7, rp.aux[1]);
-            const int feel = rp.aux[2];
-            const double beats = kBeats[div] * (feel == 1 ? 1.5 : feel == 2 ? 2.0 / 3.0 : 1.0);
-            if (playing && rateReset[r]) rateOffset[r] = ppq / beats;   // synced: from here the shape starts over, still locked to the song
-            if (playing) phase = ppq / beats - rateOffset[r];   // locked to the song: the shape's left edge is bar 1 (or the last reset), so the same place in the song is the same place in the shape
-            else phase += (juce::jmax (20.0, (double) bpm) / 60.0 / beats) * numSamples / (double) sr;
-        }
-        rateReset[r] = false;
-        // which turn this is: from the song while it plays (so a random shape is the same every time that bar is played), counted otherwise
-        const double whole = std::floor (phase);
-        if (playing && mode != 1) rateCycle[r] = (int64_t) whole; else rateCycle[r] += (int64_t) whole;
-        phase -= whole;
-        ratePhase[r] = phase;
-        ratePhaseOut[(size_t) r].store ((float) phase, std::memory_order_relaxed);
-        rateCycleOut[(size_t) r].store ((int) (rateCycle[r] & 0x7fffffff), std::memory_order_relaxed);
-        // the shape: the lfo wired in, or a sine
-        float v;
-        bool jumped = false;
-        const int lfoSlot = t.shapeOf[r];
-        const int steps = t.isLfo[r] && ! t.isDrift[r] ? juce::jlimit (0, 32, rp.aux[4]) : 0;
-        if (t.isPulse[r])
-        {
-            // the pattern: `hits` of `steps` spread as evenly as they can be (euclid), turned by `rotate`; one step per turn of the clock.
-            // The gate is up for `length` of the step. Which step this is comes from the turn, so bar 9 is the same every time.
-            const int ns = juce::jlimit (1, 32, rp.aux[4] > 0 ? rp.aux[4] : 8), hits = juce::jlimit (0, ns, rp.aux[5]), rot = rp.aux[6], len = juce::jlimit (0, 100, rp.aux[7] > 0 ? rp.aux[7] : 50);
-            const int k = (int) (((rateCycle[r] % ns) + ns) % ns);
-            const bool hit = (((k + rot) % ns + ns) % ns * hits) % ns < hits;
-            const bool on = hit && phase < (double) len / 100.0;
-            v = on ? 1.0f : 0.0f;
-            jumped = on != pulseWas[r]; pulseWas[r] = on;
-        }
-        else if (t.isDrift[r])
-        {
-            // a random target every turn, and between the targets a curve (catmull-rom) — or a straight line, as `smooth` says
-            auto tgt = [&] (int64_t c) { uint32_t h = (uint32_t) (c * 2654435761u) ^ (uint32_t) (r * 40503u + 12345u); h ^= h >> 15; h *= 2246822519u; h ^= h >> 13; h *= 3266489917u; h ^= h >> 16; return (float) (h & 0xffffff) / (float) 0xffffff; };
-            const float y0 = tgt (rateCycle[r] - 1), y1 = tgt (rateCycle[r]), y2 = tgt (rateCycle[r] + 1), y3 = tgt (rateCycle[r] + 2);
-            const float tt = (float) phase, t2 = tt * tt, t3 = t2 * tt;
-            const float cr = 0.5f * ((2.0f * y1) + (-y0 + y2) * tt + (2.0f * y0 - 5.0f * y1 + 4.0f * y2 - y3) * t2 + (-y0 + 3.0f * y1 - 3.0f * y2 + y3) * t3);
-            const float sm = juce::jlimit (0, 100, rp.aux[4]) / 100.0f;
-            v = juce::jlimit (0.0f, 1.0f, (y1 + (y2 - y1) * tt) * (1.0f - sm) + cr * sm);
-        }
-        else if (steps > 0)
-        {
-            // random: a new value every step, held. It comes from the turn and the step, not from a dice: bar 9 is the same every time.
-            const int64_t step = rateCycle[r] * steps + (int64_t) (phase * steps);
-            uint32_t h = (uint32_t) (step * 2654435761u) ^ (uint32_t) (r * 40503u + 12345u);
-            h ^= h >> 15; h *= 2246822519u; h ^= h >> 13; h *= 3266489917u; h ^= h >> 16;
-            v = (float) (h & 0xffffff) / (float) 0xffffff;
-            jumped = step != rateLastStep[r]; rateLastStep[r] = step;
-        }
-        else if (lfoSlot >= 0 && fxSlots[(size_t) lfoSlot].hasLfo.load (std::memory_order_relaxed))
-        {
-            // read as drawn: no blending between two entries, so a vertical line is a step
-            auto& slot = fxSlots[(size_t) lfoSlot];
-            const int idx = juce::jlimit (0, orbfx::kLfoLen - 1, (int) (phase * orbfx::kLfoLen));
-            v = slot.lfo[(size_t) idx].load (std::memory_order_relaxed);
-            if (slot.hasLfo2.load (std::memory_order_relaxed))   // the morph: between this shape and the one it morphs toward, by the `morph` hand
-            {
-                const float m = juce::jlimit (0.0f, 1.0f, rp.decay);
-                v += (slot.lfo2[(size_t) idx].load (std::memory_order_relaxed) - v) * m;
-            }
-            // did this block pass over a cliff? then the hand jumps (no glide)
-            int k = rateLastIdx[r], guard = 0;
-            while (k != idx && guard++ < orbfx::kLfoLen) { if (slot.lfoCliff[(size_t) k].load (std::memory_order_relaxed)) { jumped = true; break; } k = (k + 1) % orbfx::kLfoLen; }
-            rateLastIdx[r] = idx;
-        }
-        else v = 0.5f + 0.5f * (float) std::sin (phase * juce::MathConstants<double>::twoPi);
-        if (t.isLfo[r])
-        {
-            const int dep = juce::jlimit (0, 100, rp.aux[5]);
-            v = 0.5f + (v - 0.5f) * (float) dep / 100.0f;   // the lfo's own depth: how far it swings, for every hand it plays
-            if (std::abs (dep - rateLastDepth[r]) > 25) jumped = true;   // its depth was thrown (a square lfo on it): what it plays jumps too, no glide
-            rateLastDepth[r] = dep;
-        }
-        if (jumped) for (int i = 0; i < t.count; ++i) if (t.wires[i].from == r && t.wires[i].to >= 0 && t.wires[i].to < orbfx::kMaxNodes) params[t.wires[i].to].snap = true;
-        value[r] = v;
-        rateValue[(size_t) r].store (v, std::memory_order_relaxed);
-        for (int i = 0; i < t.count; ++i) if (playsAnLfo (t.wires[i]) && t.wires[i].from == r && ! t.wires[i].fromMacro) landOnLfo (i);   // onto the lfos it plays, before they tick
-    }
-    for (int i = 0; i < t.count; ++i)
-    {
-        const auto& w = t.wires[i];
-        if (w.target != -1 || w.to < 0 || w.to >= orbfx::kMaxNodes) continue;
-        if (t.isRate[w.to]) continue;   // an lfo's hands: landed above, before it ticked
-        if (w.to == t.sceneSlot) continue;   // the scene's knob: read above, before the blend
-        auto& p = params[w.to];
-        const float k = pushOf (w, depth[i]);
-        // each hand moves by a fraction of its own range
-        auto lim = [] (float x, float lo, float hi) { return juce::jlimit (lo, hi, x); };
-        auto limi = [] (int x, int lo, int hi) { return juce::jlimit (lo, hi, x); };
-        if (w.hand >= orbfx::kHandShare0)
-        {
-            const int idx = w.hand - orbfx::kHandShare0;   // from + 1
-            if (idx >= 0 && idx <= orbfx::kMaxNodes) p.shareK[idx] += k;
-            continue;
-        }
-        switch (w.hand)
-        {
-            case orbfx::kHandAmount: p.amount = lim (p.amount + k * 0.5f, 0.0f, 1.0f); break;
-            case orbfx::kHandDecay:  p.decay  = lim (p.decay  + k * 0.5f, 0.0f, 1.0f); break;
-            case orbfx::kHandFb:     p.delayFb = lim (p.delayFb + k * 0.5f, 0.0f, 1.0f); break;
-            default:
-            {
-                const int a = w.hand - orbfx::kHandAux0;
-                if (a >= 0 && a < orbfx::kAuxCount) pushAux (p, w.toType, a, k);
-                break;
-            }
-        }
-    }
-}
 
 //==============================================================================
 // Patch ⇄ JSON. Shape:
 //   { nodes: [{ id, type, amount, variant, decay:[3], delayDiv, delayFb, wet, x, y }],
 //     edges: [{ from, to, gain }] }          from/to: node id, -1 = in, -2 = out
 
-static juce::String handName (int hand);
-static int handOf (const juce::String& s);
 
 juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
 {
@@ -2032,8 +1705,8 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
         if (e.port != 0) o->setProperty ("port", e.port);
         if (e.in != 0) o->setProperty ("in", e.in);
         if (e.pol != 0) o->setProperty ("pol", e.pol);
-        if (e.hand != orbfx::kHandNone) o->setProperty ("hand", handName (e.hand));
-        else if (e.refHand != orbfx::kHandNone) o->setProperty ("hand", "wire:" + juce::String (e.refFrom) + ":" + handName (e.refHand));
+        if (e.hand != orbfx::kHandNone) o->setProperty ("hand", orbfx::handName (e.hand));
+        else if (e.refHand != orbfx::kHandNone) o->setProperty ("hand", "wire:" + juce::String (e.refFrom) + ":" + orbfx::handName (e.refHand));
         edges.add (juce::var (o));
     }
     auto* root = new juce::DynamicObject();
@@ -2043,134 +1716,9 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
 }
 
 /** The hands by name, as the wall writes them: amount, decay, fb, aux0 … aux7. */
-static juce::String handName (int hand)
-{
-    switch (hand)
-    {
-        case orbfx::kHandAmount: return "amount";
-        case orbfx::kHandDecay:  return "decay";
-        case orbfx::kHandFb:     return "fb";
-        default:
-            if (hand >= orbfx::kHandShare0) return "share:" + juce::String (hand - orbfx::kHandShare0 - 1);
-            return hand >= orbfx::kHandAux0 ? "aux" + juce::String (hand - orbfx::kHandAux0) : juce::String();
-    }
-}
-static int handOf (const juce::String& s)
-{
-    if (s == "amount") return orbfx::kHandAmount;
-    if (s == "decay")  return orbfx::kHandDecay;
-    if (s == "fb")     return orbfx::kHandFb;
-    if (s.startsWith ("aux")) { const int k = s.substring (3).getIntValue(); return k >= 0 && k < orbfx::kAuxCount ? orbfx::kHandAux0 + k : orbfx::kHandNone; }
-    if (s.startsWith ("share:")) { const int from = s.substring (6).getIntValue(); return from >= orbfx::kPortIn && from < orbfx::kMaxNodes ? orbfx::kHandShare0 + from + 1 : orbfx::kHandNone; }
-    return orbfx::kHandNone;
-}
-
 bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g, juce::String& error)
 {
-    juce::var v = juce::JSON::parse (json);
-    if (! v.isObject()) { error = "not a patch"; return false; }
-    orbfx::Graph out;
-    if (auto* nodes = v["nodes"].getArray())
-    {
-        for (auto& n : *nodes)
-        {
-            if (! n.isObject()) { error = "bad node"; return false; }
-            orbfx::Graph::Node nd;
-            nd.id       = (int) n["id"];
-            nd.type     = (int) n["type"];
-            nd.amount   = n.hasProperty ("amount")   ? (float) (double) n["amount"]  : orbfx::neutralAmount (nd.type);
-            nd.variant  = n.hasProperty ("variant")  ? (int) n["variant"] : 0;
-            if (auto* dec = n["decay"].getArray())
-                for (int i = 0; i < 3 && i < dec->size(); ++i) nd.decay[i] = (float) (double) (*dec)[i];
-            nd.delayDiv = n.hasProperty ("delayDiv") ? (int) n["delayDiv"] : 2;
-            nd.delayFb  = n.hasProperty ("delayFb")  ? (float) (double) n["delayFb"] : 0.35f;
-            nd.wet      = n.hasProperty ("wet")      ? (bool) n["wet"] : false;
-            nd.bypass   = n.hasProperty ("bypass")   ? (bool) n["bypass"] : false;
-            if (auto* ax = n["aux"].getArray())
-                for (int i = 0; i < orbfx::kAuxCount && i < ax->size(); ++i) nd.aux[i] = (int) (*ax)[i];
-            if (auto* cv = n["curve"].getArray(); cv != nullptr && nd.type == orbfx::kLfo && cv->size() > 1)
-            {
-                // an lfo's shape: resampled onto the engine's table whatever its length
-                nd.hasLfo = true;
-                const int m = cv->size();
-                for (int i = 0; i < orbfx::kLfoLen; ++i)
-                {
-                    const double x = (double) i / orbfx::kLfoLen * m;
-                    const int i0 = (int) x % m, i1 = (i0 + 1) % m;
-                    const float f = (float) (x - std::floor (x));
-                    nd.lfo[i] = juce::jlimit (0.0f, 1.0f, (float) (double) (*cv)[i0] * (1.0f - f) + (float) (double) (*cv)[i1] * f);
-                }
-            }
-            else if (auto* cv2 = n["curve"].getArray(); cv2 != nullptr && cv2->size() == orbfx::kCurveLen)
-            {
-                nd.hasCurve = true;
-                for (int i = 0; i < orbfx::kCurveLen; ++i)
-                    nd.curve[i] = juce::jlimit (0.0f, 1.0f, (float) (double) (*cv2)[i]);
-            }
-            if (auto* pv = n["pts"].getArray())
-                for (auto& f : *pv) nd.pts.push_back ((float) (double) f);
-            if (auto* pv = n["pts2"].getArray())
-                for (auto& f : *pv) nd.pts2.push_back ((float) (double) f);
-            if (auto* sv = n["sceneA"].getArray()) for (auto& f : *sv) nd.sceneA.push_back ((float) (double) f);
-            if (auto* sv = n["sceneB"].getArray()) for (auto& f : *sv) nd.sceneB.push_back ((float) (double) f);
-            // the shape, exactly as drawn: straight stretches between points, each bowed by its bend; two points on one x are a cliff
-            auto bake = [] (const std::vector<float>& pts, float* table)
-            {
-                const int np = (int) pts.size() / 3;
-                auto at = [&] (float x) -> float
-                {
-                    for (int i = 0; i < np - 1; ++i)
-                    {
-                        const float x0 = pts[(size_t) i * 3], y0 = pts[(size_t) i * 3 + 1], b = pts[(size_t) i * 3 + 2];
-                        const float x1 = pts[(size_t) (i + 1) * 3], y1 = pts[(size_t) (i + 1) * 3 + 1];
-                        if (x < x0) return y0;
-                        if (x < x1 || i == np - 2)
-                        {
-                            const float tt = x1 > x0 ? juce::jlimit (0.0f, 1.0f, (x - x0) / (x1 - x0)) : 1.0f;
-                            return juce::jlimit (0.0f, 1.0f, y0 + (y1 - y0) * tt + b * 0.5f * 4.0f * tt * (1.0f - tt));
-                        }
-                    }
-                    return pts[(size_t) (np - 1) * 3 + 1];
-                };
-                for (int i = 0; i < orbfx::kLfoLen; ++i) table[i] = at ((float) i / (float) orbfx::kLfoLen);
-            };
-            if (nd.type == orbfx::kLfo && nd.pts.size() >= 6)  { nd.hasLfo = true;  bake (nd.pts,  nd.lfo); }
-            if (nd.type == orbfx::kLfo && nd.pts2.size() >= 6) { nd.hasLfo2 = true; bake (nd.pts2, nd.lfo2); }
-            nd.x        = (float) (double) n["x"];
-            nd.y        = (float) (double) n["y"];
-            out.nodes.push_back (nd);
-        }
-    }
-    if (auto* edges = v["edges"].getArray())
-    {
-        for (auto& e : *edges)
-        {
-            if (! e.isObject()) { error = "bad wire"; return false; }
-            orbfx::Graph::Edge ed;
-            ed.from = (int) e["from"];
-            ed.to   = (int) e["to"];
-            ed.gain = e.hasProperty ("gain") ? juce::jlimit (0.0f, 2.0f, (float) (double) e["gain"]) : 1.0f;
-            ed.port = e.hasProperty ("port") ? juce::jlimit (0, 1, (int) e["port"]) : 0;
-            ed.in   = e.hasProperty ("in") ? juce::jlimit (0, 1, (int) e["in"]) : 0;
-            ed.pol  = e.hasProperty ("pol") ? juce::jlimit (0, 2, (int) e["pol"]) : 0;
-            if (e.hasProperty ("hand"))
-            {
-                const juce::String hs = e["hand"].toString();
-                if (hs.startsWith ("wire:"))
-                {
-                    // a wire onto a wire: "wire:<from>:<hand>" — it sets that wire's depth
-                    const int colon = hs.indexOfChar (5, ':');
-                    ed.refFrom = hs.substring (5, colon).getIntValue();
-                    ed.refHand = handOf (hs.substring (colon + 1));
-                }
-                else ed.hand = handOf (hs);
-            }
-            if (ed.hand != orbfx::kHandNone || ed.refHand != orbfx::kHandNone) ed.gain = juce::jlimit (-1.0f, 1.0f, e.hasProperty ("gain") ? (float) (double) e["gain"] : 0.5f);
-            out.edges.push_back (ed);
-        }
-    }
-    g = out;
-    return true;
+    return orbfx::graphFromVar (juce::JSON::parse (json), g, error);   // (the engine reads it: Slur Studio reads a patch the same way)
 }
 
 void OrbAudioProcessor::handleSetGraph (const juce::var& args,

@@ -494,4 +494,81 @@ private:
     int latencyFine = 0, latencyLive = 0, latencyGrain = 0, latencyWow = 0;
 };
 
+//==============================================================================
+/*  What every host of the wall shares beside the chain: the patch as the wall writes it, the hands' ranges, and the
+    hands that move by themselves. Patch on Slur and Slur Studio both take them from here, so a patch reads, and
+    its lfos, macros and scenes play, the same in both.                                                              */
+
+/** An aux hand's range by print (as the host's parameter spans it: the wall's hands are these same integers). */
+void auxRange (int type, int k, int& lo, int& hi);
+/** A control wire's hand as the wall names it ("amount", "decay", "fb", "aux3", "share:<from>"), and back (kHandNone). */
+juce::String handName (int hand);
+int handOf (const juce::String& name);
+/** A patch as the wall writes it ({ nodes, edges }, the JSON of the page and of a preset file), into a graph: an lfo's
+ *  drawn points baked into its table, a control wire's hand and depth read. Nothing is checked beyond its shape. */
+bool graphFromVar (const juce::var& patch, Graph& g, juce::String& error);
+
+/** The hands that move by themselves. A control print (lfo, rate, drift, pulse, macro, follow, env, scene) plays into
+ *  hands of other prints along control wires; this works out, once a block, where each played hand is.
+ *  The lfos and rates keep their own clocks: locked to the song while it plays, free-running at its tempo otherwise. */
+class Modulator
+{
+public:
+    /** Message thread: what plays what, as the wall now stands (the lfos' shapes with it). Adopted at a block's start. */
+    void setGraph (const Graph& g);
+
+    /** Audio thread, once a block, before the chain plays: `params` (indexed by slot, as the chain takes them) moved as
+     *  the control prints say. `macros`: the kNumMacros macro knobs, 0..1; `chain`: what each follow heard last block. */
+    void apply (NodeParams* params, int numSamples, float sampleRate, float bpm, bool playing, double ppq,
+                const float* macros, const Chain& chain);
+
+    /** For the wall, any thread: where each lfo is in its shape (0..1), which turn of it, and what each plays now (0..1). */
+    float phaseOf (int slot) const noexcept { return slot >= 0 && slot < kMaxNodes ? ratePhaseOut[(size_t) slot].load (std::memory_order_relaxed) : 0.0f; }
+    int   cycleOf (int slot) const noexcept { return slot >= 0 && slot < kMaxNodes ? rateCycleOut[(size_t) slot].load (std::memory_order_relaxed) : 0; }
+    float valueOf (int slot) const noexcept { return slot >= 0 && slot < kMaxNodes ? rateValue[(size_t) slot].load (std::memory_order_relaxed) : 0.0f; }
+
+private:
+    /** The control wires: which source plays which hand of which print, at what depth; and which lfo lends each rate its
+     *  shape. Published with the wall, adopted at a block boundary. */
+    struct Table
+    {
+        struct Wire { int from = -1, to = -1, hand = kHandNone; float depth = 0.0f; int toType = kNone; bool fromMacro = false; int target = -1; bool uni = false; };   // fromMacro: a macro or a follow (its value is 0..1 from rest); uni: the push goes one way from the setting (else both ways round it); target ≥ 0: this wire sets that wire's depth
+        int  count = 0;
+        Wire wires[kMaxEdges];
+        bool isRate[kMaxNodes] {};
+        bool isFollow[kMaxNodes] {};     // a follow or an env: its value is what the chain heard last block
+        bool isDrift[kMaxNodes] {};      // a drift: an lfo whose shape is a smoothed random
+        bool isPulse[kMaxNodes] {};      // a pulse: a rate whose value is a gate on a euclidean pattern (its wires push one way)
+        int  sceneSlot = -1;             // the scene print (the first, if several): its knob slides every held hand between A and B
+        float sceneA[kMaxNodes][kSceneHands] {}, sceneB[kMaxNodes][kSceneHands] {};
+        bool  sceneHeld[kMaxNodes][kSceneHands] {};   // a hand the two snapshots disagree on: the scene owns it
+        bool isLfo[kMaxNodes] {};        // an lfo print that is its own clock (it has the rate's hands, a depth, and may be random)
+        int  shapeOf[kMaxNodes];         // rate slot → lfo slot, or -1 = sine
+        int  macroOf[kMaxNodes];         // macro slot → macro index 0..7, or -1
+        Table() { for (auto& x : shapeOf) x = -1; for (auto& x : macroOf) x = -1; }
+    };
+    struct Shape   // an lfo's shape, sampled (message thread writes, audio thread reads)
+    {
+        std::atomic<bool> has { false }, has2 { false };
+        std::array<std::atomic<float>, kLfoLen> lfo {}, lfo2 {};   // lfo2: the shape it morphs toward (its `morph` hand, the decay, says how far)
+        std::array<std::atomic<uint8_t>, kLfoLen> cliff {};        // 1 where the shape drops or climbs straight (a vertical line): the hand must jump there, not glide
+    };
+    juce::SpinLock    lock;
+    Table             pending, active;
+    std::atomic<bool> pendingFlag { false };
+    std::array<Shape, kMaxNodes> shapes;
+    // audio thread
+    double  ratePhase[kMaxNodes] {};
+    int64_t rateCycle[kMaxNodes] {};       // which turn of the shape this is (free-running: counted; playing: from the song position)
+    int     rateLastIdx[kMaxNodes] {};     // where in the table the last block read
+    int64_t rateLastStep[kMaxNodes] {};    // the last random step
+    int     rateLastDepth[kMaxNodes] {};   // the lfo's own depth last block (a thrown depth makes its hands jump)
+    bool    pulseWas[kMaxNodes] {};        // the pulse's gate last block (a flip makes its hands jump)
+    double  rateOffset[kMaxNodes] {};      // where in the song the lfo was last reset to its start (synced)
+    bool    rateReset[kMaxNodes] {};       // a reset arrived this block
+    bool    resetWas[kMaxEdges] {};        // the reset wire's last reading, for the rising edge
+    std::array<std::atomic<float>, kMaxNodes> ratePhaseOut {}, rateValue {};
+    std::array<std::atomic<int>, kMaxNodes>   rateCycleOut {};
+};
+
 } // namespace orbfx

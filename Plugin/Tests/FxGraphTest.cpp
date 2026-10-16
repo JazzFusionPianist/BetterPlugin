@@ -497,6 +497,45 @@ int main()
         const auto rp = run (one (kRepeat, 1.0f, 0));
         CHECK (finite (rp) && peakOf (rp, 4000, input.getNumSamples()) < 1.5f, "repeat: sane level");
     }
+    // ── the hands that move by themselves (Modulator: shared by Patch on Slur and Slur Studio) ──
+    {
+        auto patch = [] (const char* json) { Graph g; juce::String err; const bool ok = graphFromVar (juce::JSON::parse (json), g, err); return std::make_pair (ok, g); };
+        auto base = [] (const Graph& g, NodeParams* p) { for (int i = 0; i < kMaxNodes; ++i) p[i] = NodeParams(); for (auto& nd : g.nodes) { auto& q = p[nd.id]; q.amount = nd.amount; q.variant = nd.variant; q.decay = nd.decay[0]; q.delayDiv = nd.delayDiv; q.delayFb = nd.delayFb; for (int k = 0; k < kAuxCount; ++k) q.aux[k] = nd.aux[k]; } };
+        Chain chain; chain.prepare (kSr, kBlock, 4);
+        float macros[kNumMacros] {};
+        // a patch read as the wall writes it: a control wire's hand and depth, a wire onto a wire, a drawn lfo
+        auto [ok, g] = patch (R"({"nodes":[{"id":0,"type":5,"amount":0.75},{"id":1,"type":30,"aux":[0,3,0,200,0,100,0,0],"pts":[0,0,0,0.5,1,0,1,0,0]},{"id":2,"type":32,"amount":1,"aux":[2]}],
+            "edges":[{"from":-1,"to":0,"gain":1},{"from":0,"to":-2,"gain":1},{"from":1,"to":0,"hand":"amount","gain":0.5},{"from":2,"to":0,"hand":"wire:1:amount","gain":1}]})");
+        CHECK (ok && g.nodes.size() == 3 && g.edges.size() == 4, "a patch is read as the wall writes it");
+        CHECK (g.edges[2].hand == kHandAmount && std::abs (g.edges[2].gain - 0.5f) < 1e-6f && g.edges[3].refFrom == 1 && g.edges[3].refHand == kHandAmount, "…a control wire's hand and depth, and a wire onto a wire");
+        CHECK (g.nodes[1].hasLfo && g.nodes[1].lfo[0] < 0.01f && std::abs (g.nodes[1].lfo[kLfoLen / 2] - 1.0f) < 0.01f, "…a drawn lfo baked into its table");
+        CHECK (handOf ("aux3") == kHandAux0 + 3 && handName (kHandAux0 + 3) == "aux3" && handOf ("share:-1") == kHandShare0 && handName (kHandFb) == "fb", "hands named and read back");
+        auto [okB, gB] = patch (R"({"nodes":[{"id":0,"type":36,"aux":[200,2000,0,0,0,2]}],"edges":[{"from":-1,"to":0},{"from":0,"to":-2,"port":2}]})");
+        CHECK (okB && gB.edges[1].port == 2, "a bands' third way out is read as its third");
+        int lo, hi; auxRange (kComp, 0, lo, hi);
+        CHECK (lo == 10 && hi == 200, "a hand's range by print");
+        // an lfo (synced, a quarter, a triangle drawn) on a gain's amount, its depth held by a macro at full: the amount swings
+        // round its setting with the song, and at the quarter's middle it is at the top
+        Modulator mod; mod.setGraph (g);
+        NodeParams p[kMaxNodes];
+        auto at = [&] (double ppq) { base (g, p); mod.apply (p, kBlock, (float) kSr, 120.0f, true, ppq, macros, chain); return p[0].amount; };
+        macros[2] = 1.0f;
+        const float a0 = at (0.0), aMid = at (0.5), aEnd = at (0.999);
+        std::printf ("    lfo on gain: %.3f %.3f %.3f\n", a0, aMid, aEnd);
+        CHECK (aMid > a0 + 0.3f && aMid > aEnd + 0.3f && std::abs (aMid - 1.0f) < 0.02f, "an lfo plays a hand in time with the song");
+        macros[2] = 0.0f;
+        CHECK (std::abs (at (0.5) - 0.75f) < 0.02f, "a macro on the lfo's wire holds its depth: at 0 the hand rests");
+        // a scene: two snapshots of the gain, and its knob halfway between
+        auto [ok2, g2] = patch (R"({"nodes":[{"id":0,"type":5,"amount":0.75},{"id":1,"type":49,"amount":0.5,"sceneA":[0,0.2,0,0.5,0.35,2,0,0,0,0,0,0,0,0,0],"sceneB":[0,0.6,0,0.5,0.35,2,0,0,0,0,0,0,0,0,0]}],"edges":[{"from":-1,"to":0},{"from":0,"to":-2}]})");
+        Modulator ms; ms.setGraph (g2); base (g2, p); ms.apply (p, kBlock, (float) kSr, 120.0f, false, 0.0, macros, chain);
+        CHECK (ok2 && std::abs (p[0].amount - 0.4f) < 0.01f, "a scene's knob slides a hand between its two snapshots");
+        // a drift is the same at the same place in the song
+        auto [ok3, g3] = patch (R"({"nodes":[{"id":0,"type":5,"amount":0.5},{"id":1,"type":47,"aux":[0,3,0,200,60,100,0,0]}],"edges":[{"from":-1,"to":0},{"from":0,"to":-2},{"from":1,"to":0,"hand":"amount","gain":1}]})");
+        Modulator d1, d2; d1.setGraph (g3); d2.setGraph (g3);
+        base (g3, p); d1.apply (p, kBlock, (float) kSr, 120.0f, true, 9.25, macros, chain); const float x1 = p[0].amount;
+        base (g3, p); d2.apply (p, kBlock, (float) kSr, 120.0f, true, 1.0, macros, chain); base (g3, p); d2.apply (p, kBlock, (float) kSr, 120.0f, true, 9.25, macros, chain);
+        CHECK (ok3 && std::abs (p[0].amount - x1) < 1e-6f && std::abs (x1 - 0.5f) > 1e-4f, "a drift plays the same at the same place in the song");
+    }
     std::printf (failures == 0 ? "\nall green\n" : "\n%d failure(s)\n", failures);
     return failures == 0 ? 0 : 1;
 }

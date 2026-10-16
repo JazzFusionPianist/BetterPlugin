@@ -227,51 +227,12 @@ private:
         std::array<std::atomic<int>, orbfx::kAuxCount> aux {};
         std::atomic<bool>  hasCurve { false };
         std::array<std::atomic<float>, orbfx::kCurveLen> curve {};
-        std::atomic<bool>  hasLfo { false };
-        std::array<std::atomic<float>, orbfx::kLfoLen> lfo {};
-        std::array<std::atomic<uint8_t>, orbfx::kLfoLen> lfoCliff {};   // 1 where the shape drops or climbs straight (a vertical line): the hand must jump there, not glide
-        std::atomic<bool>  hasLfo2 { false };
-        std::array<std::atomic<float>, orbfx::kLfoLen> lfo2 {};   // the shape it morphs toward (the `morph` hand says how far)
     };
     std::array<SlotParams, orbfx::kMaxNodes> fxSlots;
 
-    /** The control wires: which rate plays which hand of which print, at
-     *  what depth; and which lfo lends each rate its shape. Published
-     *  with the program, adopted at a block boundary. */
-    struct ModTable
-    {
-        struct Wire { int from = -1, to = -1, hand = orbfx::kHandNone; float depth = 0.0f; int toType = orbfx::kNone; bool fromMacro = false; int target = -1; bool uni = false; };   // fromMacro: a macro or a follow (its value is 0..1 from rest); uni: the push goes one way from the setting (else both ways round it); target ≥ 0: this wire sets that wire's depth
-        int  count = 0;
-        Wire wires[orbfx::kMaxEdges];
-        bool isRate[orbfx::kMaxNodes] {};
-        bool isFollow[orbfx::kMaxNodes] {};
-        bool isDrift[orbfx::kMaxNodes] {};    // a drift: an lfo whose shape is a smoothed random
-        bool isPulse[orbfx::kMaxNodes] {};    // a pulse: a rate whose value is a gate on a euclidean pattern (its wires push one way)
-        int  sceneSlot = -1;                  // the scene print (the first, if several): its knob slides every held hand between A and B
-        float sceneA[orbfx::kMaxNodes][orbfx::kSceneHands] {}, sceneB[orbfx::kMaxNodes][orbfx::kSceneHands] {};
-        bool  sceneHeld[orbfx::kMaxNodes][orbfx::kSceneHands] {};   // a hand the two snapshots disagree on: the scene owns it
-        bool isLfo[orbfx::kMaxNodes] {};      // an lfo print that is its own clock (it has the rate's hands, a depth, and may be random)   // a follow slot: its value is what the engine heard last block
-        int  shapeOf[orbfx::kMaxNodes];   // rate slot → lfo slot, or -1 = sine
-        int  macroOf[orbfx::kMaxNodes];   // macro slot → macro index 0..7, or -1
-        ModTable() { for (auto& x : shapeOf) x = -1; for (auto& x : macroOf) x = -1; }
-    };
-    juce::SpinLock     modLock;
-    ModTable           modPending, modActive;
-    std::atomic<bool>  modPendingFlag { false };
-    double             ratePhase[orbfx::kMaxNodes] {};        // audio thread
-    int64_t            rateCycle[orbfx::kMaxNodes] {};        // audio thread: which turn of the shape this is (free-running: counted; playing: from the song position)
-    int                rateLastIdx[orbfx::kMaxNodes] {};      // audio thread: where in the table the last block read
-    int64_t            rateLastStep[orbfx::kMaxNodes] {};     // audio thread: the last random step
-    int                rateLastDepth[orbfx::kMaxNodes] {};
-    bool               pulseWas[orbfx::kMaxNodes] {};        // audio thread: the pulse's gate last block (a flip makes its hands jump)
-    double             rateOffset[orbfx::kMaxNodes] {};        // audio thread: where in the song the lfo was last reset to its start (synced)
-    bool               rateReset[orbfx::kMaxNodes] {};         // audio thread: a reset arrived this block
-    bool               resetWas[orbfx::kMaxEdges] {};          // audio thread: the reset wire's last reading, for the rising edge    // audio thread: the lfo's own depth last block (a thrown depth makes its hands jump)
-    std::array<std::atomic<float>, orbfx::kMaxNodes> ratePhaseOut {};   // for the wall: where each lfo is in its shape, 0..1
-    std::array<std::atomic<int>, orbfx::kMaxNodes> rateCycleOut {};     // …and which turn (the random shape is drawn from it)
-    std::array<std::atomic<float>, orbfx::kMaxNodes> rateValue {};   // what each rate is playing now, 0..1, for the wall
+    /** The hands that move by themselves (the lfos, rates, macros, follows, scenes): the engine's, shared with Slur Studio. */
+    orbfx::Modulator   modulator;
     std::array<std::atomic<float>, orbfx::kMaxNodes * 12> liveHands {};   // each slot's hands as played (after the pushes), in the host's order, for the study
-    void applyModulation (orbfx::NodeParams* params, int numSamples, float sr, float bpm, bool playing, double ppq);
 
     /** The host's view of the wall: twelve hands per slot, in a group per slot. */
     struct SlotHost

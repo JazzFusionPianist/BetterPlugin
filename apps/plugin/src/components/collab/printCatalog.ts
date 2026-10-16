@@ -13,8 +13,10 @@
 import {
   FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_SIDE, FX_FOLLOW, FX_COMP, FX_BANDS, FX_CARVE, FX_MATCH,
   FX_VOCODE, FX_FREEZE, FX_SHIFT, FX_SMEAR, FX_PAN, FX_REPEAT, FX_ENV, FX_FOLD, FX_DRIFT, FX_PULSE, FX_SCENE, FX_SIEVE,
-  type FxMode, type FxGraphNode,
+  isUtilityType, type FxMode, type FxGraphNode,
 } from '../../lib/fxBridge'
+/** A scene's snapshot: one row per print, led by its id, of the hands SCENE_HANDS names. */
+export { SCENE_HANDS, SCENE_STRIDE, sceneRow } from '../../lib/fxBridge'
 
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 /** The number a typed value begins with ("−3.5 dB", "2.5k"); a k (or khz) after it is a thousand. */
@@ -95,8 +97,6 @@ export const NEW_VARIANTS: Record<number, string[]> = { [FX_ENV]: ['level', 'wir
 export const flavoursOf = (type: number) => (type === FX_MIX_TYPE ? ['blend', 'sum'] : VARIANTS[type] ?? NEW_VARIANTS[type] ?? [])
 /** What each print's flavours are called in its study. */
 export const VARIANT_LABEL: Record<number, string> = { 1: 'drive', 2: 'room', 6: 'kind', 7: 'pass', 8: 'stage', 9: 'spread', 10: 'type', 13: 'order', 14: 'band', 15: 'mode', 16: 'mode', 18: 'mode', 20: 'target', 21: 'interval', 22: 'floor', 23: 'grid', 24: 'mode', 25: 'mode', 26: 'release', 27: 'motion' }
-/** The prints with a second way in, the key: what their detector listens to. */
-export { hasKeyType } from '../../lib/fxBridge'
 /** The prints that can drop their dry sound (wet only). */
 export const WET_TYPES = new Set<number>([2, 10, 9, 6, 15, 18, 21])   // space, delay, doubler, mod, harmony, grain, shimmer
 
@@ -152,6 +152,147 @@ export const TREM_PRESETS: Array<{ name: string; curve: () => number[] }> = (() 
     { name: 'random', curve: () => { let s = 7; return steps(Array.from({ length: 8 }, () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return 0.2 + (s % 1000) / 1250 })) } },
   ]
 })()
+
+/* ── the lfo's shapes ──
+   A shape is a row of points; between two points the line is straight until its bend bows it. Stored flat as
+   [x, y, bend, x, y, bend, …] with x and y in 0..1 (y up) and bend in -1..1 for the stretch that follows the point. Two
+   points on one x are a cliff: the hand the lfo plays jumps there. `steps` and `random` are not drawn as these are. */
+const B = 0.2071   // the bend that makes a quarter of a sine out of a straight stretch
+export const LFO_SHAPES: Array<{ name: string; pts: number[] | null }> = [
+  { name: 'sine',     pts: [0, 0.5, B, 0.25, 1, B, 0.5, 0.5, -B, 0.75, 0, -B, 1, 0.5, 0] },
+  { name: 'triangle', pts: [0, 0.5, 0, 0.25, 1, 0, 0.75, 0, 0, 1, 0.5, 0] },
+  { name: 'saw up',   pts: [0, 0, 0, 1, 1, 0] },
+  { name: 'saw down', pts: [0, 1, 0, 1, 0, 0] },
+  { name: 'square',   pts: [0, 1, 0, 0.5, 1, 0, 0.5, 0, 0, 1, 0, 0] },
+  { name: 'pulse',    pts: [0, 1, 0, 0.25, 1, 0, 0.25, 0, 0, 1, 0, 0] },
+  { name: 'stairs',   pts: [0, 0, 0, 0.25, 0, 0, 0.25, 1 / 3, 0, 0.5, 1 / 3, 0, 0.5, 2 / 3, 0, 0.75, 2 / 3, 0, 0.75, 1, 0, 1, 1, 0] },
+  { name: 'steps',    pts: null },   // a step sequencer: as many steps as you like, each at the height you drag it to (aux 6 = how many)
+  { name: 'random',   pts: null },
+]
+export const LFO_RANDOM = LFO_SHAPES.length - 1
+export const LFO_STEPS = LFO_SHAPES.length - 2
+/** The stairs of `heights` as points: each step two points, a cliff between neighbours (the engine reads a cliff as a jump). */
+export function stepsToPts (heights: number[]): number[] {
+  const n = heights.length, out: number[] = []
+  for (let k = 0; k < n; k++) out.push(k / n, heights[k], 0, (k + 1) / n, heights[k], 0)
+  return out
+}
+/** The heights back out of a stairs shape (every second point). */
+export function ptsToSteps (pts: number[], count: number): number[] {
+  const n = pts.length / 6
+  return Array.from({ length: count }, (_, k) => (k < n ? pts[k * 6 + 1] : 0.5))
+}
+export const SINE_PTS: number[] = LFO_SHAPES[0].pts!
+/** y at x along the shape: straight stretches, each bowed by its bend. At a cliff (two points on one x) the value is the one after it. The engine reads the shape the same way. */
+export function shapeAt (pts: number[], x: number): number {
+  const n = pts.length / 3
+  if (n === 0) return 0.5
+  if (n === 1) return pts[1]
+  for (let i = 0; i < n - 1; i++) {
+    const x0 = pts[i * 3], y0 = pts[i * 3 + 1], b = pts[i * 3 + 2], x1 = pts[(i + 1) * 3], y1 = pts[(i + 1) * 3 + 1]
+    if (x < x0) return y0
+    if (x < x1 || i === n - 2) {
+      const t = x1 > x0 ? Math.min(1, Math.max(0, (x - x0) / (x1 - x0))) : 1
+      // the bow: the middle follows the finger, the ends stay put
+      return Math.min(1, Math.max(0, y0 + (y1 - y0) * t + b * 0.5 * 4 * t * (1 - t)))
+    }
+  }
+  return pts[(n - 1) * 3 + 1]
+}
+/** The shape as a table (the wall's small pictures use it; the engine makes its own, finer, from the points). */
+export function sampleShape (pts: number[], count = 64): number[] {
+  return Array.from({ length: count }, (_, i) => shapeAt(pts, i / count))
+}
+/** random: the value of one step — the engine's own arithmetic, so what is drawn is what is played. */
+export function randomStep (slot: number, cycle: number, steps: number, k: number): number {
+  const step = cycle * steps + k
+  let h = (Math.imul(step | 0, 2654435761 | 0) ^ ((slot * 40503 + 12345) >>> 0)) >>> 0
+  h ^= h >>> 15; h = Math.imul(h, 2246822519 | 0) >>> 0; h ^= h >>> 13; h = Math.imul(h, 3266489917 | 0) >>> 0; h ^= h >>> 16
+  return ((h >>> 0) & 0xffffff) / 0xffffff
+}
+
+/* how the shape is drawn by hand: one rule for every wall that draws it (Patch on Slur's study, Slur Studio's) */
+/** A new point where the empty grid was pressed: the points as they are then, and which is the new one. */
+export function lfoAddPoint (pts: number[], p: { x: number; y: number }): { pts: number[]; i: number } {
+  const n = pts.length / 3, next = [...pts]
+  let at = n
+  for (let i = 0; i < n; i++) if (pts[i * 3] > p.x) { at = i; break }
+  next.splice(at * 3, 0, p.x, p.y, 0)
+  return { pts: next, i: at }
+}
+/** A point dragged: as far as its neighbours, and onto them (two points on one x are a cliff); the two ends are the seam of the
+ *  loop — ends that meet stay together, ends drawn apart move alone, one brought level with the other joins it; `alone` moves an end alone. */
+export function lfoMovePoint (pts: number[], i: number, p: { x: number; y: number }, alone = false): number[] {
+  const n = pts.length / 3, next = [...pts]
+  const lo = i === 0 ? 0 : pts[(i - 1) * 3], hi = i === n - 1 ? 1 : pts[(i + 1) * 3]
+  let x = i === 0 ? 0 : i === n - 1 ? 1 : Math.min(hi, Math.max(lo, p.x))
+  // close to a neighbour it takes that neighbour's x exactly (a true vertical, not a steep slope)
+  if (i > 0 && i < n - 1) { if (x - lo < 0.012) x = lo; else if (hi - x < 0.012) x = hi }
+  next[i * 3] = x
+  next[i * 3 + 1] = p.y
+  if (i === 0 || i === n - 1) {
+    const o = i === 0 ? n - 1 : 0
+    const joined = Math.abs(pts[i * 3 + 1] - pts[o * 3 + 1]) < 1e-4
+    if (alone) { /* alone */ }
+    else if (joined) next[o * 3 + 1] = p.y
+    else if (Math.abs(p.y - pts[o * 3 + 1]) < 0.03) next[i * 3 + 1] = pts[o * 3 + 1]
+  }
+  return next
+}
+/** A stretch's bend, from where its hollow middle point was dragged to (y, 0..1). */
+export function lfoBend (pts: number[], i: number, y: number): number[] {
+  const next = [...pts], y0 = pts[i * 3 + 1], y1 = pts[(i + 1) * 3 + 1]
+  next[i * 3 + 2] = Math.min(1, Math.max(-1, (y - (y0 + y1) / 2) / 0.5))
+  return next
+}
+/** A point taken away (not an end). */
+export const lfoRemovePoint = (pts: number[], i: number): number[] => { const n = pts.length / 3; if (i === 0 || i === n - 1) return pts; const next = [...pts]; next.splice(i * 3, 3); return next }
+/** A step sequencer: the step under x takes the height y. */
+export function lfoSetStep (pts: number[], steps: number, p: { x: number; y: number }): number[] {
+  const k = Math.min(steps - 1, Math.floor(p.x * steps))
+  const h = ptsToSteps(pts, steps); h[k] = p.y
+  return stepsToPts(h)
+}
+/** The drawn line, as a list of points (x, y in 0..1): each stretch sampled, a cliff drawn as the vertical it is. */
+export function lfoLine (pts: number[]): Array<[number, number]> {
+  const n = pts.length / 3, out: Array<[number, number]> = [[pts[0], pts[1]]]
+  for (let i = 0; i < n - 1; i++) {
+    const x0 = pts[i * 3], x1 = pts[(i + 1) * 3]
+    if (x1 - x0 < 1e-6) { out.push([x1, pts[(i + 1) * 3 + 1]]); continue }
+    for (let k = 1; k <= 24; k++) {
+      const t = k / 24, y0 = pts[i * 3 + 1], y1 = pts[(i + 1) * 3 + 1], b = pts[i * 3 + 2]
+      out.push([x0 + (x1 - x0) * t, Math.min(1, Math.max(0, y0 + (y1 - y0) * t + b * 2 * t * (1 - t)))])
+    }
+  }
+  return out
+}
+
+/* ── the bands' cuts ──
+   A ruler of frequency, 20 Hz to 20 kHz, cut into bands: the cuts live in aux 0..4 (Hz), aux 5 says how many (up to
+   five cuts, six bands), each band in its lane's colour (the colour its wire carries). */
+export const BAND_RGB: Array<[number, number, number]> = [[232, 92, 74], [240, 156, 56], [236, 214, 84], [96, 208, 128], [72, 168, 255], [176, 120, 255]]   // low → high
+export const MAX_CROSS = 5
+const F0 = 20, F1 = 20000
+export const fx = (hz: number) => Math.log(Math.max(F0, Math.min(F1, hz)) / F0) / Math.log(F1 / F0)   // 0..1 along the ruler
+export const xf = (t: number) => F0 * Math.pow(F1 / F0, Math.max(0, Math.min(1, t)))
+export const crossovers = (aux: number[]) => { const n = Math.max(1, Math.min(MAX_CROSS, aux[5] || 1)); return Array.from({ length: n }, (_, k) => aux[k] || 250).sort((a, b) => a - b) }
+/** The cuts put back into the print's hands (sorted, the count in aux 5). */
+export function bandsPut (aux: number[], cuts: number[]): number[] {
+  const sorted = [...cuts].sort((a, b) => a - b)
+  const out = [...aux]; while (out.length < 8) out.push(0)
+  for (let k = 0; k < MAX_CROSS; k++) out[k] = sorted[k] ?? 0
+  out[5] = sorted.length
+  return out
+}
+/** A cut dragged to t (0..1 along the ruler): it stays a little clear of its neighbours. */
+export function bandsMoveCut (cuts: number[], k: number, t: number): number[] {
+  const lo = k > 0 ? cuts[k - 1] * 1.05 : F0, hi = k < cuts.length - 1 ? cuts[k + 1] / 1.05 : F1
+  const next = [...cuts]; next[k] = Math.round(Math.max(lo, Math.min(hi, xf(t))))
+  return next
+}
+/** A band split where it was double-clicked (up to five cuts); a cut taken away (one is always left). */
+export const bandsSplit = (cuts: number[], t: number): number[] => cuts.length >= MAX_CROSS ? cuts : [...cuts, Math.round(xf(t))]
+export const bandsJoin = (cuts: number[], k: number): number[] => cuts.length > 1 ? cuts.filter((_, i) => i !== k) : cuts
 
 /* ── how a print's amount is said, and read back ── */
 /** The reverb's real ring time, mirrored from the processor: the decay
@@ -234,6 +375,39 @@ export function parseAmount (type: number, s: string, variant = 0): number | nul
   return clamp(v / 100, 0, 1)
 }
 
+/* ── what a control wire can play ──
+   The hands of each print a control wire lands on (an lfo, a macro, a follow… playing them), as the print shows them when
+   a wire is held over it: its big knob first, then these. A mix's are its wires' shares and the bands' their cuts: the
+   wall knows those (they hang on the wires). */
+export const PLAY_HANDS: Record<number, Array<{ key: string; label: string }>> = {
+  2: [{ key: 'decay', label: 'decay' }],
+  10: [{ key: 'fb', label: 'feedback' }],
+  13: [{ key: 'aux0', label: 'step' }],
+  [FX_CARVE]: [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'from' }, { key: 'aux3', label: 'to' }],
+  [FX_MATCH]: [{ key: 'aux1', label: 'smooth' }],
+  [FX_VOCODE]: [{ key: 'aux0', label: 'bands' }, { key: 'aux1', label: 'attack' }, { key: 'aux2', label: 'release' }],
+  [FX_SHIFT]: [{ key: 'aux0', label: 'hz' }, { key: 'aux1', label: 'feedback' }],
+  [FX_SMEAR]: [{ key: 'aux0', label: 'time' }, { key: 'aux1', label: 'blur' }],
+  [FX_REPEAT]: [{ key: 'aux4', label: 'threshold' }],
+  [FX_SIEVE]: [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'mix' }],
+  [FX_COMP]: [{ key: 'aux0', label: 'ratio' }, { key: 'aux1', label: 'attack' }, { key: 'aux2', label: 'release' }, { key: 'aux3', label: 'knee' }, { key: 'aux4', label: 'makeup' }],
+  15: [{ key: 'aux2', label: 'interval' }],
+  16: [{ key: 'aux0', label: 'cents' }],
+  18: [{ key: 'aux0', label: 'size' }, { key: 'aux1', label: 'spray' }, { key: 'aux2', label: 'scatter' }, { key: 'aux5', label: 'pan' }],
+  22: [{ key: 'aux0', label: 'depth' }],
+}
+export const RATE_HANDS = [{ key: 'aux0', label: 'clock' }, { key: 'aux1', label: 'rate' }, { key: 'aux2', label: 'feel' }, { key: 'aux3', label: 'hz' }]
+export const FOLLOW_HANDS = [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'sense' }, { key: 'aux3', label: 'threshold' }]
+export const ENV_HANDS = [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'decay' }, { key: 'aux2', label: 'sustain' }, { key: 'aux3', label: 'release' }, { key: 'aux4', label: 'threshold' }, { key: 'aux5', label: 'gate' }]   // gate: what lands here opens the envelope while it is up (wire mode)
+export const LFO_HANDS = [...RATE_HANDS, { key: 'aux5', label: 'depth' }, { key: 'aux6', label: 'reset' }, { key: 'decay', label: 'morph' }]
+export const DRIFT_HANDS = [...RATE_HANDS, { key: 'aux4', label: 'smooth' }, { key: 'aux5', label: 'depth' }]
+export const PULSE_HANDS = [...RATE_HANDS, { key: 'aux4', label: 'steps' }, { key: 'aux5', label: 'hits' }, { key: 'aux6', label: 'rotate' }, { key: 'aux7', label: 'length' }]   // reset: what lands here restarts the LFO when it rises (a follow's hit)
+export const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : type === FX_LFO ? LFO_HANDS : type === FX_FOLLOW ? FOLLOW_HANDS : type === FX_ENV ? ENV_HANDS : type === FX_DRIFT ? DRIFT_HANDS : type === FX_PULSE ? PULSE_HANDS : type === FX_SCENE ? [{ key: 'amount', label: 'scene' }] : isUtilityType(type) ? [] : [{ key: 'amount', label: MAIN_HAND[type] ?? 'amount' }, ...(PLAY_HANDS[type] ?? [])])
+/** A new control wire's depth: a macro, a follow, an env or a pulse pushes one way, the whole way; the rest swing half. */
+export const newWireDepth = (fromType: number) => (fromType === FX_MACRO || fromType === FX_FOLLOW || fromType === FX_ENV || fromType === FX_PULSE ? 1 : 0.5)
+/** Which prints play hands (their wires are control wires), which have no way in, which have a key, which are fittings. */
+export { isControlType, playsHandsType, noInputType, hasKeyType, hasAmountType, isUtilityType, isSplitterType, outPortsOf, wireRef } from '../../lib/fxBridge'
+
 /* ── the hands a print's study shows ──
    A gauge is pulled (or typed into); a choice is picked from its options; a switch is thrown. Each reads its value from the
    node (`get`, in the units it is said in), and gives back what a change writes into the node (`set`, a part of the node:
@@ -242,10 +416,10 @@ export function parseAmount (type: number, s: string, variant = 0): number | nul
    when let go (the rest keep every step). Fields that hang on the node (a label, a range) may be functions of it. */
 type N = FxGraphNode
 type Of<T> = T | ((n: N) => T)
-export type HandAt = 'variant' | 'decay' | 'div' | 'fb' | 'amount' | `aux${number}`
+export type HandAt = 'variant' | 'decay' | 'div' | 'fb' | 'amount' | 'pts' | 'pts2' | `aux${number}`   // pts, pts2: an lfo's drawn shape, and the one it morphs toward
 export interface GaugeHand { kind: 'gauge'; key: string; label: Of<string>; at: HandAt; min: Of<number>; max: Of<number>; step?: number; def: Of<number>; unit?: string; fine?: number; bipolar?: boolean; liveDrag?: boolean
   get: (n: N) => number; set: (v: number, n: N) => Partial<N>; live?: (v: number) => number; format?: (v: number, n: N) => string; parse?: (s: string, n: N) => number | null; when?: (n: N) => boolean }
-export interface ChoiceHand { kind: 'choice'; key: string; label: Of<string>; at: HandAt; options: Of<string[]>; fill?: boolean
+export interface ChoiceHand { kind: 'choice'; key: string; label: Of<string>; at: HandAt; options: Of<string[]>; fill?: boolean; list?: boolean; none?: string   // list: a drawer, however few; none: what it reads when nothing is chosen (-1)
   get: (n: N) => number; set: (k: number, n: N) => Partial<N>; when?: (n: N) => boolean }
 export interface SwitchHand { kind: 'switch'; key: string; label: string; at: HandAt; get: (n: N) => boolean; set: (on: boolean, n: N) => Partial<N>; when?: (n: N) => boolean }
 export type Hand = GaugeHand | ChoiceHand | SwitchHand
@@ -276,9 +450,10 @@ export const CLOCK_HANDS: Hand[] = [
 ]
 const toPos = (hz: number) => 100 * Math.log(Math.max(20, Math.min(20000, hz)) / 20) / Math.log(1000), toHz = (pos: number) => Math.round(20 * Math.pow(1000, Math.max(0, Math.min(100, pos)) / 100))
 
-/** Every sound print's hands, in the order its study shows them (with its flavour row where it has one; the mix's is its
- *  mode). The control prints (LFO, rate, macro, follow, env, drift, pulse, scene), the mix's shares and the bands are drawn
- *  by Patch on Slur's wall itself (the clock's rows are CLOCK_HANDS); a print with no hand beyond its amount has none here. */
+/** Every print's hands, in the order its study shows them (with its flavour row where it has one; the mix's is its mode).
+ *  What a hand cannot say as a number or a choice is the wall's own to draw: an lfo's drawn shape, a scene's taking of its
+ *  snapshots, the bands' cuts, the mix's shares, and the ranges of what plays a hand. A print with no hand beyond its
+ *  amount (a macro) has none here. */
 export const STUDY_HANDS: Record<number, Hand[]> = (() => {
   const h: Record<number, Hand[]> = {}
   // every print with flavours shows them as a row of its own, but for those whose rows say them otherwise
@@ -348,6 +523,56 @@ export const STUDY_HANDS: Record<number, Hand[]> = (() => {
   ]
   h[FX_REPEAT] = [...CLOCK_HANDS, gauge('threshold', 'threshold', 4, n => n.aux[4] || -30, -60, -1, -30, { format: v => `${Math.round(v)} dB` })]
   h[FX_FREEZE] = [{ kind: 'switch', key: 'hold', label: 'hold', at: 'amount', get: n => n.amount > 0.5, set: on => ({ amount: on ? 1 : 0 }) }]   // the knob is this switch: a wire on it (an lfo's square, a follow) throws it
+  /* the control prints: what plays other prints' hands */
+  const round = (v: number) => `${Math.round(v)}`
+  const depth = gauge('lfodepth', 'depth', 5, n => n.aux[5] ?? 100, 0, 100, 100, { unit: '%' })
+  {
+    const isRandom = (n: N) => (n.aux[4] || 0) > 0, isSteps = (n: N) => !isRandom(n) && n.variant === LFO_STEPS
+    const toShapes = LFO_SHAPES.filter(sh => sh.pts)
+    const morphOf = (n: N) => n.pts2 ? toShapes.findIndex(sh => sh.pts!.length === n.pts2!.length && sh.pts!.every((v, i) => Math.abs(v - n.pts2![i]) < 1e-6)) : -1
+    h[FX_LFO] = [
+      { kind: 'choice', key: 'shape', label: 'shape', at: 'variant', list: true, none: 'drawn', options: LFO_SHAPES.map(sh => sh.name), get: n => isRandom(n) ? LFO_RANDOM : n.variant,
+        set: (k, n) => {
+          const aux = aux8(n); const sh = LFO_SHAPES[k]
+          if (k === LFO_RANDOM) { aux[4] = aux[4] || 8; return { variant: k, aux } }
+          aux[4] = 0
+          if (k === LFO_STEPS) { aux[6] = aux[6] || 8; return { variant: k, aux, pts: stepsToPts(Array.from({ length: aux[6] }, (_, i) => i / Math.max(1, aux[6] - 1))) } }
+          return { pts: [...sh.pts!], variant: k, aux }
+        } },
+      gauge('steps', 'steps', 4, n => n.aux[4] || 8, 1, 32, 8, { format: round, set: (v, n) => withAux(n, 4, Math.max(1, Math.round(v))), when: isRandom }),
+      // the morph: a second shape the lfo leans toward, as far as its `morph` hand says (a macro can play it)
+      { kind: 'choice', key: 'morphto', label: 'morph to', at: 'pts2', list: true, none: 'none', options: toShapes.map(sh => sh.name), get: morphOf,
+        set: (k, n) => { const cur = morphOf(n); return { pts2: k < 0 || k === cur ? undefined : [...toShapes[k].pts!], ...(cur < 0 && k >= 0 ? { decay: [0, 0, 0] } : {}) } },   // (a shape picked fresh starts unmorphed: the hand at 0)
+        when: n => !isRandom(n) && !isSteps(n) },
+      { kind: 'gauge', key: 'morph', label: 'morph', at: 'decay', min: 0, max: 100, step: 1, unit: '%', def: 0, live: v => v * 100, liveDrag: true,
+        get: n => Math.round((n.decay[Math.max(0, Math.min(2, n.variant))] ?? 0) * 100), set: v => ({ decay: [v / 100, v / 100, v / 100] }), when: n => !isRandom(n) && !isSteps(n) && !!n.pts2 },
+      gauge('nsteps', 'steps', 6, n => n.aux[6] || 8, 2, 32, 8, { format: round, when: isSteps,
+        set: (v, n) => { const c = Math.max(2, Math.round(v)); return { ...withAux(n, 6, c), pts: stepsToPts(ptsToSteps(n.pts ?? SINE_PTS, c)) } } }),
+      ...CLOCK_HANDS, depth,
+    ]
+  }
+  h[FX_RATE] = [...CLOCK_HANDS]
+  h[FX_DRIFT] = [...CLOCK_HANDS, gauge('dsmooth', 'smooth', 4, n => n.aux[4] ?? 60, 0, 100, 60, { unit: '%' }), depth]
+  h[FX_PULSE] = [...CLOCK_HANDS,
+    gauge('psteps', 'steps', 4, n => n.aux[4] || 8, 1, 32, 8, { format: round, set: (v, n) => withAux(n, 4, Math.max(1, Math.round(v))) }),
+    gauge('hits', 'hits', 5, n => n.aux[5] ?? 3, 0, n => n.aux[4] || 8, 3, { format: round }),
+    gauge('rotate', 'rotate', 6, n => n.aux[6] || 0, 0, n => Math.max(0, (n.aux[4] || 8) - 1), 0, { format: round }),
+    gauge('length', 'length', 7, n => n.aux[7] || 50, 1, 100, 50, { unit: '%' })]
+  // follow — envelope: the level, through attack and release; transient: a hit, the value leaps to full and falls at the release
+  h[FX_FOLLOW] = [
+    { kind: 'choice', key: 'variant', label: 'mode', at: 'variant', options: ['envelope', 'transient'], get: n => n.variant, set: v => ({ variant: v }) },
+    gauge('attack', 'attack', 0, n => n.aux[0] || 10, 1, 500, 10, { format: ms }),
+    gauge('release', 'release', 1, n => n.aux[1] || 200, 5, 2000, 200, { format: ms }),
+    gauge('sense', 'sense', 2, n => n.aux[2] ?? 50, 0, 100, 50, { format: round }),
+    gauge('threshold', 'threshold', 3, n => n.aux[3] || -40, -60, -1, -40, { format: v => `${Math.round(v)} dB` })]
+  // env — level: it opens when the sound it hears is over the threshold; wire: when what lands on `gate` is up
+  h[FX_ENV] = [
+    { kind: 'choice', key: 'variant', label: 'opened by', at: 'variant', options: ['level', 'wire'], get: n => n.variant, set: v => ({ variant: v }) },
+    gauge('attack', 'attack', 0, n => n.aux[0] || 10, 1, 5000, 10, { fine: 320, format: ms }),
+    gauge('edecay', 'decay', 1, n => n.aux[1] || 200, 1, 5000, 200, { fine: 320, format: ms }),
+    gauge('sustain', 'sustain', 2, n => n.aux[2] ?? 70, 0, 100, 70, { unit: '%' }),
+    gauge('release', 'release', 3, n => n.aux[3] || 300, 1, 10000, 300, { fine: 320, format: ms }),
+    gauge('threshold', 'threshold', 4, n => n.aux[4] || -30, -60, -1, -30, { format: v => `${Math.round(v)} dB`, when: n => n.variant === 0 })]
   return h
 })()
 /** The hands a print shows for this node, in order. */

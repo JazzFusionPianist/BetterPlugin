@@ -2,15 +2,15 @@ import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, typ
 import { createPortal } from 'react-dom'
 import { BLUE as BLUE_INK } from './FxPanel'
 import {
-  MODES, FAMILIES, WET_TYPES, MAIN_HAND, RATE_DIVS, DIV_LABELS, DIV_ORDER, KEY_NAMES, TREM_PRESETS,
-  fmtDecay, fmtValue, parseAmount, neutralOf, nameOf, auxOf, variantOf, flavoursOf, studyHandsOf, valueOf, CLOCK_HANDS, type Hand,
+  MODES, FAMILIES, WET_TYPES, RATE_DIVS, DIV_LABELS, DIV_ORDER, KEY_NAMES, TREM_PRESETS,
+  fmtDecay, fmtValue, parseAmount, neutralOf, nameOf, auxOf, variantOf, flavoursOf, studyHandsOf, valueOf, handsOfType, newWireDepth, type Hand,
 } from './printCatalog'
 import { printInner, PLATE_TINT, hexToRgb, REACH, type Family } from './printGlyphs'
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import { LIVE_INDEX, useLiveHand, getLiveHand } from '../../lib/liveHands'
 import FxScope from './FxScope'
 import { GaugeRow, ChoiceRow, SwitchRow, RangeRow, useTypeIn } from './StudyControls'
-import { LfoEditor, SINE_PTS, LFO_SHAPES, LFO_RANDOM, LFO_STEPS, stepsToPts, ptsToSteps } from './LfoEditor'
+import { LfoEditor, SINE_PTS, LFO_STEPS } from './LfoEditor'
 import FollowMeter from './FollowMeter'
 import CompMeter from './CompMeter'
 import { BandsEditor, BAND_RGB, crossovers, fmtHz } from './BandsEditor'
@@ -91,31 +91,7 @@ const BAND_LANE0 = 5
 const SPLIT_FAN = 22   // degrees between a splitter's two output ports
 const KEY_ANG = 42     // degrees below the input where a print's key point sits
 /** The hands a control wire can play, by print. */
-const HANDS: Record<number, Array<{ key: string; label: string }>> = {
-  2: [{ key: 'decay', label: 'decay' }],
-  10: [{ key: 'fb', label: 'feedback' }],
-  13: [{ key: 'aux0', label: 'step' }],
-  [FX_CARVE]: [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'from' }, { key: 'aux3', label: 'to' }],
-  [FX_MATCH]: [{ key: 'aux1', label: 'smooth' }],
-  [FX_VOCODE]: [{ key: 'aux0', label: 'bands' }, { key: 'aux1', label: 'attack' }, { key: 'aux2', label: 'release' }],
-  [FX_SHIFT]: [{ key: 'aux0', label: 'hz' }, { key: 'aux1', label: 'feedback' }],
-  [FX_SMEAR]: [{ key: 'aux0', label: 'time' }, { key: 'aux1', label: 'blur' }],
-  [FX_REPEAT]: [{ key: 'aux4', label: 'threshold' }],
-  [FX_SIEVE]: [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'mix' }],
-  [FX_COMP]: [{ key: 'aux0', label: 'ratio' }, { key: 'aux1', label: 'attack' }, { key: 'aux2', label: 'release' }, { key: 'aux3', label: 'knee' }, { key: 'aux4', label: 'makeup' }],
-  15: [{ key: 'aux2', label: 'interval' }],
-  16: [{ key: 'aux0', label: 'cents' }],
-  18: [{ key: 'aux0', label: 'size' }, { key: 'aux1', label: 'spray' }, { key: 'aux2', label: 'scatter' }, { key: 'aux5', label: 'pan' }],
-  22: [{ key: 'aux0', label: 'depth' }],
-}
 const AURORA = false   // the wall's light is the round lamp under each print, as bright and wide as its knob; the aurora is gone
-const RATE_HANDS = [{ key: 'aux0', label: 'clock' }, { key: 'aux1', label: 'rate' }, { key: 'aux2', label: 'feel' }, { key: 'aux3', label: 'hz' }]
-const FOLLOW_HANDS = [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'sense' }, { key: 'aux3', label: 'threshold' }]
-const ENV_HANDS = [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'decay' }, { key: 'aux2', label: 'sustain' }, { key: 'aux3', label: 'release' }, { key: 'aux4', label: 'threshold' }, { key: 'aux5', label: 'gate' }]   // gate: what lands here opens the envelope while it is up (wire mode)
-const LFO_HANDS = [...RATE_HANDS, { key: 'aux5', label: 'depth' }, { key: 'aux6', label: 'reset' }, { key: 'decay', label: 'morph' }]
-const DRIFT_HANDS = [...RATE_HANDS, { key: 'aux4', label: 'smooth' }, { key: 'aux5', label: 'depth' }]
-const PULSE_HANDS = [...RATE_HANDS, { key: 'aux4', label: 'steps' }, { key: 'aux5', label: 'hits' }, { key: 'aux6', label: 'rotate' }, { key: 'aux7', label: 'length' }]   // reset: what lands here restarts the LFO when it rises (a follow's hit)
-const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : type === FX_LFO ? LFO_HANDS : type === FX_FOLLOW ? FOLLOW_HANDS : type === FX_ENV ? ENV_HANDS : type === FX_DRIFT ? DRIFT_HANDS : type === FX_PULSE ? PULSE_HANDS : type === FX_SCENE ? [{ key: 'amount', label: 'scene' }] : isUtilityType(type) ? [] : [{ key: 'amount', label: MAIN_HAND[type] ?? 'amount' }, ...(HANDS[type] ?? [])])
 const HANDS_ZOOM = 1.45   // this far in, a print shows its hands instead of its picture
 /** rate: aux = [mode (0 sync, 1 hz), division, feel, hz × 100] */
 const rateText = (n: { aux: number[] }) => (n.aux[0] === 1 ? `${((n.aux[3] || 200) / 100).toFixed(2)} hz` : `${RATE_DIVS[n.aux[1] ?? 3] ?? '1/4'}${n.aux[2] === 1 ? '.' : n.aux[2] === 2 ? 't' : ''}`)
@@ -703,7 +679,7 @@ export default function FxWall ({ size: frame }: Props) {
       if (played) hand = `wire:${played.from}:${hand}`
     }
     if (graph.edges.some(e => e.from === from && e.to === to && e.hand === hand)) return
-    commit({ ...graph, edges: [...graph.edges, { from, to, gain: src?.type === FX_MACRO || src?.type === FX_FOLLOW || src?.type === FX_ENV || src?.type === FX_PULSE ? 1 : 0.5, port: 0, hand }] }, true)
+    commit({ ...graph, edges: [...graph.edges, { from, to, gain: newWireDepth(src?.type ?? -1), port: 0, hand }] }, true)
   }
   const connect = (from: number, to: number, port = 0, inPort = 0) => {
     if (from === to) return
@@ -1000,51 +976,13 @@ export default function FxWall ({ size: frame }: Props) {
   //    per line, as the controls in StudyControls ────────────────────
   const studyRows = (n: FxGraphNode) => {
     const isMix = n.type === FX_MIX_TYPE
-    const setAux = (k: number, v: number, extra?: (aux: number[]) => void) => {
-      const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[k] = v; extra?.(aux)
-      updateNode(n.id, { aux }, true)
-    }
     const rows: React.ReactNode[] = []
     // a hand from the catalog (printCatalog: Slur Studio's wall draws its prints' hands from the same)
     const handRow = (h: Hand) => h.kind === 'gauge'
       ? <GaugeRow key={h.key} label={valueOf(h.label, n)} value={h.get(n)} min={valueOf(h.min, n)} max={valueOf(h.max, n)} step={h.step} unit={h.unit} bipolar={h.bipolar} defaultValue={valueOf(h.def, n)} fine={h.fine} liveMap={h.live}
           format={h.format ? (v) => h.format!(v, n) : undefined} parse={h.parse ? (s) => h.parse!(s, n) : undefined} onChange={(v, final) => updateNode(n.id, h.set(v, n), h.liveDrag ? final : true)} />
-      : h.kind === 'choice' ? <ChoiceRow key={h.key} label={valueOf(h.label, n)} options={valueOf(h.options, n)} value={h.get(n)} fill={h.fill} onPick={(k) => updateNode(n.id, h.set(k, n), true)} />
+      : h.kind === 'choice' ? <ChoiceRow key={h.key} label={valueOf(h.label, n)} options={valueOf(h.options, n)} value={h.get(n)} fill={h.fill} list={h.list} none={h.none} onPick={(k) => updateNode(n.id, h.set(k, n), true)} />
       : null
-    if (n.type === FX_LFO && lfoOwnClock()) {
-      const isRandom = (n.aux[4] || 0) > 0, isSteps = !isRandom && n.variant === LFO_STEPS
-      rows.push(<ChoiceRow key="shape" label="shape" list none="drawn" options={LFO_SHAPES.map(sh => sh.name)} value={isRandom ? LFO_RANDOM : n.variant}
-        onPick={(k) => {
-          const aux = [...n.aux]; while (aux.length < 8) aux.push(0); const sh = LFO_SHAPES[k]
-          if (k === LFO_RANDOM) { aux[4] = aux[4] || 8; updateNode(n.id, { variant: k, aux }, true); return }
-          aux[4] = 0
-          if (k === LFO_STEPS) { aux[6] = aux[6] || 8; updateNode(n.id, { variant: k, aux, pts: stepsToPts(Array.from({ length: aux[6] }, (_, i) => i / Math.max(1, aux[6] - 1))) }, true); return }
-          updateNode(n.id, { pts: [...sh.pts!], variant: k, aux }, true)
-        }} />)
-      if (isRandom) rows.push(<GaugeRow key="steps" label="steps" value={n.aux[4] || 8} min={1} max={32} step={1} defaultValue={8} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(4, Math.max(1, Math.round(v)))} />)
-      if (!isRandom && !isSteps) {
-        // the morph: a second shape the LFO leans toward, as far as its `morph` hand says (a macro can play it)
-        const toShapes = LFO_SHAPES.filter(sh => sh.pts)
-        const cur = n.pts2 ? toShapes.findIndex(sh => sh.pts!.length === n.pts2!.length && sh.pts!.every((v, i) => Math.abs(v - n.pts2![i]) < 1e-6)) : -1
-        rows.push(<ChoiceRow key="morphto" label="morph to" list none="none" options={toShapes.map(sh => sh.name)} value={cur}
-          onPick={(k) => updateNode(n.id, { pts2: k < 0 || k === cur ? undefined : [...toShapes[k].pts!], ...(cur < 0 && k >= 0 ? { decay: [0, 0, 0] } : {}) }, true)} />)   // (a shape picked fresh starts unmorphed: the hand at 0)
-        if (n.pts2) rows.push(<GaugeRow key="morph" label="morph" value={Math.round((n.decay[Math.max(0, Math.min(2, n.variant))] ?? 0) * 100)} min={0} max={100} step={1} unit="%" defaultValue={0} liveMap={(v) => v * 100}
-          onChange={(v, final) => updateNode(n.id, { decay: [v / 100, v / 100, v / 100] }, final)} />)
-      }
-      if (isSteps) rows.push(<GaugeRow key="nsteps" label="steps" value={n.aux[6] || 8} min={2} max={32} step={1} defaultValue={8} format={(v) => `${Math.round(v)}`}
-        onChange={(v) => { const c = Math.max(2, Math.round(v)); const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[6] = c; updateNode(n.id, { aux, pts: stepsToPts(ptsToSteps(n.pts ?? SINE_PTS, c)) }, true) }} />)
-    }
-    if (n.type === FX_RATE || n.type === FX_DRIFT || n.type === FX_PULSE || (n.type === FX_LFO && lfoOwnClock())) {
-      for (const h of CLOCK_HANDS) if (!h.when || h.when(n)) rows.push(handRow(h))
-      if (n.type === FX_DRIFT) rows.push(<GaugeRow key="dsmooth" label="smooth" value={n.aux[4] ?? 60} min={0} max={100} step={1} unit="%" defaultValue={60} onChange={(v) => setAux(4, Math.round(v))} />)
-      if (n.type === FX_PULSE) {
-        rows.push(<GaugeRow key="psteps" label="steps" value={n.aux[4] || 8} min={1} max={32} step={1} defaultValue={8} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(4, Math.max(1, Math.round(v)))} />)
-        rows.push(<GaugeRow key="hits" label="hits" value={n.aux[5] ?? 3} min={0} max={n.aux[4] || 8} step={1} defaultValue={3} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(5, Math.round(v))} />)
-        rows.push(<GaugeRow key="rotate" label="rotate" value={n.aux[6] || 0} min={0} max={Math.max(0, (n.aux[4] || 8) - 1)} step={1} defaultValue={0} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(6, Math.round(v))} />)
-        rows.push(<GaugeRow key="length" label="length" value={n.aux[7] || 50} min={1} max={100} step={1} unit="%" defaultValue={50} onChange={(v) => setAux(7, Math.round(v))} />)
-      }
-      if (n.type === FX_LFO || n.type === FX_DRIFT) rows.push(<GaugeRow key="lfodepth" label="depth" value={n.aux[5] ?? 100} min={0} max={100} step={1} unit="%" defaultValue={100} onChange={(v) => setAux(5, Math.round(v))} />)
-    }
     if (n.type === FX_SCENE) {
       // take: the wall as it is set now, into A or B. From then on an edit at A shapes A, at B shapes B; the knob slides between them.
       const take = (which: 'sceneA' | 'sceneB') => updateNode(n.id, { [which]: graph.nodes.filter(x => x.id !== n.id && x.type !== FX_SCENE).flatMap(sceneRow) }, true)
@@ -1052,24 +990,7 @@ export default function FxWall ({ size: frame }: Props) {
       const held = [...sceneHeld.values()].reduce((s, set) => s + set.size, 0)
       rows.push(<ChoiceRow key="held" label="holds" options={[n.sceneA?.length && n.sceneB?.length ? `${held} hand${held === 1 ? '' : 's'}` : n.sceneA?.length ? 'A only' : n.sceneB?.length ? 'B only' : 'nothing yet']} value={-1} onPick={() => {}} />)
     }
-    if (n.type === FX_ENV) {
-      // level: the envelope opens when the sound it hears is over the threshold; wire: when what lands on `gate` is up
-      rows.push(<ChoiceRow key="variant" label="opened by" options={['level', 'wire']} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)
-      rows.push(<GaugeRow key="attack" label="attack" value={n.aux[0] || 10} min={1} max={5000} step={1} defaultValue={10} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(0, Math.round(v))} />)
-      rows.push(<GaugeRow key="edecay" label="decay" value={n.aux[1] || 200} min={1} max={5000} step={1} defaultValue={200} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(1, Math.round(v))} />)
-      rows.push(<GaugeRow key="sustain" label="sustain" value={n.aux[2] ?? 70} min={0} max={100} step={1} unit="%" defaultValue={70} onChange={(v) => setAux(2, Math.round(v))} />)
-      rows.push(<GaugeRow key="release" label="release" value={n.aux[3] || 300} min={1} max={10000} step={1} defaultValue={300} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(3, Math.round(v))} />)
-      if (n.variant === 0) rows.push(<GaugeRow key="threshold" label="threshold" value={n.aux[4] || -30} min={-60} max={-1} step={1} defaultValue={-30} format={(v) => `${Math.round(v)} dB`} onChange={(v) => setAux(4, Math.round(v))} />)
-    }
-    if (n.type === FX_FOLLOW) {
-      // envelope: the level, through attack and release. transient: a hit — the value leaps to full and falls at the release
-      rows.push(<ChoiceRow key="variant" label="mode" options={['envelope', 'transient']} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)
-      rows.push(<GaugeRow key="attack" label="attack" value={n.aux[0] || 10} min={1} max={500} step={1} defaultValue={10} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(0, Math.round(v))} />)
-      rows.push(<GaugeRow key="release" label="release" value={n.aux[1] || 200} min={5} max={2000} step={1} defaultValue={200} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(1, Math.round(v))} />)
-      rows.push(<GaugeRow key="sense" label="sense" value={n.aux[2] ?? 50} min={0} max={100} step={1} defaultValue={50} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(2, Math.round(v))} />)
-      rows.push(<GaugeRow key="threshold" label="threshold" value={n.aux[3] || -40} min={-60} max={-1} step={1} defaultValue={-40} format={(v) => `${Math.round(v)} dB`} onChange={(v) => setAux(3, Math.round(v))} />)
-    }
-    for (const h of studyHandsOf(n)) if (h.kind !== 'switch') rows.push(handRow(h))
+    if (n.type !== FX_LFO || lfoOwnClock()) for (const h of studyHandsOf(n)) if (h.kind !== 'switch') rows.push(handRow(h))   // (an lfo on an engine from before it kept its own clock has no hands of its own)
     if (isMix) {
       const ins = inputsOf(n.id)
       ins.forEach(x => rows.push(

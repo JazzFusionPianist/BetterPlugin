@@ -197,6 +197,11 @@ async function runSelfTest (mode) {
       await NAT.call('testMenu', { id: idOf('Tools', 'Pencil') }); await sleep(200); res.tool = S.tool; await NAT.call('testMenu', { id: idOf('Tools', 'Pointer') })
       /* the whole way, as the keyboard does it: x (the mixer: a key the menu shows and leaves) reaches the room; typed in the
          command line it is a letter in the box; ⌘→ zooms */
+      /* the program set to Korean: the bar is the Mac's Korean (and the app's own menu with it), then English again */
+      await NAT.call('settingsSet', { what: 'lang', value: 'ko' }); await sleep(1500)
+      const ko = (await NAT.call('testMenus')).titles; res.korean = { menus: ko.split(' | ').map(m => m.split(':')[0]), app: ko.split(' | ')[0].slice(0, 120), file: (ko.split(' | ').find(m => m.startsWith('파일:')) || '').slice(0, 80) }
+      await NAT.call('settingsSet', { what: 'lang', value: 'en' }); await sleep(1500)
+      res.english = (await NAT.call('testMenus')).titles.split(' | ').map(m => m.split(':')[0]).join(' ')
       const real = async (k, code, mods) => { const r = await NAT.call('testRealKey', { key: k, code, mods }); await sleep(400); flush(); return r.sent }
       S.panel.on = false; setView(true); res.realX = { sent: await real('x', 7, 0) }; res.realX.mixer = S.panel.on && S.panel.tab === 'mixer'; S.panel.on = false; setView(true)
       $('cmd').value = ''; $('cmd').focus(); await sleep(300); res.realTyped = { sent: await real('x', 7, 0) }; res.realTyped.box = $('cmd').value; res.realTyped.mixer = S.panel.on; $('cmd').value = ''; $('cmd').blur(); await sleep(300)

@@ -6,7 +6,8 @@
    what its key does in the room (KEYS) or what is written beside it.
    Keys: a line shows the key the room answers to. Only keys with ⌘ or ⌃ are the menu's own to answer, and only while no
    box is being typed in; every other key (a bare letter, an arrow, ⌥ or ⇧ alone) is shown and stays the page's.
-   Words are written the Mac's way, in Title Case, as everything else the Mac draws for the app. */
+   Words are written the Mac's way, in Title Case, as everything else the Mac draws for the app; with the program set to
+   Korean they are the Mac's Korean (LANG.menuKo in lang.ko.js), and so is Help's search. A name someone gave stays as it is. */
 
 /* a line: [title, key (as KEYS names it), opts]: { id (an id the app or the start page already knows), do, on (is it
    ticked), sub } — '-' is a line between */
@@ -23,7 +24,7 @@ const MENU_BAR = () => [
   ]],
   ['File', [
     ['New', '⌘KeyN', { id: 'new' }], ['Open…', '⌘KeyO', { id: 'open' }],
-    ['Open Recent', null, { sub: (MENUS.recent.length ? MENUS.recent.map(p => [p.name, null, { id: 'recent:' + p.key, on: () => p.key === (typeof projKey === 'function' ? projKey() : '') }]) : [['No Projects Yet', null, { dim: true }]]).concat(['-', ['More…', null, { id: 'recent' }]]) }],
+    ['Open Recent', null, { sub: (MENUS.recent.length ? MENUS.recent.map(p => [p.name, null, { given: 1, id: 'recent:' + p.key, on: () => p.key === (typeof projKey === 'function' ? projKey() : '') }]) : [['No Projects Yet', null, { dim: true }]]).concat(['-', ['More…', null, { id: 'recent' }]]) }],
     '-',
     ['Save', '⌘KeyS', { id: 'save' }], ['Save As…', '⇧⌘KeyS', { id: 'saveas' }], ['Rename…', null, { id: 'rename' }], ['Revert To…', null, { id: 'revert' }],
     '-',
@@ -142,10 +143,12 @@ function menuKeyOf (k) {
   if (key == null) return null
   return { key, cmd: mods.includes('⌘') ? 1 : 0, ctrl: mods.includes('⌃') ? 1 : 0, opt: mods.includes('⌥') ? 1 : 0, shift: mods.includes('⇧') ? 1 : 0 }
 }
+/* a line's words in the language the program speaks */
+const menuWord = t => { if (LANG.now !== 'ko' || !LANG.menuKo) return t; const m = LANG.menuKo; if (m[t] != null) return m[t]; const n = /^Marker (\d)$/.exec(t); return n && m['Marker #'] ? m['Marker #'].replace('#', n[1]) : t }
 function menuTree (lines, path) {
   return lines.map((l, i) => {
     if (l === '-') return { sep: 1 }
-    const [t, k0, o = {}] = l, k = k0 || o.k || null, id = o.id || `m:${path}.${i}`
+    const [t0, k0, o = {}] = l, t = o.given ? t0 : menuWord(t0), k = k0 || o.k || null, id = o.id || `m:${path}.${i}`
     if (o.sub) return { t, sub: menuTree(o.sub, `${path}.${i}`) }
     const run = o.do || (k0 && KEYS[k0] ? () => KEYS[k0]() : null)                    // (else, an id the app or MENU_DO knows)
     if (run) MENUS.acts.set(id, run)
@@ -161,8 +164,9 @@ async function menusSend () {
     MENUS.recent = ((await NAT.call('projList', { also })) || []).sort((a, b) => b.modified - a.modified).slice(0, 12)
   } catch (e) { MENUS.recent = [] }
   MENUS.acts.clear(); MENUS.ons.clear()
-  const bar = MENU_BAR().map(([t, lines], i) => ({ t, sub: menuTree(lines, String(i)) })), json = JSON.stringify(bar)
-  if (json !== MENUS.sent) { MENUS.sent = json; MENUS.state = ''; await NAT.call('menus', { bar }) }
+  const bar = MENU_BAR().map(([t, lines], i) => ({ t: menuWord(t), en: t, sub: menuTree(lines, String(i)) })), json = JSON.stringify(bar)
+  const words = Object.fromEntries(['About Slur Studio', 'Settings…', 'Services', 'Hide Slur Studio', 'Hide Others', 'Show All', 'Quit Slur Studio'].map(w => [w, menuWord(w)]))      // (the app's own menu, which the Mac makes)
+  if (json !== MENUS.sent) { MENUS.sent = json; MENUS.state = ''; await NAT.call('menus', { bar, words }) }
   menusTick()
 }
 /* which lines are ticked, told to the app whenever that changes */
@@ -189,6 +193,7 @@ if (NAT) {
   addEventListener('focusin', e => { if (typingIn(e)) NAT.call('typing', { on: 1 }) })
   addEventListener('focusout', e => { if (typingIn(e)) NAT.call('typing', { on: 0 }) })
   setInterval(menusTick, 250)
+  LANG.heard.push(() => menusSend())                                            // another language: the bar is written again
   setTimeout(menusSend, 400)
   setInterval(menusSend, 60000)                                                  // (projects come and go on the disk too)
 }

@@ -889,7 +889,7 @@ private:
             o->setProperty ("levelA", n > 0 ? std::sqrt (ea / n) : 0.0); o->setProperty ("levelB", n > 0 ? std::sqrt (eb / n) : 0.0);
             done (juce::var (o)); return;
         }
-        if (op == "menus")     { done (okVar (slurSetMenus (juce::JSON::toString (d["bar"], true).toRawUTF8()))); return; }      // the menu bar as the page writes it (ui/menus.js)
+        if (op == "menus")     { done (okVar (slurSetMenus (juce::JSON::toString (d, true).toRawUTF8()))); return; }      // the menu bar as the page writes it (ui/menus.js)
         if (op == "menuState") { slurSetMenuState (juce::JSON::toString (d, true).toRawUTF8()); done (okVar()); return; }          // which of its lines are ticked
         if (op == "typing")    { slurSetTyping ((int) d["on"] != 0); done (okVar()); return; }                                     // a box in the page is being typed in
         if (op == "testRealKey")                                               // the check: a key put on the app's queue, as the keyboard does

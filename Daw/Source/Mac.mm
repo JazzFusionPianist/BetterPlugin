@@ -577,7 +577,10 @@ bool slurSetMenus (const char* json)
 {
     NSMenu* bar = [NSApp mainMenu];
     if (bar == nil || bar.numberOfItems < 1 || slurMenuTarget == nil || json == nullptr) return false;
-    NSArray* menus = [NSJSONSerialization JSONObjectWithData: [NSData dataWithBytes: json length: strlen (json)] options: 0 error: nil];
+    id got = [NSJSONSerialization JSONObjectWithData: [NSData dataWithBytes: json length: strlen (json)] options: 0 error: nil];
+    NSArray* menus = [got isKindOfClass: [NSDictionary class]] ? got[@"bar"] : got;
+    NSDictionary* words = [got isKindOfClass: [NSDictionary class]] && [got[@"words"] isKindOfClass: [NSDictionary class]] ? got[@"words"] : @{};      // the app's own menu, in the program's language
+    NSString* (^word) (NSString*) = ^NSString* (NSString* w) { NSString* s = words[w]; return [s isKindOfClass: [NSString class]] ? s : w; };
     if (! [menus isKindOfClass: [NSArray class]] || menus.count < 2) return false;
     if (! [bar isKindOfClass: [SlurMainMenu class]]) object_setClass (bar, [SlurMainMenu class]);      // (the bar answers the keys by the rules above)
     slurLines = [NSMutableDictionary dictionary];
@@ -590,19 +593,27 @@ bool slurSetMenus (const char* json)
         slurAppLines = [NSMutableArray array];
         NSInteger at = 0;
         auto put = [&] (NSMenuItem* it) { [app insertItem: it atIndex: at++]; [slurAppLines addObject: it]; };
-        NSMenuItem* about = [[NSMenuItem alloc] initWithTitle: @"About Slur Studio" action: @selector (orderFrontStandardAboutPanel:) keyEquivalent: @""];
+        NSMenuItem* about = [[NSMenuItem alloc] initWithTitle: word (@"About Slur Studio") action: @selector (orderFrontStandardAboutPanel:) keyEquivalent: @""];
         put (about); put ([NSMenuItem separatorItem]);
-        NSMenuItem* settings = [[NSMenuItem alloc] initWithTitle: @"Settings…" action: @selector (pick:) keyEquivalent: @","];
+        NSMenuItem* settings = [[NSMenuItem alloc] initWithTitle: word (@"Settings…") action: @selector (pick:) keyEquivalent: @","];
         settings.keyEquivalentModifierMask = NSEventModifierFlagCommand; settings.target = slurMenuTarget; settings.representedObject = @"settings"; settings.tag = 2;
         put (settings);
         NSMenu* first = slurBuildMenu (@"", menus[0][@"sub"]);
         while (first.numberOfItems > 0) { NSMenuItem* it = [first itemAtIndex: 0]; [first removeItemAtIndex: 0]; put (it); }
         put ([NSMenuItem separatorItem]);
+        for (NSMenuItem* it in app.itemArray)                                     // the Mac's own lines of it (made in English by the library)
+        {
+            if (it.action == @selector (hide:)) it.title = word (@"Hide Slur Studio");
+            else if (it.action == @selector (hideOtherApplications:)) it.title = word (@"Hide Others");
+            else if (it.action == @selector (unhideAllApplications:)) it.title = word (@"Show All");
+            else if (it.action == @selector (terminate:)) it.title = word (@"Quit Slur Studio");
+            else if (it.submenu != nil && it.submenu == NSApp.servicesMenu) it.title = word (@"Services");
+        }
     }
     while (bar.numberOfItems > 1) [bar removeItemAtIndex: 1];
     for (NSUInteger i = 1; i < menus.count; ++i)
     {
-        NSString* title = menus[i][@"t"];
+        NSString* title = menus[i][@"t"], *en = menus[i][@"en"] ?: title;      // (en: which menu it is, whatever the language)
         NSMenu* m = slurBuildMenu (title, menus[i][@"sub"]);
         slurAddMenu (bar, m);
         if ([title isEqualToString: @"Window"]) [NSApp setWindowsMenu: m];

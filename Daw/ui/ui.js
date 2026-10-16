@@ -164,8 +164,8 @@ function pTool () {
     s += R(x + .5, y + 4.5, 31, 17, { rx: 2, stroke: INK, sa: S.look ? .5 : .2 }) + R(x + 5, y + 8, 11, 10, { fill: look.c }) + caret(x + 23.5, y + 13, .45) + hit(x, y + 4, 32, 18, 'look'); x += 37
     s += R(x + .5, y + 4.5, 37, 17, { rx: 2, stroke: INK, sa: S.look ? .5 : .2 }) + P(shapePath(x + 5, y + 8.5, 17, 9, SHAPES[look.outline], .5), { fill: INK, fa: .86 }) + caret(x + 29.5, y + 13, .45) + hit(x, y + 4, 38, 18, 'look'); x += 37 + 14
     if (r) {
-      const tr = (r.tr > 0 ? '+' : r.tr < 0 ? '−' : '') + Math.abs(r.tr || 0), fade = `${+(r.fi || 0).toFixed(2)} ${+(r.fo || 0).toFixed(2)}`
-      for (const [l, v, a] of [['gain', fmtDb(r.gain || 0), 'rgain'], ['transpose', tr, 'rtr'], ['fade', fade, null]].concat(!r.loop && r.bpm > 0 ? [['bpm', String(+r.bpm.toFixed(1)), 'rbpm']] : [])) { if (x + tw(l, 9.5) + 5 + tw(v, 9.5) > lim) break; const [f2, fw2] = field(x, by, l, v, { a, cur: a === 'rbpm' ? 'text' : undefined }); s += f2; x += fw2 + 14 }
+      const tr = (r.tr > 0 ? '+' : r.tr < 0 ? '−' : '') + Math.abs(r.tr || 0), ft = (r.ft > 0 ? '+' : r.ft < 0 ? '−' : '') + Math.abs(r.ft || 0), fade = `${+(r.fi || 0).toFixed(2)} ${+(r.fo || 0).toFixed(2)}`
+      for (const [l, v, a] of [['gain', fmtDb(r.gain || 0), 'rgain'], ['transpose', tr, 'rtr']].concat(r.notes || rs[0][1].midi ? [] : [['fine', ft, 'rft']], [['fade', fade, null]]).concat(!r.loop && r.bpm > 0 ? [['bpm', String(+r.bpm.toFixed(1)), 'rbpm']] : [])) { if (x + tw(l, 9.5) + 5 + tw(v, 9.5) > lim) break; const [f2, fw2] = field(x, by, l, v, { a, cur: a === 'rbpm' ? 'text' : undefined }); s += f2; x += fw2 + 14 }
       if (DRAFT.fades && ((r.fi || 0) > 0 || (r.fo || 0) > 0) && x + 100 < lim) { const [k1, w1] = menuKey(x - 6, y + 4, FADE_CURVES[(r.fi > 0 ? r.fic : r.foc) || 0], { a: 'fcurve' }); s += k1; x += w1 + 8 }
       if (S.flex && x + 130 < lim) { const [k1, w1] = key(x, y + 4, 'quantize', { a: 'qgo' }); s += k1 + menuKey(x + w1 + 6, y + 4, qName(S.q), { a: 'qval' })[0] }
     }
@@ -578,7 +578,7 @@ function stackOverview (st, ly, lh, xEnd) {
 /* a region is named on the lane only when its name is its own, and what was done to it is said after the name. Where
    all of it does not fit, the name gives way first; a region too short for the rest says nothing */
 function regTag (r, t, room) {
-  const nm = r.tag || r.name, done = [r.tr ? (r.tr > 0 ? '+' : '−') + Math.abs(r.tr) + ' st' : null, r.rev ? 'rev' : null, r.gain ? (r.gain > 0 ? '+' : '−') + Math.abs(r.gain).toFixed(1) : null].filter(Boolean)
+  const nm = r.tag || r.name, done = [r.tr ? (r.tr > 0 ? '+' : '−') + Math.abs(r.tr) + ' st' : null, r.ft ? (r.ft > 0 ? '+' : '−') + Math.abs(r.ft) + ' ct' : null, r.rev ? 'rev' : null, r.gain ? (r.gain > 0 ? '+' : '−') + Math.abs(r.gain).toFixed(1) : null].filter(Boolean)
   for (const parts of [(nm && nm !== t.name ? [nm] : []).concat(done), done]) { const tg = parts.join('  '); if (tg && tw(tg, lkN('name.size'), +lk('name.w')) <= room) return parts.length > done.length ? asGiven(tg) : tg }      // (with its name in it: never put into other words)
   return ''
 }
@@ -1178,6 +1178,7 @@ function optReset (a, el, i) {
   else if (a === 'master' || a === 'mmaster') { S.master = 0; pushMaster(); uiDirty('top', 'dock') }
   else if (a === 'rgain') edit(() => { const rs = selRegs(); if (!rs.some(([r]) => r.gain)) return false; for (const [r] of rs) { r.gain = 0; dirtyReg(r) } })
   else if (a === 'rtr') { const rs = selRegs().map(x => x[0]).filter(r => r.tr); if (rs.length) { edit(() => { for (const r of rs) r.tr = 0 }); rewarp(rs) } }
+  else if (a === 'rft') { const rs = selRegs().map(x => x[0]).filter(r => r.ft); if (rs.length) { edit(() => { for (const r of rs) r.ft = 0 }); rewarp(rs) } }
   else if (a === 'print') { const k = pk(el.dataset.k); if (k === 'share') t.patch.A.share = t.patch.B.share = 62; else setPrint(t, k, PRINT_START[k]); touchPatch(t) }
   else if (a === 'zoomx') setZoom(0)
   else if (a === 'zoomy') { setRowH(25); uiDirty('info') }
@@ -1273,6 +1274,7 @@ function onDown (e) {
     case 'audiokey': if (NAT) NAT.call('audioSettings'); break
     case 'rgain': drag = { a, ly: p.y, acc: 0, before: editState(), orig: new Map(selRegs().map(([r]) => [r.id, r.gain || 0])) }; break
     case 'rtr': drag = { a, y0: p.y, before: editState(), orig: new Map(selRegs().map(([r]) => [r.id, r.tr || 0])) }; break
+    case 'rft': drag = { a, ly: p.y, acc: 0, before: editState(), orig: new Map(selRegs().filter(([r]) => !r.notes).map(([r]) => [r.id, r.ft || 0])) }; break      // fine tune: a cent a point (with shift, finer)
     /* a head pressed by its name: with shift, all from the one last pressed to this one; with command, this one more (or one
        less). One of several pressed plainly is not let go of the others yet: they may be about to be pulled together */
     case 'sel': {
@@ -1379,6 +1381,7 @@ function onMove (e) {
   else if (drag.a === 'master') { const v = clamp(Math.round((drag.v0 + pulled(drag, p.y, .1, e)) * 10) / 10, -48, 6); S.master = Math.abs(v) < .25 ? 0 : v; pushMaster(); uiDirty('top', 'dock') }
   else if (drag.a === 'rgain') { const dv = pulled(drag, p.y, .1, e); for (const [id, g] of drag.orig) { const [r] = regOf(id); if (r) { r.gain = clamp(Math.round((g + dv) * 10) / 10, -30, 12); dirtyReg(r) } } drag.moved = true; uiDirty('lanes', 'dock') }
   else if (drag.a === 'rtr') { const d = Math.round(-(p.y - drag.y0) / 8); for (const [id, v] of drag.orig) { const [r] = regOf(id); if (r) r.tr = clamp(v + d, -24, 24) } drag.moved = true; uiDirty('lanes', 'dock') }
+  else if (drag.a === 'rft') { const dv = pulled(drag, p.y, 1, e); for (const [id, v] of drag.orig) { const [r] = regOf(id); if (r) { r.ft = clamp(Math.round(v + dv), -100, 100); dirtyReg(r) } } drag.moved = true; uiDirty('info', 'lanes') }
   else if (drag.a === 'cycle') {                                                       // by its middle it moves as it is; by an end, that end; anywhere else a new one is drawn
     const d = drag
     if (!d.moved && Math.abs(p.x - d.x0) < 3) return
@@ -1415,6 +1418,7 @@ function onUp () {
   else if (d.a === 'msend' && !d.moved) openSendMenu(S.tracks[d.i], d.k, S.px - 10, S.py + 10)       // a press that moved nothing asks where it goes
   else if (d.a === 'rgain' && d.moved) commit(d.before)
   else if (d.a === 'rtr' && d.moved) { commit(d.before); rewarp(selRegs().map(x => x[0])) }
+  else if (d.a === 'rft' && d.moved) { commit(d.before); rewarp(selRegs().map(x => x[0])) }
   else if (d.a === 'pgrip') syncSlur()
   else if (d.a === 'rowh') { S.rowPull = null; for (const t of d.who) if (t.h === S.rh) delete t.h; uiDirty('head', 'lanes') }
   drag = null
@@ -1456,6 +1460,7 @@ function twice (el, e, p) {
   else if (a === 'master' || a === 'mmaster') { S.master = 0; pushMaster(); uiDirty('top', 'dock') }
   else if (a === 'rgain') edit(() => { for (const [r] of selRegs()) { r.gain = 0; dirtyReg(r) } })
   else if (a === 'rtr') { const rs = selRegs().map(x => x[0]); edit(() => { for (const r of rs) r.tr = 0 }); rewarp(rs) }
+  else if (a === 'rft') { const rs = selRegs().map(x => x[0]); edit(() => { for (const r of rs) r.ft = 0 }); rewarp(rs) }
   else if (a === 'lanes' && (S.auto || (!S.flex && (p.y - TY + VY) < rowTops().all && lineOwn(S.tracks[laneAt(p.y)])))) autoDbl(e, p)
   else if (a === 'lanes' && S.flex) flexDbl(e, p)
   else if (a === 'scenebar') addScene(Math.round(barAt(p.x)) + 1)

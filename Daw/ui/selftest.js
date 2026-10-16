@@ -384,6 +384,33 @@ async function runSelfTest (mode) {
     const after = await only(t, async () => { await playFrom(5); return listen(1200) })
     return { tr: r.tr, wkey: r.wkey, before, after }
   })
+  /* fine tune: the same sound rendered 50 cents up and 50 cents down; its period, read by autocorrelation window by window,
+     must differ between the two by the ratio a hundred cents is (2^(100/1200) = 1.0595). +100 cents is the same render as
+     a semitone of transpose. */
+  await step('fineTune', async () => {
+    const t = track('vox') || track('hum'), r = t && t.regs.find(x => srcKey(x))      // (the take, when the whole check made one; else the hum)
+    if (!r) return { skipped: true }
+    const was = { tr: r.tr || 0, ft: r.ft || 0 }
+    const period = async key => {
+      const got = []
+      for (let w = 0; w < 16; w++) {
+        const res = await NAT.call('wave', { key, from: w * 4096, to: w * 4096 + 4096, n: 4096 })
+        if (!res || !res.ok || res.hi.length < 4096) break
+        const x = res.hi.map((v, i) => (v + res.lo[i]) / 2), ac = l => { let q = 0; for (let i = 0; i + l < 3000; i++) q += x[i] * x[i + l]; return q }
+        const z = ac(0); if (z < 1e-6) continue
+        let l = 20; while (l < 1000 && ac(l) > 0) l++
+        let best = l, bv = -Infinity; for (; l < 1000; l++) { const v = ac(l); if (v > bv) { bv = v; best = l } }
+        if (bv / z > .5) { const a0 = ac(best - 1), a1 = ac(best), a2 = ac(best + 1); got.push(best + (a0 - a2) / (2 * (a0 - 2 * a1 + a2) || 1) / 1) }      // (to a fraction of a sample, by the parabola through the peak)
+      }
+      got.sort((a, b) => a - b); return got.length ? got[got.length >> 1] : 0
+    }
+    edit(() => { r.tr = 0; r.ft = 50 }); await rewarp([r]); const up = await period(r.wkey), tag = regTag(r, t, 999)
+    edit(() => { r.ft = -50 }); await rewarp([r]); const down = await period(r.wkey)
+    edit(() => { r.ft = 100 }); await rewarp([r]); const cents = r.wkey
+    edit(() => { r.ft = 0; r.tr = 1 }); await rewarp([r]); const semi = r.wkey
+    edit(() => { r.tr = was.tr; r.ft = was.ft }); await rewarp([r])
+    return { track: t.name, periods: [+up.toFixed(2), +down.toFixed(2)], ratio: up && down ? +(down / up).toFixed(4) : 0, want: 1.0595, tag, hundredIsASemitone: !!cents && cents === semi }
+  })
   await step('flex', async () => {
     const t = track('hats'), r = t.regs.find(x => x.file)
     if (!r) return { skipped: true }

@@ -1,16 +1,16 @@
 /* ── the pitch and the time of a file: transpose, flex, quantize, reverse ──
    The app renders a new buffer away from the clock and the region plays that instead (r.wkey). The new buffer is as
    long as the old one played at the region's rate, so trimming, splitting and moving go on as before.
-   r.tr: semitones. r.flex: pins [{s, d}], s seconds into the file landing at d seconds of what is played.
+   r.tr: semitones; r.ft: cents, −100…100, on top of them (fine tune). r.flex: pins [{s, d}], s seconds into the file landing at d seconds of what is played.
    r.fx: follow the tempo by stretching, not by turning the tape faster. r.rev: backwards. */
 const TRANS = new Map()            // a file's key -> where things begin in it, seconds
 const WARPS = new Map()            // what was asked for -> what came back (or the promise of it)
 const LIVEW = new Map()            // a rendered buffer the app still holds -> what it was asked as
 const srcKey = r => r.loop ? r.buf : r.key
 const rateOf = r => r.loop ? 1 : (r.rate || 1)
-const warped = r => !r.notes && !!(r.tr || (r.flex && r.flex.length) || r.rev || (r.fx && Math.abs(rateOf(r) - 1) > 1e-6))
+const warped = r => !r.notes && !!(r.tr || r.ft || (r.flex && r.flex.length) || r.rev || (r.fx && Math.abs(rateOf(r) - 1) > 1e-6))
 /* a region not told to follow the tempo keeps the pitch its rate gives it, as it had before it was touched */
-const warpSemis = r => (r.tr || 0) + (r.fx || r.loop ? 0 : 12 * Math.log2(rateOf(r)))
+const warpSemis = r => (r.tr || 0) + (r.ft || 0) / 100 + (r.fx || r.loop ? 0 : 12 * Math.log2(rateOf(r)))
 const warpSig = r => warped(r) ? `${srcKey(r)}|${+warpSemis(r).toFixed(4)}|${+rateOf(r).toFixed(6)}|${r.rev ? 1 : 0}|${(r.flex || []).map(m => m.s.toFixed(4) + ':' + m.d.toFixed(4)).join(',')}` : ''
 async function renderWarp (r) {
   const sig = warpSig(r)

@@ -8,7 +8,7 @@ LANG.lists.ko = {
   'patch': '패치', 'mixer': '믹서', 'hand off': '내보내기', 'auto': '오토', 'flex': '플렉스',
   'tool': '도구', 'cmd': '커맨드', 'pointer': '포인터', 'pencil': '연필', 'eraser': '지우개', 'scissors': '가위', 'marquee': '마키', 'smart': '스마트',
   'mode': '모드', 'snap': '스냅', 'grid': '그리드', 'slip': '슬립', 'shuffle': '셔플', 'spot': '스팟',
-  'region': '리전', 'regions': '리전', 'gain': '게인', 'transpose': '트랜스포즈', 'fade': '페이드', 'fades': '페이드',
+  'region': '리전', 'regions': '리전', 'gain': '게인', 'transpose': '트랜스포즈', 'fine': '미세 조정', 'fade': '페이드', 'fades': '페이드',
   'colour': '색', 'outline': '모양', 'as read': '읽은 대로', 'as the track': '트랙대로',
   'track': '트랙', 'tracks': '트랙', 'track #': '트랙 #', 'stack': '스택', 'stacks': '스택', 'bus': '버스', 'buses': '버스', 'markers': '마커',
   'bar': '마디', 'bars': '마디', 'beat': '박', 'tick': '틱', 'sample': '샘플', 'many': '여러 개',

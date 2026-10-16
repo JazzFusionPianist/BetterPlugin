@@ -612,7 +612,7 @@ const headRoom = r => r.notes ? 0 : r.loop ? Infinity : Math.max(0, r.off || 0) 
 const tailRoom = r => r.notes ? 0 : r.loop ? Infinity : Math.max(0, (r.srcBars || 0) - (r.off || 0) - (r.b - r.a))      // and after its end
 /* is B the same sound as A, carrying on exactly where A stops (a region cut in two)? */
 function carriesOn (A, B) {
-  if (!!A.loop !== !!B.loop || (A.loop ? A.buf !== B.buf : A.key !== B.key || A.buf !== B.buf) || (A.wsig || '') !== (B.wsig || '') || (A.tr || 0) !== (B.tr || 0) || !!A.rev !== !!B.rev) return false
+  if (!!A.loop !== !!B.loop || (A.loop ? A.buf !== B.buf : A.key !== B.key || A.buf !== B.buf) || (A.wsig || '') !== (B.wsig || '') || (A.tr || 0) !== (B.tr || 0) || (A.ft || 0) !== (B.ft || 0) || !!A.rev !== !!B.rev) return false
   const d = (B.off || 0) - ((A.off || 0) + (B.a - A.a)), per = A.loop ? LOOPS[A.buf].bars : 0
   return Math.abs(d) < 1e-6 || (per > 0 && (Math.abs(d % per) < 1e-6 || Math.abs(per - Math.abs(d % per)) < 1e-6))
 }

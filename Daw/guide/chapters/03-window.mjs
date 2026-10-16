@@ -56,7 +56,7 @@ export default () => chapter('window', t('the window', '창'),
       [8, ['colour and outline keys: open the look list', '색과 모양 키: 모양 목록을 엽니다']]) +
     table(null,
       [9, ['{{gain}} of the chosen region. Drag up or down, −30 to +12 dB', '선택한 리전의 {{gain}}. 위아래로 드래그, −30~+12 dB']],
-      [10, ['{{transpose}} in semitones, −24 to +24', '{{transpose}} 반음 단위, −24~+24']],
+      [10, ['{{transpose}} in semitones, −24 to +24; beside it, on sound, {{fine}} in cents, −100 to +100', '{{transpose}} 반음 단위, −24~+24. 오디오면 옆에 {{fine}}, 센트 단위, −100~+100']],
       [11, ['zoom along the song', '곡 방향 줌']],
       [12, ['row height', '줄 높이']]) +
     p('With a region that has a fade, a file whose tempo is known, or the flex view on, more fields appear here: {{fade}}, its curve, {{bpm}}, {{quantize}} and its value. When the window is narrow the fields at the right drop off first.', '페이드가 있는 리전, 템포를 아는 파일, 플렉스 보기가 켜진 경우에는 여기에 칸이 더 나타납니다. {{fade}}와 곡선, {{bpm}}, {{quantize}}와 값. 창이 좁으면 오른쪽 칸부터 사라집니다.'),

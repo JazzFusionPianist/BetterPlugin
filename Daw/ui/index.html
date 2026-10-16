@@ -34,7 +34,8 @@ body { margin: 0; background: var(--k1); color: var(--ink); font-family: var(--f
 #loading[hidden] { display: none }
 #ld-word { font-size: 9.5px; opacity: .45 }
 #ld-name { font-size: 12.5px; font-weight: 500; margin: 3px 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
-#ld-bar { height: 2px; background: rgba(236, 234, 228, .14) }
+#ld-bar { position: relative; height: 2px; margin-right: 38px; background: rgba(236, 234, 228, .14) }
+#ld-note { position: absolute; right: -38px; top: -6px; width: 26px; height: 14px; overflow: visible }      /* a whole note walking a scale on five lines, while the card is up (project.js: ldNote; design/progress motion draft 1, his pick a) */
 #ld-fill { height: 2px; width: 0; background: var(--ink) }
 #ld-what { font-size: 9.5px; opacity: .6; margin-top: 9px; height: 12px; white-space: pre; overflow: hidden; text-overflow: ellipsis }
 /* …on a patch it stands inside the panel, at the right of the chain: a column of the panel, not a card laid over the lanes */
@@ -73,7 +74,7 @@ body { margin: 0; background: var(--k1); color: var(--ink); font-family: var(--f
 </svg>
 <input id="cmd" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="say what to change">
 <input id="rename" type="text" hidden autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="name">
-<div id="loading" hidden><div id="ld-word"></div><div id="ld-name"></div><div id="ld-bar"><div id="ld-fill"></div></div><div id="ld-what"></div></div>
+<div id="loading" hidden><div id="ld-word"></div><div id="ld-name"></div><div id="ld-bar"><div id="ld-fill"></div><svg id="ld-note" viewBox="0 0 26 14" aria-hidden="true"></svg></div><div id="ld-what"></div></div>
 <div id="picker" hidden><div id="pk-head"></div><input id="pk-q" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="find a plug-in"><div id="pk-body"><div id="pk-cats" hidden></div><div id="pk-list"></div></div></div>
 </div></div>
 <script>
@@ -121,6 +122,7 @@ addEventListener('unhandledrejection', e => { __errs.push('rejection: ' + String
 <script src="study.js"></script>
 <script src="prompt.js"></script>
 <script src="handoff.js"></script>
+<script src="realtime.js"></script>
 <script src="menus.js"></script>
 <script src="selftest.js"></script>
 <script src="bench.js"></script>

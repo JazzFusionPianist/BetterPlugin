@@ -175,6 +175,7 @@ struct Hold
 };
 
 struct Track;
+struct LiveOut;
 
 struct Insert
 {
@@ -490,6 +491,7 @@ struct Track
     std::atomic<bool> live { false };            // it hears what is played by hand
     std::atomic<bool> stale { false };           // what it plays, or what plays it, has changed under keys that were down
     std::atomic<bool> hush { false };            // everything it sounds is to stop at once (a note that hangs: see Engine::hushAll)
+    LiveOut* printLive = nullptr;                // a realtime print keeps its sound (before or after its fader) as the song plays — set under the lock
 
     template <typename F> void eachPlug (F&& f) { if (plug != nullptr) f (*plug); for (auto& i : inserts) f (*i); }
     void keysUp() { std::memset (heldSong, 0, sizeof (heldSong)); std::memset (heldLive, 0, sizeof (heldLive)); liveDown = 0; }
@@ -511,6 +513,20 @@ struct Rec
     juce::File file;
     std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> tw;
     juce::int64 got = 0;
+};
+
+/** A realtime print (a bounce played through as the song plays, not ahead of it): one file being written as it goes —
+    the mix, or one track before or after its fader. Its block of sound is kept by playTrack (a track) or the device's
+    callback (the mix), and handed to a writer the audio thread can give samples to; a 32-bit file at the device's rate,
+    made into what was asked for (kind, rate, depth) once the song has gone by. */
+struct LiveOut
+{
+    Track* t = nullptr;
+    bool pre = false;
+    juce::File tmp, file;
+    juce::var tv;                                // what the page called it ({id, name})
+    std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> tw;
+    juce::AudioBuffer<float> buf;
 };
 
 /** Where a print goes: a file of some kind, at some rate and depth. */
@@ -1088,7 +1104,7 @@ public:
         hands were asked for (-1: as many as the machine allows), and whether a take or a print is under way. */
     float inputNow() const { return inPeak.load(); }
     int handsAsked() const { return handsWanted; }
-    bool busy() const { return bouncing.load() || recording.load(); }
+    bool busy() const { return bouncing.load() || recording.load() || livePhase.load() != 0; }
     juce::AudioDeviceManager& devices() { return dm; }
     int inputCount() { if (testInput) return 2; if (auto* d = dm.getCurrentAudioDevice()) return d->getActiveInputChannels().countNumberOfSetBits(); return 0; }
 
@@ -2543,6 +2559,77 @@ public:
         });
     }
 
+    /** A print played through in real time (his ask, 2026-10-16: "realtime" beside "offline", as Logic has them; drawn for
+        him in design/realtime bounce draft 1): the song plays from a0 as it always does — heard, and drawn by the page —
+        and what it prints is written as it goes; the files are made into what was asked for once the range and its tail
+        have gone by. Same options and the same answer as exportAudio (kind mix | stems | place; stems print with the
+        patch: a track cannot be heard both ways at once). `done` is called when it ends, kept or not (liveStop). */
+    void liveStart (const juce::var& opts, std::function<void (juce::var)> done)
+    {
+        auto fail = [&] (const String& why) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); o->setProperty ("error", why); done (juce::var (o)); };
+        if (bouncing.load() || recording.load() || livePhase.load() != 0) { fail ("busy"); return; }
+        const String kind = opts["kind"].toString();
+        const bool place = kind == "place", mixdown = kind == "mix";
+        const double a0 = (double) opts["a0"], a1 = (double) opts["a1"], barS = barSamples();
+        if (! (a1 > a0)) { fail ("nothing to print"); return; }
+        String fmt = place ? String ("wav") : opts["fmt"].toString();
+        if (fmt.isEmpty()) fmt = "wav";
+        auto dir = opts.hasProperty ("dir") ? juce::File (opts["dir"].toString()) : musicRoot().getChildFile (opts["folder"].toString() + " " + juce::Time::getCurrentTime().formatted ("%H%M%S"));
+        dir.createDirectory();
+        if (dir.getBytesFreeOnVolume() < (juce::int64) 300 * 1024 * 1024) { fail ("the disk is full"); return; }
+        std::vector<std::unique_ptr<LiveOut>> outs;
+        juce::WavAudioFormat wav;
+        const String ext = "." + fmt;
+        auto make = [&] (Track* t, bool pre, const juce::File& file, const juce::var& tv) -> bool
+        {
+            auto lo = std::make_unique<LiveOut>();
+            lo->t = t; lo->pre = pre; lo->file = file; lo->tv = tv;
+            lo->tmp = dir.getChildFile ("." + file.getFileNameWithoutExtension() + " realtime.wav");
+            lo->tmp.deleteFile();
+            std::unique_ptr<juce::OutputStream> os = lo->tmp.createOutputStream();
+            if (os == nullptr) return false;
+            auto w = wav.createWriterFor (os, juce::AudioFormatWriterOptions{}.withSampleRate (sr).withNumChannels (2).withBitsPerSample (32).withSampleFormat (juce::AudioFormatWriterOptions::SampleFormat::floatingPoint));
+            if (w == nullptr) return false;
+            lo->tw = std::make_unique<juce::AudioFormatWriter::ThreadedWriter> (w.release(), recThread, 1 << 18);
+            lo->buf.setSize (2, maxBlock); lo->buf.clear();
+            outs.push_back (std::move (lo));
+            return true;
+        };
+        bool made = true;
+        if (mixdown) made = make (nullptr, false, dir.getChildFile (juce::File::createLegalFileName (opts["name"].toString()) + ext), juce::var());
+        else if (auto* list = opts["tracks"].getArray())
+            for (auto& tv : *list)
+                if (auto* t = find ((int) tv["id"]))
+                    made = make (t, place, place ? dir.getNonexistentChildFile (juce::File::createLegalFileName (tv["name"].toString()), ext, false)
+                                                  : dir.getChildFile (juce::File::createLegalFileName (tv["name"].toString()) + ext), tv) && made;
+        if (! made || outs.empty()) { for (auto& lo : outs) { lo->tw.reset(); lo->tmp.deleteFile(); } fail ("the file would not open"); return; }
+        const double tail = place ? (double) opts["tail"] : 2.5;
+        {
+            const juce::ScopedLock sl (lock);
+            for (auto& lo : outs) { if (lo->t != nullptr) lo->t->printLive = lo.get(); else liveMixOut = lo.get(); }
+            lives.swap (outs);
+            liveS0 = (juce::int64) std::llround (a0 * barS);
+            liveTotal = (juce::int64) std::llround ((a1 - a0) * barS + tail * sr);
+            liveWritten = 0;
+        }
+        liveOpts = opts; liveDir = dir; liveDone = std::move (done); liveFmt = fmt;
+        liveLoopWas = loop.load(); loop.store (false);                       // (the range is played once, from its start to its end)
+        livePhase.store (1);
+        play (juce::jmax (0.0, a0 - 0.25 * sr / barS));                      // a quarter of a second before it: what is already sounding there has begun
+        logLine ("realtime print: " + kind + ", " + String ((int) lives.size()) + " files, bars " + String (a0 + 1.0) + " to " + String (a1 + 1.0));
+    }
+    /** Stop a realtime print before its end: nothing it wrote is kept. */
+    void liveStop() { if (livePhase.load() == 1 || livePhase.load() == 2) liveFinish (false); }
+    /** Called by the app about thirty times a second: a realtime print whose range and tail have gone by is made into its files. */
+    void liveTick() { if (livePhase.load() == 3) liveFinish (true); }
+    /** Where a realtime print stands: 0 none, 1 waiting for its first sample, 2 writing, 3 done; and how far along (0…1). */
+    juce::var liveNow() const
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("phase", livePhase.load()); o->setProperty ("part", liveTotal > 0 ? (double) liveWritten / (double) liveTotal : 0.0);
+        return juce::var (o);
+    }
+
     /** Regions made one sound. For each stretch asked for — a track's id, a name for the file, bars a0 to a1, and the
         regions that lie in it, written as a session writes them — what those regions sound like is written to a file of
         its own in `dir`: the regions alone, as they lie (their gains, their fades, the stretches two of them share),
@@ -3401,6 +3488,7 @@ private:
         }
         if (! (kept && tap->dry)) renderTrack (t, st.pos, n, st.rolling, st.barS, st.rolling ? st.bar0 + (double) t.earlyIn.load() / st.barS : st.bar0);
         if (kept && tap->pre) { tap->buf.copyFrom (0, 0, L, n); tap->buf.copyFrom (1, 0, R, n); }
+        if (t.printLive != nullptr && t.printLive->pre && n <= t.printLive->buf.getNumSamples()) { t.printLive->buf.copyFrom (0, 0, L, n); t.printLive->buf.copyFrom (1, 0, R, n); }      // (a realtime print before the fader)
 
         // the fader and the balance, moving to where they should be by the end of the stretch
         float v;
@@ -3421,6 +3509,7 @@ private:
         t.gainSm = target; t.panSm = pn1;
         if (pk > t.peak.load()) t.peak.store (pk);
         if (kept && ! tap->pre) { tap->buf.copyFrom (0, 0, L, n); tap->buf.copyFrom (1, 0, R, n); }
+        if (t.printLive != nullptr && ! t.printLive->pre && n <= t.printLive->buf.getNumSamples()) { t.printLive->buf.copyFrom (0, 0, L, n); t.printLive->buf.copyFrom (1, 0, R, n); }      // (… after it)
         const float took = (float) juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0);
         t.cost += (took - t.cost) * 0.2f;
     }
@@ -3713,6 +3802,7 @@ private:
                 masterSm += ms;
                 float l = mL[i] * masterSm, r = mR[i] * masterSm;
                 limit (l, r);
+                if (liveMixOut != nullptr) { liveMixOut->buf.setSample (0, i, l); liveMixOut->buf.setSample (1, i, r); }      // (a realtime print of the mix: what goes to the speakers)
                 const float al = std::abs (l), ar = std::abs (r);
                 sq += (double) (l * l + r * r) * 0.5; if (al > pL) pL = al; if (ar > pR) pR = ar;
                 if (! silent) { out[0][done + i] = l + ck[i]; if (numOut > 1 && out[1] != nullptr) out[1][done + i] = r + ck[i]; }
@@ -3722,6 +3812,7 @@ private:
             meterSq.store (meterSq.load() + sq); meterN.store (meterN.load() + got); if (pk > meterPk.load()) meterPk.store (pk);
             if (pL > meterL.load()) meterL.store (pL);
             if (pR > meterR.load()) meterR.store (pR);
+            liveWrite (got);
             done += got;
         }
     }
@@ -3788,6 +3879,7 @@ private:
                 ++logN;
             }
         runS += want;
+        chunkPos = posS; chunkRolling = play;                          // (where this stretch lies in the song: a realtime print begins at its first sample)
         renderGraph (posS, want, play, false, in, rec ? 1.0e9 : songEnd, nullptr, blockLive, blockDone);
 
         // the click: on every beat while it is on, and through a count-in whether it is on or not
@@ -3849,6 +3941,108 @@ private:
     juce::AudioPluginFormatManager fm;
     std::shared_ptr<std::atomic<bool>> here = std::make_shared<std::atomic<bool>> (true);      // false once the engine goes: an answer that comes late finds no one
     juce::AudioFormatManager afm;
+    /** Audio thread, after each stretch the device has played: what a realtime print keeps of it — from the first sample
+        of its range (once the song is rolling there) for as long as the range and its tail last. */
+    void liveWrite (int got)
+    {
+        const int ph = livePhase.load (std::memory_order_relaxed);
+        if (ph != 1 && ph != 2) return;
+        int off = 0;
+        if (ph == 1)
+        {
+            if (! chunkRolling || chunkPos + got <= liveS0) return;
+            off = (int) juce::jlimit ((juce::int64) 0, (juce::int64) got, liveS0 - chunkPos);
+            livePhase.store (2);
+        }
+        const int n = (int) juce::jmin ((juce::int64) (got - off), liveTotal - liveWritten);
+        if (n > 0)
+            for (auto& lo : lives)
+            {
+                const float* ch[2] = { lo->buf.getReadPointer (0) + off, lo->buf.getReadPointer (1) + off };
+                lo->tw->write (ch, n);
+            }
+        liveWritten += juce::jmax (0, n);
+        if (liveWritten >= liveTotal) livePhase.store (3);
+    }
+    /** A realtime print ends: kept (its files made into what was asked for, on a thread of their own) or not (taken away). */
+    void liveFinish (bool keep)
+    {
+        std::vector<std::unique_ptr<LiveOut>> outs;
+        {
+            const juce::ScopedLock sl (lock);
+            for (auto& tp : tracks) tp->printLive = nullptr;
+            liveMixOut = nullptr;
+            outs.swap (lives);
+            livePhase.store (0);
+        }
+        playing.store (false);
+        loop.store (liveLoopWas);
+        auto done = std::move (liveDone); liveDone = nullptr;
+        const auto opts = liveOpts; const auto dir = liveDir; const auto fmt = liveFmt;
+        const bool place = opts["kind"].toString() == "place";
+        auto shared = std::make_shared<std::vector<std::unique_ptr<LiveOut>>> (std::move (outs));
+        juce::Thread::launch ([this, shared, keep, done, opts, dir, fmt, place]
+        {
+            bool ok = keep; String why = keep ? String() : String ("stopped");
+            juce::Array<juce::var> placed;
+            int count = 0;
+            for (auto& lo : *shared)
+            {
+                lo->tw.reset();                                                   // (what is still in its queue is written, and the file closed)
+                if (keep && ok)
+                {
+                    juce::AudioFormatManager fm; fm.registerBasicFormats();
+                    std::unique_ptr<juce::AudioFormatReader> rd (fm.createReaderFor (lo->tmp));
+                    Sink sink; sink.stop = &leaving;
+                    const double rate = place || (double) opts["rate"] < 8000.0 ? sr : (double) opts["rate"];
+                    const int bits = place ? 24 : ((int) opts["bits"] > 0 ? (int) opts["bits"] : 24);
+                    const auto err = rd == nullptr ? String ("the print would not read") : sink.open (lo->file, fmt, sr, rate, bits, lame, opts.hasProperty ("kbps") ? (int) opts["kbps"] : 320);
+                    if (err.isNotEmpty()) { ok = false; why = err; }
+                    else
+                    {
+                        juce::AudioBuffer<float> b (2, 1 << 15);
+                        for (juce::int64 p = 0; p < rd->lengthInSamples && ! leaving.load(); p += b.getNumSamples())
+                        {
+                            const int n = (int) juce::jmin ((juce::int64) b.getNumSamples(), rd->lengthInSamples - p);
+                            rd->read (&b, 0, n, p, true, true);
+                            sink.write (b, n);
+                        }
+                        if (! sink.close()) { ok = false; why = "the file would not close"; }
+                        else ++count;
+                        if (place && ok)
+                        {
+                            auto v = decodeFile (lo->file);
+                            if (auto* d = v.getDynamicObject()) { d->setProperty ("track", lo->t != nullptr ? lo->t->id : 0); d->setProperty ("file", lo->file.getFileName()); d->setProperty ("name", lo->file.getFileNameWithoutExtension()); }
+                            placed.add (v);
+                        }
+                    }
+                }
+                lo->tmp.deleteFile();
+            }
+            const bool single = (int) opts["single"] != 0;
+            if (! ok && ! place && ! single && dir.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0) dir.deleteFile();
+            logLine ("realtime print: " + String (keep ? "kept, " : "stopped, ") + String (count) + " files" + (why.isNotEmpty() && keep ? "  (" + why + ")" : String()));
+            const auto shown = single ? dir.getChildFile (juce::File::createLegalFileName (opts["name"].toString()) + "." + fmt) : dir;
+            const bool show = ok && ! quiet && ! place;
+            juce::MessageManager::callAsync ([done, ok, why, dir, count, placed, place, show, shown]
+            {
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("ok", ok); o->setProperty ("dir", dir.getFullPathName()); o->setProperty ("count", count); o->setProperty ("realtime", true);
+                if (why.isNotEmpty()) o->setProperty ("error", why);
+                if (place) o->setProperty ("placed", placed);
+                if (show) shown.revealToUser();
+                if (done) done (juce::var (o));
+            });
+        });
+    }
+    std::vector<std::unique_ptr<LiveOut>> lives;                    // a realtime print's files (changed under the lock)
+    LiveOut* liveMixOut = nullptr;                                 // … the one that is the mix (changed under the lock)
+    std::atomic<int> livePhase { 0 };                              // 0 none, 1 waiting for its first sample, 2 writing, 3 done
+    juce::int64 liveS0 = 0, liveTotal = 0;                         // where it begins, how much it writes (samples)
+    std::atomic<juce::int64> liveWritten { 0 };
+    juce::int64 chunkPos = 0; bool chunkRolling = false;           // audio thread: the stretch just played, and whether the song was rolling
+    std::function<void (juce::var)> liveDone;
+    juce::var liveOpts; juce::File liveDir; String liveFmt; bool liveLoopWas = false;
     juce::TimeSliceThread recThread { "takes" };
     juce::CriticalSection lock;
     std::vector<std::unique_ptr<Track>> tracks;

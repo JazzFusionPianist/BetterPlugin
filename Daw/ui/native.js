@@ -118,12 +118,18 @@ if (NAT) {
     if (!at || !at.ok) { ho.note = at && at.why === 'file' ? 'a file of that name is there' : ''; uiDirty('hand'); return }
     if (S.playing) { halt(false); uiDirty('top') }
     ho.state = 'busy'; ho.done = 0; ho.total = pl.mix ? 1 : pl.list.length * pl.modes.length; ho.note = ''; uiDirty('hand')
-    printBegin(pl.mix ? 'printing the mix' : 'printing stems', at.name, ho.total)             // (project.js: a card in the middle of the window, with how far along it is)
-    const r = await NAT.call('bounce', {
+    const live = ho.how === 'realtime'
+    const opts = {
       kind: pl.mix ? 'mix' : 'stems', a0: pl.a0, a1: pl.a1, modes: pl.modes.map(m => m === 'dry' ? 'dry' : 'wet'),
       tracks: pl.list.map(t => ({ id: t.id, name: `${String(S.tracks.indexOf(t) + 1).padStart(2, '0')} ${t.name}` })),
       dir: at.dir, name: at.name, fmt: f.fmt, rate: f.rate, bits: f.bits, kbps: f.kbps || 320, single: at.single ? 1 : 0,
-    })
+    }
+    let r
+    if (live) { ho.open = false; uiDirty('hand', 'top'); r = await rtbRun(opts) }          // realtime: played through, the room a picture of it (realtime.js)
+    else {
+      printBegin(pl.mix ? 'printing the mix' : 'printing stems', at.name, ho.total)             // (project.js: a card in the middle of the window, with how far along it is)
+      r = await NAT.call('bounce', opts)
+    }
     ho.state = 'idle'; printEnd()
     if (r && r.ok) { ho.done = ho.total; ho.note = 'saved as'; ho.at = at.single ? `${at.name}.${f.fmt}` : at.name } else {      // (what is printed is the sound and nothing else: wav picked, a wav; the notes, a page about the song, the patches and the project are not laid beside it any more)
     ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render' }

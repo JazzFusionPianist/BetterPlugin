@@ -12,7 +12,7 @@ const HO2 = { more: false }
 const HO2_W = 720
 function hoLabel (k, v, pl) { const L = { 44100: '44.1', 48000: '48', 88200: '88.2', 96000: '96', 32: '32 float', 'this scene': pl.sc.name || 'this part' }; return String(L[v] || v) }
 function hoDim (k, v, f) {
-  return (k === 'fmt' && v === 'mp3' && !CAP.mp3) || (k === 'bits' && (!f.bits || (v === 32 && f.fmt !== 'wav'))) || (k === 'rate' && !f.bits && v > 48000)
+  return (k === 'print' && S.ho.how === 'realtime' && v !== 'with patch') || (k === 'fmt' && v === 'mp3' && !CAP.mp3) || (k === 'bits' && (!f.bits || (v === 32 && f.fmt !== 'wav'))) || (k === 'rate' && !f.bits && v > 48000)
     || (k === 'range' && v === 'cycle' && !(S.cycle.b - S.cycle.a >= 1 / 32)) || (k === 'range' && v === 'this scene' && !SCENES.length)
 }
 /* the choices that are not on show until change is pressed: for stems all of them, for a bounce all but its kind of file */
@@ -20,6 +20,7 @@ function hoRows (pl, f) {
   const ho = S.ho, rows = []
   if (!pl.mix) rows.push(['print', 'print', ['with patch', 'dry', 'both'], ho.print])
   rows.push(['range', 'range', ['this scene', 'cycle', 'song'], pl.range])
+  if (NAT) rows.push(['mode', 'how', ['offline', 'realtime'], ho.how === 'realtime' ? 'realtime' : 'offline'])      // offline: printed ahead, as fast as it goes; realtime: played through as it prints, the room a picture of it (realtime.js)
   if (NAT) {
     rows.push(['file', 'fmt', HO_FMT, f.fmt])
     rows.push(['rate', 'rate', HO_RATE, f.rate])
@@ -91,7 +92,7 @@ function pHand2 () {
   /* what it will be, in one line, and the way to every choice */
   s += hline(x0, Rr, ry, .08)
   if (!HO2.more) {
-    const words = (pl.mix ? [] : [ho.print]).concat([hoLabel('range', pl.range, pl)], pl.mix ? [] : [f.fmt], NAT ? [`${hoLabel('rate', f.rate, pl)}k`, f.fmt === 'mp3' ? `${f.kbps} kbps` : `${f.bits} bit`] : [])
+    const words = (pl.mix ? [] : [ho.print]).concat([hoLabel('range', pl.range, pl)], ho.how === 'realtime' ? ['realtime'] : [], pl.mix ? [] : [f.fmt], NAT ? [`${hoLabel('rate', f.rate, pl)}k`, f.fmt === 'mp3' ? `${f.kbps} kbps` : `${f.bits} bit`] : [])
     let sx = x0
     for (const wd of words) { s += T(sx, ry + 26, asGiven(wd), { size: 10.5, a: .84 }); sx += tw(asGiven(wd), 10.5) + 16 }
   }

@@ -30,7 +30,7 @@ const MENU_BAR = () => [
     '-',
     ['Import Audio…', '⌘KeyI', { id: 'import' }],
     '-',
-    ['Hand Off…', '⌘KeyB', { id: 'handoff' }], ['Hand Off Stems…', '⌘KeyE'], ['Bounce in Place', '⌃KeyB'],
+    ['Hand Off…', '⌘KeyB', { id: 'handoff' }], ['Hand Off Stems…', '⌘KeyE'], ['Bounce in Place', '⌃KeyB'], ['Bounce in Place in Realtime', null, { do: () => bounceInPlace(true) }],
   ]],
   ['Edit', [
     ['Undo', '⌘KeyZ', { sys: 'undo' }], ['Redo', '⇧⌘KeyZ', { sys: 'redo' }],

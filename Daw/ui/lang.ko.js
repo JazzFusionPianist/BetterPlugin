@@ -142,7 +142,7 @@ LANG.menuKo = {
   'Settings': '설정', 'General': '일반', 'Display': '디스플레이', 'Audio': '오디오', 'Key Commands': '단축키',
   'File': '파일', 'New': '새로 만들기', 'Open…': '열기…', 'Open Recent': '최근 사용 열기', 'No Projects Yet': '아직 프로젝트 없음', 'More…': '더 보기…',
   'Save': '저장', 'Save As…': '다른 이름으로 저장…', 'Rename…': '이름 변경…', 'Revert To…': '이전 버전으로 되돌리기…', 'Import Audio…': '오디오 가져오기…',
-  'Hand Off…': '내보내기…', 'Hand Off Stems…': '스템 내보내기…', 'Bounce in Place': '제자리 바운스',
+  'Hand Off…': '내보내기…', 'Hand Off Stems…': '스템 내보내기…', 'Bounce in Place': '제자리 바운스', 'Bounce in Place in Realtime': '실시간으로 제자리 바운스',
   'Edit': '편집', 'Undo': '실행 취소', 'Redo': '실행 복귀', 'Cut': '오려두기', 'Copy': '복사하기', 'Paste': '붙여넣기', 'Delete': '삭제', 'Select All': '전체 선택',
   'Select': '선택', 'None': '선택 해제', 'Invert': '선택 반전', 'All Following': '뒤따르는 모든 리전', 'All Following on the Same Track': '같은 트랙에서 뒤따르는 모든 리전',
   'Inside the Cycle': '사이클 안의 리전', 'Muted Regions': '뮤트된 리전', 'Previous Region': '이전 리전', 'Next Region': '다음 리전', 'Add Previous Region': '이전 리전 추가',
@@ -181,3 +181,8 @@ LANG.menuKo = {
   /* the app's own menu, which the Mac makes and the page names */
   'About Slur Studio': 'Slur Studio 정보', 'Settings…': '설정…', 'Services': '서비스', 'Hide Slur Studio': 'Slur Studio 가리기', 'Hide Others': '기타 가리기', 'Show All': '모두 보기', 'Quit Slur Studio': 'Slur Studio 종료',
 }
+/* a realtime print (realtime.js) */
+Object.assign(LANG.lists.ko, {
+  'bounce': '바운스', 'offline': '오프라인', 'realtime': '실시간', 'realtime bounce': '실시간 바운스', 'in place': '제자리', 'esc stops it': 'esc로 멈춤',
+  '#:# of #:#': '#:# / #:#', 'realtime bounce stopped: nothing was kept': '실시간 바운스를 멈춤: 남긴 것 없음',
+})

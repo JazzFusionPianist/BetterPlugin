@@ -237,6 +237,24 @@ async function loadFiles (project, tracks, step) {
    sounds rendered) and how far along it is. It comes up only when the opening takes more than a moment. How long each part
    took is written into the app's log (Library/Logs/Slur/daw.log), so that a slow one can be found. ── */
 const OPENING = { on: false, t0: 0, show: 0, parts: [], marks: [] }
+/* beside the bar, while the card is up: a whole note walks a scale up and down five hairlines, a step every 0.14 s (his
+   pick of five, design/progress motion draft 1: a) */
+function ldNote () {
+  const card = $('loading'), svgN = $('ld-note')
+  if (!card || !svgN) return
+  if (ldNote.on) return
+  ldNote.on = true
+  const t0 = performance.now(), STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1]
+  let lines = ''
+  for (let i = 0; i < 5; i++) lines += `<path d="M0 ${2 + i * 2.5}H26" stroke="${INK}" stroke-opacity=".28" stroke-width=".6"/>`
+  const go = () => {
+    if (!OPENING.on && !PRINT.on) { ldNote.on = false; return }
+    const t = (performance.now() - t0) / 1000, i = Math.floor(t / .14) % STEPS.length, y = 12 - STEPS[i] * 1.25, x = 4 + (i / (STEPS.length - 1)) * 18
+    svgN.innerHTML = lines + `<ellipse cx="${x}" cy="${y}" rx="2.6" ry="1.7" transform="rotate(-24 ${x} ${y})" fill="#6E86FF"/><ellipse cx="${x}" cy="${y}" rx="1.25" ry=".75" transform="rotate(-50 ${x} ${y})" fill="${K2}"/>`
+    requestAnimationFrame(go)
+  }
+  requestAnimationFrame(go)
+}
 function openingBegin (name, parts) {
   OPENING.on = true; OPENING.t0 = performance.now(); OPENING.parts = parts; OPENING.marks = []
   const el = $('loading')
@@ -244,6 +262,7 @@ function openingBegin (name, parts) {
   $('ld-word').textContent = LANG_WORDS('opening'); $('ld-name').textContent = String(name); $('ld-fill').style.width = '0'; $('ld-what').textContent = ''
   el.style.left = Math.round((W - 340) / 2) + 'px'; el.style.top = Math.round((H - 96) / 2) + 'px'
   clearTimeout(OPENING.show); OPENING.show = setTimeout(() => { if (OPENING.on) el.hidden = false }, 300)
+  ldNote()
 }
 /* part: which part is under way (its place in `parts`: [name, how many things]); done: how many of its things are done; what: the thing being done now */
 function openingSay (part, done, what) {
@@ -274,7 +293,7 @@ function printBegin (word, name, total) {
   if (!el) return
   $('ld-word').textContent = LANG_WORDS(word); $('ld-name').textContent = String(name)
   el.style.left = Math.round((W - 340) / 2) + 'px'; el.style.top = Math.round((H - 96) / 2) + 'px'
-  printDraw(); el.hidden = false
+  printDraw(); el.hidden = false; ldNote()
 }
 /* d: what the app says while it prints — done: how many files are written; part: how far along the one being written is */
 function printTell (d) {

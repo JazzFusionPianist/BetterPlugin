@@ -44,4 +44,14 @@ export default () => chapter('handoff', t('hand off and bounce', '내보내기�
       [['01 kick.wav', 'one file for each track; with both: “01 kick patch.wav” and “01 kick dry.wav”', '트랙마다 파일 하나. both면 “01 kick patch.wav”와 “01 kick dry.wav”'],
         ['02 snare.wav …', 'numbered as the tracks stand in the song', '곡의 트랙 순서대로 번호']].map(([f, en, ko], i) => D.line(14, 28 + i * 11.6, 20, 28 + i * 11.6, 'soft') + D.txt(22, 29 + i * 11.6, f, f) + D.txt(22, 33.4 + i * 11.6, en, ko, 'xs')).join('') +
       D.txt(0, 60, 'the mix is one file where you put it, with no folder: “low tide ep chorus mix.wav”', '믹스는 폴더 없이 정한 위치에 파일 하나로 나옵니다. “low tide ep chorus mix.wav”', 'xs')) }),
+  page(t('realtime bounce', '실시간 바운스'), { kind: 'text', cc: 3, txt:
+    lead('A print is offline (made ahead of the song, as fast as the machine goes) or realtime: the song plays from the start of the range to its end, you hear it, and it is printed as it goes. Both give the very same sound.', '프린트는 오프라인(곡보다 앞서, 컴퓨터가 할 수 있는 만큼 빠르게)이나 실시간 중 하나입니다. 실시간이면 곡이 범위의 처음부터 끝까지 재생되고, 들으면서 그대로 프린트됩니다. 둘의 소리는 똑같습니다.') +
+    h('choosing it', '고르기') +
+    list(
+      ['Hand off: press {{change}} and set {{mode}} to {{realtime}}. It is said in the line under the two keys.', '내보내기: {{change}}를 누르고 {{mode}}를 {{realtime}}으로 둡니다. 두 큰 키 아래의 한 줄에도 표시됩니다.'],
+      ['Bounce in place: ((File > Bounce in Place in Realtime)). [[⌃B]] stays the offline one.', '제자리 바운스: ((File > Bounce in Place in Realtime)). [[⌃B]]는 그대로 오프라인입니다.'],
+      ['Stems print with the patch in realtime: a track is heard one way at a time.', '실시간 스템은 패치를 거친 소리로만 프린트됩니다. 트랙은 한 번에 한 가지로만 들리기 때문입니다.']) +
+    h('the room while it plays', '재생되는 동안의 방') +
+    p('The room becomes a picture of the print, made to be filmed. The whole range fits the window and the tracks fill its height. The buttons of the tracks’ heads go away, row by row; the grid, the bar numbers, the regions and the playhead go. Each track’s sound going in is a hairline outline in its colour; the sound coming out is drawn in behind the place the song has reached, glowing where it is being drawn. The tool row says only {{realtime bounce}}, what is printed, and how far along it is.', '방은 녹화하기 좋은 프린트의 그림이 됩니다. 범위 전체가 창에 맞춰지고 트랙들이 창의 높이를 채웁니다. 트랙 헤드의 버튼은 한 줄씩 사라지고, 그리드, 마디 숫자, 리전, 플레이헤드도 사라집니다. 각 트랙에 들어가는 소리는 트랙 색의 가는 윤곽선으로, 나오는 소리는 곡이 지나간 자리에 채워져 그려지며, 지금 그려지는 곳이 빛납니다. 툴 줄에는 {{realtime bounce}}와 무엇을 프린트하는지, 얼마나 왔는지만 나옵니다.') +
+    note('[[esc]] or [[space]] stops it, and nothing of it is kept. Nothing else can be done to the song while it plays. When it ends the room comes back as it was.', '[[esc]]나 [[space]]로 멈추면 아무것도 남지 않습니다. 재생되는 동안에는 곡에 다른 일을 할 수 없습니다. 끝나면 방은 원래대로 돌아옵니다.') }),
 ])

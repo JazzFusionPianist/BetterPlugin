@@ -136,6 +136,7 @@ const fadeLen = bars => { const sec = bars * SPB(); return sec < .9995 ? `${Math
 const zoomF = () => { const f = fitPXB(); return clamp(Math.log(PXB / f) / Math.log(640 / f), 0, 1) }
 function pTool () {
   const y = TOOL_Y, by = y + 16.6
+  if (typeof RTB !== 'undefined' && RTB.on) return rtbTool(y)                         // (a realtime print says only what is under way)
   let s = R(0, y, RX, TOOL_H, { fill: K1 })
   s += R(10.5, y + 4.5, 17, 17, { rx: 2, stroke: INK, sa: .24 }) + P(`M19 ${y + 9.5}V${y + 16.5}M15.5 ${y + 13}H22.5`, { stroke: INK, sa: .8 }) + hit(8, y + 2, 22, 22, 'addtrack')
   let x = 38
@@ -258,6 +259,7 @@ function deepLines (D) {
   return out
 }
 function pRuler () {
+  if (typeof RTB !== 'undefined' && RTB.on) return R(0, RU_Y, RX, RU_H, { fill: lkC('bars.ground', K1) }) + T(12, RU_Y + 15.3, 'bars', { size: 9, a: .38 }) + hline(0, RX, RU_Y + RU_H - .5, .1) + vline(HEAD_W - .5, RU_Y, RU_Y + RU_H, .08)      // (a realtime print: no bar lines, no numbers)
   const y = RU_Y, span = (X1 - X0) / PXB, lab = [1, 2, 4, 8, 16, 32, 64].find(k => k * PXB >= 56) || 64, major = lab > 1 && lab / 2 * PXB >= 14 ? lab / 2 : lab, minor = PXB >= 6
   let s = R(0, y, RX, RU_H, { fill: lkC('bars.ground', K1) }) + T(12, y + 15.3, 'bars', { size: 9, a: .38 }) + T(HEAD_W - 10, y + 15.3, meterName(), { size: 9, a: .38, anchor: 'end' })
   let g = '', t1 = '', t4 = ''
@@ -347,7 +349,8 @@ function headRow (i) {
     s += R(44 + (deep - 1) * (HEAD_IN - 42), y + 5, 3, Math.max(4, rh - 10), { fill: t.c, fa: t.mute ? .4 : 1 })      // and its own mark
   }
   else s += R(0, y, lkN('heads.mark'), on ? rh : rh - 1, { fill: t.c, fa: t.mute ? .4 : 1 })
-  if (lk('heads.num') === 'on') s += T(25, by - .4, pad2(i + 1), { size: 8.5, a: sel ? .8 : .32, anchor: 'end' })
+  let c = ''                                                                              // its buttons, its number, its fader: what a realtime print takes away (realtime.js)
+  if (lk('heads.num') === 'on') c += T(25, by - .4, pad2(i + 1), { size: 8.5, a: sel ? .8 : .32, anchor: 'end' })
   if (stack) s += triMark(deep ? x0 - 7 : 34, by - 4, t.open, .62)
   const its = cellsOf(t), cw = 15, cx = 214 - its.length * cw
   const grp = t.kind === 'audio' && t.grp ? t.grp : '', grpW = grp ? tw(grp, 9, 500) + 7 : 0                 // the edit group it is in: a letter after its name
@@ -369,6 +372,8 @@ function headRow (i) {
     s += T(HEAD_W - 8, by - .4, fmtDb(vol), { size: 9, a: t.ghost != null || led || sel ? .9 : .56, anchor: 'end' })
     if (!led) s += hit(HEAD_FX + HEAD_FW + 7, y + 1, HEAD_W - HEAD_FX - HEAD_FW - 8, rh - 2, 'volnum', ` data-i="${i}"`, 'default')      // what it reads: pressed twice, a level can be typed
   }
+  const gone = typeof RTB !== 'undefined' ? rtbHideOf(i) : 0
+  s += gone <= 0 ? c : gone < 1 ? G(c, `translate(${n(-16 * gone)} 0)`, ` opacity="${n(1 - gone)}"`) : ''
   return s + hline(0, HEAD_W, y + rh - .5, stack ? .09 : .05)
 }
 function pHead () {
@@ -645,6 +650,8 @@ function pLanes () {
   const al = lk('lanes.alt')
   if (al.a > 0) vis.forEach((i, k) => { const y = TY + L.tops[k] - VY; if (k % 2 && y + rowH(i) > TY && y < BY) alt += R(X0, Math.max(TY, y), X1 - X0, Math.min(BY, y + rowH(i)) - Math.max(TY, y), { fill: al.c, fa: al.a / 100 }) })      // every other lane, washed when the look says so
   put('ln-back', R(X0, TY, X1 - X0, LANES_H, { fill: K0 }) + alt)
+  if (typeof RTB !== 'undefined' && RTB.on) { put('ln-edge', ''); return rtbLanes() }      // a realtime print: its own picture of the lanes (realtime.js)
+  if (typeof rtbLanesOff === 'function') rtbLanesOff()
   let grid = '', g2 = ''
   const lab = [1, 2, 4, 8, 16, 32, 64].find(k => k * PXB >= 56) || 64, major = lab > 1 && lab / 2 * PXB >= 14 ? lab / 2 : lab
   const D = deepSteps()
@@ -691,7 +698,7 @@ function pDrop () {
 }
 /* the playhead: its line down the lanes; its head in the lower part of the bars, clear of the cycle's strip; and round the
    head a place to take it by, wider than the head (pressed there, it is held where it is and goes with the hand) */
-const pPlay = () => { const y = RU_Y + RU_CY, c = lkC('play.c', INK); return G(P(`M.5 ${y + 6}V${BY}`, { stroke: c, sw: lkN('play.w') }) + P(`M-4.5 ${y + 1}H5.5V${y + 7}L.5 ${y + 12}L-4.5 ${y + 7}Z`, { fill: c }) + hit(-10.5, y, 22, RU_H - RU_CY, 'playhead', '', 'ew-resize'), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"') }
+const pPlay = () => { if (typeof RTB !== 'undefined' && RTB.on) return ''; const y = RU_Y + RU_CY, c = lkC('play.c', INK); return G(P(`M.5 ${y + 6}V${BY}`, { stroke: c, sw: lkN('play.w') }) + P(`M-4.5 ${y + 1}H5.5V${y + 7}L.5 ${y + 12}L-4.5 ${y + 7}Z`, { fill: c }) + hit(-10.5, y, 22, RU_H - RU_CY, 'playhead', '', 'ew-resize'), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"') }
 
 /* ── the bottom panel: the chosen track's patch, with its strip beside it; or the mixer ── */
 const SIDE = 222, GUT = 34, WSTRIP = 86, NSTRIP = 56, NGUT = 36, MSTRIP = 64, MAX_INS = 4
@@ -959,7 +966,7 @@ function hoFmt () {
 function hoPlan () {
   const ho = S.ho, sc = sceneAt(curPos()), cyc = S.cycle.b - S.cycle.a >= 1 / 32, r0 = ho.range === 'cycle' && !cyc ? 'this scene' : ho.range, range = r0 === 'this scene' && !SCENES.length ? 'song' : r0, mix = NAT && ho.what === 'mix'
   const a0 = range === 'song' ? 0 : range === 'cycle' ? S.cycle.a : sc.a - 1, a1 = range === 'song' ? Math.min(SONG_END, contentEnd()) : range === 'cycle' ? S.cycle.b : sc.b - 1 > SONG_END - 1e-6 ? Math.max(sc.a, Math.min(SONG_END, contentEnd())) : sc.b - 1      /* the last part ends where the sound does */
-  const modes = mix ? ['with patch'] : ho.print === 'both' ? ['with patch', 'dry'] : [ho.print]
+  const modes = mix || ho.how === 'realtime' ? ['with patch'] : ho.print === 'both' ? ['with patch', 'dry'] : [ho.print]      // (realtime: a track is heard one way, with its patch)
   const secs = m => (a1 - a0) * SPB() + (m === 'dry' ? .05 : 2.5)
   const sounds = t => t.regs.some(r => !r.mute && r.a - 1 < a1 && r.b - 1 > a0)
   const cands = S.tracks.filter(t => t.kind === 'audio' ? sounds(t) : NAT && S.tracks.some(x => x.kind === 'audio' && sounds(x) && reaches(x, t)))

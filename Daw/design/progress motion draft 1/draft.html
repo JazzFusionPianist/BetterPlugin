@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>slur studio, progress motion, draft 1</title>
+<style>
+/* Slur Studio, a small motion at the right of every progress bar (the card that says a project is opening, or that the
+   mix, the stems or a bounce are being printed), draft 1 (2026-10-16). Five ways, each in the room's own grammar: ink on
+   the dark, hairlines, one family of type. The bar keeps its place and gives the motion 26 points at its right.
+   Time is set from outside (frame(t)), so the pictures are the same each time they are taken. */
+@font-face { font-family: 'Instrument Sans'; font-weight: 400 700; src: url(../../ui/fonts/instrument-sans-normal-400-700-latin.woff2) }
+* { box-sizing: border-box; margin: 0; padding: 0 }
+body { background: #0E0E0E; width: 1180px; font-family: 'Instrument Sans', sans-serif; color: #ECEAE4; padding: 34px 40px 30px }
+h1 { font-size: 13px; font-weight: 500; opacity: .94; margin-bottom: 4px }
+.sub { font-size: 10px; opacity: .45; margin-bottom: 24px }
+.grid { display: grid; grid-template-columns: repeat(3, 340px); gap: 34px 40px }
+.card { width: 340px; padding: 16px 18px 15px; background: #1B1B1A; border: 1px solid rgba(236, 234, 228, .28); border-radius: 3px }
+.word { font-size: 9.5px; opacity: .45 }
+.name { font-size: 12.5px; font-weight: 500; margin: 3px 0 12px }
+.row { display: flex; align-items: center; gap: 10px; height: 14px }
+.bar { flex: 1; height: 2px; background: rgba(236, 234, 228, .14) }
+.fill { height: 2px; background: #ECEAE4 }
+.what { font-size: 9.5px; opacity: .6; margin-top: 9px }
+svg.m { width: 26px; height: 14px; overflow: visible; flex: none }
+.label { margin-top: 10px; font-size: 10.5px }
+.label b { font-weight: 500 } .label span { opacity: .45; margin-left: 6px }
+.close { display: flex; gap: 40px; margin-top: 40px; padding-top: 22px; border-top: 1px solid rgba(236, 234, 228, .1) }
+.close div { font-size: 10px; text-align: center } .close span { opacity: .55 }
+.close svg { width: 182px; height: 98px; display: block; background: #1B1B1A; border-radius: 3px; margin-bottom: 8px; padding: 14px 24px; box-sizing: border-box; overflow: visible }
+</style>
+</head>
+<body>
+<h1>a small motion beside every progress bar</h1>
+<div class="sub">opening a project, handing off, bouncing in place: the same card, so the same motion everywhere. five ways to choose from (or none)</div>
+<div class="grid" id="grid"></div>
+<div class="close" id="close"></div>
+<script>
+const INK = '#ECEAE4', OCH = '#D8B24A', BLUE = '#6E86FF'
+const CARDS = [
+  ['a', 'the note on the staff', 'a whole note walks a scale up and down five hairlines', 'opening', 'low tide ep', 'plug-ins 3 of 7   tal-u-no-lx'],
+  ['b', 'the reels', 'two tape reels turning, the tape between them', 'printing the mix', 'low tide ep mix', '62%'],
+  ['c', 'the level', 'four thin bars moving as a meter does, ochre at the top now and then', 'printing stems', 'low tide ep chorus stems', 'file 4 of 9   38%'],
+  ['d', 'the wave', 'a little sound drawn from left to right, its head a dot', 'bouncing in place', 'guitar bounce', '71%'],
+  ['e', 'the metronome', 'a pendulum ticking, a dot at each end of its swing', 'opening', 'wedding song for ana', 'sounds 12 of 30'],
+]
+const grid = document.getElementById('grid')
+for (const [k, title, say, word, name, what] of CARDS) {
+  const d = document.createElement('div')
+  d.innerHTML = `<div class="card"><div class="word">${word}</div><div class="name">${name}</div><div class="row"><div class="bar"><div class="fill" id="f-${k}"></div></div><svg class="m" id="m-${k}" viewBox="0 0 26 14"></svg></div><div class="what">${what}</div></div><div class="label"><b>${k}  ${title}</b><span>${say}</span></div>`
+  grid.appendChild(d)
+}
+for (const [k, title] of CARDS) { const d = document.createElement('div'); d.innerHTML = `<svg id="z-${k}" viewBox="0 0 26 14"></svg><span>${k}  ${title}, close up</span>`; document.getElementById('close').appendChild(d) }
+const P = (d, o = '') => `<path d="${d}" ${o}/>`
+/* each motion at time t (seconds) */
+const MOTION = {
+  a (t) {                                                                  // the staff: five lines 2.5 apart; the note steps every 0.14 s, up a scale and down again
+    let s = ''
+    for (let i = 0; i < 5; i++) s += P(`M0 ${2 + i * 2.5}H26`, `stroke="${INK}" stroke-opacity=".28" stroke-width=".6"`)
+    const steps = [0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1], i = Math.floor(t / .14) % steps.length, st = steps[i]
+    const y = 12 - st * 1.25, x = 4 + (i / (steps.length - 1)) * 18
+    s += `<ellipse cx="${x}" cy="${y}" rx="2.6" ry="1.7" transform="rotate(-24 ${x} ${y})" fill="${BLUE}"/><ellipse cx="${x}" cy="${y}" rx="1.25" ry=".75" transform="rotate(-50 ${x} ${y})" fill="#1B1B1A"/>`
+    return s
+  },
+  b (t) {                                                                  // the reels: 5 across, turning a little more than once a second
+    let s = P('M3 12.4H23', `stroke="${INK}" stroke-opacity=".5" stroke-width=".7"`)
+    for (const [cx, r, sp] of [[5.5, 5, 1], [20.5, 4, 1.25]]) {
+      s += `<circle cx="${cx}" cy="7" r="${r}" fill="none" stroke="${INK}" stroke-opacity=".85" stroke-width=".8"/><circle cx="${cx}" cy="7" r="1" fill="${INK}"/>`
+      for (let k = 0; k < 3; k++) { const a = t * 6.6 * sp + k * 2.094; s += P(`M${(cx + Math.cos(a) * 1.4).toFixed(2)} ${(7 + Math.sin(a) * 1.4).toFixed(2)}L${(cx + Math.cos(a) * (r - .9)).toFixed(2)} ${(7 + Math.sin(a) * (r - .9)).toFixed(2)}`, `stroke="${INK}" stroke-opacity=".7" stroke-width=".7" stroke-linecap="round"`) }
+    }
+    return s
+  },
+  c (t) {                                                                  // the level: four bars, each its own beat, falling back as a meter does
+    let s = ''
+    for (let k = 0; k < 4; k++) {
+      const ph = t * (3.1 + k * .7) + k * 1.7, v = Math.max(.12, Math.pow(Math.abs(Math.sin(ph)) * .75 + .25 * Math.abs(Math.sin(ph * 2.3 + k)), 1.4)), h = 13 * v
+      s += `<rect x="${3 + k * 5.6}" y="${(13.5 - h).toFixed(2)}" width="2.4" height="${h.toFixed(2)}" fill="${INK}" fill-opacity=".85"/>`
+      if (v > .78) s += `<rect x="${3 + k * 5.6}" y="${(13.5 - h).toFixed(2)}" width="2.4" height="2" fill="${OCH}"/>`
+    }
+    return s
+  },
+  d (t) {                                                                  // the wave: drawn across in 1.6 s, then begun again
+    const T = 1.6, f = (t % T) / T, head = f * 26
+    let up = '', dn = ''
+    for (let x = 0; x <= head; x += .8) { const a = (Math.abs(Math.sin(x * .9 + 1)) * .6 + Math.abs(Math.sin(x * 2.3)) * .4) * (3 + 2.4 * Math.abs(Math.sin(x * .27))); up += `${x ? 'L' : 'M'}${x.toFixed(1)} ${(7 - a).toFixed(2)}`; dn = `L${x.toFixed(1)} ${(7 + a).toFixed(2)}` + dn }
+    let s = up ? P(up + dn + 'Z', `fill="${INK}" fill-opacity=".8"`) : ''
+    s += P('M0 7H26', `stroke="${INK}" stroke-opacity=".18" stroke-width=".6"`)
+    s += `<circle cx="${head.toFixed(2)}" cy="7" r="1.6" fill="${INK}"/>`
+    return s
+  },
+  e (t) {                                                                  // the metronome: a swing a second, as at 120 a beat each way
+    const a = Math.sin(t * Math.PI * 2) * .62, px = 13, py = 13.5, L = 12, x = px + Math.sin(a) * L, y = py - Math.cos(a) * L
+    let s = P(`M8 13.5H18`, `stroke="${INK}" stroke-opacity=".35" stroke-width=".7"`)
+    s += P(`M${px} ${py}L${x.toFixed(2)} ${y.toFixed(2)}`, `stroke="${INK}" stroke-width=".9" stroke-linecap="round"`)
+    s += `<rect x="${(px + Math.sin(a) * 7.5 - 1.4).toFixed(2)}" y="${(py - Math.cos(a) * 7.5 - .9).toFixed(2)}" width="2.8" height="1.8" fill="${INK}" transform="rotate(${(a * 57.3).toFixed(1)} ${(px + Math.sin(a) * 7.5).toFixed(2)} ${(py - Math.cos(a) * 7.5).toFixed(2)})"/>`
+    const edge = Math.abs(Math.sin(t * Math.PI * 2)) > .96
+    for (const sx of [-1, 1]) s += `<circle cx="${px + sx * 9.5}" cy="3" r=".9" fill="${INK}" fill-opacity="${edge && Math.sign(Math.sin(t * Math.PI * 2)) === sx ? 1 : .2}"/>`
+    return s
+  },
+}
+const FILL0 = { a: .31, b: .62, c: .41, d: .71, e: .38 }
+function frame (t) {
+  for (const k in MOTION) { document.getElementById('m-' + k).innerHTML = MOTION[k](t); document.getElementById('z-' + k).innerHTML = MOTION[k](t); document.getElementById('f-' + k).style.width = ((FILL0[k] + t * .02) * 100).toFixed(1) + '%' }
+}
+frame(0)
+if (!/still/.test(location.search)) { const t0 = performance.now(); const go = () => { frame((performance.now() - t0) / 1000); requestAnimationFrame(go) }; if (!/frames/.test(location.search)) requestAnimationFrame(go) }
+document.fonts.ready.then(() => setTimeout(() => { document.title = 'ready ' + document.body.scrollHeight }, 200))
+</script>
+</body>
+</html>

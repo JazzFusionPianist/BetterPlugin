@@ -211,6 +211,31 @@ async function runSelfTest (mode) {
     await note('page', { errors: window.__errs || [] })
     await NAT.call('testDone'); return
   }
+  if (mode === 'realtime') {                                                       // only this: a realtime print (Engine::liveStart, realtime.js) — the mix, two stems, a bounce in place, one stopped
+    await step('realtime', async () => {
+      const res = {}, t0 = performance.now()
+      const p = rtbRun({ kind: 'mix', a0: 16, a1: 18, modes: ['wet'], tracks: [], folder: 'realtime mix', name: 'rt mix', fmt: 'wav', rate: 0, bits: 24 })
+      await sleep(2600)
+      res.during = { on: RTB.on, k: +RTB.k.toFixed(2), lanes: !!$('ln-rtb'), grid: $('ln-grid') ? $('ln-grid').style.display : null, playhead: !!$('ph'), buttons: document.querySelectorAll('#g-head [data-a="mute"]').length, outs: RTB.out.size, points: [...RTB.out.values()].reduce((a, x) => a + x.length / 2, 0), playing: S.playing, at: +curPos().toFixed(2) }
+      await snap('selftest-realtime-room.png')
+      const r = await p
+      res.mix = { ok: !!(r && r.ok), dir: r && r.dir, count: r && r.count, error: r && r.error, secs: +((performance.now() - t0) / 1000).toFixed(1), after: { on: RTB.on, lanes: !!$('ln-rtb'), playhead: !!$('ph'), buttons: document.querySelectorAll('#g-head [data-a="mute"]').length } }
+      /* the same range printed offline: the two must be the same sound at the same place (a stem must line up in another program) */
+      const off = await NAT.call('bounce', { kind: 'mix', a0: 16, a1: 18, modes: ['wet'], tracks: [], folder: 'offline mix', name: 'off mix', fmt: 'wav', rate: 0, bits: 24 })
+      if (off && off.ok && r && r.ok) res.againstOffline = await NAT.call('testLag', { a: off.dir + '/off mix.wav', b: r.dir + '/rt mix.wav' })
+      const two = S.tracks.filter(t => t.kind === 'audio' && t.regs.some(x => !x.mute && x.a - 1 < 17 && x.b - 1 > 16)).slice(0, 2)
+      const r2 = await rtbRun({ kind: 'stems', a0: 16, a1: 17, modes: ['wet'], tracks: two.map(t => ({ id: t.id, name: t.name })), folder: 'realtime stems', name: 'rt stems', fmt: 'wav', rate: 0, bits: 24 })
+      res.stems = { ok: !!(r2 && r2.ok), dir: r2 && r2.dir, count: r2 && r2.count, error: r2 && r2.error, asked: two.length }
+      const tp = S.tracks.find(t => t.kind === 'audio' && !t.midi && t.regs.some(x => !x.mute && !x.notes && x.b - x.a <= 4)), reg = tp && tp.regs.find(x => !x.mute && !x.notes && x.b - x.a <= 4)
+      if (reg) { const n0 = S.tracks.length; S.selR = [reg.id]; S.focus = 'lanes'; await bounceInPlace(true); await sleep(300); const nt = S.tracks[S.tracks.indexOf(tp) + 1]; res.place = { from: tp.name, len: +(reg.b - reg.a).toFixed(2), tracks: S.tracks.length - n0, made: nt && nt.name, sec: nt && nt.regs[0] && +nt.regs[0].sec.toFixed(2), muted: !!reg.mute, said: S.last && S.last.say } }
+      const p3 = rtbRun({ kind: 'mix', a0: 16, a1: 24, modes: ['wet'], tracks: [], folder: 'realtime stopped', name: 'rt stopped', fmt: 'wav', rate: 0, bits: 24 })
+      await sleep(1500); rtbStop(); const r3 = await p3
+      res.stopped = { ok: !!(r3 && r3.ok), error: r3 && r3.error, dir: r3 && r3.dir, on: RTB.on }
+      return res
+    })
+    await note('page', { errors: window.__errs || [] })
+    await NAT.call('testDone'); return
+  }
   if (mode === 'display') {                                                        // only this: settings > display, the room wearing what is set there, and slur following its ground (needs the net)
     await step('display', async () => {
       const res = {}, slurDark = async () => { const r = await NAT.call('testSlur', { js: `JSON.stringify({ dark: document.documentElement.classList.contains('slur-dark') })` }); return r ? r.dark : null }

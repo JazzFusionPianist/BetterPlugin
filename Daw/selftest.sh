@@ -5,6 +5,7 @@
 #                           through the library; SLUR_AU_APART=1 as well: each in a process of its own
 #   ./selftest.sh slur      only slur's own page in its place (needs the net)
 #   SLUR_URL=http://localhost:5173 ./selftest.sh slur     the same, with the panel reading another copy of the page
+#   ./selftest.sh realtime  only a realtime print: the mix, two stems, a bounce in place, and one stopped (the room drawn as it plays)
 #   ./selftest.sh menus     only the menu bar: every menu there, which keys it takes and leaves, a line pressed, its tick
 #   ./selftest.sh display   only settings > display: the room wearing a look, and slur turning light with its ground (needs the net)
 #   ./selftest.sh bench     only the measure (ui/bench.js; ./bench.sh runs it and keeps what it found)

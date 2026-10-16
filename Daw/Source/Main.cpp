@@ -1159,6 +1159,16 @@ private:
             }, [done] (juce::var r) { done (r); });
             return;
         }
+        if (op == "bounceLive")                                                // a print played through in real time (Engine::liveStart): the room draws it as it goes
+        {
+            juce::var opts = d;
+            if (d["kind"].toString() == "place")
+                if (auto* o = d.getDynamicObject()) { auto c = o->clone(); c->setProperty ("dir", projectDir (d["project"].toString()).getChildFile ("audio").getFullPathName()); opts = juce::var (c.release()); }
+            engine.liveStart (opts, [done] (juce::var r) { done (r); });
+            return;
+        }
+        if (op == "bounceLiveStop") { engine.liveStop(); done (okVar()); return; }      // (its answer is the one bounceLive gives)
+        if (op == "bounceLiveNow")  { done (engine.liveNow()); return; }
         if (op == "join")                                                      // regions made one sound: a file of its own in the project's folder for each stretch (see Engine::joinRegions)
         {
             juce::var opts = d;
@@ -1299,6 +1309,7 @@ private:
     {
         if (quitIn > 0 && --quitIn == 0) { juce::JUCEApplication::quit(); return; }
         if (++ticks % 6 == 0) engine.warm();                                   // five times a second: the sound just ahead of the playhead is asked for
+        engine.liveTick();                                                     // a realtime print whose range has gone by is made into its files
         auto* o = new juce::DynamicObject();
         o->setProperty ("p", engine.posBars.load());
         o->setProperty ("on", engine.playing.load());

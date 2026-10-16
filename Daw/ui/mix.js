@@ -460,7 +460,7 @@ function sceneMove (p) {
 function sceneUp () { const d = drag; if (d.moved && SCENES[d.i] && SCENES[d.i].a !== d.a0) commit(d.before) }
 
 /* ── bounce in place: the chosen regions, printed through the track's patch and plug-ins onto a track of their own (the app only) ── */
-async function bounceInPlace () {
+async function bounceInPlace (live) {                                                 // live: played through in real time (realtime.js)
   if (!NAT) { say('bouncing is in the app'); return }
   const rs = selRegs().filter(([, t]) => t.kind === 'audio')
   if (!rs.length) { say('choose a region first'); return }
@@ -468,9 +468,10 @@ async function bounceInPlace () {
   if (S.playing) halt(false)
   say('bouncing')
   await natSession(r => only.has(r.id))                                                // for the print, only the chosen regions sound
-  printBegin('bouncing', tracks.map(t => t.name).join(', '), tracks.length)
-  const res = await NAT.call('bounce', { kind: 'place', project: projKey(), a0, a1, tail: 2, tracks: tracks.map(t => ({ id: t.id, name: `${t.name} bounce` })) })
-  printEnd()
+  const opts = { kind: 'place', project: projKey(), a0, a1, tail: 2, tracks: tracks.map(t => ({ id: t.id, name: `${t.name} bounce` })) }
+  let res
+  if (live) res = await rtbRun(opts, only)
+  else { printBegin('bouncing', tracks.map(t => t.name).join(', '), tracks.length); res = await NAT.call('bounce', opts); printEnd() }
   if (!res || !res.ok || !Array.isArray(res.placed)) { resync(); say('could not bounce'); return }
   edit(() => {
     const ids = []

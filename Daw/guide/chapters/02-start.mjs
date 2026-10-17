@@ -15,6 +15,7 @@ export default () => chapter('start', t('the start page and projects', '시작 �
     table(null,
       ['[[↑]] [[↓]]', ['the project above, below', '위, 아래 프로젝트']],
       ['[[←]] [[→]]', ['the template before, after', '이전, 다음 템플릿']],
+      ['[[tab]]', ['between the projects and the templates', '프로젝트 목록과 템플릿 사이 이동']],
       ['[[↩]]', ['open the chosen project, or create when the templates were touched last', '선택한 프로젝트 열기. 마지막으로 템플릿을 건드렸다면 만들기']],
       ['[[⌘N]]', ['create from the chosen template', '선택한 템플릿으로 만들기']],
       ['[[⌘O]]', ['open a project from anywhere on the disk', '디스크 어디서든 프로젝트 열기']],
@@ -27,7 +28,7 @@ export default () => chapter('start', t('the start page and projects', '시작 �
         ['{{band}}', ['drums, bass, keys, guitar left, guitar right, lead vox, backing vox; bus plate', 'drums, bass, keys, guitar left, guitar right, lead vox, backing vox. 버스 plate']],
         ['{{beat}}', ['kit, bass, keys, pad as tracks of notes; lead vox; bus plate', 'kit, bass, keys, pad는 노트 트랙. lead vox. 버스 plate']],
         ['{{mixing}}', ['buses drums, bass, music, vocals, plate, slap, all playing into a bus print', '버스 drums, bass, music, vocals, plate, slap. 모두 print 버스로 나갑니다']]) +
-        note('There is no way back to this page from inside a project, and a project cannot be renamed or removed here. Rename with ((File > Rename…)); remove by putting its folder (one from before: its .sls file) in the Trash.', '프로젝트 안에서 이 화면으로 돌아올 수는 없습니다. 이름은 ((File > Rename…))로 바꾸고, 지울 때는 .sls 파일을 휴지통에 넣습니다.') + `</div>` }),
+        note('This page cannot be reached from inside a project. Rename a project with ((File > Rename…)); remove one by putting its folder (from before: its .sls file) in the Trash.', '프로젝트 안에서 이 화면으로 돌아올 수는 없고, 이 화면에서 이름을 바꾸거나 지울 수도 없습니다. 이름은 ((File > Rename…))로 바꾸고, 지울 때는 프로젝트 폴더(예전 프로젝트는 .sls 파일)를 휴지통에 넣습니다.') + `</div>` }),
 
   page(t('folders', '폴더'), { kind: 'split', tw: 104, txt:
     p('Projects can be kept in folders on the start page. A folder is a row of the list: a mark that opens it, its name, how many projects it holds. Open, its projects stand under it, set in.', '시작 화면에서 프로젝트를 폴더에 넣어 둘 수 있습니다. 폴더는 목록의 한 줄입니다. 여닫는 표시, 이름, 들어 있는 프로젝트 수. 열면 그 안의 프로젝트가 한 칸 들어간 채 아래에 섭니다.') +
@@ -44,32 +45,37 @@ export default () => chapter('start', t('the start page and projects', '시작 �
         [2, '__the mark__ opens and closes the folder', '__표시__ 폴더를 여닫습니다'],
         [3, '__a project in the folder__ set in under it', '__폴더 안의 프로젝트__ 한 칸 들어가서 섭니다']) }),
 
-  page(t('saving, opening, going back', '저장, 열기, 되돌아가기'), { kind: 'split', tw: 150, txt:
+  page(t('saving and opening', '저장과 열기'), { kind: 'split', tw: 150, txt:
     table([['what', '무엇'], ['how', '방법'], ['what happens', '일어나는 일']],
-      [['save', '저장'], '[[⌘S]] ((File > Save))', ['Saves now, plug-in settings included. An untitled one is asked its name first. The app also saves by itself every 3 seconds when something changed, never in the middle of a drag or a take.', '지금 저장합니다. 플러그인 설정도 함께. 아래에 {{saved}}라고 나옵니다. 아직 untitled인 프로젝트에서는 먼저 이름과 위치를 묻습니다. 바뀐 것이 있으면 3초마다 저절로 저장하며, 드래그나 녹음 도중에는 하지 않습니다.']],
-      [['save as', '다른 이름으로'], '[[⇧⌘S]] ((File > Save As…))', ['The Mac’s panel, offering “name 2”. The project goes there with all its sounds and you carry on in the copy; the old one stays as it was last saved.', 'Mac의 저장 창이 “이름 2”를 제안합니다. 프로젝트가 소리와 함께 그곳으로 가고, 이후로는 사본에서 작업합니다. 원래 것은 마지막 저장 상태로 남습니다.']],
+      [['save', '저장'], '[[⌘S]] ((File > Save))', ['Saves now, plug-in settings included; the foot says {{saved}}. A project never named yet: the Mac’s panel asks where and under what name, and the project goes there in a folder of its own. The app also saves by itself every 3 seconds when something changed, never in the middle of a drag or a take.', '지금 저장합니다. 플러그인 설정도 함께. 아래에 {{saved}}라고 나옵니다. 아직 이름을 붙인 적 없는 프로젝트면 Mac의 저장 창이 위치와 이름을 묻고, 프로젝트는 그곳에 자기 폴더로 들어갑니다. 바뀐 것이 있으면 3초마다 저절로 저장하며, 드래그나 녹음 도중에는 하지 않습니다.']],
+      [['save as', '다른 이름으로'], '[[⇧⌘S]] ((File > Save As…))', ['The Mac’s panel, offering “name 2”. The project goes there in a folder of its own (the project, Audio Files, Bounces) with all its sounds, and you carry on in the copy; the old one stays as it was last saved.', 'Mac의 저장 창이 “이름 2”를 제안합니다. 프로젝트가 소리와 함께 그곳에 자기 폴더(프로젝트, Audio Files, Bounces)로 들어가고, 이후로는 사본에서 작업합니다. 원래 것은 마지막 저장 상태로 남습니다.']],
       [['new', '새로 만들기'], '[[⌘N]] ((File > New))', ['The open project is saved, then a project called untitled opens with one audio track. It keeps the tempo and measure of the song that was open.', '열린 프로젝트를 저장한 뒤 untitled라는 프로젝트가 오디오 트랙 하나와 함께 열립니다. 열려 있던 곡의 템포와 박자를 이어받습니다.']],
-      [['open', '열기'], '[[⌘O]] ((File > Open…))', ['The Mac’s panel, for a project anywhere on the disk. A project also opens by double-clicking its file in the Finder.', 'Mac의 열기 창. 디스크 어디에 있는 프로젝트든 엽니다. Finder에서 파일을 더블 클릭해도 열립니다.']],
-      [['open recent', '최근 항목'], '((File > Open Recent…))', ['A list in the window of up to 24 projects, the last worked on first.', '창 안에 뜨는 목록. 최대 24개, 마지막에 작업한 것부터.']],
-      [['rename', '이름 바꾸기'], '((File > Rename…))', ['A small box labelled {{name}}. The file is renamed where it lies. Names are lowercase, 40 characters at most.', '{{name}}이라는 작은 칸. 파일이 제자리에서 이름이 바뀝니다. 이름은 소문자, 최대 40자.']],
-      [['revert to', '이전 사본으로'], '((File > Revert To…))', ['The song as it was earlier, newest first: “today 14:05”, “yesterday 9:12”. The song as it is now is put aside first, so going back can itself be taken back from the same list.', '이전 시점의 곡 목록, 최신부터. “today 14:05”, “yesterday 9:12”. 지금 상태를 먼저 따로 보관하므로, 되돌아간 것도 같은 목록에서 다시 되돌릴 수 있습니다.']],
-      [['quit', '종료'], '[[⌘Q]]', ['If the song changed since you last saved it yourself, the app asks: {{save}} [[↩]], {{don’t save}} [[D]], {{cancel}} [[esc]]. Don’t save puts the file back as it was then; the rest stays under ((File > Revert To…)).', '직접 저장한 뒤 곡이 바뀌었으면 묻습니다. {{save}} [[↩]], {{don’t save}} [[D]], {{cancel}} [[esc]]. don’t save는 파일을 그때로 되돌리고, 나머지는 ((File > Revert To…))에 남습니다.']],
-      [['import audio', '오디오 가져오기'], '[[⌘I]] ((File > Import Audio…))', ['See the next page.', '다음 쪽 참고.']],
-      [['hand off', '내보내기'], '[[⌘B]] ((File > Hand Off…))', ['See “hand off and bounce”.', '“내보내기와 바운스” 장 참고.']]) +
-    note('Earlier copies hold the song only, not its sounds. One is made at most every ten minutes of work, and the newest 24 are kept.', '이전 사본에는 곡만 들어 있고 소리는 들어 있지 않습니다. 작업 10분에 하나까지 만들어지며 최근 24개를 보관합니다.'),
+      [['open', '열기'], '[[⌘O]] ((File > Open…))', ['The Mac’s panel, for a project anywhere on the disk. A project also opens by double-clicking its file in the Finder. A project that takes more than a moment to open shows a card in the middle: what is being made ready and how far along it is.', 'Mac의 열기 창. 디스크 어디에 있는 프로젝트든 엽니다. Finder에서 파일을 더블 클릭해도 열립니다. 여는 데 시간이 걸리는 프로젝트는 창 가운데에 카드가 떠서 무엇을 준비하는지와 얼마나 진행됐는지 보여 줍니다.']],
+      [['open recent', '최근 항목'], '((File > Open Recent))', ['The twelve projects worked on last, the open one ticked. ((File > Open Recent > More…)) opens a list in the window of up to 24.', '마지막에 작업한 프로젝트 12개가 나오고, 열린 것에는 체크가 붙습니다. ((File > Open Recent > More…))는 창 안에 최대 24개의 목록을 엽니다.']],
+      [['rename', '이름 바꾸기'], '((File > Rename…))', ['A small box labelled {{name}}. The project, and its folder, are renamed where they lie. A name keeps its capitals, 40 characters at most.', '{{name}}이라는 작은 칸. 프로젝트와 그 폴더가 제자리에서 이름이 바뀝니다. 이름은 대문자를 그대로 지키며 최대 40자.']]),
     art: `<div style="width:100mm">` + h('what a project remembers', '프로젝트가 기억하는 것') +
       list(
         ['tempo, measure, key, markers, the cycle', '템포, 박자, 키, 마커, 사이클'],
         ['every track with its regions, alternatives, sends, lines, patch, instrument, and plug-ins with their settings', '모든 트랙과 그 리전, 대체 버전, 센드, 오토메이션 라인, 패치, 악기, 설정이 담긴 플러그인'],
-        ['the click and the count-in, the stereo out’s level', '클릭과 카운트인, 스테레오 아웃 레벨'],
+        ['the click and the count-in, the stereo out’s level and its patch', '클릭과 카운트인, 스테레오 아웃 레벨과 그 패치'],
         ['the view: zoom, scroll, row height, which panels were open', '보기 상태: 줌, 스크롤, 줄 높이, 열려 있던 패널'],
         ['the edit mode, the nudge value, the grid, the quantize value', '편집 모드, 넛지 값, 그리드, 퀀타이즈 값']) +
       h('what it does not', '기억하지 않는 것') +
       list(
+        ['low latency mode: it starts off each time', '로우 레이턴시 모드. 매번 꺼진 채 시작합니다'],
         ['the tool and the second tool', '도구와 두 번째 도구'],
         ['undo history: it starts empty each time a project opens', '실행 취소 기록. 프로젝트를 열 때마다 비어서 시작합니다'],
-        ['open plug-in windows', '열려 있던 플러그인 창']) +
-      h('messages you may see', '볼 수 있는 메시지') +
+        ['open plug-in windows', '열려 있던 플러그인 창']) + `</div>` }),
+
+  page(t('going back, and the rest of the file menu', '되돌아가기, 그리고 파일 메뉴의 나머지'), { kind: 'split', tw: 150, txt:
+    table([['what', '무엇'], ['how', '방법'], ['what happens', '일어나는 일']],
+      [['revert to', '이전 사본으로'], '((File > Revert To…))', ['The song as it was earlier, newest first: “today 14:05”, “yesterday 9:12”. The song as it is now is put aside first, so going back can itself be taken back from the same list.', '이전 시점의 곡 목록, 최신부터. “today 14:05”, “yesterday 9:12”. 지금 상태를 먼저 따로 보관하므로, 되돌아간 것도 같은 목록에서 다시 되돌릴 수 있습니다.']],
+      [['quit', '종료'], '[[⌘Q]]', ['If the song changed since you last saved it yourself, the app asks: {{save}} [[↩]], {{don’t save}} [[D]], {{cancel}} [[esc]]. Don’t save puts the file back as it was then; the rest stays under ((File > Revert To…)).', '직접 저장한 뒤 곡이 바뀌었으면 묻습니다. {{save}} [[↩]], {{don’t save}} [[D]], {{cancel}} [[esc]]. don’t save는 파일을 그때로 되돌리고, 나머지는 ((File > Revert To…))에 남습니다.']],
+      [['find missing sounds', '없는 소리 찾기'], '((File > Find Missing Sounds…))', ['A sound the project cannot find stays on its lane as an outline marked {{not found}} and plays nothing; on opening, the app says how many. Point the Mac’s panel at the folder it is in: it is copied into the project and plays again.', '프로젝트가 찾지 못한 소리는 레인에 윤곽만 남아 {{not found}}로 표시되고 소리가 나지 않습니다. 열 때 몇 개인지 알려 줍니다. Mac의 창에서 그 소리가 든 폴더를 고르면 프로젝트 안으로 복사되고 다시 소리가 납니다.']],
+      [['import audio', '오디오 가져오기'], '[[⌘I]] ((File > Import Audio…))', ['See the next page.', '다음 쪽 참고.']],
+      [['hand off', '내보내기'], '[[⌘B]] ((File > Hand Off…))', ['See “hand off and bounce”.', '“내보내기와 바운스” 장 참고.']]) +
+    note('Earlier copies hold the song only, not its sounds. One is made at most every ten minutes of work, and the newest 24 are kept.', '이전 사본에는 곡만 들어 있고 소리는 들어 있지 않습니다. 작업 10분에 하나까지 만들어지며 최근 24개를 보관합니다.'),
+    art: `<div style="width:100mm">` + h('messages you may see', '볼 수 있는 메시지') +
       table(null,
         ['{{that name is taken}}', ['a project of that name is already there', '같은 이름의 프로젝트가 이미 있음']],
         ['{{that project would not open}}', ['the file could not be read', '파일을 읽지 못함']],

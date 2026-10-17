@@ -88,7 +88,7 @@ const SHOTS = {
     // a stack over the first three tracks, two of them an edit group, one armed and heard, one muted, one soloed, one with alternatives
     await b.click(60, await b.Y(1)); await b.click(60, await b.Y(3), 8); await key(b, '⇧⌘d')
     await b.ev(`const S = __daw.S; S.tracks[0].name = 'drums'; __daw.repaint(); __daw.redraw()`)
-    await b.click(60, await b.Y(2)); await b.click(60, await b.Y(3), 8); await key(b, '⌃⌘g')
+    await b.click(60, await b.Y(2)); await b.click(60, await b.Y(3), 8); await key(b, '⌃⌘g'); await key(b, 'esc'); await key(b, 'esc')        // (the group's card opens as it is made, its name box first: both put away)
     await b.ev(`const S = __daw.S, T = S.tracks; T[5].arm = true; T[5].mon = true; T[7].mute = true; T[3].solo = true; T[8].alts = [[]]; T[8].alt = 1; __daw.chooseTrack(5, ''); __daw.redraw()`)
     console.log('heads', await b.names())
     const L = await b.lay()
@@ -104,8 +104,8 @@ const SHOTS = {
     await b.hit('toolmenu'); await b.pic('toolmenu', [380, 44, 300, 330], 2); await key(b, 'esc')
     await b.hit('modemenu'); await b.pic('modemenu', [560, 44, 260, 180], 2); await key(b, 'esc')
     await b.hit('look', 1); console.log('look', await b.names()); await b.pic('look', [560, 44, 520, 300], 1.5); await key(b, 'esc')
-    await b.hit('nudge'); await b.pic('nudgelist', [760, 0, 300, 260], 2); await key(b, 'esc')
-    await b.hit('meter'); await b.pic('meterlist', [640, 0, 300, 360], 2); await key(b, 'esc')
+    { const n = await b.box('nudge'); await b.hit('nudge'); await b.pic('nudgelist', [Math.max(0, Math.round(n[0]) - 12), 0, 300, 270], 2); await key(b, 'esc') }
+    { const n = await b.box('meter'); await b.hit('meter'); await b.pic('meterlist', [Math.max(0, Math.round(n[0]) - 40), 0, 220, 360], 2); await key(b, 'esc') }
     const s = await b.at('scene', 3); await b.right(s[0], s[1]); await b.pic('markermenu', [380, 70, 420, 220], 2); await key(b, 'esc')
   },
   async fades (b) {
@@ -139,7 +139,7 @@ const SHOTS = {
   async mixer (b) {
     await b.ev(`const S = __daw.S, T = S.tracks; __daw.newTracks ? 0 : 0`)
     await b.click(60, await b.Y(5)); await key(b, '⌃n')
-    await b.ev(`const S = __daw.S, T = S.tracks; const bus = T[T.length - 1]; bus.name = 'plate'; bus.patch.A.space = 46; T[6].sends = [{ to: bus.id, db: -12 }]; T[4].sends = [{ to: bus.id, db: -18 }]; T[4].patch.A.tape = 24; T[4].patch.A.space = 30; T[4].patch.A.delay = 20; T[4].inserts = [{ uid: 9001, name: 'compressor', fmt: 'au', id: 'x' }, { uid: 9002, name: 'equaliser', fmt: 'vst3', id: 'y' }]; T[2].mute = true; T[3].solo = false; __daw.repaint(); __daw.chooseTrack(4, ''); __daw.redraw()`)
+    await b.ev(`const S = __daw.S, T = S.tracks; const bus = T[T.length - 1]; bus.name = 'plate'; bus.patch.A.space = 46; T[6].sends = [{ to: bus.id, db: -12 }]; T[4].sends = [{ to: bus.id, db: -18 }]; T[4].patch.A.tape = 24; T[4].patch.A.space = 30; T[4].patch.A.delay = 20; T[4].inserts = [{ uid: 9001, name: 'comp', fmt: 'au', id: 'x' }, { uid: 9002, name: 'equaliser', fmt: 'vst3', id: 'y' }]; T[2].mute = true; T[3].solo = false; __daw.repaint(); __daw.chooseTrack(4, ''); __daw.redraw()`)
     await key(b, 'x'); console.log('mixer', await b.names()); await b.pic('mixer', PANEL, 1.5)
     await key(b, 'b'); console.log('patch', await b.names()); await b.pic('patch', PANEL, 1.5)
     const o = await b.box('mout'); if (o) { await b.click(o[0] + o[2] / 2, o[1] + o[3] / 2); await b.pic('outlist', [760, 300, 420, 400], 1.5); await key(b, 'esc') }
@@ -160,7 +160,7 @@ const SHOTS = {
     { const L = await b.lay(), i = await b.ev(`return __daw.S.sel`); await b.pic('notes', [0, L.TY + i * 44 - 2, W, 44 + 4], 1.5) }
     await b.ev(`__daw.S.rh = 25; __daw.redraw()`)
     await key(b, 'b'); await b.pic('inst-patch', PANEL, 1.5)
-    await b.hit('inst-pick'); await b.pic('instlist', [4, 120, 318, 345], 2); await key(b, 'esc')
+    await b.hit('inst-pick'); await b.sleep(300); { const r = await b.ev(`const e = document.getElementById('picker'); const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]`); await b.pic('instlist', [Math.round(r[0]) - 10, Math.round(r[1]) - 34, Math.round(r[2]) + 20, Math.round(r[3]) + 44], 2) } await key(b, 'esc')
     await b.hit('inst'); await b.pic('synth', PANEL, 1.5)
     await b.ev(`const S = __daw.S, t = S.tracks[S.sel]; t.inst = { kind: 'drums', sound: 'kit', p: {}, pads: {} }; t.name = 'drums'; __daw.repaint(); __daw.redraw()`)
     await b.pic('kit', PANEL, 1.5)
@@ -182,16 +182,20 @@ const SHOTS = {
     await b.sleep(250)
     { const L = await b.lay(); await b.pic('roll-kit', [0, L.BY, W, H - L.BY]) }
   },
+  /* the command line's own page in the panel (/ opens it): three lines said, a fourth being typed with what can follow it;
+     then a word two tracks answer to, and the question it asks */
   async say (b) {
-    const line = async (text, name) => { await key(b, '/'); await b.type(text); await key(b, '↩'); await b.sleep(350); await b.pic(name, [0, H - 22, 620, 22], 2.5); await key(b, 'esc') }
-    await line('kick -3', 'say-1')
-    await line('drums 2db down then solo bass', 'say-2')
-    await line('select chorus', 'say-3')
+    for (const line of ['kick -3', 'drums 2db down then solo bass', 'select chorus']) { await key(b, '/'); await b.type(line); await key(b, '↩'); await b.sleep(350) }
+    await key(b, '/'); await b.type('fade out guitar '); await b.sleep(400)
+    console.log('prompt', await b.names())
+    await b.pic('prompt', [0, H - 22 - 316, 830, 316], 1.5)
+    await key(b, 'esc')
     await b.ev(`const T = __daw.S.tracks; T[0].name = 'kick in'; T[1].name = 'kick out'; __daw.repaint(); __daw.redraw()`)
-    await line('kick mute', 'say-4')
-    await line('tuba mute', 'say-5')
+    await key(b, '/'); await b.ev(`const e = document.activeElement; if (e && 'value' in e) { e.value = ''; e.dispatchEvent(new Event('input', { bubbles: true })) } return 1`); await b.type('kick mute'); await key(b, '↩'); await b.sleep(400)
+    await b.pic('prompt-ask', [370, H - 22 - 316 + 92, W - 370, 56], 1.5)
   },
 }
+const SIZE = { ways: { w: 1440, h: 900 } }                                                 // (the ways page as it was drawn and approved: three cards need the width)
 async function standIn () {
   // the app as far as the page asks it anything, borrowed from the start page's own check, with the names changed
   const { readFileSync } = await import('node:fs')
@@ -219,8 +223,8 @@ async function others () {
     for (let i = 0; i < 60 && !(await f.ev(`return typeof START !== 'undefined' && START.on && START.read`)); i++) await f.sleep(100)
     await f.sleep(300); await f.pic('folders', [0, 0, W, 470]); await f.close()
   }
-  const s = await room({ file: join(dirname(UI), 'settings.html'), w: 700, h: 440 })
-  await s.sleep(500); await s.pic('settings', [0, 0, 700, 440], 1.5)
+  const s = await room({ file: join(dirname(UI), 'settings.html'), w: 1100, h: 692 })        // (the window is laid out at the size display and plug-ins open it at)
+  await s.sleep(700); await s.pic('settings', [0, 0, 1100, 450], 1.3)
   console.log('settings', await s.ev(`return [...new Set([...document.querySelectorAll('[data-a]')].map(e => e.dataset.a + (e.dataset.k ? ':' + e.dataset.k : '')))].join(' ')`))
   await s.close()
   if (!want.length || want.includes('display')) {                                    // settings > display, with a few qualities set so the dots and the count show
@@ -241,7 +245,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!want.length || want.includes('start') || want.includes('settings') || want.includes('folders') || want.includes('display') || want.includes('plugins')) await others()
   if (!want.length || want.includes('keys')) { const b = await room(); writeFileSync(join(here, 'keys.json'), JSON.stringify(await b.ev(`return SHEET`), null, 1)); await b.close(); console.log('took keys.json') }       // the app's own sheet of keys: the guide's last chapter is set from it
   for (const [name, fn] of Object.entries(SHOTS)) {
-    const b = await fresh()
+    const b = await fresh(SIZE[name])
     try { await fn(b) } catch (e) { console.log('FAILED', name, e.message.split('\n')[0]) }
     if (b.errors.length) console.log(name, 'errors:', b.errors.slice(0, 3).join(' | '))
     await b.close()

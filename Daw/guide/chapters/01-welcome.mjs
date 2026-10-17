@@ -8,21 +8,21 @@ export default () => chapter('welcome', t('before you begin', '시작하기 전�
     p('It runs on a Mac with macOS 12 or later. This guide is written for version 0.1.0, an alpha: the app is still growing, and a page is added here whenever a feature is.', 'macOS 12 이상의 Mac에서 돌아갑니다. 이 책은 0.1.0 알파 버전 기준입니다. 앱은 아직 자라는 중이고, 기능이 생길 때마다 이 책에도 쪽이 더해집니다.') +
     h('three things to know first', '먼저 알아 둘 세 가지') +
     list(
-      ['__One window.__ The song, the mixer, the patch of each track and the Slur panel all stand on one board. Nothing floats except a plug-in’s own window.', '__창은 하나.__ 곡, 믹서, 트랙마다의 패치, Slur 패널이 모두 한 판 위에 있습니다. 떠다니는 것은 플러그인 자체의 창뿐입니다.'],
+      ['__One window.__ The song, the mixer, the patch of each track and the Slur panel all stand on one board. Only a plug-in’s window and the meter’s float over it; the settings open in a window of their own.', '__창은 하나.__ 곡, 믹서, 트랙마다의 패치, Slur 패널이 모두 한 판 위에 있습니다. 그 위에 떠 있는 것은 플러그인 창과 미터 창뿐이고, 설정은 따로 창 하나로 열립니다.'],
       ['__One sound at a time on a track.__ A region put somewhere covers what was under it. Two regions sound together only where you make a crossfade.', '__트랙에서는 한 번에 한 소리.__ 리전을 어딘가에 놓으면 그 밑에 있던 것을 덮습니다. 두 리전이 함께 들리는 곳은 크로스페이드를 만든 자리뿐입니다.'],
       ['__A patch on every track.__ Patch on Slur is built in: its prints and your Audio Unit and VST3 plug-ins stand on one wall and are wired as you like, side by side too.', '__트랙마다 패치.__ Patch on Slur가 들어 있습니다. 그 프린트와 Audio Unit, VST3 플러그인이 한 벽에 서고, 병렬을 포함해 원하는 대로 선으로 잇습니다.']) +
     note('Everything in the app saves by itself every few seconds. You can still press [[⌘S]] whenever you like.', '앱 안의 모든 것은 몇 초마다 저절로 저장됩니다. 물론 [[⌘S]]를 눌러도 됩니다.'),
     art: draw(150, 96,
       D.txt(0, 4, 'a sketch, from the first idea to the hand off', '스케치 한 편, 첫 아이디어에서 내보내기까지', 's') +
       // five steps across, joined by arrows
-      [['start page', '시작 화면', 'new project, or open one', '새 프로젝트 또는 열기'], ['sound in', '소리 넣기', 'record, drag files, play notes', '녹음, 파일 드래그, 노트 연주'], ['edit', '편집', 'cut, move, fade, time', '자르기, 옮기기, 페이드, 시간'], ['patch and mix', '패치와 믹스', 'prints, plug-ins, sends', '프린트, 플러그인, 센드'], ['hand off', '내보내기', 'stems, mix, notes, the project', '스템, 믹스, 노트, 프로젝트']].map(([en, ko, en2, ko2], i) => {
+      [['start page', '시작 화면', 'new project, or open one', '새 프로젝트 또는 열기'], ['sound in', '소리 넣기', 'record, drag files, play notes', '녹음, 파일 드래그, 노트 연주'], ['edit', '편집', 'cut, move, fade, time', '자르기, 옮기기, 페이드, 시간'], ['patch and mix', '패치와 믹스', 'prints, plug-ins, sends', '프린트, 플러그인, 센드'], ['hand off', '내보내기', 'stems, or the mix', '스템 또는 믹스']].map(([en, ko, en2, ko2], i) => {
         const x = i * 30.6, on = i === 4
         return D.cell(x, 12, 26, 11, en, ko, on ? 'on' : '') + D.txt(x + 13, 28, en2, ko2, 'xs m') + (i < 4 ? D.arrow([[x + 26.6, 17.5], [x + 30.2, 17.5]]) : '')
       }).join('') +
       // the folder that leaves, and where it goes
       D.arrow([[135.4, 31.5], [135.4, 46]]) +
       D.box(96, 47, 54, 46, 'soft') + D.txt(99, 53, 'the hand-off folder', '내보내기 폴더', 'b') +
-      [['01 kick.wav', '01 kick.wav'], ['02 snare.wav', '02 snare.wav'], ['03 hats.wav …', '03 hats.wav …'], ['one file for each track', '트랙마다 파일 하나'], ['or the mix, as one file', '또는 믹스 파일 하나']].map(([en, ko], i) => D.line(99, 58.2 + i * 7, 101.5, 58.2 + i * 7, 'soft') + D.txt(103, 59.2 + i * 7, en, ko, 's')).join('') +
+      [['01 kick.wav', '01 kick.wav'], ['02 snare.wav', '02 snare.wav'], ['03 hats.wav …', '03 hats.wav …'], ['one file for each track', '트랙마다 파일 하나'], ['the mix: one file, no folder', '믹스: 폴더 없이 파일 하나']].map(([en, ko], i) => D.line(99, 58.2 + i * 7, 101.5, 58.2 + i * 7, 'soft') + D.txt(103, 59.2 + i * 7, en, ko, 's')).join('') +
       D.arrow([[96, 70], [64, 70]]) + D.cell(20, 63, 44, 14, 'the program you finish in', '마무리할 프로그램', 'dash') +
       D.txt(42, 82, 'Logic, Cubase, Live, Pro Tools …', 'Logic, Cubase, Live, Pro Tools …', 'xs m')) }),
 
@@ -31,7 +31,7 @@ export default () => chapter('welcome', t('before you begin', '시작하기 전�
     p('A key is drawn as a cap: [[B]], [[⌥⌘N]], [[space]]. Caps in one frame are pressed together. The signs are those on a Mac keyboard: [[⌘]] command, [[⌥]] option, [[⇧]] shift, [[⌃]] control, [[↩]] return, [[⌫]] delete.', '키는 키캡으로 그립니다. [[B]], [[⌥⌘N]], [[space]]. 한 테두리 안의 키는 함께 누릅니다. 기호는 Mac 키보드와 같습니다. [[⌘]] command, [[⌥]] option, [[⇧]] shift, [[⌃]] control, [[↩]] return, [[⌫]] delete.') +
     p('Keys are read by where they sit on the keyboard, so they work the same with a Korean input source. While you type in a box (a name, the command line) the keys type; they are commands again when you leave the box.', '키는 자판에서의 위치로 읽기 때문에 한글 입력 상태에서도 똑같이 동작합니다. 이름 칸이나 커맨드 라인처럼 글자를 치는 칸 안에서는 글자가 입력되고, 칸을 벗어나면 다시 단축키가 됩니다.') +
     h('words on the screen', '화면의 글자') +
-    p('Words the app itself shows are set in bold, exactly as written there: {{hand off}}, {{mixer}}, {{plays to}}. The app writes everything in lowercase. Lines of the Mac’s menu bar are written the Mac’s way: ((File > Save As…)).', '앱이 화면에 보여 주는 글자는 굵게, 화면에 적힌 그대로 적습니다. {{hand off}}, {{mixer}}, {{plays to}}. 앱은 모든 글자를 소문자로 씁니다. Mac 메뉴 막대의 항목은 Mac의 방식대로 적습니다. ((File > Save As…)).') +
+    p('Words the app itself shows are set in bold, exactly as written there: {{hand off}}, {{mixer}}, {{plays to}}. The app writes its own words in lowercase; names you give keep their capitals. Lines of the Mac’s menu bar are written the Mac’s way: ((File > Save As…)).', '앱이 화면에 보여 주는 글자는 굵게, 화면에 적힌 그대로 적습니다. {{hand off}}, {{mixer}}, {{plays to}}. 앱은 자기 글자를 소문자로 씁니다. 직접 붙인 이름은 대문자를 그대로 지킵니다. Mac 메뉴 막대의 항목은 Mac의 방식대로 적습니다. ((File > Save As…)).') +
     note('The pictures in this guide show the app in English. In Settings the app can also speak Korean; names you gave are never translated.', '이 책의 그림과 화면 글자는 영어 표시 기준입니다. 설정에서 앱의 언어를 한국어로 바꿀 수 있으며, 직접 붙인 이름은 번역되지 않습니다.') +
     h('the hand', '손동작') +
     table(null,
@@ -77,5 +77,5 @@ export default () => chapter('welcome', t('before you begin', '시작하기 전�
       D.line(24, 59, 30, 59, 'soft') + D.txt(32, 60, 'Bounces', 'Bounces') + D.txt(63, 60, 'stems and mixes handed off', '내보낸 스템과 믹스', 's') +
       D.line(36, 63, 36, 72, 'soft') + D.line(36, 72, 42, 72, 'soft') + D.cell(44, 67.5, 50, 9, 'low tide ep chorus stems', 'low tide ep chorus stems', 'dash') + D.txt(97, 73, 'a hand-off', '내보낸 것', 's') +
       D.line(36, 72, 36, 85, 'soft') + D.line(36, 85, 42, 85, 'soft') + D.cell(44, 80.5, 50, 9, 'low tide ep song mix.wav', 'low tide ep song mix.wav', 'dash') + D.txt(97, 86, 'named for the project and the range', '프로젝트와 범위로 이름', 's') +
-      D.txt(0, 98, '~/Library/Application Support/Slur Studio', '~/Library/Application Support/Slur Studio', 'b') + D.txt(75, 98, 'settings: device, language, what was open', '설정: 장치, 언어, 열려 있던 것', 's')) }),
+      D.txt(0, 98, '~/Library/Application Support/Slur Studio', '~/Library/Application Support/Slur Studio', 'b') + D.txt(75, 98, 'settings: device, language, look, plug-ins, what was open', '설정: 장치, 언어, 화면 모습, 플러그인, 열려 있던 것', 's')) }),
 ])

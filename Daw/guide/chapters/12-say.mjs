@@ -8,31 +8,51 @@ export default () => chapter('say', t('the command line', '커맨드 라인'),
 
   page(t('saying it', '말로 하기'), { kind: 'split', tw: 112, txt:
     table(null,
-      ['[[/]]', ['opens the prompt page with the keys in its field: what can follow is listed under it at the left, what was said and what came of it at the right (click one to say it again)', 'prompt 페이지를 열고 입력칸에 키를 줍니다. 아래 왼쪽에 이어질 말, 오른쪽에 했던 말과 그 결과(클릭하면 다시 입력칸으로)']],
+      ['[[/]]', ['opens the prompt page with the keys in its field: what can follow is listed under it at the left, what was said and what came of it at the right, newest first (the last 40, with the time). Click one to put it back in the field', 'prompt 페이지를 열고 입력칸에 키를 줍니다. 아래 왼쪽에 이어질 말, 오른쪽에 했던 말과 그 결과가 최근 것부터 나옵니다(최근 40줄, 시각과 함께). 하나를 클릭하면 입력칸에 다시 들어갑니다']],
       ['[[↩]]', ['run the line; a word not yet whole (`rev`) is completed first', '줄 실행. 덜 친 낱말(`rev`)은 먼저 완성합니다']],
-      [['a letter', '글자 하나'], ['a list opens of what begins with it: first the tracks and what is on them, then every word the line knows, in the order of the alphabet. [[↑]] [[↓]] go down it, [[tab]] takes a word, [[esc]] closes it', '그 글자로 시작하는 것의 목록이 열립니다: 먼저 트랙과 그 위의 것, 그다음 커맨드 라인이 아는 모든 낱말이 알파벳 순서로. [[↑]] [[↓]]로 내려가고 [[tab]]으로 넣고 [[esc]]로 닫습니다']],
+      [['a letter', '글자 하나'], ['a list opens of what begins with it: first the tracks and the acts for a value ({{lower}}, {{raise}}, {{set to}}…), then every word the line knows, in the order of the alphabet. [[↑]] [[↓]] go down it, past the rows shown; [[tab]] takes a word, [[esc]] closes it', '그 글자로 시작하는 것의 목록이 열립니다: 먼저 트랙과 값에 쓰는 동작({{lower}}, {{raise}}, {{set to}}…), 그다음 커맨드 라인이 아는 모든 낱말이 알파벳 순서로. [[↑]] [[↓]]로 보이는 줄 너머까지 내려가고, [[tab]]으로 넣고 [[esc]]로 닫습니다']],
       [['a space', '띄어쓰기'], ['what the line still lacks is offered: an act and whom first, then where and how much', '줄에 아직 빠진 것이 목록에 나옵니다: 먼저 동작과 대상, 그다음 어디와 얼마나']],
-      ['[[↑]] [[↓]]', ['lines said before; the last 60 are kept while the app is open', '전에 입력한 줄. 앱이 열려 있는 동안 최근 60줄을 기억합니다']],
+      ['[[↑]] [[↓]]', ['at the foot, with no list open: lines said before; the last 60 are kept while the app is open. On the prompt page, click a line under {{said}} instead', '맨 아래 줄에서 목록이 닫혀 있을 때: 전에 입력한 줄. 앱이 열려 있는 동안 최근 60줄을 기억합니다. prompt 페이지에서는 {{said}} 아래의 줄을 클릭합니다']],
       ['[[esc]]', ['leave', '나가기']]) +
-    p('The answer appears right beside what you typed. One change is shown as before and after: “kick −6.0 to −9.0 db”. Anything else in a few words: “cut at 19.1.1”, “3 tracks −2 db”. While nothing else has been done since, an {{undo}} key stands beside the answer; it, or [[⌘Z]], takes the whole line back.', '답은 입력한 글자 바로 옆에 나옵니다. 값 하나가 바뀌면 전과 후로 보여 줍니다. “kick −6.0 to −9.0 db”. 그 밖에는 몇 마디로. “cut at 19.1.1”, “3 tracks −2 db”. 그 뒤로 다른 일을 하지 않았다면 답 옆에 {{undo}} 키가 서 있습니다. 그것이나 [[⌘Z]]로 줄 전체를 되돌립니다.') +
+    p('On the prompt page the answer stands beside the line, under {{said}}; at the foot, right beside what you typed. One change is shown as before and after: “kick −6.0 to −9.0 db”. Anything else in a few words: “cut at 19.1.1”, “3 tracks −2 db”. At the foot, while nothing else has been done since, an {{undo}} key stands beside the answer and takes the whole line back. Once you have left the field, [[⌘Z]] does the same; inside it, [[⌘Z]] belongs to the typing.', 'prompt 페이지에서는 답이 {{said}} 아래 그 줄 옆에 나오고, 맨 아래 줄에서는 입력한 글자 바로 옆에 나옵니다. 값 하나가 바뀌면 전과 후로 보여 줍니다. “kick −6.0 to −9.0 db”. 그 밖에는 몇 마디로. “cut at 19.1.1”, “3 tracks −2 db”. 맨 아래 줄에서는 그 뒤로 다른 일을 하지 않았다면 답 옆에 {{undo}} 키가 있고, 줄 전체를 되돌립니다. 입력칸을 벗어난 뒤에는 [[⌘Z]]도 같고, 입력칸 안에서 [[⌘Z]]는 친 글자를 되돌립니다.') +
+    note('The command line reads English only, whichever language the app is set to; a track’s name is found as you wrote it. No line leaves the Mac: the command line is read by the app itself.', '앱의 언어 설정과 상관없이 커맨드 라인은 영어만 읽습니다. 트랙 이름은 붙인 그대로 찾습니다. 입력한 줄은 Mac 밖으로 나가지 않습니다. 커맨드 라인은 앱이 직접 읽습니다.'),
+    art: fig('prompt', { w: 140, calls: [[1, [300, 61], 't'], [2, [24, 150], 'l'], [3, [818, 128], 'r']] }) +
+      `<div style="width:140mm">` + legend(
+        [1, 'the field: the line being typed; words taken from the list stand in it as cells', '입력칸: 치고 있는 줄. 목록에서 고른 낱말은 셀로 들어갑니다'],
+        [2, '{{what can follow}}: the words the line can take next, with their kind', '{{what can follow}}: 다음에 올 수 있는 낱말과 그 종류'],
+        [3, '{{said}}: each line with what came of it, newest first; click one to put it back in the field', '{{said}}: 말한 줄과 그 결과, 최신부터. 클릭하면 입력칸에 다시 들어갑니다']) + `</div>` +
+      fig('prompt-ask', { w: 140, cap: ['a word two tracks answer to: nothing is done, and the line asks which', '두 트랙이 해당하는 낱말: 아무것도 하지 않고 어느 쪽인지 묻습니다'] }) }),
+
+  page(t('reading a line, building one', '줄 읽기, 줄 만들기'), { kind: 'text', cc: 2, txt:
     h('how a line is read', '줄을 읽는 방식') +
     list(
       ['A line is one clause, or several joined by `then`. Each clause says, in any order: who, where, what to do, how much.', '한 줄은 절 하나, 또는 `then`으로 이은 여러 절입니다. 절마다 순서에 상관없이 누구, 어디, 무엇을, 얼마나를 말합니다.'],
       ['`and` (or a comma) joins names; it does not start a new action. Say `drums 2db down then solo bass`, not “and solo bass”.', '`and`(또는 쉼표)는 이름을 잇는 말이고 새 동작을 시작하지 않습니다. “and solo bass”가 아니라 `drums 2db down then solo bass`라고 합니다.'],
       ['A clause that names nobody takes who the clause before named.', '누구인지 말하지 않은 절은 앞 절에서 말한 대상을 이어받습니다.'],
       ['One word it does not know and the whole line is refused: “couldn’t read that”. Nothing is changed.', '모르는 낱말이 하나라도 있으면 줄 전체를 거절합니다. “couldn’t read that”. 아무것도 바뀌지 않습니다.']) +
-    note('The command line reads English only, whichever language the app is set to; a track’s name is found as you wrote it. No line leaves the Mac: the command line is read by the app itself.', '앱의 언어 설정과 상관없이 커맨드 라인은 영어만 읽습니다. 트랙 이름은 붙인 그대로 찾습니다. 입력한 줄은 Mac 밖으로 나가지 않습니다. 커맨드 라인은 앱이 직접 읽습니다.'),
-    art: fig('say-1', { w: 140, cap: ['one change: the level before and after', '값 하나의 변화: 전과 후의 레벨'] }) + fig('say-2', { w: 140, cap: ['two clauses joined by then, and the undo key', 'then으로 이은 두 절과 undo 키'] }) + fig('say-3', { w: 140, cap: ['choose the chorus', '코러스 선택'] }) +
-      draw(140, 50,
+    draw(120, 50,
         D.txt(0, 4, 'clauses', '절', 's') +
         clause(0, 8, [['drums', 'who'], ['2db down', 'much'], ['then', 'then'], ['solo', 'do'], ['bass', 'who']]) +
-        clause(0, 30, [['mute', 'do'], ['guitar', 'who'], ['from 17 to 24', 'where', 30]])) }),
+        clause(0, 30, [['mute', 'do'], ['guitar', 'who'], ['from 17 to 24', 'where', 30]])) +
+    h('a line from the list', '목록으로 줄 만들기') +
+    p('A line can also be put together from the list, cell by cell. What is taken stands in the field as a cell, and the next list holds only what can follow. The act may come first or last; any order that makes sense is taken.', '줄은 목록에서 셀을 하나씩 골라 만들 수도 있습니다. 고른 것은 입력칸에 셀로 서고, 다음 목록에는 그 뒤에 올 수 있는 것만 나옵니다. 동작은 처음에 와도 끝에 와도 되며, 말이 되는 순서는 모두 받습니다.') +
+    steps(
+      ['Take a track. The list offers what is on it: {{volume}}, {{pan}}, {{tape}}, {{space}}, {{delay}}, its sends, its plug-ins (then a plug-in’s controls), its macros, and plain acts ({{mute}}, {{solo}}, {{delete}}…).', '트랙을 고릅니다. 목록에 그 트랙에 있는 것이 나옵니다: {{volume}}, {{pan}}, {{tape}}, {{space}}, {{delay}}, 센드, 플러그인(그다음 그 컨트롤), 매크로, 그리고 {{mute}}, {{solo}}, {{delete}} 같은 동작.'],
+      ['A stretch: type a bar and take `9 ~ 16` or `9 ~ end`, a marker, or the cycle. A stretch is drawn in the cycle’s colour.', '구간: 마디 번호를 치고 `9 ~ 16`이나 `9 ~ end`, 마커, 사이클 중에서 고릅니다. 구간 셀은 사이클 색으로 그려집니다.'],
+      ['How much, in the value’s own unit.', '얼마나: 그 값의 단위로.'],
+      ['The act: {{lower}}, {{raise}}, {{set to}}, {{lower gradually}}, {{raise gradually}}. After a gradual one, a curve, or [[↩]] for a straight line.', '동작: {{lower}}, {{raise}}, {{set to}}, {{lower gradually}}, {{raise gradually}}. 점점 바뀌는 동작이면 그다음 커브를 고르거나 [[↩]]로 직선.']) +
+    p('While the act is being chosen, the line it would draw is shown dashed on the track’s lane. [[↩]] draws it, in one step of undo. [[⌫]] in the empty field takes the last cell back; [[esc]] closes the list, and again clears the cells. The cells’ words are English whichever language the app is set to.', '동작을 고르는 동안 그려질 라인이 트랙 레인에 점선으로 보입니다. [[↩]]로 그리며, 실행 취소 한 번으로 되돌아갑니다. 입력칸이 비었을 때 [[⌫]]는 마지막 셀을 지우고, [[esc]]는 목록을 닫고 한 번 더 누르면 셀을 비웁니다. 셀의 낱말은 앱의 언어와 상관없이 영어입니다.') +
+    draw(120, 34,
+      D.txt(0, 4, 'one line, five cells', '한 줄, 셀 다섯 개', 's') +
+      [['keys', 'track', '트랙', 14, ''], ['send reverb', 'what', '무엇', 24, ''], ['9 ~ 16', 'where', '어디', 16, 'on'], ['6 db', 'how much', '얼마나', 13, ''], ['lower gradually', 'the act', '동작', 30, 'dash']].reduce((acc, [w, en, ko, ww, k]) => {
+        acc.s += D.cell(acc.x, 8, ww, 8, w, w, k) + D.txt(acc.x + ww / 2, 20.5, en, ko, 'xs m'); acc.x += ww + 2.5; return acc }, { s: '', x: 0 }).s +
+      D.txt(0, 30, 'the act stays dashed until it is taken; return then draws the line', '동작은 고르기 전까지 점선입니다. 고른 뒤 return으로 라인을 그립니다', 'xs')) }),
 
   page(t('plain lines', '간단한 줄'), { kind: 'split', tw: 128, txt:
     table([['type', '입력'], ['does', '하는 일']],
-      ['`play`', ['plays', '재생']],
+      ['`play`  `start`', ['plays', '재생']],
       ['`stop`  `pause`', ['stops', '정지']],
-      ['`record`', ['starts a take', '녹음 시작']],
+      ['`record`  `rec`', ['starts a take', '녹음 시작']],
       ['`tempo 96`  `96 bpm`', ['the tempo, whole numbers from 60 to 180 here', '템포. 여기서는 60~180의 정수']],
       ['`17`  `bar 17`  `17.3`', ['the playhead to bar 17 (beat 3)', '플레이헤드를 17마디로(3박)']],
       ['`undo`  `redo`', ['one step back, forward', '한 단계 뒤로, 앞으로']],
@@ -41,7 +61,7 @@ export default () => chapter('say', t('the command line', '커맨드 라인'),
       ['`cycle on`  `cycle off`', ['the cycle', '사이클']],
       ['`new track`', ['a new audio track', '새 오디오 트랙']],
       ['`new bus`', ['a new bus', '새 버스']],
-      ['`export`  `hand off`', ['opens the hand-off panel', '내보내기 패널 열기']],
+      ['`export`  `hand off`  `bounce`', ['opens the hand-off panel', '내보내기 패널 열기']],
       ['`mixer`  `patch`', ['opens that page', '그 페이지 열기']]) +
     note('A bare number is a bar. A bare signed number (`-3`, `+2`) changes the gain of the chosen regions by that many dB.', '숫자만 쓰면 마디입니다. 부호가 붙은 숫자(`-3`, `+2`)는 선택한 리전의 게인을 그만큼 dB 바꿉니다.'),
     art: `<div style="width:128mm">` + h('a track named outright, then one thing', '트랙 이름을 그대로 쓰고 한 가지') +
@@ -93,7 +113,7 @@ export default () => chapter('say', t('the command line', '커맨드 라인'),
       [['cut', '자르기'], '`cut at 19`  `cut drums at 19`  `cut this in half`', ['Splits regions at a place, at both ends of a stretch, or in the middle.', '위치에서, 구간의 양 끝에서, 또는 가운데에서 리전을 자릅니다.']],
       [['mute', '뮤트'], '`kick and snare mute`  `mute from here to the end`  `17~24 mute`', ['Tracks alone: the tracks’ mute. With a stretch: it is cut free and the regions inside are muted.', '트랙만 말하면 트랙 뮤트. 구간과 함께면 그 구간을 잘라 안의 리전을 뮤트합니다.']],
       [['solo', '솔로'], '`solo drums`  `unsolo drums`', ['The named tracks’ solo.', '말한 트랙의 솔로.']],
-      [['delete', '삭제'], '`delete pre`  `delete this`', ['Deletes regions, never a track.', '리전을 지웁니다. 트랙은 지우지 않습니다.']],
+      [['delete', '삭제'], '`delete pre`  `delete this`', ['Deletes regions. With the word track, it deletes the track (see “tracks, time, patch and project”).', '리전을 지웁니다. track이라는 말이 붙으면 트랙을 지웁니다(“트랙, 시간, 패치, 프로젝트” 참고).']],
       [['once more', '한 번 더'], '`pre once more`  `repeat this twice`', ['A part: the song itself repeats that stretch, and everything after moves later. Regions: repeated right after themselves.', '파트: 곡 자체가 그 구간을 반복하고 뒤의 모든 것이 밀립니다. 리전: 바로 뒤에 반복됩니다.']],
       [['copy, move', '복사, 이동'], '`copy this to bar 41`  `move this to bar 33`', ['Needs the place; without one it asks “copy it to where”.', '위치가 필요합니다. 없으면 “copy it to where”라고 묻습니다.']],
       [['fade', '페이드'], '`fade out guitar 2 bars`  `fade in this`', ['The length said; else from the playhead; else one bar.', '말한 길이. 없으면 플레이헤드 기준, 그것도 아니면 한 마디.']],
@@ -104,9 +124,9 @@ export default () => chapter('say', t('the command line', '커맨드 라인'),
     note('Not in the command line in this version: a macro wired by words, and a tempo or measure that changes partway along the song (the room has none yet). A line the app cannot read is refused; nothing guesses for it.', '이 버전의 커맨드 라인에 없는 것: 말로 매크로 연결하기, 곡 중간에 바뀌는 템포나 박자(앱에 아직 없음). 앱이 읽지 못한 줄은 거절되며, 대신 짐작해 주는 것은 없습니다.') }),
 
   page(t('values and their lines', '값과 그 라인'), { kind: 'text', cc: 1, txt:
-    p('A value of a track is its volume, its pan, a print (tape, space or reverb, delay), a send, a control of a plug-in by the plug-in’s name and the control’s (`pro-q 3 gain`), or a macro by its name (`macro gain`). Said with a stretch it is drawn as the value’s automation line, in one step of undo.', '트랙의 값은 볼륨, 팬, 프린트(tape, space 또는 reverb, delay), 센드, 플러그인 이름과 컨트롤 이름으로 부르는 컨트롤(`pro-q 3 gain`), 이름으로 부르는 매크로(`macro gain`)입니다. 구간과 함께 말하면 그 값의 오토메이션 라인으로 그려지고, 실행 취소 한 번으로 되돌아갑니다.') +
+    p('A value of a track is its volume, its pan, a print (tape, space or reverb, delay), a control of a plug-in by the plug-in’s name and the control’s (`pro-q 3 gain`), or a macro by its name (`macro gain`). Said with a stretch it is drawn as the value’s automation line, in one step of undo. A send’s level is said as `send keys to reverb -6`; its line is put together from the cells (see “reading a line, building one”).', '트랙의 값은 볼륨, 팬, 프린트(tape, space 또는 reverb, delay), 플러그인 이름과 컨트롤 이름으로 부르는 컨트롤(`pro-q 3 gain`), 이름으로 부르는 매크로(`macro gain`)입니다. 구간과 함께 말하면 그 값의 오토메이션 라인으로 그려지고, 실행 취소 한 번으로 되돌아갑니다. 센드 레벨은 `send keys to reverb -6`처럼 말하고, 센드의 라인은 셀로 만듭니다(“줄 읽기, 줄 만들기” 참고).') +
     table([['', ''], ['type', '입력'], ['what happens', '일어나는 일']],
-      [['the value itself', '값 자체'], '`kick to -6`  `kick pan l 30`  `guitar space 40`', ['No stretch: the fader, the pan, the print is set. With a line already drawn, the whole line moves.', '구간이 없으면 페이더, 팬, 프린트가 그 값이 됩니다. 라인이 이미 있으면 라인 전체가 움직입니다.']],
+      [['the value itself', '값 자체'], '`kick to -6`  `kick pan l 30`  `guitar space 40`', ['No stretch: the fader, the pan, the print is set. A plug-in’s control or a macro that has a line drawn: the whole line moves.', '구간이 없으면 페이더, 팬, 프린트가 그 값이 됩니다. 플러그인 컨트롤이나 매크로에 라인이 이미 있으면 라인 전체가 움직입니다.']],
       [['for a stretch', '구간 동안'], '`kick -3 from 9 to 16`  `set pro-q 3 gain to -15 db from 9 to 16`', ['Moved for the stretch, and back after it.', '구간 동안만 바뀌고 끝나면 돌아갑니다.']],
       [['from a bar on', '그 마디부터'], '`set hats volume to -20 db after bar 33`', ['From that bar to the end.', '그 마디부터 끝까지.']],
       [['a ramp', '램프'], '`raise kick gradually from 25 to 31 by 6 db`', ['Over the stretch, and it stays there; `and back` returns at its end.', '구간에 걸쳐 바뀌고 그대로 유지됩니다. `and back`이면 끝에서 돌아갑니다.']],
@@ -140,7 +160,7 @@ export default () => chapter('say', t('the command line', '커맨드 라인'),
       [['markers', '마커'], '`add a marker "Bridge 2" at bar 37`  `rename the second chorus marker to "Last Chorus"`  `move the bridge 2 marker to bar 39`  `delete the pre marker`', ['One step back each.', '각각 실행 취소 한 번.']],
       [['the song’s time', '곡의 시간'], '`insert 2 bars at bar 17`  `take out bars 9 to 12`  `raise the tempo by 4`  `set the meter to 3/4`', ['The tempo and the measure are one for the whole song in this version. A new measure clears the steps back, as the measure menu does.', '이 버전에서 템포와 박자는 곡 전체에 하나입니다. 박자를 바꾸면 박자 메뉴처럼 실행 취소 기록이 지워집니다.']],
       [['plug-ins, prints', '플러그인, 프린트'], '`put pro-q 3 on vocals`  `add a delay print to keys in parallel`  `bypass audelay on hum`  `open pro-q 3 on hum`  `remove the tremolo print from keys`', ['Any plug-in the app has, by its name; a print with the word print. At the end of the way, or `in parallel` beside it.', '앱에 있는 플러그인은 이름으로, 프린트는 print라는 말과 함께. 줄 끝에, 또는 `in parallel`로 옆에.']],
-      [['hand off', '내보내기'], '`bounce the mix as mp3 320`  `export the chorus stems of kick and snare as wav 24 bit 48k`  `save as "Dress v2"`', ['The hand-off panel is set as said and opened; the hand-off key is still pressed by hand.', '내보내기 패널을 말한 대로 맞춰 엽니다. 내보내기 키는 직접 누릅니다.']]) }),
+      [['hand off', '내보내기'], '`bounce the mix as mp3 320`  `export the chorus stems of kick and snare as wav 24 bit 48k`  `save as "Dress v2"`', ['The hand-off panel is set as said and opened; {{send}} is still pressed by hand.', '내보내기 패널을 말한 대로 맞춰 엽니다. {{send}}는 직접 누릅니다.']]) }),
 
   page(t('chords from the line', '줄로 코드 넣기'), { kind: 'text', cc: 2, txt:
     p('Type chord names on the command line and they are written into the song as notes: the notes of those chords and no others. Nothing is chosen for you, neither a chord nor a tension nor a rhythm. Each chord is struck once where it begins and held for as long as it stands. Its lowest note is its root, or the note written under it; the hand above has the rest of the chord, laid close to where it was for the chord before.', '커맨드 라인에 코드 이름을 입력하면 곡에 노트로 들어갑니다. 그 코드의 음만, 다른 음 없이 들어갑니다. 코드도 텐션도 리듬도 대신 골라 주지 않습니다. 코드마다 시작하는 자리에서 한 번 치고 그 코드가 이어지는 동안 유지합니다. 가장 낮은 음은 루트, 또는 코드 아래에 적은 음이고, 그 위의 손은 나머지 음을 앞 코드의 자리와 가깝게 잡습니다.') +

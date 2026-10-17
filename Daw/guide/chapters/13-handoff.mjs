@@ -5,27 +5,27 @@ export default () => chapter('handoff', t('hand off and bounce', '내보내기�
 
   page(t('the hand-off panel', '내보내기 패널'), { kind: 'split', tw: 138, txt:
     p('Open it with [[⌘B]] or ((File > Hand Off…)); it comes up in the middle of the window. [[⌘E]] opens it set to stems. At the right, two large keys: {{stems}} (a file for each track) and {{bounce}} (the mix as it sounds). For a bounce, {{wav}} or {{mp3}} stands right under them. A line says how it will be printed; {{change}} opens every choice.', '[[⌘B]]나 ((File > Hand Off…))로 열면 창 가운데에 뜹니다. [[⌘E]]는 스템으로 맞춰서 엽니다. 오른쪽에 큰 키 둘: {{stems}}(트랙마다 파일 하나)와 {{bounce}}(지금 들리는 그대로의 믹스). bounce면 그 아래에 {{wav}}와 {{mp3}}가 바로 있습니다. 어떻게 찍힐지 한 줄로 나오고, {{change}}를 누르면 모든 선택이 열립니다.') +
-    legend(
-      [1, 'what will be sent, its length, rate and depth', '보낼 것과 그 길이, 레이트, 뎁스'],
-      [2, 'for stems, one line for each track that sounds in the range, with the size of its file. A square fills when that track is done', '스템이면 범위 안에서 소리가 나는 트랙마다 한 줄, 파일 크기와 함께. 그 트랙이 끝나면 네모가 채워집니다'],
-      [3, '{{stems}} or {{bounce}}, how it will be printed, and {{change}}', '{{stems}}나 {{bounce}}, 어떻게 찍힐지, 그리고 {{change}}'],
-      [4, '{{send}} first asks where it goes and what it is called, in the Mac’s save panel. Then the line beside it reads “rendering 3 of 12”, then “saved as” and the name, and the Finder shows the folder', '{{send}}를 누르면 먼저 Mac 저장 창에서 위치와 이름을 묻습니다. 이어서 옆에 “rendering 3 of 12”가 나오고, 끝나면 “saved as”와 이름이 나오며 Finder가 폴더를 보여 줍니다']) +
     table([['row', '줄'], ['choices', '선택'], ['notes', '참고']],
       [['the two keys', '두 키'], '{{stems}}  {{bounce}}', ['a bounce is everything, as it goes to the speakers', 'bounce는 스피커로 나가는 그대로의 전체']],
       [['the list', '목록'], ['click a row', '줄 클릭'], ['stems only. That track’s stem is left out, a dash by its name; click again to take it in. [[⌥]] click: that one alone, and again for all', '스템 전용. 그 트랙의 스템이 빠지고 이름 앞에 줄표가 생깁니다. 다시 클릭하면 들어갑니다. [[⌥]] 클릭: 그 하나만, 다시 하면 전부']],
       ['{{print}}', '{{with patch}}  {{dry}}  {{both}}', ['stems only. Dry steps past the track’s own prints and plug-ins; both writes two files a track', '스템 전용. dry는 그 트랙의 프린트와 플러그인을 건너뜁니다. both는 트랙마다 파일 둘']],
       ['{{range}}', ['the part the playhead is in, {{cycle}}, {{song}}', '플레이헤드가 있는 파트, {{cycle}}, {{song}}'], ['song runs from bar 1 to where the sound ends', 'song은 1마디에서 소리가 끝나는 곳까지']],
-      ['{{file}}', '{{wav}}  {{aiff}}  {{flac}}  {{m4a}}  {{mp3}}', ['m4a is AAC at 256 kbps. With mp3 the row below is {{kbps}}: 128, 192, 256 or 320', 'm4a는 256 kbps AAC. mp3를 고르면 아래 줄이 {{kbps}}로 바뀝니다: 128, 192, 256, 320']],
+      ['{{file}}', '{{wav}}  {{aiff}}  {{flac}}  {{m4a}}  {{mp3}}', ['m4a is AAC at 256 kbps. With mp3, {{kbps}} takes the place of {{depth}}: 128, 192, 256 or 320 (320 at first). mp3 is made inside the app', 'm4a는 256 kbps AAC. mp3를 고르면 {{depth}} 자리에 {{kbps}}가 나옵니다: 128, 192, 256, 320(처음은 320). mp3는 앱 안에서 만들어집니다']],
       ['{{rate}}', '{{44.1}}  {{48}}  {{88.2}}  {{96}}', ['starts on the device’s rate; m4a and mp3 stop at 48', '장치 레이트에서 시작. m4a와 mp3는 48까지']],
-      ['{{depth}}', '{{16}}  {{24}}  {{32 float}}', ['32 float for wav only; 16-bit files are dithered', '32 float는 wav만. 16비트 파일은 디더링됩니다']]) +
-    note('The song stops when you press send. Hand off is not possible while recording. Mute and solo are printed as they stand: a muted track gives a silent stem.', 'send를 누르면 재생이 멈춥니다. 녹음 중에는 내보낼 수 없습니다. 뮤트와 솔로는 지금 상태 그대로 찍힙니다. 뮤트된 트랙은 무음 스템이 됩니다.'),
-    art: fig('handoff', { w: 100, calls: [[1, [140, 36], 't'], [2, [40, 150], 'l'], [3, [560, 120], 'r'], [4, [690, 345], 'b']], cap: ['in the app bounce can be chosen too, and the line shows the file’s rate and depth', '앱에서는 bounce도 고를 수 있고, 한 줄에 파일의 레이트와 뎁스도 나옵니다'] }) }),
+      ['{{depth}}', '{{16}}  {{24}}  {{32 float}}', ['32 float for wav only, aiff and flac stop at 24; 16-bit files are dithered', '32 float는 wav만, aiff와 flac은 24까지. 16비트 파일은 디더링됩니다']],
+      ['{{mode}}', '{{offline}}  {{realtime}}', ['offline is made ahead, as fast as the Mac goes; realtime plays the range through (see “realtime bounce”). In realtime, dry and both are dimmed', 'offline은 컴퓨터가 할 수 있는 만큼 빠르게 미리 만듭니다. realtime은 범위를 재생하며 만듭니다(“실시간 바운스” 참고). realtime이면 dry와 both는 흐려집니다']]) +
+    note('The song stops once the save panel is answered; put away, nothing is printed. Hand off is not possible while recording. Mute and solo are printed as they stand: a muted track gives a silent stem.', '저장 창에서 위치를 정하면 재생이 멈추고, 창을 닫으면 아무것도 찍히지 않습니다. 녹음 중에는 내보낼 수 없습니다. 뮤트와 솔로는 지금 상태 그대로 찍힙니다. 뮤트된 트랙은 무음 스템이 됩니다.'),
+    art: fig('handoff', { w: 100, calls: [[1, [140, 36], 't'], [2, [40, 150], 'l'], [3, [560, 120], 'r'], [4, [690, 345], 'b']], cap: ['in the app bounce can be chosen too, and the line shows the file’s rate and depth', '앱에서는 bounce도 고를 수 있고, 한 줄에 파일의 레이트와 뎁스도 나옵니다'] }) + `<div style="width:100mm">` + legend(
+      [1, 'what will be sent, how long it is and how big', '보낼 것, 그 길이와 크기'],
+      [2, 'for stems, a line for each track with the size of its file; one silent in the range is faint, one left out reads {{left out}}. A square fills when that track is done. For a bounce, one line: {{everything, as it sounds}}', '스템이면 트랙마다 한 줄, 파일 크기와 함께. 범위 안에서 소리가 없는 트랙은 흐리고, 뺀 트랙에는 {{left out}}이 붙습니다. 그 트랙이 끝나면 네모가 채워집니다. bounce면 {{everything, as it sounds}} 한 줄'],
+      [3, '{{stems}} or {{bounce}}, how it will be printed, and {{change}}', '{{stems}}나 {{bounce}}, 어떻게 찍힐지, 그리고 {{change}}'],
+      [4, '{{send}} first asks where it goes and what it is called, in the Mac’s save panel, which opens on the project’s Bounces folder. Then the foot of the panel reads “rendering 3 of 12”, then “saved as” and the name, and the Finder shows it', '{{send}}를 누르면 먼저 Mac 저장 창이 프로젝트의 Bounces 폴더에서 열려 위치와 이름을 묻습니다. 이어서 패널 아래에 “rendering 3 of 12”가 나오고, 끝나면 “saved as”와 이름이 나오며 Finder가 그것을 보여 줍니다']) + `</div>` }),
 
   page(t('what is in the folder, and bounce in place', '폴더에 든 것, 그리고 제자리 바운스'), { kind: 'split', tw: 108, mid: true, txt:
     h('what is printed', '찍히는 것') +
     list(
       ['A stem is its track after the fader and the pan, with only what flows into it sounding. Buses and stacks that those tracks reach get stems too.', '스템은 페이더와 팬을 지난 그 트랙이며, 그리로 흘러드는 것만 소리 납니다. 그 트랙들이 닿는 버스와 스택도 스템이 됩니다.'],
-      ['Stems do not pass the stereo out’s fader or its guard. The mix does.', '스템은 스테레오 아웃의 페이더와 가드를 지나지 않습니다. 믹스는 지납니다.'],
+      ['Stems do not pass the stereo out’s wall, fader or guard. The mix does.', '스템은 스테레오 아웃의 벽, 페이더, 가드를 지나지 않습니다. 믹스는 지납니다.'],
       ['While it prints, a card in the middle of the window shows how far along it is.', '프린트하는 동안 창 가운데의 카드가 진행 상황을 보여줍니다.'],
       ['A tail runs on after the range so reverb and echo ring out: 2.5 seconds with patch and for the mix, 0.05 seconds dry.', '리버브와 에코가 울려 사라지도록 범위 뒤에 꼬리가 붙습니다. 패치 포함과 믹스는 2.5초, 드라이는 0.05초.'],
       ['The click is never printed.', '클릭은 찍히지 않습니다.']) +
@@ -37,7 +37,7 @@ export default () => chapter('handoff', t('hand off and bounce', '내보내기�
       ['The file is a 24-bit WAV in the project’s Audio Files. One step to undo.', '파일은 프로젝트 Audio Files의 24비트 WAV입니다. 실행 취소 한 번.']) +
     note('Only the chosen regions sound during a bounce, so a plug-in that listens to another track hears it only if that track’s regions are chosen too.', '바운스 중에는 선택한 리전만 소리가 나므로, 다른 트랙을 듣는 플러그인은 그 트랙의 리전도 선택했을 때만 그것을 듣습니다.'),
     art: draw(150, 98,
-      D.txt(0, 4, '~/Music/Slur Studio', '~/Music/Slur Studio', 'b') +
+      D.txt(0, 4, 'low tide ep/Bounces', 'low tide ep/Bounces', 'b') +
       D.line(2, 6, 2, 14, 'soft') + D.line(2, 14, 8, 14, 'soft') +
       D.cell(10, 9.5, 70, 9, 'low tide ep chorus stems', 'low tide ep chorus stems', 'on') + D.txt(83, 15, 'the name and the place you gave', '직접 정한 이름과 위치', 'xs') +
       D.line(14, 18.5, 14, 90, 'soft') +

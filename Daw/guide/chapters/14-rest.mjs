@@ -19,25 +19,25 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
       `<rect x="0" y="11" width="37" height="45" class="db k2"/>` + D.txt(4, 20, 'track heads', '트랙 헤드', 'xs wh2') +
       D.txt(42, 20, 'lanes', '레인', 'xs wh2') +
       `<rect x="0" y="56" width="112" height="28" class="db k3"/>` + D.txt(4, 64, 'patch or mixer', 'patch 또는 mixer', 'xs wh2') +
-      `<rect x="112" y="11" width="38" height="73" fill="#FBFAF7"/>` + D.txt(131, 22, 'slur', 'slur', 'b m') + D.txt(131, 28, 'rooms, chat, files', '방, 채팅, 파일', 'xs m') +
-      `<rect x="138" y="5.2" width="10" height="4.6" rx=".6" fill="#ECEAE4"/>` + D.txt(143, 8.6, 'slur', 'slur', 'xs m')) }),
+      `<rect x="112" y="11" width="38" height="73" fill="#FBFAF7"/>` + D.txt(131, 22, 'slur', 'slur', 'b m') + D.txt(131, 28, 'rooms, chat, files', '방, 채팅, 파일', 'xs m')) }),
 
   page(t('settings', '설정'), { kind: 'split', tw: 112, txt:
-    p('((Slur Studio > Settings…)) [[⌘,]] opens a window of its own. A change is taken at once; there is no OK or Cancel. [[esc]] or [[⌘W]] closes it.', '((Slur Studio > Settings…)) [[⌘,]]는 별도의 창을 엽니다. 바꾸면 바로 적용되고, OK나 Cancel은 없습니다. [[esc]]나 [[⌘W]]로 닫습니다.') +
+    p('((Slur Studio > Settings…)) [[⌘,]] opens a window of its own. Each part also opens from its own line: ((Slur Studio > Settings > Audio)). A change is taken at once; there is no OK or Cancel. [[esc]] or [[⌘W]] closes it.', '((Slur Studio > Settings…)) [[⌘,]]는 별도의 창을 엽니다. 각 항목은 자기 메뉴 줄로도 열립니다: ((Slur Studio > Settings > Audio)). 바꾸면 바로 적용되고, OK나 Cancel은 없습니다. [[esc]]나 [[⌘W]]로 닫습니다.') +
     h('general', 'general') +
     table(null,
-      ['{{language}}', ['{{english}} or {{한국어}}. The app is written again in that language at once, without a restart. Names you gave, the Mac’s menus and its panels never change. The command line reads English either way', '{{english}} 또는 {{한국어}}. 재시작 없이 바로 그 언어로 다시 그려집니다. 직접 붙인 이름, Mac의 메뉴와 패널은 바뀌지 않습니다. 커맨드 라인은 어느 쪽이든 영어를 읽습니다']]) +
+      ['{{language}}', ['{{english}} or {{한국어}}. The app, its menu bar too, is written again in that language at once, without a restart. Names you gave and the Mac’s own panels (open, save, colours) never change. The command line reads English either way', '{{english}} 또는 {{한국어}}. 재시작 없이 메뉴 막대까지 바로 그 언어로 다시 그려집니다. 직접 붙인 이름과 Mac 자체 패널(열기, 저장, 색상)은 바뀌지 않습니다. 커맨드 라인은 어느 쪽이든 영어를 읽습니다']]) +
     h('audio', 'audio') +
     legend(
       [1, '{{output}} and {{input}}: the device. Choosing an input does not open it; it opens when a track asks for it', '{{output}}과 {{input}}: 장치. 입력을 골라도 열리지는 않습니다. 트랙이 요청할 때 열립니다'],
       [2, '{{what comes in}} a level meter while the input is open; else a {{listen}} key that opens it', '{{what comes in}} 입력이 열려 있으면 레벨 미터, 아니면 입력을 여는 {{listen}} 키'],
       [3, '{{rate}} in kHz and {{buffer}} in samples: those the device offers', '{{rate}}(kHz)와 {{buffer}}(샘플): 장치가 제공하는 값'],
       [4, '{{latency}} a readout: in, out, there and back', '{{latency}} 읽기 전용: 입력, 출력, 왕복'],
-      [5, '{{threads}} how many of the Mac’s cores work on the sound. {{all}} at first', '{{threads}} 소리 처리에 쓰는 Mac 코어 수. 처음엔 {{all}}'],
-      [6, '{{test tone}} {{play}}', '{{test tone}} {{play}}']) +
+      [5, '{{low latency}} with the bolt on the control bar lit, what is heard live steps past any plug-in later than this: 1, 3, 5, 10 or 20 ms, 5 at first', '{{low latency}} 컨트롤 바의 번개가 켜져 있으면, 직접 듣는 소리는 이보다 늦는 플러그인을 건너뜁니다: 1, 3, 5, 10, 20 ms, 처음엔 5'],
+      [6, '{{threads}} how many of the Mac’s cores work on the sound. {{all}} at first', '{{threads}} 소리 처리에 쓰는 Mac 코어 수. 처음엔 {{all}}'],
+      [7, '{{test tone}} {{play}}', '{{test tone}} {{play}}']) +
     p('The device, rate, buffer and threads cannot be changed while a take or a print is under way. When the device moves to another rate, the app follows and says so at the foot: “now at 48k”.', '녹음이나 바운스가 진행 중일 때는 장치, 레이트, 버퍼, 스레드를 바꿀 수 없습니다. 장치의 레이트가 바뀌면 앱이 따라가고 아래에 알려 줍니다. “now at 48k”.') +
-    note('The other parts named down the left (recording, editing, notes, plug-ins, command line, slur, hand off, storage) are not made yet.', '왼쪽에 이름만 있는 나머지 항목(recording, editing, notes, plug-ins, command line, slur, hand off, storage)은 아직 만들어지지 않았습니다.'),
-    art: fig('settings', { w: 140, calls: [[1, [690, 107], 'r'], [2, [690, 153], 'r'], [3, [690, 230], 'r'], [4, [690, 275], 'r'], [5, [690, 338], 'r'], [6, [657, 376], 'b']] }) }),
+    note('{{display}} and {{plug-ins}} have pages of their own, next. The parts drawn dim down the left (recording, editing, notes, command line, slur, hand off, storage) are not made yet.', '{{display}}와 {{plug-ins}}는 다음 쪽부터 따로 설명합니다. 왼쪽에 흐리게 그려진 항목(recording, editing, notes, command line, slur, hand off, storage)은 아직 만들어지지 않았습니다.'),
+    art: fig('settings', { w: 140, calls: [[1, [1072, 117], 'r'], [2, [1072, 161], 'r'], [3, [1072, 240], 'r'], [4, [1072, 285], 'r', -2], [5, [1072, 314], 'r', 3], [6, [1072, 377], 'r'], [7, [1050, 410], 'b']] }) }),
 
   page(t('display: every part, every quality', 'display: 모든 부분, 모든 속성'), { kind: 'split', tw: 104, txt:
     lead('Settings › {{display}} lists every part of the room and every quality of it as plain values. Nothing is chosen for you: the room as it comes is the one starting point, and a look is only what you changed.', '설정 › {{display}}는 방의 모든 부분과 그 모든 속성을 값 그대로 보여 줍니다. 미리 정해 둔 것은 없습니다. 처음 그대로의 방이 유일한 출발점이고, 모습(look)은 바꾼 것만으로 이루어집니다.') +
@@ -112,7 +112,7 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
     list(
       ['comping and take folders', '컴핑과 테이크 폴더'],
       ['a gain line inside a region', '리전 안의 게인 라인'],
-      ['quantize strength and swing', '퀀타이즈 강도와 스윙'],
+      ['quantize strength and swing for regions of sound (notes have them)', '오디오 리전의 퀀타이즈 강도와 스윙(노트에는 있음)'],
       ['settings for strip silence', '무음 제거 설정'],
       ['slipping the sound inside a region', '리전 안에서 소리만 밀기']) +
     h('notes', '노트') +
@@ -127,11 +127,10 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
     h('mixing', '믹싱') +
     list(
       ['pre-fader sends; more than one output', '프리 페이더 센드. 둘 이상의 출력'],
-      ['reordering prints or plug-ins in a patch; plug-in presets', '패치 안에서 프린트나 플러그인 순서 바꾸기. 플러그인 프리셋'],
-      ['other kinds of the prints: the hall, the eighth-note echo and the tape are fixed', '프린트의 다른 종류: 홀, 8분음표 에코, 테이프는 고정'],
+      ['a plug-in’s own presets chosen from the room (a whole patch is kept as a preset)', '앱 안에서 플러그인 자체 프리셋 고르기(패치 전체는 프리셋으로 저장됨)'],
       ['writing automation by moving a control', '컨트롤을 움직여 오토메이션 쓰기'],
       ['undo for mixer moves made by hand', '손으로 한 믹서 조작의 실행 취소'],
-      ['loudness meters, clip lights', '라우드니스 미터, 클립 표시등']) +
+      ['a clip light on the mixer’s strips that stays lit', '믹서 스트립에 계속 켜져 있는 클립 표시등']) +
     h('the app', '앱') +
     list(
       ['changing key commands: the sheet only lists them', '단축키 바꾸기: 표는 보여 주기만 합니다'],

@@ -98,6 +98,10 @@
      "p"
     ],
     [
+     "rubato panel",
+     "w"
+    ],
+    [
      "slur",
      "o"
     ],
@@ -168,7 +172,7 @@
     ],
     [
      "slip, and back",
-     "⌘g"
+     "f2"
     ],
     [
      "a finer grid, in a drag",
@@ -417,7 +421,7 @@
     ],
     [
      "group",
-     "⌃⌘g"
+     "⌘g"
     ],
     [
      "groups off, on",
@@ -518,10 +522,10 @@
    ]
   ],
   [
-   "flex and lines",
+   "rubato and lines",
    [
     [
-     "flex view",
+     "rubato view",
      "⌘f"
     ],
     [

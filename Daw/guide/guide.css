@@ -143,10 +143,11 @@ figure.fig figcaption { font-size: 7.6pt; color: var(--ink3); margin-top: 1.6mm;
 
 /* contents */
 .toc .body { column-count: 4; column-gap: 9mm; column-fill: auto; }
-.toc .ch { break-inside: avoid; margin-bottom: 4.6mm; }
+.toc .ch { margin-bottom: 3.8mm; }
+.toc .ch > a.c { break-after: avoid; }                                     /* (a chapter may go on in the next column; its title never stands alone at a foot) */
 .toc .ch > a.c { border-bottom: .4pt solid var(--ink2); font-weight: 600; padding-bottom: 1.1mm; font-size: 8.8pt; }
 .toc .ch > a.c span:first-child i { font-style: normal; font-weight: 400; color: var(--ink3); margin-right: 2mm; font-variant-numeric: tabular-nums; }
-.toc a { border-bottom-color: var(--hair); padding: .95mm 0; font-size: 8.3pt; line-height: 1.35; }
+.toc a { border-bottom-color: var(--hair); padding: .8mm 0; font-size: 8.3pt; line-height: 1.35; break-inside: avoid; }
 .toc a span:last-child { color: var(--ink3); }
 
 /* the key list */

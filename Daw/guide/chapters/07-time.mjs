@@ -12,10 +12,11 @@ export default () => chapter('time', t('the song’s time', '곡의 시간'),
       ['[[⌥\']]', ['a marker on the bar nearest the playhead; its name box opens', '플레이헤드에서 가장 가까운 마디에 마커. 이름 칸이 열립니다']],
       ['[[⌥⇧\']]', ['a marker where what is chosen begins, named after it', '선택한 것이 시작하는 곳에 마커. 그 이름을 따릅니다']],
       ['[[⇧\']]', ['rename the marker that was clicked, else the one the playhead is in', '클릭했던 마커, 없으면 플레이헤드가 있는 파트의 마커 이름 바꾸기']],
-      ['[[⌥.]] [[⌥,]]', ['the playhead to the next, the last marker', '플레이헤드를 다음, 이전 마커로']],
+      ['[[⌥.]] [[⌥,]]', ['the playhead to the next, the previous marker; the cycle’s ends go to that part (it is not switched on)', '플레이헤드를 다음, 이전 마커로. 사이클 양 끝도 그 파트로 옮겨집니다(켜지지는 않습니다)']],
       ['[[⌃⌥C]]', ['the cycle over that marker’s part, turned on', '그 마커의 파트에 사이클을 걸고 켜기']],
       ['[[⌥⌫]]', ['delete the marker of the part the playhead is in', '플레이헤드가 있는 파트의 마커 삭제']],
       [['number pad 1 to 9', '숫자 패드 1~9'], ['the playhead to the first to ninth marker', '플레이헤드를 첫째~아홉째 마커로']]) +
+    p('Every one of these is also in ((Markers)) on the menu bar. A new marker is called part 1, part 2…; type over it.', '모두 메뉴 막대의 ((Markers))에도 있습니다. 새 마커 이름은 part 1, part 2…이며, 그 위에 입력합니다.') +
     h('the menu of a marker', '마커의 메뉴') +
     p('Right-click a marker. The lower lines move the song’s time: everything on every track goes with the part.', '마커를 오른쪽 클릭합니다. 아래쪽 항목은 곡의 시간을 움직입니다. 모든 트랙의 모든 것이 파트와 함께 갑니다.') +
     table(null,
@@ -62,10 +63,10 @@ export default () => chapter('time', t('the song’s time', '곡의 시간'),
     h('the key', '키') +
     p('The key cell is a label of up to 8 characters. It is saved with the project and written into the hand-off’s info page.', '키 칸은 8자까지의 메모입니다. 프로젝트에 저장되고 내보내기의 info 파일에 적힙니다.') +
     h('undo and redo', '실행 취소와 다시 실행') +
-    p('[[⌘Z]] undo, [[⇧⌘Z]] redo, up to 120 steps. Not while a take is being recorded.', '[[⌘Z]] 실행 취소, [[⇧⌘Z]] 다시 실행. 최대 120단계. 녹음 중에는 안 됩니다.') +
+    p('[[⌘Z]] undo, [[⇧⌘Z]] redo, up to 120 steps. Not while a take is being recorded; the tempo and the measure wait for the take to end too.', '[[⌘Z]] 실행 취소, [[⇧⌘Z]] 다시 실행. 최대 120단계. 녹음 중에는 안 됩니다. 템포와 박자도 녹음이 끝나야 바꿀 수 있습니다.') +
     table(null,
-      [['a step', '한 단계인 것'], ['any edit of regions; making, deleting, reordering, renaming tracks; routing, sends, stacks, groups, alternatives; automation; markers; a change of tempo; everything one command line did', '리전의 모든 편집. 트랙 만들기, 삭제, 순서, 이름. 라우팅, 센드, 스택, 그룹, 대체 버전. 오토메이션. 마커. 템포 변경. 커맨드 라인 한 줄이 한 모든 일']],
-      [['not a step', '단계가 아닌 것'], ['choosing; the tool, the mode, the nudge value; zoom and scrolling; where the cycle stands; mixer moves made by hand (fader, pan, mute, solo, a print’s amount); adding, removing or switching off a plug-in; anything done on an instrument’s page', '선택. 도구, 모드, 넛지 값. 줌과 스크롤. 사이클 위치. 손으로 한 믹서 조작(페이더, 팬, 뮤트, 솔로, 프린트 양). 플러그인 추가, 제거, 끄기. 악기 페이지에서 한 모든 일']]) +
+      [['a step', '한 단계인 것'], ['any edit of regions; making, deleting, reordering, renaming tracks; routing, sends, stacks, groups, alternatives; automation; markers; a change of tempo; a colour or outline set by hand; a preset put on a patch; everything one command line did', '리전의 모든 편집. 트랙 만들기, 삭제, 순서, 이름. 라우팅, 센드, 스택, 그룹, 대체 버전. 오토메이션. 마커. 템포 변경. 손으로 정한 색과 모양. 패치에 불러온 프리셋. 커맨드 라인 한 줄이 한 모든 일']],
+      [['not a step', '단계가 아닌 것'], ['choosing; the tool, the mode, the nudge value; zoom and scrolling; where the cycle stands; mixer moves made by hand (fader, pan, mute, solo, a print’s amount); adding, removing or switching off a plug-in; anything done on an instrument’s page. A fader that moves a volume line is a step', '선택. 도구, 모드, 넛지 값. 줌과 스크롤. 사이클 위치. 손으로 한 믹서 조작(페이더, 팬, 뮤트, 솔로, 프린트 양). 플러그인 추가, 제거, 끄기. 악기 페이지에서 한 모든 일. 볼륨 라인이 있는 트랙의 페이더를 움직이면 라인이 움직이므로 한 단계입니다']]) +
     p('Going back over an edit leaves the mix where it is now. Going back also brings back what was chosen and where the cycle stood. A drag that ends where it began leaves no step.', '편집을 되돌려도 믹스는 지금 상태로 남습니다. 되돌리면 그때 선택했던 것과 사이클 위치도 돌아옵니다. 시작한 자리에서 끝난 드래그는 단계를 남기지 않습니다.') +
     note('The history is emptied when a project is opened and when the measure changes.', '기록은 프로젝트를 열 때와 박자를 바꿀 때 비워집니다.') }),
 ])

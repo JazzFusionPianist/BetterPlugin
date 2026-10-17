@@ -12,7 +12,7 @@ export default () => chapter('notes', t('notes and instruments', '노트와 악�
       [['click its plate', '플레이트 클릭'], ['one of the app’s own: its page opens where the patch stood, and {{chain}} in the panel’s bar goes back. A plug-in: its window opens', '앱의 자체 악기: 패치 자리에 악기 페이지가 열리고, 패널 줄의 {{chain}}으로 돌아갑니다. 플러그인: 창이 열립니다']],
       [['{{change}} under it', '아래의 {{change}}'], ['the list of instruments. Choosing a row changes the instrument at once', '악기 목록. 줄을 고르면 바로 악기가 바뀝니다']]) +
     h('the list of instruments', '악기 목록') +
-    p('Plug-in instruments come first, by name, with {{au}} or {{vst3}} at the right. The app’s own follow, marked {{slur}}: the synth’s fourteen sounds, then {{kit}} and {{sampler}}. Type to narrow the list. A new track starts on {{e piano}}.', '플러그인 악기가 이름순으로 먼저 나오고 오른쪽에 {{au}}나 {{vst3}}가 붙습니다. 그 뒤에 {{slur}}로 표시된 앱의 자체 악기가 옵니다. 신스의 열네 가지 소리, 그리고 {{kit}}과 {{sampler}}. 입력하면 목록이 좁혀집니다. 새 트랙은 {{e piano}}로 시작합니다.') +
+    p('Plug-in instruments come first, by name, with the maker beside the name and {{au}} or {{vst3}} at the right. Those left out in ((Slur Studio > Settings > Plug-ins)) are not listed; a song that already uses one still opens it. The app’s own follow, marked {{slur}}: the synth’s fourteen sounds, then {{kit}} and {{sampler}}. Type to narrow the list, by name or maker. A new track starts on {{e piano}}.', '플러그인 악기가 이름순으로 먼저 나오고, 이름 옆에 제조사, 오른쪽에 {{au}}나 {{vst3}}가 붙습니다. ((Slur Studio > Settings > Plug-ins))에서 뺀 것은 나오지 않으며, 이미 그것을 쓰는 곡은 그대로 열립니다. 그 뒤에 {{slur}}로 표시된 앱의 자체 악기가 옵니다. 신스의 열네 가지 소리, 그리고 {{kit}}과 {{sampler}}. 이름이나 제조사를 입력하면 목록이 좁혀집니다. 새 트랙은 {{e piano}}로 시작합니다.') +
     note('Everything turned on an instrument’s page is heard at once and saved with the project, but it is not part of undo and cannot be automated. Choosing another sound starts from that sound’s own values.', '악기 페이지에서 돌린 것은 바로 들리고 프로젝트에 저장되지만, 실행 취소 대상이 아니고 오토메이션도 걸 수 없습니다. 다른 소리를 고르면 그 소리의 기본값에서 시작합니다.'),
     art: fig('instlist', { w: 96 }) }),
 
@@ -40,7 +40,7 @@ export default () => chapter('notes', t('notes and instruments', '노트와 악�
       ['kick', 'c1', 'high tom', 'c2'], ['rim', 'c#1', 'crash', 'c#2'], ['snare', 'd1', 'ride', 'd#2'], ['clap', 'd#1', 'tambourine', 'f#2'],
       ['low tom', 'f1', 'cowbell', 'g#2'], ['hat', 'f#1', 'conga', 'd#3'], ['mid tom', 'a1', 'shaker', 'a#3'], ['open hat', 'a#1', 'clave', 'd#4']) +
     p('Hat and open hat cut each other off. Velocity makes a pad louder; the kit does not answer to bend, wheel or pedal. A file must already be in the project (imported, recorded or bounced) to be given to a pad.', 'hat과 open hat은 서로를 끊습니다. 벨로시티가 클수록 패드 소리가 커지고, 킷은 벤드, 휠, 페달에는 반응하지 않습니다. 패드에 줄 파일은 이미 프로젝트 안에 있어야 합니다(가져오기, 녹음, 바운스).'),
-    art: fig('kit', { w: 226, calls: [[1, 'iv:pad#6', 't'], [2, [395, 100], 't'], [3, [800, 100], 't'], [4, 'iv:padsound', 'b'], [5, 'iv:ptune', 'b', 4]] }) }),
+    art: fig('kit', { w: 226, calls: [[1, 'iv:pad#6', 't'], [2, [511, 100], 't'], [3, [915, 126], 't'], [4, 'iv:padsound', 'b'], [5, [564, 246], 'b']] }) }),
 
   page(t('the sampler', '샘플러'), { kind: 'wide', cc: 3, txt:
     legend(
@@ -73,7 +73,7 @@ export default () => chapter('notes', t('notes and instruments', '노트와 악�
     note('While the keyboard is on, those bare keys play and do not reach their commands (solo S, click K, cycle C, mixer X, fades F D G and so on). Space, R, Q, M, N, B, the arrows and every command with a modifier still work.', '건반이 켜져 있는 동안 위의 키들은 연주에 쓰이고 원래 명령(솔로 S, 클릭 K, 사이클 C, 믹서 X, 페이드 F D G 등)은 동작하지 않습니다. space, R, Q, M, N, B, 화살표, 그리고 수정 키가 붙은 명령은 그대로 됩니다.') +
     table(null,
       ['[[⌃⌘.]]', ['every note off', '모든 노트 끄기']]),
-    art: fig('keyboard-sheet', { w: 150, calls: [[1, [140, 16], 't'], [2, 'kb:key#1', 'b'], [3, 'kb:oct', 'r'], [4, 'kb:vel', 'r', 3], [5, 'kb:ped', 'b'], [6, 'kb:mod#3', 'b']] }) +
+    art: fig('keyboard-sheet', { w: 150, calls: [[1, [110, 30], 't'], [2, 'kb:key#1', 'b'], [3, 'kb:oct', 'r'], [4, 'kb:vel', 'r', 3], [5, 'kb:ped', 'b'], [6, 'kb:mod#3', 'b']] }) +
       `<div style="width:150mm">` + legend(
         [1, 'the track that hears it, by its colour and name', '소리를 듣는 트랙. 색과 이름으로 표시'],
         [2, 'each key carries the letter that plays it; a held key lights in the track’s colour', '건반마다 해당 글자가 적혀 있고, 누른 건반은 트랙 색으로 켜집니다'],
@@ -83,7 +83,7 @@ export default () => chapter('notes', t('notes and instruments', '노트와 악�
         [6, '{{wheel}}', '{{wheel}}']) + `</div>` }),
 
   page(t('the notes page', '노트 페이지'), { kind: 'split', tw: 104, txt:
-    p('[[P]] opens the notes of the chosen region under the lanes; so does a double-click on a region of notes. {{patch}}, {{mixer}} and {{notes}} are the panel’s three pages. A note is drawn as the stroke its sound makes: as tall as its instrument is loud at each moment, fainter where it rings on after the key. Its colour says how hard it is played: blue when soft, the ink’s own colour in the middle, orange to red when hard.', '[[P]]를 누르면 선택한 리전의 노트가 레인 아래에 열립니다. 노트 리전을 더블 클릭해도 열립니다. {{patch}}, {{mixer}}, {{notes}}가 패널의 세 페이지입니다. 노트는 그 소리가 만드는 획으로 그려집니다. 순간마다 악기 소리가 큰 만큼 두껍고, 건반을 뗀 뒤 울리는 부분은 옅습니다. 색은 얼마나 세게 쳤는지를 말합니다. 약하면 파랑, 중간은 잉크 색, 세면 주황에서 빨강.') +
+    p('[[P]] opens the notes of the chosen region under the lanes; so does a double-click on a region of notes. {{patch}}, {{mixer}}, {{notes}}, {{prompt}} and {{rubato}} are the panel’s pages. A note is drawn as the stroke its sound makes: as tall as its instrument is loud at each moment, fainter where it rings on after the key. Its colour says how hard it is played: blue when soft, the ink’s own colour in the middle, orange to red when hard.', '[[P]]를 누르면 선택한 리전의 노트가 레인 아래에 열립니다. 노트 리전을 더블 클릭해도 열립니다. {{patch}}, {{mixer}}, {{notes}}, {{prompt}}, {{rubato}}가 패널의 페이지입니다. 노트는 그 소리가 만드는 획으로 그려집니다. 순간마다 악기 소리가 큰 만큼 두껍고, 건반을 뗀 뒤 울리는 부분은 옅습니다. 색은 얼마나 세게 쳤는지를 말합니다. 약하면 파랑, 중간은 잉크 색, 세면 주황에서 빨강.') +
     table(null,
       [['choose', '선택'], ['click a note; [[⇧]] click, one more or less; drag over the paper for all it crosses; [[⌘A]] all; [[esc]] none', '노트 클릭. [[⇧]] 클릭으로 하나 더하거나 빼기. 빈 곳을 드래그하면 걸치는 것 모두. [[⌘A]] 전부, [[esc]] 해제']],
       [['move', '옮기기'], ['drag along the grid and up or down the keys; with [[⌥]] copies are carried. [[⌥]] and an arrow: one nudge or a key; [[⇧⌥↑]] an octave', '그리드를 따라, 건반 위아래로 드래그. [[⌥]]를 누르면 사본이 옮겨집니다. [[⌥]]와 화살표: 넛지 한 번 또는 한 음. [[⇧⌥↑]] 한 옥타브']],
@@ -123,7 +123,7 @@ export default () => chapter('notes', t('notes and instruments', '노트와 악�
       [['move it', '옮기기'], ['drag; [[⇧]] click chooses more, and they move together', '드래그. [[⇧]] 클릭으로 여럿을 고르면 함께 움직입니다']],
       [['nudge it', '넛지'], ['[[⌥←]] [[⌥→]] a step of the grid, [[⌥↑]] [[⌥↓]] its value, with [[⇧]] ten: the chosen points alone', '[[⌥←]] [[⌥→]] 그리드 한 칸, [[⌥↑]] [[⌥↓]] 값 한 단계, [[⇧]]와 함께면 열 단계. 선택한 점만 움직입니다']],
       [['remove it', '지우기'], ['double-click it, or choose it and [[⌫]]', '더블 클릭, 또는 선택하고 [[⌫]]']]) +
-    note('Between two points the value goes evenly from one to the other; a pedal or switch (64 to 69) is either down or up. What is turned belongs to the region and moves, copies and stretches with it. The instruments of the app answer to the bend, to modulation (vibrato) and to the pedal; an instrument from outside answers to whatever it was made to.', '두 점 사이에서 값은 고르게 이어집니다. 페달과 스위치(64~69)는 밟았거나 뗐거나 둘 중 하나입니다. 이렇게 그린 값은 리전의 것이라 리전과 함께 옮겨지고 복사되고 늘어납니다. 앱의 내장 악기는 벤드, 모듈레이션(비브라토), 페달에 반응합니다. 외부 악기는 그 악기가 받도록 만들어진 것에 반응합니다.') }),
+    note('Between two points the value goes evenly from one to the other; a pedal or switch (64 to 69) is either down or up. What is turned belongs to the region and moves, copies and stretches with it. The synth answers to the bend, to modulation (vibrato) and to the pedal, the sampler to the bend and the pedal, the kit to none of them; an instrument from outside answers to whatever it was made to.', '두 점 사이에서 값은 고르게 이어집니다. 페달과 스위치(64~69)는 밟았거나 뗐거나 둘 중 하나입니다. 이렇게 그린 값은 리전의 것이라 리전과 함께 옮겨지고 복사되고 늘어납니다. 신스는 벤드, 모듈레이션(비브라토), 페달에 반응하고, 샘플러는 벤드와 페달에, 킷은 어느 것에도 반응하지 않습니다. 외부 악기는 그 악기가 받도록 만들어진 것에 반응합니다.') }),
 
   page(t('the notes of a kit', '킷의 노트'), { kind: 'split', tw: 96, txt:
     p('On a track that plays the kit, the rows of the notes page are its sixteen pads, each with its drum. A stroke is drawn for as long as that drum rings, so a crash runs on over the bar and a closed hat is a tick.', '킷을 연주하는 트랙에서는 노트 페이지의 줄이 패드 16개이고, 줄마다 그 드럼이 그려져 있습니다. 타점은 그 드럼이 울리는 길이만큼 그려집니다. 크래시는 마디를 넘어 이어지고 닫힌 하이햇은 짧은 점입니다.') +
@@ -143,14 +143,14 @@ export default () => chapter('notes', t('notes and instruments', '노트와 악�
     h('what a region does to its notes', '리전이 노트에 하는 일') +
     p('The notes stay as they were played; these are kept by the region and can be taken off again.', '노트 자체는 연주한 그대로 남습니다. 아래 값은 리전이 지니며 다시 뗄 수 있습니다.') +
     table(null,
-      [['quantize', '퀀타이즈'], ['[[Q]] pulls where notes begin to the quantize value; their lengths stay. [[⌥⌘Q]] lets go', '[[Q]]는 노트의 시작을 퀀타이즈 값에 맞춥니다. 길이는 그대로. [[⌥⌘Q]]로 풉니다']],
+      [['quantize', '퀀타이즈'], ['[[Q]] pulls where notes begin to the quantize value; their lengths stay. A strength and a swing are set on the notes page or said on the command line (`quantize this 1/16 at 60% strength with 20% swing`). [[⌥⌘Q]] lets go', '강도와 스윙은 노트 페이지에서 정하거나 커맨드 라인으로 말합니다(`quantize this 1/16 at 60% strength with 20% swing`). [[Q]]는 노트의 시작을 퀀타이즈 값에 맞춥니다. 길이는 그대로. [[⌥⌘Q]]로 풉니다']],
       [['transpose', '트랜스포즈'], ['[[⌥↑]] [[⌥↓]], −24 to +24. On a kit this moves notes to other pads', '[[⌥↑]] [[⌥↓]], −24~+24. 킷에서는 노트가 다른 패드로 옮겨집니다']],
       [['gain', '게인'], ['[[⌃⇧↑]] [[⌃⇧↓]]: how hard the notes are played, four steps of velocity a dB', '[[⌃⇧↑]] [[⌃⇧↓]]: 노트의 세기. dB당 벨로시티 4단계']],
       [['mute', '뮤트'], ['[[N]]', '[[N]]']]) +
-    p('Regions of notes are moved, trimmed, split, copied, repeated and deleted like any region. A note sounds when it begins inside the region and is cut off where the region ends. Fades, crossfades, flex, reverse and strip silence do not apply to them.', '노트 리전은 다른 리전처럼 옮기고, 트림하고, 자르고, 복사하고, 반복하고, 지웁니다. 노트는 리전 안에서 시작할 때 소리가 나고 리전이 끝나는 곳에서 끊깁니다. 페이드, 크로스페이드, 플렉스, 리버스, 무음 제거는 적용되지 않습니다.') +
-    note('There is no note editor in this version: no piano roll and no drum grid. Notes come into a song by being played or from a file. To deal with a wrong note, cut the region around it and delete or mute that piece, or record again.', '이 버전에는 노트 편집기가 없습니다. 피아노 롤도 드럼 그리드도 없습니다. 노트는 연주하거나 파일에서 들어옵니다. 틀린 노트는 그 주변을 잘라 그 조각을 지우거나 뮤트하거나, 다시 녹음합니다.') +
+    p('Regions of notes are moved, trimmed, split, copied, repeated and deleted like any region. A note sounds when it begins inside the region and is cut off where the region ends. Fades, crossfades, fine tune, rubato, reverse and strip silence do not apply to them.', '노트 리전은 다른 리전처럼 옮기고, 트림하고, 자르고, 복사하고, 반복하고, 지웁니다. 노트는 리전 안에서 시작할 때 소리가 나고 리전이 끝나는 곳에서 끊깁니다. 페이드, 크로스페이드, 미세 조정, 루바토, 리버스, 무음 제거는 적용되지 않습니다.') +
+    note('Notes come into a song by being played, from a file, made on the notes page ([[P]]), or typed as chords on the command line (`Dm7(9) G7(b9,13)`: see “chords from the line”). A wrong note is put right on the notes page.', '노트는 연주하거나, 파일에서 가져오거나, 노트 페이지([[P]])에서 만들거나, 커맨드 라인에 코드로 입력해서(`Dm7(9) G7(b9,13)`, “줄로 코드 넣기” 참고) 곡에 들어옵니다. 틀린 노트는 노트 페이지에서 고칩니다.') +
     h('pedal, bend, wheel', '페달, 벤드, 휠') +
-    p('Controllers, pitch bend and channel pressure are recorded with the notes, kept in the region and played back. They are not shown and cannot be edited.', '컨트롤러, 피치 벤드, 채널 프레셔는 노트와 함께 녹음되어 리전에 담기고 재생됩니다. 화면에 보이지 않으며 편집할 수 없습니다.') +
+    p('Controllers, pitch bend and channel pressure are recorded with the notes, kept in the region and played back. The lane under the notes page shows them and edits them: see “the panel at the left, and the lane”.', '컨트롤러, 피치 벤드, 채널 프레셔는 노트와 함께 녹음되어 리전에 담기고 재생됩니다. 노트 페이지 아래의 레인에서 보고 고칠 수 있습니다. “왼쪽 패널과 레인” 참고.') +
     h('files of notes', '노트 파일') +
     table(null,
       [['in', '들여오기'], ['drag a .mid file from the Finder onto the window. Each of its tracks becomes a new track of notes: the kit for a drum track, e piano otherwise. A song that holds nothing yet takes the file’s tempo and measure', 'Finder에서 .mid 파일을 창으로 드래그합니다. 파일의 트랙마다 새 노트 트랙이 됩니다. 드럼 트랙은 킷, 나머지는 e piano. 아직 비어 있는 곡은 파일의 템포와 박자를 따릅니다']],

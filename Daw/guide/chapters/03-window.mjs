@@ -5,7 +5,7 @@ export default () => chapter('window', t('the window', '창'),
 
   page(t('the window at a glance', '한눈에 보는 창'), { kind: 'split', tw: 88, txt:
     legend(
-      [1, '__control bar__ transport, the display (position, time, tempo, measure, key, nudge, grid), the output level', '__컨트롤 바__ 패널, 트랜스포트, 디스플레이(위치, 시간, 템포, 박자, 키, 넛지, 그리드), 출력 레벨'],
+      [1, '__control bar__ transport and the low latency bolt, the display (position, time, tempo, measure, key, nudge, grid), the output level', '__컨트롤 바__ 트랜스포트와 저지연 번개, 트랜스포트, 디스플레이(위치, 시간, 템포, 박자, 키, 넛지, 그리드), 출력 레벨'],
       [2, '__the tracks’ bar__ new track, the two views, the tool, the mode, and what is chosen', '__트랙 바__ 새 트랙, 두 가지 보기, 도구, 모드, 선택된 것'],
       [3, '__markers__ the parts of the song, one cell each', '__마커__ 곡의 파트, 파트마다 칸 하나'],
       [4, '__bars__ the cycle on its upper strip, the playhead on its lower', '__마디 눈금__ 위쪽 띠에는 사이클, 아래쪽 띠에는 플레이헤드'],
@@ -15,7 +15,7 @@ export default () => chapter('window', t('the window', '창'),
       [8, '__cycle__ yellow when on', '__사이클__ 켜지면 노란색'],
       [9, '__command line__ type what you want done', '__커맨드 라인__ 할 일을 글로 입력'],
       [10, '{{keys}} every key command on one sheet', '{{keys}} 모든 단축키를 한 장에']) +
-    p('Under the lanes a panel opens for the {{patch}} [[B]] or the {{mixer}} [[X]], and at the right the Slur panel [[O]]; the Mac’s ((Window)) menu opens each of them too. {{hand off}} (stems, the mix, out to a folder) comes up in the middle of the window from ((File > Hand Off…)) [[⌘B]]. The window is never smaller than 1100 by 668 and opens as large as the screen allows.', '레인 아래에는 {{patch}} [[B]]나 {{mixer}} [[X]] 패널이, 오른쪽에는 Slur 패널 [[O]]이 열립니다. 맥의 ((Window)) 메뉴로도 열 수 있습니다. {{hand off}}(스템, 믹스를 폴더로)는 ((File > Hand Off…)) [[⌘B]]로 창 가운데에 뜹니다. 창은 1100 x 668보다 작아지지 않고, 화면이 허락하는 가장 큰 크기로 열립니다.'),
+    p('Under the lanes a panel opens on one of its pages: {{patch}} [[B]], {{mixer}} [[X]], {{notes}} [[P]], {{prompt}} [[/]] or {{rubato}} [[W]]; at the right, the Slur panel [[O]]. The Mac’s ((Window)) menu opens them too. {{hand off}} (stems, or a bounce of the mix) comes up in the middle of the window from ((File > Hand Off…)) [[⌘B]]. The window is never smaller than 1100 by 668 and opens as large as the screen allows.', '레인 아래에는 패널이 열리고 {{patch}} [[B]], {{mixer}} [[X]], {{notes}} [[P]], {{prompt}} [[/]], {{rubato}} [[W]] 중 한 페이지를 보여 줍니다. 오른쪽에는 Slur 패널 [[O]]이 열립니다. Mac의 ((Window)) 메뉴로도 열 수 있습니다. {{hand off}}(스템, 또는 믹스 바운스)는 ((File > Hand Off…)) [[⌘B]]로 창 가운데에 뜹니다. 창은 1100 x 668보다 작아지지 않고, 화면이 허락하는 가장 큰 크기로 열립니다.'),
     art: fig('window', { w: 158, calls: [[1, [520, 22], 't'], [8, [714, 93], 't'], [2, [20, 57], 'l', -3], [3, [1160, 81], 'r', -2], [4, [1160, 104], 'r', 4], [5, [140, 330], 'l'], [6, [960, 330], 'r'], [7, [674, 470], 'b'], [9, [110, 709], 'b'], [10, [1152, 709], 'b']] }) }),
 
   page(t('the control bar', '컨트롤 바'), { kind: 'wide', cc: 3, txt:
@@ -32,18 +32,19 @@ export default () => chapter('window', t('the window', '창'),
       [9, ['tempo. Click to type, 40 to 240', '템포. 클릭해서 입력, 40~240']]) +
     table(null,
       [10, ['measure. Click for the list, 2/4 to 12/8', '박자. 클릭하면 목록, 2/4에서 12/8까지']],
-      [11, ['key, a label of up to 8 characters. It is saved and written into the hand-off’s info page; nothing else uses it', '키. 8자까지의 메모. 저장되고 내보내기의 info 파일에 적힙니다. 다른 데는 쓰이지 않습니다']],
+      [11, ['key, a label of up to 8 characters. It is saved with the project and shown in the start page’s list; nothing else uses it', '키. 8자까지의 메모. 저장되고 내보내기의 info 파일에 적힙니다. 다른 데는 쓰이지 않습니다']],
       [12, ['nudge: how far one nudge goes. Click for the list', '넛지: 한 번에 움직이는 거리. 클릭하면 목록']],
       [13, ['{{grid}}: the division the lanes’ lines are drawn at, 1/4 to begin with. Click for the list. See “the five modes and the grid”', '{{grid}}: 레인에 그려지는 선의 간격. 처음에는 1/4. 클릭하면 목록. “다섯 가지 모드와 그리드” 참고']],
-      [14, ['{{out}}: the output meter and level. Drag up or down; double-click for 0 dB', '{{out}}: 출력 미터와 레벨. 위아래로 드래그, 더블 클릭하면 0 dB']]) +
+      [14, ['{{out}}: the output meter and level. Drag up or down; double-click for 0 dB', '{{out}}: 출력 미터와 레벨. 위아래로 드래그, 더블 클릭하면 0 dB']],
+      [15, ['the bolt: low latency. Lit, what you hear live skips every plug-in and print later than the limit set in settings, 5 ms at first. See “a take”', '번개: 저지연 모드. 켜면 실시간으로 듣는 소리가 설정의 한계(처음 5 ms)보다 늦는 플러그인과 프린트를 건너뜁니다. “테이크” 참고']]) +
     note('While a take is being recorded, the tempo and the measure cannot be changed and the playhead cannot be moved.', '녹음 중에는 템포와 박자를 바꿀 수 없고 플레이헤드도 옮길 수 없습니다.'),
-    art: fig('bar', { w: 267, calls: [[1, 'tostart', 'b'], [2, 'play', 't'], [3, 'stop', 'b'], [4, 'rec', 't'], [5, 'loop', 'b'], [6, 'click', 't'], [7, 'pos', 'b'], [8, [578, 9], 't'], [9, 'tempo', 'b'], [10, 'meter', 't'], [11, 'key', 'b'], [12, 'nudge', 't'], [13, 'grid', 'b'], [14, 'master', 't']] }) }),
+    art: fig('bar', { w: 267, calls: [[15, 'lowlat', 'b'], [1, 'tostart', 'b'], [2, 'play', 't'], [3, 'stop', 'b'], [4, 'rec', 't'], [5, 'loop', 'b'], [6, 'click', 't'], [7, 'pos', 'b'], [8, [578, 9], 't'], [9, 'tempo', 'b'], [10, 'meter', 't'], [11, 'key', 'b'], [12, 'nudge', 't'], [13, 'grid', 'b'], [14, 'master', 't']] }) }),
 
   page(t('the tracks’ bar', '트랙 바'), { kind: 'wide', cc: 3, txt:
     table(null,
       [1, ['new track: opens the new-track list [[⌥⌘N]]', '새 트랙: 새 트랙 목록을 엽니다 [[⌥⌘N]]']],
       [2, ['how many tracks, stacks and buses the song has', '곡의 트랙, 스택, 버스 개수']],
-      [3, ['{{auto}} the automation view [[A]], {{flex}} the flex view [[⌘F]]. One turns the other off', '{{auto}} 오토메이션 보기 [[A]], {{flex}} 플렉스 보기 [[⌘F]]. 하나를 켜면 다른 하나는 꺼집니다']],
+      [3, ['{{auto}} the automation view [[A]], {{rubato}} the rubato view [[⌘F]] (time that gives and takes: pins, quantize, how a track is stretched). One turns the other off', '{{auto}} 오토메이션 보기 [[A]], {{rubato}} 루바토 보기 [[⌘F]](시간을 당기고 늦추기: 핀, 퀀타이즈, 트랙을 늘이는 방식). 하나를 켜면 다른 하나는 꺼집니다']],
       [4, ['{{tool}}: the tool a click on the lanes uses. [[T]] opens the same list at the pointer', '{{tool}}: 레인을 클릭할 때 쓰는 도구. [[T]]를 누르면 같은 목록이 포인터 위치에 열립니다']]) +
     table(null,
       [5, ['{{cmd}}: the second tool, used while [[⌘]] is held', '{{cmd}}: 두 번째 도구. [[⌘]]를 누르는 동안 쓰입니다']],
@@ -55,17 +56,17 @@ export default () => chapter('window', t('the window', '창'),
       [10, ['{{transpose}} in semitones, −24 to +24; beside it, on sound, {{fine}} in cents, −100 to +100', '{{transpose}} 반음 단위, −24~+24. 오디오면 옆에 {{fine}}, 센트 단위, −100~+100']],
       [11, ['zoom along the song', '곡 방향 줌']],
       [12, ['row height', '줄 높이']]) +
-    p('With a region that has a fade, a file whose tempo is known, or the flex view on, more fields appear here: {{fade}}, its curve, {{bpm}}, {{quantize}} and its value. When the window is narrow the fields at the right drop off first.', '페이드가 있는 리전, 템포를 아는 파일, 플렉스 보기가 켜진 경우에는 여기에 칸이 더 나타납니다. {{fade}}와 곡선, {{bpm}}, {{quantize}}와 값. 창이 좁으면 오른쪽 칸부터 사라집니다.'),
+    p('With a region that has a fade or a file whose tempo is known, more fields appear here: {{fade}}, its curve, {{bpm}}. In the rubato view a chosen region shows instead how its track is stretched ({{stretch}}), its two sensitivities ({{hits}}, {{notes}}) and {{quantize}} with its value. When the window is narrow the fields at the right drop off first.', '페이드가 있는 리전이나 템포를 아는 파일이면 여기에 칸이 더 나타납니다. {{fade}}와 곡선, {{bpm}}. 루바토 보기에서는 선택한 리전 대신 그 트랙을 늘이는 방식({{stretch}}), 두 민감도({{hits}}, {{notes}}), {{quantize}}와 값이 나옵니다. 창이 좁으면 오른쪽 칸부터 사라집니다.'),
     art: fig('toolrow', { w: 267, calls: [[1, 'addtrack', 't'], [2, [84, 21], 'b'], [3, [337, 6], 't'], [4, 'toolmenu', 'b'], [5, 'tool2menu', 't'], [6, 'modemenu', 'b'], [7, [727, 6], 't'], [8, 'look', 'b', 3], [9, 'rgain', 't'], [10, 'rtr', 'b'], [11, 'zoomx', 't'], [12, 'zoomy', 'b']] }) }),
 
   page(t('markers, bars, cycle, playhead', '마커, 마디 눈금, 사이클, 플레이헤드'), { kind: 'wide', cc: 3, txt:
     h('markers', '마커') +
     table(null,
       [['click a marker', '마커 클릭'], ['stopped: the playhead goes to its start. Playing: the song goes there at the next bar line, never mid-bar; a small square marks the one waiting', '멈춘 상태: 플레이헤드가 그 시작으로. 재생 중: 다음 마디 선에서 그곳으로 넘어갑니다. 마디 중간에는 넘어가지 않습니다. 기다리는 마커에 작은 네모가 표시됩니다']],
-      [['double-click a marker', '마커 더블 클릭'], ['its part becomes the cycle, turned on', '그 파트가 사이클이 되고 켜집니다']],
+      [['double-click a marker', '마커 더블 클릭'], ['its name box opens, as in Logic. To cycle its part: its menu, or [[⌃⌥C]]', '이름 칸이 열립니다(Logic과 같음). 그 파트를 사이클로 하려면 마커 메뉴나 [[⌃⌥C]]']],
       [['double-click the empty band', '빈 띠 더블 클릭'], ['a new marker on the nearest bar; its name box opens', '가장 가까운 마디에 새 마커. 이름 칸이 열립니다']],
       [['drag a marker', '마커 드래그'], ['to another whole bar', '다른 마디로 옮기기']],
-      [['right-click a marker', '마커 오른쪽 클릭'], ['rename, cycle, repeat or move its part, cut it out of the song, delete', '이름 바꾸기, 사이클, 파트 반복이나 이동, 곡에서 잘라내기, 삭제']]) +
+      [['right-click a marker', '마커 오른쪽 클릭'], ['rename, cycle, repeat or move its part, cut it out of the song, a new marker at the playhead, delete', '이름 바꾸기, 사이클, 파트 반복이나 이동, 곡에서 잘라내기, 삭제']]) +
     h('cycle strip, the upper edge', '사이클 띠, 위쪽') +
     table(null,
       [['click', '클릭'], ['cycle on, off', '사이클 켜기, 끄기']],
@@ -83,7 +84,9 @@ export default () => chapter('window', t('the window', '창'),
       ['[[⇧,]] [[⇧.]]', ['eight bars', '여덟 마디']],
       ['[[⌥.]] [[⌥,]]', ['the next, the last marker', '다음, 이전 마커']],
       ['[[U]]', ['the cycle round what is chosen', '선택한 것 둘레로 사이클']],
-      ['[[⌥\']]', ['a marker at the playhead', '플레이헤드에 마커']]),
+      ['[[⌥\']]', ['a marker at the playhead', '플레이헤드에 마커']],
+      ['[[⇧\']]', ['rename the marker', '마커 이름 바꾸기']],
+      ['[[⌃⌥C]]', ['its part becomes the cycle, turned on', '그 파트가 사이클이 되고 켜집니다']]),
     art: fig('ruler', { w: 267, calls: [[1, [680, 11], 't'], [2, [796, 25], 't'], [3, [714, 23], 'b', 6], [4, [674, 40], 'b'], [5, [1000, 11], 't']], cap: ['1 the marker of the part that is playing  2 an end of the cycle  3 the cycle  4 the playhead  5 another marker', '1 재생 중인 파트의 마커  2 사이클의 끝  3 사이클  4 플레이헤드  5 다른 마커'] }) }),
 
   page(t('getting around', '돌아다니기'), { kind: 'split', tw: 128, txt:
@@ -105,18 +108,19 @@ export default () => chapter('window', t('the window', '창'),
       ['[[⇧`]]', ['find what is chosen', '선택한 것 찾기']]) +
     p('The view goes in as far as single samples: past 640 pixels a bar the bar numbers go on dividing into beats, sixteenths, ticks and finally sample numbers, and the grid, the nudge and the shortest region follow. When a drag reaches the edge of the lanes, the view turns under your hand.', '확대는 샘플 하나까지 들어갑니다. 한 마디 640픽셀을 넘으면 눈금이 박, 16분, 틱, 마지막엔 샘플 번호로 나뉘고, 그리드와 넛지, 가장 짧은 리전 길이도 따라갑니다. 드래그가 레인 가장자리에 닿으면 화면이 손 밑에서 넘어갑니다.'),
     art: `<div style="width:122mm">` + h('the panel under the lanes', '레인 아래 패널') +
-      p('Two pages, {{patch}} and {{mixer}}. Drag its top edge to resize it; it leaves at least four rows of lanes. On a track of notes, the instrument’s own page stands in the patch’s place.', '{{patch}}와 {{mixer}} 두 페이지. 위쪽 가장자리를 드래그해 크기를 바꿉니다. 레인은 최소 네 줄이 남습니다. 노트 트랙에서는 악기 페이지가 패치 자리에 설 수 있습니다.') +
+      p('Up to five pages: {{patch}}, {{mixer}}, {{notes}}, {{prompt}} and {{rubato}}. Drag its top edge to resize it; it leaves at least four rows of lanes. On a track of notes, the instrument’s own page stands in the patch’s place.', '{{patch}}, {{mixer}}, {{notes}}, {{prompt}}, {{rubato}}까지 다섯 페이지. 위쪽 가장자리를 드래그해 크기를 바꿉니다. 레인은 최소 네 줄이 남습니다. 노트 트랙에서는 악기 페이지가 패치 자리에 설 수 있습니다.') +
       h('the foot', '맨 아래 줄') + `</div>` +
       fig('foot', { w: 122, pad: { t: 7.5, b: 7.5 }, calls: [[1, [14, 11], 't'], [2, [80, 11], 'b'], [3, [1153, 11], 't']] }) +
       `<div style="width:122mm">` + legend(
-        [1, 'the command line’s mark. [[/]] puts the keys there', '커맨드 라인 표시. [[/]]를 누르면 키 입력이 그리로 갑니다'],
+        [1, 'the command line’s mark: click it to type at the foot. [[/]] opens the {{prompt}} page in the panel instead, the keys in its field; while that page is up, the foot shows only how the machine stands', '커맨드 라인 표시. 클릭하면 맨 아래 줄에 입력합니다. [[/]]를 누르면 패널에 {{prompt}} 페이지가 열리고 키 입력이 그 칸으로 갑니다. 그 페이지가 열려 있는 동안 맨 아래 줄에는 기기 상태만 나옵니다'],
         [2, 'the command line, and beside it what the last line did and anything the app has to say', '커맨드 라인. 그 옆에는 마지막 줄이 한 일과 앱이 하는 말이 나옵니다'],
         [3, '{{keys}} opens the sheet of key commands [[⇧/]]', '{{keys}}는 단축키 표를 엽니다 [[⇧/]]']) +
-      p('In the app the right end also shows {{cpu}}, {{rate}}, {{buffer}} and {{saved}} with the time of the last save.', '앱에서는 오른쪽 끝에 {{cpu}}, {{rate}}, {{buffer}}, 그리고 마지막 저장 시각이 붙은 {{saved}}도 보입니다.') + `</div>` }),
+      p('In the app the right end also shows {{cpu}}, {{rate}}, {{buffer}} and {{saved}} with the time of the last save, and {{keyboard}} with its lowest key while [[⌘K]] makes the computer’s keys a keyboard.', '앱에서는 오른쪽 끝에 {{cpu}}, {{rate}}, {{buffer}}, 마지막 저장 시각이 붙은 {{saved}}가 보이고, [[⌘K]]로 자판을 건반으로 쓰는 동안에는 가장 낮은 음과 함께 {{keyboard}}도 나옵니다.') + `</div>` }),
   page(t('the menu bar, and finding a thing', '메뉴 바, 그리고 기능 찾기'), { kind: 'text', cc: 3, txt:
     lead('Everything the app does is a line of the Mac’s menu bar, with the key that does the same at its right. When you know what you want but not where it is, the bar is the place to look.', '앱이 하는 모든 일은 Mac 메뉴 바의 한 줄이고, 그 오른쪽에 같은 일을 하는 키가 적혀 있습니다. 하고 싶은 일은 아는데 어디 있는지 모를 때 메뉴 바를 보면 됩니다.') +
     h('finding a thing', '기능 찾기') +
     p('Open ((Help)) and type a word into its search field: “fade”, “transpose”, “marker”. Every line with that word is listed with its menu; point at one and the Mac opens its menu and shows where it is. Press it to do it.', '((Help))를 열고 검색 칸에 단어를 칩니다. “fade”, “transpose”, “marker” 같은 식입니다. 그 단어가 든 모든 줄이 메뉴와 함께 나옵니다. 하나에 포인터를 올리면 Mac이 그 메뉴를 열어 위치를 보여 주고, 누르면 실행됩니다.') +
+    p('With the app set to Korean, the menu bar is in Korean too (파일, 편집, 보기, 윈도우, 도움말), and Help’s search finds Korean words. Names you gave, such as a project under Open Recent, stay as they are.', '앱을 한국어로 두면 메뉴 막대도 한국어(파일, 편집, 보기, 윈도우, 도움말)로 나오고, 도움말 검색도 한국어 단어를 찾습니다. 최근 사용 열기의 프로젝트처럼 직접 붙인 이름은 그대로입니다. 이 책은 메뉴 항목을 영어 이름으로 적습니다.') +
     h('the menus', '메뉴') +
     table(null,
       ['((Slur Studio))', ['settings and each of their parts, the key commands', '설정과 그 각 항목, 단축키 표']],
@@ -127,8 +131,8 @@ export default () => chapter('window', t('the window', '창'),
       ['((Transport))', ['play, record, going around the song, the cycle, click and count-in', '재생, 녹음, 곡 안에서 이동, 사이클, 클릭과 카운트인']],
       ['((Markers))', ['adding, naming, going to them', '추가, 이름 붙이기, 이동']],
       ['((Tools))', ['the tool, the edit mode, the grid, the nudge value, the quantize value', '도구, 편집 모드, 그리드, 넛지 값, 퀀타이즈 값']],
-      ['((View))', ['the panels, automation, flex, zoom, scrolling, the command line', '패널, 오토메이션, 플렉스, 줌, 스크롤, 커맨드 라인']],
-      ['((Window)) ((Help))', ['the panels and the window; this guide, the key commands', '패널과 창. 이 설명서, 단축키 표']]) +
+      ['((View))', ['the panels, automation, rubato, zoom, scrolling, the command line', '패널, 오토메이션, 루바토, 줌, 스크롤, 커맨드 라인']],
+      ['((Window)) ((Help))', ['the panels and the window; this guide (as a PDF, in the app’s language), the key commands, the command line', '패널과 창. 이 설명서(PDF, 앱의 언어로), 단축키 표, 커맨드 라인']]) +
     h('ticks and keys', '체크와 키') +
     p('A line that is on or off carries a tick: the tool in use, the grid, the cycle, the click, the panels that are open. A key shown on a line works the same pressed in the room. Keys without [[⌘]] or [[⌃]] (a letter, an arrow) are the room’s: while you type in a box they type, as everywhere else in the app.', '켜고 끄는 줄에는 체크가 붙습니다. 쓰고 있는 도구, 그리드, 사이클, 클릭, 열린 패널 같은 것입니다. 줄에 적힌 키는 방에서 눌러도 똑같이 동작합니다. [[⌘]]나 [[⌃]]가 없는 키(글자, 화살표)는 방의 키라서, 칸에 글을 쓰는 동안에는 앱의 다른 곳과 마찬가지로 글자가 쳐집니다.') }),
 ])

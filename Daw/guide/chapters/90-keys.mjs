@@ -30,7 +30,7 @@ export default () => {
   const all = SHEET.flat()
   const a = all.slice(0, 8), b = all.slice(8)
   return chapter('keys', t('key commands', '단축키'),
-    t('Every key the app answers to, as its own sheet lists them. In the app the same list opens with shift and slash, or with the keys button at the foot of the window.', '앱이 알아듣는 모든 단축키를 앱 안의 표 그대로 실었습니다. 앱에서는 shift와 슬래시를 누르거나 창 아래의 keys 버튼을 누르면 같은 표가 열립니다.'), [
+    t('Every key the app answers to, as its own sheet lists them. In the app the same list opens with shift and slash, with the keys button at the foot of the window, or from ((Help > Key Commands)).', '앱이 알아듣는 모든 단축키를 앱 안의 표 그대로 실었습니다. 앱에서는 shift와 슬래시, 창 아래의 keys 버튼, 또는 ((Help > Key Commands))로 같은 표가 열립니다.'), [
       page(t('playing, tools, regions, choosing', '재생, 도구, 리전, 선택'), { kind: 'text', cc: 4, txt: a.map(group).join('') }),
       page(t('tracks, markers, time, view, project', '트랙, 마커, 시간, 보기, 프로젝트'), { kind: 'text', cc: 4, txt: p('Keys are read by their place on the keyboard, so they are the same whatever language the keyboard is set to.', '단축키는 키보드에서의 위치로 읽기 때문에, 입력 언어가 한글이어도 똑같이 동작합니다.') + b.map(group).join('') }),
       page(t('also bound, and the menu bar', '표에 없는 키, 그리고 메뉴 막대'), { kind: 'split', tw: 128, txt:
@@ -53,13 +53,7 @@ export default () => {
           ['[[esc]]', ['closes what is open, one thing a press; with nothing open, lets go of everything chosen', '열린 것을 한 번에 하나씩 닫기. 열린 것이 없으면 모든 선택 해제']],
           [['number pad', '숫자 패드'], ['enter plays, 0 stops, the point plays and stops, the star records, 1 to 9 go to the first nine markers', 'enter 재생, 0 정지, 점은 재생/정지, 별표는 녹음, 1~9는 처음 아홉 마커로']]) +
         note('The sheet only lists the keys; they cannot be reassigned in this version.', '표는 키를 보여 주기만 합니다. 이 버전에서는 키를 바꿀 수 없습니다.'),
-        art: `<div style="width:126mm">` + h('the menu bar', '메뉴 막대') + p('The Mac’s menu bar is written the Mac’s way. Most commands live on the page or on keys; these are the lines the menus hold.', 'Mac의 메뉴 막대는 Mac의 방식대로 적혀 있습니다. 명령 대부분은 화면이나 키에 있고, 메뉴에는 다음 항목이 있습니다.') +
-          cols(3,
-            h('Slur Studio', 'Slur Studio') + list(['Settings… [[⌘,]]', 'Settings… [[⌘,]]'], ['Key Command Assignments… [[⌥K]]', 'Key Command Assignments… [[⌥K]]']) +
-            h('File', 'File') + list(['New [[⌘N]]', 'New [[⌘N]]'], ['Open… [[⌘O]]', 'Open… [[⌘O]]'], ['Open Recent…', 'Open Recent…'], ['Save [[⌘S]]', 'Save [[⌘S]]'], ['Save As… [[⇧⌘S]]', 'Save As… [[⇧⌘S]]'], ['Rename…', 'Rename…'], ['Revert To…', 'Revert To…'], ['Import Audio… [[⌘I]]', 'Import Audio… [[⌘I]]'], ['Hand Off… [[⌘B]]', 'Hand Off… [[⌘B]]']),
-            h('Edit', 'Edit') + list(['Undo, Redo, Cut, Copy, Paste, Select All', 'Undo, Redo, Cut, Copy, Paste, Select All'], ['Cut Section Between Locators [[⌃⌘X]]', 'Cut Section Between Locators [[⌃⌘X]]'], ['Insert Silence at Locators [[⌃⌘Z]]', 'Insert Silence at Locators [[⌃⌘Z]]'], ['Insert Section at Playhead [[⌃⌘V]]', 'Insert Section at Playhead [[⌃⌘V]]'], ['Repeat Section Between Locators [[⌃⌘R]]', 'Repeat Section Between Locators [[⌃⌘R]]']) +
-            h('Region', 'Region') + list(['Fades for Selection', 'Fades for Selection'], ['Strip Silence [[⌃X]]', 'Strip Silence [[⌃X]]'], ['Group [[⌥⌘G]]', 'Group [[⌥⌘G]]'], ['Ungroup [[⌥⌘U]]', 'Ungroup [[⌥⌘U]]'], ['Set Project Tempo from Region [[⌃⌥T]]', 'Set Project Tempo from Region [[⌃⌥T]]'], ['Fit Region to Project Tempo [[⌃⌥F]]', 'Fit Region to Project Tempo [[⌃⌥F]]']),
-            h('Track', 'Track') + list(['New Tracks… [[⌥⌘N]]', 'New Tracks… [[⌥⌘N]]'], ['New Audio Track [[⌥⌘A]]', 'New Audio Track [[⌥⌘A]]'], ['New Bus', 'New Bus'], ['Duplicate', 'Duplicate'], ['Rename…', 'Rename…'], ['Delete', 'Delete'], ['Group for Editing [[⌃⌘G]]', 'Group for Editing [[⌃⌘G]]'], ['Suspend Groups', 'Suspend Groups']) +
-            h('Window', 'Window') + list(['Minimize [[⌘M]]', 'Minimize [[⌘M]]'], ['Zoom', 'Zoom'], ['Enter Full Screen [[⌃⌘F]]', 'Enter Full Screen [[⌃⌘F]]'])) + `</div>` }),
+        art: `<div style="width:126mm">` + h('the menu bar', '메뉴 막대') +
+          p('Every key on these pages is also a line of the Mac’s menu bar, with the key written at its right: Slur Studio, File, Edit, Region, Track, Transport, Markers, Tools, View, Window and Help. The chapter on the window says what each menu holds. ((Help)) finds a line by a word you type. With the app set to Korean the menus are written in Korean.', '이 장의 모든 키는 Mac 메뉴 막대에도 한 줄씩 있고, 그 오른쪽에 키가 적혀 있습니다. Slur Studio, File, Edit, Region, Track, Transport, Markers, Tools, View, Window, Help. 메뉴마다 무엇이 있는지는 창 장에서 설명합니다. ((Help))에 단어를 치면 그 줄을 찾아 줍니다. 앱을 한국어로 두면 메뉴도 한국어로 나옵니다.') + `</div>` }),
     ])
 }

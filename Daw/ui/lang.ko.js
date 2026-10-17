@@ -143,7 +143,7 @@ Object.assign(LANG.lists.ko, {
   '# on this Mac, # left out of the room’s list': '이 Mac에 #개, 방의 목록에서 #개 뺌', '# on this Mac, all in the room’s list': '이 Mac에 #개, 모두 방의 목록에 있음',
   'by kind': '종류별', 'by maker': '제작사별', 'find a plug-in': '플러그인 찾기', 'instruments': '악기', 'delay': '딜레이', 'others': '그 밖의 제작사',
   'everything found': '찾은 것 모두', 'nothing found': '찾은 것 없음', '# of #': '#/#', '# of # in the list': '목록에 #개, 전체 #개', 'all # in the list': '#개 모두 목록에',
-  'take all in': '모두 넣기', 'leave all out': '모두 빼기', 'and # more, a scroll away': '#개 더, 스크롤해서 보기',
+  'take all in': '모두 넣기', 'leave all out': '모두 빼기', 'and # more, a scroll away': '#개 더, 스크롤해서 보기', 'as the room reads it': '방이 읽은 대로',
 })
 /* the Mac's menu bar (menus.js), as the Mac writes its menus in Korean: 파일, 편집, 보기, 윈도우, 도움말 */
 LANG.menuKo = {

@@ -231,8 +231,9 @@ async function others () {
   if (!want.length || want.includes('plugins')) {                                    // settings > plug-ins, with the plug-ins of a Mac like his (design/plugins draft 1), a few left out
     const list = (await import('node:fs')).readFileSync(new URL('../design/plugins draft 1/plugs.json', import.meta.url), 'utf8')
     const out = ['Console Recall', 'Ocean Way Studios', 'Auto-Key', 'UAD Fairchild 660', 'UAD Fairchild 670', 'UAD dbx 160', 'UAD Teletronix LA-3A', 'UAD Precision Limiter', 'UAD Precision Multiband', 'UAD Precision Buss Compressor']
-    const g = await room({ file: join(dirname(UI), 'settings.html') + '?part=plug-ins', w: 1100, h: 692, before: `window.PLUG_STAND_IN = ${list}; window.PLUG_STAND_OUT = ${JSON.stringify(out)}` })
-    await g.sleep(500); await g.ev(`PG.group = 'dynamics'; draw(); return 1`)
+    const kinds = { 'UAD Sphere Mic Collection': 'channel', 'UAD Ocean Way Mic Collection': 'channel', 'UAD Putnam Mic Collection': 'channel' }      // (a few kinds set by hand, as design/plugins draft 2 has them)
+    const g = await room({ file: join(dirname(UI), 'settings.html') + '?part=plug-ins', w: 1100, h: 692, before: `window.PLUG_STAND_IN = ${list}; window.PLUG_STAND_OUT = ${JSON.stringify(out)}; window.PLUG_STAND_KINDS = ${JSON.stringify(kinds)}` })
+    await g.sleep(500); await g.ev(`PG.group = 'channel'; draw(); PG.hover = PG.rows.findIndex(p => p.name === 'UAD Sphere Mic Collection'); draw(); return 1`)      // (the row under the pointer shows its kind)
     await g.pic('plugins', [0, 0, 1100, 692], 1.2); await g.close()
   }
 }

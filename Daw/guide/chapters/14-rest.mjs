@@ -73,9 +73,11 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
       [3, 'a kind or a maker, and how many of it are in the lists: 13 of 14 when one is left out', '종류나 제작사, 그리고 그중 목록에 있는 수. 하나를 빼면 13/14처럼 나옵니다'],
       [4, 'a tick: in the lists. Click the row to leave it out, and again to take it back in', '체크: 목록에 있음. 줄을 클릭하면 빠지고, 다시 클릭하면 돌아옵니다'],
       [5, '{{leave all out}} and {{take all in}} do it to everything shown', '{{leave all out}}과 {{take all in}}은 보이는 모든 것에 한 번에 합니다'],
-      [6, '{{bring every one back}} puts every plug-in back in the lists. {{look again}} finds plug-ins installed since', '{{bring every one back}}은 모든 플러그인을 목록에 되돌립니다. {{look again}}은 그 뒤에 깐 플러그인을 찾습니다']) +
-    p('What is left out is gone from the plug-in list of the patch and the wall, and from the instruments of a track of notes. A song that already uses one still opens with it. [[⌘Z]] in the window takes the last change back.', '뺀 것은 패치와 월의 플러그인 목록, 노트 트랙의 악기 목록에서 사라집니다. 이미 그것을 쓰는 곡은 그대로 열립니다. 창에서 [[⌘Z]]를 누르면 마지막 변경이 되돌아갑니다.'),
-    art: fig('plugins', { w: 150, calls: [[1, 'p-by', 't'], [6, 'p-again', 't'], [2, 'p-find', 'l'], [3, 'p-group#3', 'l'], [4, 'p-tick#3', 'r'], [5, 'p-none', 't']] }) }),
+      [6, '{{bring every one back}} puts every plug-in back in the lists. {{look again}} finds plug-ins installed since', '{{bring every one back}}은 모든 플러그인을 목록에 되돌립니다. {{look again}}은 그 뒤에 깐 플러그인을 찾습니다'],
+      [7, 'a plug-in’s kind: the row under the pointer shows it; click it to choose another (the one the room reads from the name says {{as the room reads it}}), or drag the row onto a kind on the left', '플러그인의 종류. 포인터가 올라간 줄에 나타나며, 클릭해서 다른 종류를 고릅니다(이름으로 읽은 종류에는 {{as the room reads it}}이라고 적혀 있습니다). 줄을 왼쪽의 종류로 끌어다 놓아도 됩니다'],
+      [8, 'a dot before a row: its kind was set by hand. Click the dot to give it back', '줄 앞의 점: 종류를 직접 정했다는 뜻입니다. 점을 클릭하면 되돌아갑니다']) +
+    p('What is left out is gone from the plug-in list of the patch and the wall, and from the instruments of a track of notes. A song that already uses one still opens with it. A kind set by hand is the kind everywhere the room sorts plug-ins by kind. [[⌘Z]] in the window takes the last change back.', '뺀 것은 패치와 월의 플러그인 목록, 노트 트랙의 악기 목록에서 사라집니다. 이미 그것을 쓰는 곡은 그대로 열립니다. 직접 정한 종류는 방이 플러그인을 종류별로 나누는 모든 곳에 그대로 쓰입니다. 창에서 [[⌘Z]]를 누르면 마지막 변경이 되돌아갑니다.'),
+    art: fig('plugins', { w: 150, calls: [[1, 'p-by', 't'], [6, 'p-again', 't'], [2, 'p-find', 'l'], [3, 'p-group#3', 'l'], [4, 'p-tick#3', 'r'], [5, 'p-none', 't'], [7, 'p-kind', 'r'], [8, 'p-read', 'l']] }) }),
 
   page(t('after a bad end', '비정상 종료 뒤에'), { kind: 'text', cc: 3, txt:
     h('what protects the work', '작업을 지키는 것') +

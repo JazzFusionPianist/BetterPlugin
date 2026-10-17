@@ -1483,17 +1483,18 @@ private:
             if (web != nullptr) web->emitEventIfBrowserIsVisible ("dawLowLat", facts);
             return okVar();
         }
-        if (what == "plugOut")                                                 // settings > plug-ins: the ones left out of the room's lists (ui/cats.js) — kept, and the room told at once
+        if (what == "plugOut" || what == "plugKind")                           // settings > plug-ins: the ones left out of the room's lists, the kinds set by hand (ui/cats.js) — kept, and the room told at once
         {
             if (selfTestMode().isEmpty())
             {
                 auto v = juce::JSON::parse (prefsFile());
                 if (! v.isObject()) v = juce::var (new juce::DynamicObject());
-                v.getDynamicObject()->setProperty ("plugOut", d["value"]);
+                v.getDynamicObject()->setProperty (juce::Identifier (what), d["value"]);
                 prefsFile().getParentDirectory().createDirectory();
                 prefsFile().replaceWithText (juce::JSON::toString (v));
             }
-            if (web != nullptr) { auto* o = new juce::DynamicObject(); o->setProperty ("ids", d["value"]); o->setProperty ("again", (bool) d["again"]); web->emitEventIfBrowserIsVisible ("dawPlugOut", juce::var (o)); }
+            if (web != nullptr && what == "plugKind") { auto* o = new juce::DynamicObject(); o->setProperty ("kinds", d["value"]); web->emitEventIfBrowserIsVisible ("dawPlugKind", juce::var (o)); }
+            else if (web != nullptr) { auto* o = new juce::DynamicObject(); o->setProperty ("ids", d["value"]); o->setProperty ("again", (bool) d["again"]); web->emitEventIfBrowserIsVisible ("dawPlugOut", juce::var (o)); }
             return okVar();
         }
         if (what == "look")                                                    // settings > display: the look the room wears (ui/look.js) — kept, and the room told at once

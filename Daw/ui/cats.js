@@ -4,7 +4,9 @@
    it; a vst3 mostly says "Fx"), so it is read from the name: first the words a maker uses for the kind itself (reverb,
    compressor, eq), then the names of the machines that plug-ins are modelled on (an 1176 is a compressor, a Pultec an
    equalizer, an EMT 140 a plate). The rules are tried in order and the first that fits says the kind; a name that tells
-   nothing is filed by what the plug-in says of itself, where it says anything (a vst3's sub categories); the rest is `other`. */
+   nothing is filed by what the plug-in says of itself, where it says anything (a vst3's sub categories); the rest is `other`.
+   A kind he set by hand (settings > plug-ins) comes before all of it: plugCat is his word where he gave one, plugCatRead
+   always the room's own reading. */
 const PLUG_CATS = ['eq', 'dynamics', 'reverb', 'delay', 'modulation', 'saturation', 'amp', 'pitch', 'stereo', 'channel', 'repair', 'other']
 const CAT_RULES = [
   /* things that carry a kind's word in their name without being of that kind */
@@ -26,13 +28,24 @@ const CAT_RULES = [
 /* what a plug-in says of itself (a vst3's sub categories, an audio unit's tags), where it says anything that tells kinds apart */
 const CAT_SAID = [['reverb', /reverb/], ['delay', /delay/], ['dynamics', /dynamics|compressor|limiter/], ['eq', /\beq\b|equali[sz]er|filter/], ['modulation', /modulation|chorus|flanger|phaser/], ['saturation', /distortion|saturation|exciter/],
   ['pitch', /pitch/], ['stereo', /spatial|imaging|panner|stereo|surround/], ['repair', /restoration/], ['amp', /guitar|amp sim/], ['channel', /channel ?strip|mastering/], ['other', /analy[sz]er|tools|network|generator/]]
-function plugCat (p) {
+function plugCatRead (p) {
   const said = String(p.sub || '').toLowerCase()
   const name = String(p.name || '').toLowerCase().replace(/_/g, ' ').replace(/^(uadx?|uaudio|fabfilter) /, '')      // (a file's name may be written with lines for spaces, and with its maker's name before its own)
     .replace(/chandler limited/, 'chandler').replace(/\(mono\)|\bmono$|\blegacy$/g, '').trim()
   for (const [cat, re] of CAT_RULES) if (re.test(name)) return cat
   for (const [cat, re] of CAT_SAID) if (re.test(said)) return cat
   return 'other'
+}
+/* the kinds he set by hand (settings > plug-ins, plugpage.js), kept in the app's settings by the plug-ins' ids ('plugKind') */
+const PLUG_KIND = new Map()
+const plugCat = p => (p && !p.inst && PLUG_KIND.get(String(p.id))) || plugCatRead(p)
+function plugKindSet (kinds) {
+  PLUG_KIND.clear()
+  for (const [id, k] of Object.entries(kinds && typeof kinds === 'object' ? kinds : {})) if (PLUG_CATS.includes(k)) PLUG_KIND.set(String(id), k)
+  if (typeof S === 'undefined' || !S.picker) return
+  for (const p of S.picker.list || []) delete p.cat                                    // (the list's kinds were kept with it: read again)
+  if (S.picker.open && typeof drawPicker === 'function') drawPicker()
+  if (typeof uiDirty === 'function') uiDirty('dock')
 }
 /* the room's own prints, by the same kinds */
 const PRINT_CAT = { tape: 'saturation', space: 'reverb', delay: 'delay' }
@@ -48,7 +61,8 @@ function plugOutSet (ids) {
 }
 if (typeof window !== 'undefined' && window.__JUCE__ && window.__JUCE__.backend) {
   window.__JUCE__.backend.addEventListener('dawPlugOut', d => { if (!d) return; if (d.again && typeof S !== 'undefined' && S.picker && !S.picker.open) S.picker.list = null; plugOutSet(d.ids) })      // (again: the plug-ins were looked for again, and the room asks the app afresh)
-  addEventListener('load', async () => { if (typeof NAT !== 'undefined' && NAT) { const p = await NAT.call('prefGet'); plugOutSet(p && p.plugOut) } })
+  window.__JUCE__.backend.addEventListener('dawPlugKind', d => { if (d) plugKindSet(d.kinds) })
+  addEventListener('load', async () => { if (typeof NAT !== 'undefined' && NAT) { const p = await NAT.call('prefGet'); plugOutSet(p && p.plugOut); plugKindSet(p && p.plugKind) } })
 }
 /* who made a vst3 that does not say (Source/Engine.h listPlugins): the maker of the audio units whose name its bundle's id
    carries ('com.fabfilter.Micro' → FabFilter), else what its copyright says ('Copyright © 2002-2024 FabFilter') */
@@ -70,4 +84,4 @@ function plugMakers (list) {
   }
   return list
 }
-if (typeof module !== 'undefined') module.exports = { plugCat, PLUG_CATS, PRINT_CAT, plugMakers }
+if (typeof module !== 'undefined') module.exports = { plugCat, plugCatRead, plugKindSet, PLUG_CATS, PRINT_CAT, plugMakers }

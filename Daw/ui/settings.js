@@ -165,12 +165,13 @@ document.getElementById('svg').addEventListener('pointerdown', async e => {
   else if (a === 'listen') { if (NAT) { const r = await NAT.call('inputOn'); V.said = r && r.ok ? '' : low((r && r.error) || 'the input would not open') } V.key = ''; await read() }
   else if (a === 'tone') { if (NAT) NAT.call('settingsTone') }
 })
-addEventListener('pointermove', e => { displayMove(e) })
-addEventListener('pointerup', () => { displayUp() })
+addEventListener('pointermove', e => { displayMove(e); if (V.part === 'plug-ins') plugMove(e) })
+addEventListener('pointerup', () => { displayUp(); plugUp() })
 addEventListener('wheel', e => { if (V.part === 'plug-ins') plugWheel(e) }, { passive: true })
 addEventListener('keydown', e => {
   if (V.part === 'display' && e.metaKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); dUndo(); return }
   if (V.part === 'plug-ins' && e.metaKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); pgUndo(); return }
+  if (e.key === 'Escape' && V.part === 'plug-ins' && (PG.menu || PG.drag)) { PG.menu = null; PG.drag = null; draw(); return }
   if (e.key === 'Escape' && V.part === 'plug-ins' && PG.find) { PG.find = ''; PG.group = null; draw(); return }
   if (e.key === 'Escape' && V.part === 'display' && D.menu) { D.menu = null; draw(); return }
   if (e.key === 'Escape') { if (V.menu) { V.menu = null; draw() } else if (NAT) NAT.call('settingsClose') }

@@ -267,6 +267,18 @@ async function runSelfTest (mode) {
       await there(`pgUndo(); '1'`); await sleep(800)
       res.back = PLUG_OUT.size === 0
       await openPicker(); await sleep(600); res.pickerBack = rows(); closePicker()
+      /* a kind set by hand: the mac's delay called a reverb, from the list of kinds its row opens, as a hand does it */
+      const AD = 'AudioUnit:Effects/aufx,dely,appl'
+      res.kindOpened = await there(`PG.by = 'kind'; PG.group = 'delay'; PG.rs = 0; PG.hover = PG.rows.findIndex(p => p.id === ${JSON.stringify(AD)}); draw(); const el = document.querySelector('[data-a="p-kind"]'); el ? (plugPress(el, {}), JSON.stringify({ kinds: document.querySelectorAll('[data-a="p-pick"]').length })) : '{}'`)      // (the app reads back an object or a list, not a bare number)
+      await sleep(400); await NAT.call('testSettings', { name: 'selftest-plugins-kinds.png' }); await sleep(600)
+      await there(`plugPress(document.querySelector('[data-a="p-pick"][data-v="reverb"]'), {}); '1'`); await sleep(800)
+      const ad = (S.picker.list || []).find(p => p.id === AD)
+      res.kindHeard = PLUG_KIND.get(AD) === 'reverb' && !!ad && plugCat(ad) === 'reverb' && plugCatRead(ad) === 'delay'
+      res.kindInPage = await there(`JSON.stringify({ kinds: PG.kinds, inReverb: PG.list.filter(p => pgKind(p) === 'reverb').some(p => p.id === ${JSON.stringify(AD)}) })`)
+      await there(`PG.group = 'reverb'; PG.hover = -1; draw(); '1'`); await sleep(400); await NAT.call('testSettings', { name: 'selftest-plugins-byhand.png' }); await sleep(600)
+      res.dots = await there(`JSON.stringify({ dots: document.querySelectorAll('[data-a="p-read"]').length })`)
+      await there(`plugPress(document.querySelector('[data-a="p-read"]'), {}); '1'`); await sleep(800)
+      res.kindBack = PLUG_KIND.size === 0 && plugCat(ad) === 'delay'
       await NAT.call('settingsClose')
       return res
     })

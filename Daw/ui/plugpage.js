@@ -4,8 +4,12 @@
    room's lists, and a field over them that finds a plug-in by its name or its maker's; on the right the chosen one's
    plug-ins in two columns, each ticked while it is in the room's lists (the patch's, the wall's, the instruments').
    Pressed, it is left out or taken back in, at once (settingsSet plugOut: kept by the app, and the room told). A song
-   that has one that is left out still opens it. ⌘Z takes the last change back. */
-const PG = { list: null, out: new Set(), by: 'kind', group: null, find: '', gs: 0, rs: 0, hist: [], looking: false, wheel: 0, gMax: 0, rMax: 0, rows: [] }
+   that has one that is left out still opens it. ⌘Z takes the last change back.
+   A plug-in's kind can be set by hand (design/plugins draft 2, his OK 2026-10-17: "이렇게 가자"): the kind of a row under
+   the hand, pressed, opens the list of kinds (the one the room reads from the name is said there); or the row is dragged
+   onto a kind down the left. A kind set by hand has a dot before its row; pressed, the kind is the room's reading again.
+   Kept by the app (settingsSet plugKind), and every list of the room that is laid out by kind follows it (cats.js). */
+const PG = { list: null, out: new Set(), kinds: {}, by: 'kind', group: null, find: '', gs: 0, rs: 0, hist: [], looking: false, wheel: 0, gMax: 0, rMax: 0, rows: [], lines: [], hover: -1, menu: null, drag: null }
 const PTX = 28, PTW = 196, PX0 = PTX + PTW + 36, PG_PER = 25, PG_GROUPS = 25
 
 const pgKind = p => p.inst ? 'instruments' : plugCat(p)
@@ -13,6 +17,7 @@ const pgMaker = p => p.maker || 'others'
 const pgIn = p => PG.by === 'maker' ? pgMaker(p) : pgKind(p)
 const pgWord = g => PG.by === 'maker' && g !== 'others' ? asGiven(g.toLowerCase()) : g
 const pgShown = p => !PG.out.has(p.id)
+const pgByHand = p => !p.inst && PG.kinds[p.id] != null
 /* a tick box: filled with a tick while the plug-in is in the room's lists */
 const pgTick = (x, y, on) => on ? R(x, y, 12, 12, { rx: 2, fill: INK }) + P(`M${x + 3} ${y + 6.2}L${x + 5.2} ${y + 8.4}L${x + 9.2} ${y + 3.8}`, { stroke: K1, sw: 1.4, cap: 'round' }) : R(x + .5, y + .5, 11, 11, { rx: 2, stroke: INK, sa: .32 })
 /* the plug-ins the find field leaves (all of them when nothing is typed) */
@@ -45,12 +50,13 @@ function plugBody () {
   const pool = pgPool(), finding = !!PG.find.trim(), groups = pgGroups(pool)
   if (PG.group != null && !groups.includes(PG.group)) PG.group = finding ? null : groups[0]
   if (PG.group == null && !finding) PG.group = groups[0]
-  const lines = (finding ? [null] : []).concat(groups)                // (while something is typed: everything found, first)
+  const lines = PG.lines = (finding ? [null] : []).concat(groups)    // (while something is typed: everything found, first)
   PG.gMax = Math.max(0, lines.length - PG_GROUPS); PG.gs = Math.max(0, Math.min(PG.gs, PG.gMax))
   let y = 130
   for (const grp of lines.slice(PG.gs, PG.gs + PG_GROUPS)) {
     const its = grp == null ? pool : pool.filter(p => pgIn(p) === grp), n = its.length, o = its.filter(p => !pgShown(p)).length, on = grp === PG.group
     if (on) b += R(PTX, y, PTW, 20, { rx: 2, fill: INK })
+    if (PG.drag && PG.drag.to === grp) b += R(PTX + .5, y + .5, PTW - 1, 19, { rx: 2, stroke: INK, sa: .7 }) + R(PTX, y, PTW, 20, { rx: 2, fill: INK, fa: .08 })      // (where a row carried would go)
     b += T(PTX + 10, y + 13.6, fit(grp == null ? 'everything found' : pgWord(grp), PTW - 70, 10, on ? 500 : 400), { size: 10, w: on ? 500 : 400, c: on ? K1 : INK, a: on ? 1 : .72 })
     b += T(PTX + PTW - 10, y + 13.6, o ? `${n - o} of ${n}` : String(n), { size: 9.5, c: on ? K1 : INK, a: on ? .7 : .38, anchor: 'end' })
     b += hit(PTX, y, PTW, 20, 'p-group', ` data-v="${grp == null ? '' : esc(grp).replace(/"/g, '&quot;')}"`)
@@ -76,35 +82,89 @@ function plugBody () {
     const r = lineOf(i) - PG.rs
     if (r < 0 || r >= PG_PER) return
     const cx = PX0 + (i % (PG_PER * 2) >= PG_PER ? colW + 24 : 0), ry = 108 + r * 22, on = pgShown(p)
+    const near = !PG.drag && (PG.menu ? PG.menu.n === i : PG.hover === i), kindable = near && !p.inst
+    if (near) b += R(cx - 6, ry - 1, colW + 12, 22, { rx: 2, fill: INK, fa: .06 })
+    if (pgByHand(p)) b += Cc(cx - 10, ry + 9, 2.5, { fill: INK, fa: .8 })
     b += pgTick(cx, ry + 3, on)
     const nm = fit(asGiven(p.name.replace(/^UAD /, '')), colW - 120, 10.5), nw = Math.min(colW - 120, tw(nm, 10.5))
     b += T(cx + 22, ry + 13, nm, { size: 10.5, a: on ? .9 : .36 })
-    const side = PG.by === 'maker' ? p.kind : p.maker ? asGiven(p.maker.toLowerCase()) : ''
-    if (side) b += T(cx + 22 + nw + 8, ry + 13, fit(side, colW - 22 - nw - 8 - 34, 9, 400, PG.by !== 'maker'), { size: 9, a: on ? .38 : .2, it: PG.by !== 'maker' })
+    const side = PG.by === 'maker' ? pgKind(p) : p.maker ? asGiven(p.maker.toLowerCase()) : ''
+    if (side && !(kindable && PG.by === 'maker')) b += T(cx + 22 + nw + 8, ry + 13, fit(side, colW - 22 - nw - 8 - 34, 9, 400, PG.by !== 'maker'), { size: 9, a: on ? .38 : .2, it: PG.by !== 'maker' })
     b += T(cx + colW, ry + 13, p.fmt || '', { size: 8.5, a: on ? .32 : .18, anchor: 'end' })
     b += hit(cx - 4, ry, colW + 8, 20, 'p-tick', ` data-n="${i}"`)
+    if (pgByHand(p)) b += hit(cx - 16, ry + 2, 12, 16, 'p-read', ` data-n="${i}"`)
+    if (kindable) {                                                     // the kind of the row under the hand: pressed, the list of kinds
+      const k = pgKind(p), mw = menuKey(0, 0, k, { h: 18, size: 9.5 })[1], kx = PG.by === 'maker' ? cx + 22 + nw + 8 : cx + colW - 34 - mw
+      if (PG.by !== 'maker') b += R(kx - 6, ry, mw + 12, 20, { fill: K1 }) + R(kx - 6, ry, mw + 12, 20, { fill: INK, fa: .06 })
+      b += menuKey(kx, ry + 1, k, { h: 18, size: 9.5, a: 'p-kind', more: ` data-n="${i}"` })[0]
+    }
+    if (PG.drag && PG.drag.moved && PG.drag.n === i) b += R(cx - 6, ry - 1, colW + 12, 22, { rx: 2, fill: K1, fa: .62 })      // (where it was: faint while it is carried)
   })
   const below = rows.filter((p, i) => lineOf(i) - PG.rs >= PG_PER).length
   if (below) b += T(PX0, DISP_H - 14, `and ${below} more, a scroll away`, { size: 9.5, a: .38 })
+  /* a row carried: under the hand, on its way to a kind */
+  const d = PG.drag
+  if (d && d.moved && rows[d.n]) {
+    const nm = asGiven(rows[d.n].name.replace(/^UAD /, '')), gx = d.x + 12, gy = d.y + 14, gw = tw(nm, 10.5) + 40
+    b += R(gx + 2, gy + 3, gw, 22, { rx: 3, fill: '#000', fa: .35 }) + R(gx, gy, gw, 22, { rx: 3, fill: K2 }) + R(gx + .5, gy + .5, gw - 1, 21, { rx: 3, stroke: INK, sa: .3 })
+    b += pgTick(gx + 8, gy + 5, pgShown(rows[d.n])) + T(gx + 28, gy + 15, nm, { size: 10.5, a: .92 })
+  }
+  /* the list of kinds, under a row's kind: the one it is filled, the one the room reads from its name said */
+  const m = PG.menu, mp = m && rows[m.n]
+  if (mp) {
+    const rowH = 20, w = 168, h = PLUG_CATS.length * rowH + 12, now = pgKind(mp), read = plugCatRead(mp), x = m.right - w
+    let y = m.bottom + 4
+    if (y + h > DISP_H - 6) y = Math.max(6, m.top - h - 4)
+    b += hit(-SIDE, 0, DISP_W, DISP_H, 'p-close', '', 'default') + R(x, y, w, h, { rx: 3, fill: K2 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 3, stroke: INK, sa: .28 })
+    PLUG_CATS.forEach((t, i) => {
+      const on = t === now, ky = y + 6 + i * rowH
+      if (on) b += R(x + 5, ky, w - 10, rowH, { rx: 2, fill: INK })
+      b += T(x + 13, ky + 13.6, t, { size: 10.5, w: on ? 500 : 400, c: on ? K1 : INK, a: on ? 1 : .84 })
+      if (t === read) b += T(x + w - 13, ky + 13.6, 'as the room reads it', { size: 9, c: on ? K1 : INK, a: on ? .55 : .4, anchor: 'end' })
+      b += hit(x + 5, ky, w - 10, rowH, 'p-pick', ` data-v="${t}"`)
+    })
+  }
   return b
 }
 
 /* ── a change: kept by the app and told to the room at once ── */
 function pgSend (again) { if (NAT) NAT.call('settingsSet', { what: 'plugOut', value: [...PG.out], again: !!again }) }
+function pgSendKinds () { plugKindSet(PG.kinds); if (NAT) NAT.call('settingsSet', { what: 'plugKind', value: PG.kinds }) }
+const pgKeep = () => { PG.hist.push({ out: [...PG.out], kinds: Object.assign({}, PG.kinds) }); if (PG.hist.length > 200) PG.hist.shift() }
 function pgSet (ps, out) {
   const ids = ps.map(p => p.id).filter(id => PG.out.has(id) !== out)
   if (!ids.length) return
-  PG.hist.push([...PG.out]); if (PG.hist.length > 200) PG.hist.shift()
+  pgKeep()
   for (const id of ids) out ? PG.out.add(id) : PG.out.delete(id)
   pgSend(); draw()
 }
-function pgUndo () { if (!PG.hist.length) return; PG.out = new Set(PG.hist.pop()); pgSend(); draw() }
+/* a plug-in's kind: set by hand, or (the room's own reading) given back */
+function pgKindTo (p, k) {
+  if (!p || p.inst || !PLUG_CATS.includes(k)) return
+  const next = Object.assign({}, PG.kinds)
+  if (k === plugCatRead(p)) delete next[p.id]; else next[p.id] = k
+  if (JSON.stringify(next) === JSON.stringify(PG.kinds)) return
+  pgKeep(); PG.kinds = next; pgSendKinds(); draw()
+}
+function pgUndo () {
+  const h = PG.hist.pop()
+  if (!h) return
+  const kinds = JSON.stringify(h.kinds) !== JSON.stringify(PG.kinds), out = h.out.length !== PG.out.size || h.out.some(id => !PG.out.has(id))
+  PG.out = new Set(h.out); PG.kinds = h.kinds
+  if (out) pgSend(); if (kinds) pgSendKinds()
+  draw()
+}
 
-async function plugPress (el) {
+async function plugPress (el, e) {
   const a = el.dataset.a, v = el.dataset.v
+  if (a === 'p-close') { PG.menu = null; draw(); return }
+  if (a === 'p-pick') { const p = PG.menu && PG.rows[PG.menu.n]; PG.menu = null; if (p) pgKindTo(p, v); draw(); return }
+  PG.menu = null
   if (a === 'p-by') { if (PG.by !== v) { PG.by = v; PG.group = null; PG.gs = 0; PG.rs = 0 } draw() }
   else if (a === 'p-group') { PG.group = v === '' ? null : v; PG.rs = 0; draw() }
-  else if (a === 'p-tick') { const p = PG.rows[+el.dataset.n]; if (p) pgSet([p], pgShown(p)) }
+  else if (a === 'p-tick') PG.drag = { n: +el.dataset.n, x0: e.clientX, y0: e.clientY, x: e.clientX - SIDE, y: e.clientY, moved: false, to: undefined }      // (ticked as the press ends, unless it was carried off)
+  else if (a === 'p-kind') { const r = el.getBoundingClientRect(); PG.menu = { n: +el.dataset.n, right: r.right - SIDE, top: r.top, bottom: r.bottom }; draw() }
+  else if (a === 'p-read') { const p = PG.rows[+el.dataset.n]; if (p) pgKindTo(p, plugCatRead(p)) }
   else if (a === 'p-none') pgSet(PG.rows, true)
   else if (a === 'p-all') pgSet(PG.rows, false)
   else if (a === 'p-back') pgSet(PG.list.filter(p => !pgShown(p)), false)
@@ -114,6 +174,29 @@ async function plugPress (el) {
     dType(r.left + 1, r.top + 1, PTW - 2, PG.find, t => { PG.find = t }, { live: t => { PG.find = t; PG.group = null; PG.gs = 0; PG.rs = 0; draw() }, bare: true })
     draw()
   }
+}
+/* the hand over the rows: the row under it shows its kind; a row pressed and moved is carried, and a kind down the left
+   (by kind only, and an effect only) takes it */
+function plugMove (e) {
+  const d = PG.drag
+  if (d) {
+    if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return
+    d.moved = true; d.x = e.clientX - SIDE; d.y = e.clientY
+    const top = PG.y0 || 130, p = PG.rows[d.n], k = Math.floor((d.y - top) / 21), g = d.x >= PTX && d.x <= PTX + PTW && d.y >= top && k < PG_GROUPS && (d.y - top) % 21 < 20 ? PG.lines[PG.gs + k] : undefined      // (y0: where the kinds begin, when something stands above them)
+    d.to = PG.by !== 'maker' && p && !p.inst && PLUG_CATS.includes(g) && g !== pgKind(p) ? g : undefined
+    draw(); return
+  }
+  if (PG.menu || !PG.list || PG.away) return                         // (away: the right side shows something else)
+  const el = e.target && e.target.closest ? e.target.closest('[data-n]') : null, n = el ? +el.dataset.n : -1
+  if (n !== PG.hover) { PG.hover = n; draw() }
+}
+function plugUp () {
+  const d = PG.drag
+  if (!d) return
+  PG.drag = null
+  const p = PG.rows[d.n]
+  if (!d.moved) { if (p) pgSet([p], pgShown(p)) } else if (p && d.to) pgKindTo(p, d.to)
+  draw()
 }
 function plugWheel (e) {
   if (!PG.list) return
@@ -134,11 +217,10 @@ async function plugRead (again) {
   if (NAT) {
     const [l, p] = await Promise.all([NAT.call('plugins'), PG.list ? null : NAT.call('prefGet')])
     list = Array.isArray(l) ? l : []
-    if (p) PG.out = new Set((Array.isArray(p.plugOut) ? p.plugOut : []).map(String))
-  } else { list = (window.PLUG_STAND_IN || []).map(p => Object.assign({}, p)); if (!PG.list) PG.out = new Set(window.PLUG_STAND_OUT || []) }      // (a browser: the stand-in the page was handed)
+    if (p) { PG.out = new Set((Array.isArray(p.plugOut) ? p.plugOut : []).map(String)); PG.kinds = p.plugKind && typeof p.plugKind === 'object' ? Object.assign({}, p.plugKind) : {}; plugKindSet(PG.kinds) }
+  } else { list = (window.PLUG_STAND_IN || []).map(p => Object.assign({}, p)); if (!PG.list) { PG.out = new Set(window.PLUG_STAND_OUT || []); PG.kinds = Object.assign({}, window.PLUG_STAND_KINDS || {}); plugKindSet(PG.kinds) } }      // (a browser: the stand-in the page was handed)
   for (const p of list) p.id = String(p.id || p.name)
   PG.list = plugMakers(list).sort((a, b) => a.name.localeCompare(b.name))
-  for (const p of PG.list) p.kind = pgKind(p)
   PG.looking = false
   if (again) pgSend(true)
   draw()

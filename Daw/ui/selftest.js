@@ -530,6 +530,25 @@ async function runSelfTest (mode) {
     toggleFlex()
     return { transients: found, pins, moved, wkey: r.wkey, grid: +(SPB() / 16).toFixed(4), firstPins: (r.flex || []).slice(0, 6).map(m => [+m.s.toFixed(3), +m.d.toFixed(3)]) }
   })
+  /* a project as it comes back from another Mac (selftest.sh lays two down): its folder renamed on the way — its sound is
+     found all the same, and the list knows it by where it lies; and one whose sound was not copied — not found, said so */
+  await step('movedProject', async () => {
+    const list = await NAT.call('projList'), moved = (list || []).find(p => p.name === 'Moved Song 2'), lost = (list || []).find(p => p.name === 'Lost Song')
+    const a = moved ? await NAT.call('audioLoad', { project: moved.key, file: 'tone.wav' }) : null, z = lost ? await NAT.call('audioLoad', { project: lost.key, file: 'gone.wav' }) : null
+    return { listed: !!moved && !!lost, movedKey: moved && moved.key, found: !!(a && a.ok), sec: a && +(+a.sec).toFixed(3), lostMissing: !!(z && !z.ok && z.missing), ok: !!(a && a.ok && z && z.missing) }
+  })
+  /* rubato: the same region (its pins as quantize left them) rendered by each way of stretching — what comes back is
+     there, not silent, as long as the phase vocoder's, and the hits it was cut at are the ones its track shows */
+  await step('rubatoModes', async () => {
+    const t = track('hats'), r = t.regs.find(x => x.file)
+    if (!r || !(r.flex || []).length) return { skipped: true }
+    const was = t.stretch, out = {}
+    const look = () => { const pk = r.wpeaks || []; let top = 0; for (const v of pk) top = Math.max(top, Math.abs(v)); return { ok: !!r.wkey, len: pk.length, top: +top.toFixed(3), cuts: cutsOf(r).length, sig: (r.wsig || '').split('|').slice(5, 6).join('') } }
+    for (const m of ['chords', 'cut', 'beat', 'voice']) { if (m === 'chords') delete t.stretch; else t.stretch = m; await rewarp([r]); out[m] = look() }
+    if (was) t.stretch = was; else delete t.stretch
+    await rewarp([r])
+    return out
+  })
 
   /* out: stems as flac, the mix as wav at another rate, the mix as m4a; and a bounce in place */
   const hoPlanWith = set => { Object.assign(S.ho, { skip: [] }, set); return hoPlan().cands }
@@ -1749,7 +1768,9 @@ async function runSelfTest (mode) {
     const t = newInstTrack('synth', 'sub bass'); await natSession(); await sleep(200)            // (a plain wave: its pitch can be read off the bounce)
     const r = notesOn(t, 44, 45, []); await natSession()
     S.selR = [r.id]; leadTrack(S.tracks.indexOf(t)); flush()
-    if (!rollOn()) keyDown('KeyP'); await sleep(80); setView(true); relayout(); dirtyAll(); flush(); await sleep(120)
+    if (!rollOn()) keyDown('KeyP'); await sleep(80)
+    for (let k = 0; k < 40 && ROLL.keptSig == null; k++) await sleep(50)                     // (the page's own settings are read back once it is first up: then the lane is closed)
+    const lane0 = ROLL.lane; ROLL.lane = false; setView(true); relayout(); dirtyAll(); flush(); await sleep(120)      // (the lane under the paper, left open by hand, would leave the key pressed below it)
     res.up = { on: rollOn(), focus: S.focus, shows: ROLL.rid === r.id, keys: document.querySelectorAll('[data-a="np"][data-k="key"]').length > 10 }
     const g = ROLL.g, at = (bar, key) => [g.x0 + (bar - ROLL.view.a) * g.pxb + 2, g.top + (g.hi - key + .5) * g.rowH]
     { const [x, y] = at(43.5, 69); press(x, y); await sleep(60); press(x, y); await sleep(200) }
@@ -1780,6 +1801,7 @@ async function runSelfTest (mode) {
     r.mute = false; S.selR = [r.id]; leadTrack(S.tracks.indexOf(t)); S.focus = 'notes'; ROLL.on = 'paper'; ROLL.sel = new Set(r.notes.map(q => q.id)); flush()
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', code: 'Backspace', bubbles: true, cancelable: true })); await sleep(120); await natSession()
     res.takenAway = { notes: r.notes.length, regionStill: !!regOf(r.id)[0], heard: await only(t, async () => { await playFrom(43.4); return listen(400) }) }; halt(false)
+    ROLL.lane = lane0
     if (rollOn()) togglePanel('notes'); if (panel.on) togglePanel(panel.tab); setView(true); relayout(); dirtyAll(); flush()
     return res
   })

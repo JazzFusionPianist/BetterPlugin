@@ -12,9 +12,9 @@ async function needInput () {
 async function toggleArm (i) {
   const t = S.tracks[i]
   if (!t || t.kind !== 'audio' || t.theirs || S.rec) return
-  if (!t.arm && groupOf(i).some(x => x.kind === 'audio' && !x.theirs && !x.inst) && !(await needInput())) return      // (tracks of notes need no input opened: the keys are always listened to)
+  if (!t.arm && groupOf(i, 'record').some(x => x.kind === 'audio' && !x.theirs && !x.inst) && !(await needInput())) return      // (tracks of notes need no input opened: the keys are always listened to)
   const to = !t.arm
-  for (const x of groupOf(i)) if (x.kind === 'audio' && !x.theirs) x.arm = to
+  for (const x of groupOf(i, 'record')) if (x.kind === 'audio' && !x.theirs) x.arm = to
   uiDirty('head', 'dock')
 }
 async function toggleMon (i) {
@@ -22,7 +22,7 @@ async function toggleMon (i) {
   if (!t || t.kind !== 'audio' || t.inst) return
   if (!t.mon && !(await needInput())) return
   const to = !t.mon
-  for (const x of groupOf(i)) if (x.kind === 'audio' && !x.inst) { x.mon = to; pushTrack(x) }
+  for (const x of groupOf(i, 'record')) if (x.kind === 'audio' && !x.inst) { x.mon = to; pushTrack(x) }
   uiDirty('head', 'dock')
 }
 function toggleClick () { S.click = !S.click; pushClick(); uiDirty('top') }

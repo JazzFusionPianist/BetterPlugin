@@ -49,7 +49,7 @@ await rclick(await head('kick')); await pick('alternatives, 2'); await pick('del
 ok('delete the others: only what is on the lane is left, and the head says nothing again', same(await alts('kick'), ['1', []]) && !(await headWords('kick')).some(w => /^alt/.test(w)))
 await undo()
 // with an edit group, the group's tracks go along
-{ const p = await head('kick'), q = await head('snare'); await b.click(p.x, p.y); await b.click(q.x, q.y, 8); await key('g', 'KeyG', 71, 6) }
+{ const p = await head('kick'), q = await head('snare'); await b.click(p.x, p.y); await b.click(q.x, q.y, 8); await key('g', 'KeyG', 71, 6); await key('Escape', 'Escape', 27); await key('Escape', 'Escape', 27) }      // (the name it was given kept, its card closed)
 await rclick(await head('snare')); await pick('alternatives'); await pick('new, empty')
 ok('a new one on a track of an edit group: on the group’s other tracks too', same(await regs('snare'), []) && same(await regs('kick'), []) && same(await alts('snare'), ['3', [['1', 4]]]) && same(await alts('kick'), ['3', [['2', 1], ['1', 4]]]), [await alts('snare'), await alts('kick')])
 await rclick(await head('snare')); await pick('alternatives, 2'); await pick('alternative 1')

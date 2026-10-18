@@ -56,6 +56,21 @@ A="$(copy a)"
 rm -f "$LOGS/selftest.json" "$LOGS/selftest-second.json" "$LOGS"/selftest-twice-*.json "$LOGS"/selftest-stuck-*.json "$LOGS"/selftest-*.png
 ROOT="$HOME/Library/Caches/Slur DAW self-test"
 rm -rf "$ROOT" && mkdir -p "$ROOT/Projects"
+# two projects as they come back from another Mac (ui/missing.js, the movedProject step): one whose folder was renamed on the
+# way ("Moved Song 2", holding Moved Song.sls beside its Audio Files), and one whose sounds were not copied with it
+python3 - "$ROOT/Projects" <<'PY'
+import json, math, os, struct, sys, wave
+root = sys.argv[1]
+song = lambda name, f: {"v": 3, "name": name, "tempo": 120, "meter": [4, 4], "end": 16, "scenes": [], "tracks": [{"id": 1, "name": "tone", "kind": "audio", "vol": 0, "pan": 0, "sends": [], "autos": {},
+  "patch": {"A": {"tape": 0, "space": 0, "delay": 0, "share": 62}, "B": {"tape": 0, "space": 0, "delay": 0, "share": 62}, "x": 0},
+  "regs": [{"id": 1, "a": 1, "b": 3, "file": f, "sec": 1, "srcBars": .5, "rate": 1, "loop": False, "off": 0}]}]}
+for home, name, f, sound in (("Moved Song 2", "Moved Song", "tone.wav", True), ("Lost Song", "Lost Song", "gone.wav", False)):
+    os.makedirs(os.path.join(root, home, name + ".sls"), exist_ok=True); os.makedirs(os.path.join(root, home, "Audio Files"), exist_ok=True)
+    json.dump(song(name, f), open(os.path.join(root, home, name + ".sls", "project.json"), "w"))
+    if sound:
+        w = wave.open(os.path.join(root, home, "Audio Files", f), "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(44100)
+        w.writeframes(b"".join(struct.pack("<h", int(12000 * math.sin(2 * math.pi * 220 * i / 44100))) for i in range(44100))); w.close()
+PY
 if [ -d test/projects ]; then for p in test/projects/*.sls test/projects/*.slur; do [ -d "$p" ] && ditto "$p" "$ROOT/Projects/$(basename "$p")"; done; fi
 open -g -n "$A" --args "--selftest${MODE:+=$MODE}" ${SLUR_URL:+"--slur-url=$SLUR_URL"} ${SLUR_OWN_AU:+"--own-au"} ${SLUR_AU_APART:+"--au-apart"}
 # while it runs: a second copy, opened from somewhere else, must see the first and go without doing anything

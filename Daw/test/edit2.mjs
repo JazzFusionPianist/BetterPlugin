@@ -154,8 +154,8 @@ ok('f2: slip', await ev(`return S.mode === 'slip' && !S.snap`))
 { const p = await at('hats', 15, .5), q = await at('hats', 15, .5, 7); await b.dragTo(p.x, p.y, q.x, q.y, 8); await b.sleep(60) }
 ok('slip: it stays exactly where it is let go', near((await regs('hats'))[0][0], 13 + await px(7), 1e-4), await regs('hats'))
 await undo()
-await key('g', 'KeyG', 71, 4); ok('command g from slip: back to the mode before it', await ev(`return S.mode === 'grid'`))
-await key('g', 'KeyG', 71, 4); ok('and again: slip', await ev(`return S.mode === 'slip'`))
+await key('F2', 'F2', 113); ok('f2 from slip: back to the mode before it', await ev(`return S.mode === 'grid'`))
+await key('F2', 'F2', 113); ok('and again: slip', await ev(`return S.mode === 'slip'`))
 // the menu
 { const p = await ev(`const el = document.querySelector('[data-a="modemenu"]').getBoundingClientRect(); return { x: el.left + el.width / 2, y: el.top + el.height / 2 }`); await b.click(p.x, p.y); await b.sleep(60)
   ok('the mode key opens the five of them', same(await ev(`return S.menu && S.menu.items.map(i => i.t)`), ['smart', 'grid', 'slip', 'shuffle', 'spot']))

@@ -14,7 +14,7 @@ const chosenIds = () => { const ids = new Set(S.selT.filter(id => byId(id))), le
 const chosen = () => { const ids = chosenIds(); return S.tracks.filter(t => ids.has(t.id)) }
 const isChosen = i => i === S.sel || (S.selT.length > 0 && !!S.tracks[i] && S.selT.includes(S.tracks[i].id))
 /* the tracks a hand on one track's control moves: all the chosen ones when it is one of several, else that track alone */
-const groupOf = i => { const t = S.tracks[i], all = chosen(); return t && all.length > 1 && all.includes(t) ? all : [t].filter(Boolean) }
+const groupOf = (i, what) => { const t = S.tracks[i], all = chosen(), out = t && all.length > 1 && all.includes(t) ? all : [t].filter(Boolean); return what && t && typeof grpShares === 'function' && grpShares(t, what) ? [...new Set(out.concat(groupMates(t, what)))] : out }      // (what: a thing its group shares goes to the group's tracks too — groups.js)
 /* one track made the leading one, alone, with nothing else said about what is chosen */
 function leadTrack (i) { S.sel = clamp(i, 0, Math.max(0, S.tracks.length - 1)); S.selT = []; S.selA = S.tracks[S.sel] ? S.tracks[S.sel].id : null }
 /* a track chosen by its head or its strip. how: '' — it alone; 'range' (shift) — all from the one last pressed to this one;

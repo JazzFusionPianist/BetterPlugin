@@ -24,7 +24,7 @@ const set = await ev(`if (typeof START !== 'undefined') START.on = false
   const r = document.getElementById('board').getBoundingClientRect()
   return { iA, iB: S.tracks.indexOf(tB), A: tA.regs[0].id, B: tB.regs[0].id, spb, x2: r.left + bx(2 + .03 / spb), x0: r.left, y: r.top + rowY(iA) + rowH(iA) / 2 }`)
 ok('the sensitivity chooses what is shown: a sure hit, a note sure enough — not a faint stir', await ev(`const t = TRANS.get('file:clicks').map(s => +(s / SPB()).toFixed(3)); return t.length === 5 && t.includes(2.5) && !t.includes(1.5)`), await ev(`return TRANS.get('file:clicks')`))
-ok('…and more when it is turned up, without asking the app again', await ev(`TRANS_SENS.hit = .02; heardTransients('file:clicks', TRANS_ALL.get('file:clicks')); const n = TRANS.get('file:clicks').length; TRANS_SENS.hit = .12; heardTransients('file:clicks', TRANS_ALL.get('file:clicks')); return n === 6`))
+ok('…and more when its track turns it up, without asking the app again', await ev(`const [r, t] = regOf(${set.A}); t.hs = 98; const n = transOf(r).length, other = transOf(regOf(${set.B})[0]).length; delete t.hs; return n === 6 && other === 5 && transOf(r).length === 5`))
 /* where the click of bar 2 is drawn in a region: the pixel of the tallest point of its outline between bars 1.5 and 2.6 */
 const clickAt = id => ev(`const [r, t] = regOf(${id}), i = S.tracks.indexOf(t), w = bx(r.b) - bx(r.a), steps = Math.round(w), pk = bufPeaks(r, steps, 0, 1)
   let best = -1, bv = 0; for (let k = Math.round(steps * .5 / 4); k < Math.round(steps * 1.6 / 4); k++) if (pk[k] > bv) { bv = pk[k]; best = k }
@@ -51,6 +51,27 @@ ok('undone: neither has pins', await ev(`return !(regOf(${set.A})[0].flex || [])
 /* a press on the click that does not move leaves both as they were */
 await mouse('mouseMoved', set.x2, set.y, { buttons: 0 }); await mouse('mousePressed', set.x2, set.y); await mouse('mouseReleased', set.x2, set.y); await b.sleep(100)
 ok('a press that moved nothing leaves no pin, on either', await ev(`return !(regOf(${set.A})[0].flex || []).length && !(regOf(${set.B})[0].flex || []).length`))
+/* the bar, with the region chosen */
+const bar = () => ev(`S.selR = [${set.A}]; S.sel = ${set.iA}; S.focus = 'lanes'; dirtyAll(); flush(); const g = document.getElementById('g-info') || document.body; return { words: [...document.querySelectorAll('text')].map(q => q.textContent).filter(w => ['rubato', 'stretch', 'hits', 'notes', 'chords', 'cut', 'quantize', '70', '60'].includes(w)), tool: S.tool }`)
+const b0 = await bar()
+ok('in rubato, the cell and the tool say rubato; the bar says how the track is stretched, its two sensitivities, quantize', ['rubato', 'stretch', 'chords', 'hits', '70', 'notes', '60', 'quantize'].every(w => b0.words.includes(w)) && b0.words.filter(w => w === 'rubato').length >= 2, b0)
+const at = sel => ev(`const el = document.querySelector('${sel}'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, l: r.x, w: r.width }`)
+const click = async q => { await mouse('mouseMoved', q.x, q.y, { buttons: 0 }); await mouse('mousePressed', q.x, q.y); await mouse('mouseReleased', q.x, q.y); await b.sleep(120) }
+await click(await at('[data-a="rstretch"]'))
+const items = await ev(`return S.menu ? S.menu.items.map(i => i.t.split(' — ')[0]) : null`)
+ok('its menu: chords, voice, cut, beat', JSON.stringify(items) === JSON.stringify(['chords', 'voice', 'cut', 'beat']), items)
+await ev(`const k = S.menu.items.findIndex(i => i.v === 'cut'); S.menu.pick(S.menu.items[k]); S.menu = null; flush()`)
+ok('cut chosen: the track and its edit group are stretched by cutting', await ev(`return regOf(${set.A})[1].stretch === 'cut' && regOf(${set.B})[1].stretch === 'cut' && stretchOf(regOf(${set.A})[1]) === 'cut'`))
+await ev(`undoEdit(); flush()`)
+ok('undone: chords again, on both', await ev(`return stretchOf(regOf(${set.A})[1]) === 'chords' && stretchOf(regOf(${set.B})[1]) === 'chords'`))
+await bar()
+{ const q = await at('[data-a="rsens"][data-k="0"]')
+  await mouse('mouseMoved', q.l + 8, q.y, { buttons: 0 }); await mouse('mousePressed', q.l + 8, q.y); for (let k = 1; k <= 5; k++) await mouse('mouseMoved', q.l + 8 + (q.w + 20) * k / 5, q.y); await mouse('mouseReleased', q.l + q.w + 28, q.y); await b.sleep(120) }
+ok('the hits rail pulled to its end: 100, and the faint stir shows', await ev(`const [r, t] = regOf(${set.A}); return t.hs === 100 && transOf(r).length === 6`), await ev(`return regOf(${set.A})[1].hs`))
+await ev(`undoEdit(); flush()`)
+ok('undone: as at first', await ev(`return regOf(${set.A})[1].hs === undefined && transOf(regOf(${set.A})[0]).length === 5`))
+ok('a note is drawn dotted, a hit as a line', await ev(`const html = LANES.rows.get(S.tracks[${set.iA}].id).el.innerHTML; return html.includes('stroke-dasharray="2.5 2"')`))
+ok('a track keeps how it is stretched and its sensitivities in the song', await ev(`const t = regOf(${set.A})[1]; t.stretch = 'beat'; t.hs = 40; t.ns = 80; const s = serialize(), j = typeof s === 'string' ? s : JSON.stringify(s); delete t.stretch; delete t.hs; delete t.ns; return /"stretch":"beat"/.test(j) && /"hs":40/.test(j) && /"ns":80/.test(j)`))
 { const errs = await ev(`return window.__errs || []`); ok('nothing went wrong on the page', !errs.length && !b.errors.length, [errs, b.errors]) }
 await b.close()
 console.log(out.join('\n'))

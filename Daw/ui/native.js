@@ -30,7 +30,7 @@ if (NAT) {
     const mine = ++telling
     const outT = typeof wallOutTrack === 'function' ? wallOutTrack() : null               // (wall.js: the stereo out, while something stands on its wall — a bus of the engine's that all the others play into)
     const tracks = S.tracks.concat(outT ? [outT] : []).map(t => {
-      const wired = { kind: t.kind === 'audio' ? 0 : 1, out: destId(t) || (outT && t !== outT ? outT.id : 0), autos: autoMsg(t), regs: t.kind === 'audio' ? t.regs.filter(r => !r.mute && !r.notes && (!only || only(r))).map(regMsg) : [] }
+      const wired = { kind: t.kind === 'audio' ? 0 : 1, out: destId(t) || (outT && t !== outT ? outT.id : 0), autos: autoMsg(t), regs: t.kind === 'audio' ? t.regs.filter(r => !r.mute && !r.notes && !r.missing && (!only || only(r))).map(regMsg) : [] }
       Object.assign(wired, noteMsg(t, only))                                           // a track of notes: what it plays, as it sounds
       const text = JSON.stringify(wired) + '|' + (t.sends || []).map(s => s.to).join()
       if (!only && t._told === text) return Object.assign(trackMsg(t), { same: 1, ver: t._ver })

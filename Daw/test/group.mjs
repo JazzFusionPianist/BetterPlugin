@@ -21,8 +21,9 @@ await ev(`S.rh = 40; setZoom(24, 20); __daw.redraw()`)
 { const p = await head('kick'), q = await head('snare'); await b.click(p.x, p.y); await b.click(q.x, q.y, 8); await b.sleep(60) }
 ok('two tracks chosen', await ev(`return chosen().map(t => t.name).join()`) === 'kick,snare')
 await key('g', 'KeyG', 71, 6)
+await key('Escape', 'Escape', 27); await key('Escape', 'Escape', 27)                                    // (the name it was given is kept, the card closed — groups.js)
 ok('control command g: they are a group, with a letter', await ev(`return S.tracks.find(t => t.name === 'kick').grp === 'a' && S.tracks.find(t => t.name === 'snare').grp === 'a' && !S.tracks.find(t => t.name === 'hats').grp`))
-ok('the letter is said after each name on the track head', await ev(`const i = S.tracks.findIndex(t => t.name === 'kick'); return [...document.querySelectorAll('#hd-' + i + ' text')].map(x => x.textContent).includes('a') && ![...document.querySelectorAll('#hd-' + S.tracks.findIndex(t => t.name === 'hats') + ' text')].map(x => x.textContent).includes('a')`))
+ok('its name is said after each name on the track head', await ev(`const i = S.tracks.findIndex(t => t.name === 'kick'), j = S.tracks.findIndex(t => t.name === 'hats'); return [...document.querySelectorAll('#hd-' + i + ' text')].map(x => x.textContent).includes(grpMeta('a').name) && ![...document.querySelectorAll('#hd-' + j + ' text')].map(x => x.textContent).includes(grpMeta('a').name)`))
 // ── choosing ── (the tracks were chosen by their heads, and their regions with them: first nothing is chosen)
 await key('d', 'KeyD', 68, 8)
 { const p = await at('kick', 9); await b.click(p.x, p.y); await b.sleep(60) }
@@ -79,17 +80,21 @@ await key('g', 'KeyG', 71, 8)
 ok('shift g again: taken up again', await ev(`return S.grpOff === false`))
 // ── leaving, taking apart ──
 { const p = await head('kick'); await b.click(p.x, p.y); await b.sleep(40) }
-await key('g', 'KeyG', 71, 6)
+await key('g', 'KeyG', 71, 6)                                                            // (one track of a group chosen: the group's card)
+ok('one track of a group chosen: its card opens', await ev(`return !!GCARD && GCARD.g === 'a'`))
+await ev(`DOWN_MORE['gc-out'](null, { dataset: { t: String(S.tracks.find(t => t.name === 'kick').id) } }); flush()`)
 ok('one track of a group of two leaves: there is no group left', await ev(`return S.tracks.every(t => !t.grp)`))
 await undo()
 ok('undo: the group is back', await ev(`return S.tracks.find(t => t.name === 'kick').grp === 'a' && S.tracks.find(t => t.name === 'snare').grp === 'a'`))
 { const p = await head('hats'), q = await head('bass'); await b.click(p.x, p.y); await b.click(q.x, q.y, 4); await b.sleep(60) }
 await key('g', 'KeyG', 71, 6)
+await key('Escape', 'Escape', 27); await key('Escape', 'Escape', 27)
 ok('another two: the next letter', await ev(`return S.tracks.find(t => t.name === 'hats').grp === 'b' && S.tracks.find(t => t.name === 'bass').grp === 'b'`), await ev(`return S.tracks.map(t => t.grp || '-').join('')`))
-await key('g', 'KeyG', 71, 6)
+await key('g', 'KeyG', 71, 6)                                                            // (all of a group chosen: its card, and the group deleted from it)
+await ev(`DOWN_MORE['gc-del'](); flush()`)
 ok('the same two again: taken apart', await ev(`return !S.tracks.find(t => t.name === 'hats').grp && !S.tracks.find(t => t.name === 'bass').grp && S.tracks.find(t => t.name === 'kick').grp === 'a'`))
 ok('written with the project', await ev(`const j = JSON.parse(serialize()); return j.tracks.find(t => t.name === 'kick').grp === 'a' && !j.tracks.find(t => t.name === 'hats').grp`))
-{ const p = await head('kick'), q = await head('snare'); await b.click(p.x, p.y); await b.click(q.x, q.y, 8); await key('g', 'KeyG', 71, 6) }
+{ const p = await head('kick'), q = await head('snare'); await b.click(p.x, p.y); await b.click(q.x, q.y, 8); await key('g', 'KeyG', 71, 6); await ev(`DOWN_MORE['gc-del'](); flush()`) }
 ok('and the first group taken apart', await ev(`return S.tracks.every(t => !t.grp)`))
 
 // ── region groups ──

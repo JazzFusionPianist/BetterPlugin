@@ -1,5 +1,6 @@
 /* ── editing: regions, tools, snap, the cycle, undo, and the keys (Steven's Logic set) ──
    Positions here are bars counted from zero; a region keeps a and b counted from one (b is where it ends). */
+const toolWord = name => name === 'flex' ? 'rubato' : name                           // (the tool that pulls pins is called rubato, as the view is)
 const TOOLS = [['pointer', 'KeyT', 't'], ['smart', 'KeyS', 's'], ['pencil', 'KeyP', 'p'], ['eraser', 'KeyE', 'e'], ['scissors', 'KeyI', 'i'], ['join', 'KeyJ', 'j'], ['mute', 'KeyM', 'm'], ['gain', 'KeyG', 'g'], ['fade', 'KeyA', 'a'], ['marquee', 'KeyR', 'r'], ['flex', 'KeyX', 'x'], ['zoom', 'KeyY', 'y'], ['velocity', 'KeyV', 'v']]      // (velocity: on the notes page a note is pulled up or down to be played harder or softer — roll.js; on the lanes it is the gain tool, which is the same thing said of a region)
 /* how far one nudge goes. A tick is a 960th of a beat; the last three are lengths of time, whatever the tempo */
 const NUDGES = ['bar', 'beat', '1/16', '10 ticks', 'tick', '10 ms', '1 ms', 'sample']
@@ -431,10 +432,10 @@ function fitFades (r, t) {
    others, the regions that lie over the very same stretch, and a cut, a trim, a fade or a stretch of time made on one
    is made on all — several microphones on one drum kit stay one recording. ⇧g lets go of every group for a while.
    A region group is a set of regions (on any tracks) that are always chosen together. */
-const groupMates = t => S.grpOff || !t || !t.grp ? [] : S.tracks.filter(x => x !== t && x.grp === t.grp && x.kind === 'audio')
+const groupMates = (t, what = 'editing') => !t || !t.grp || (typeof grpShares === 'function' ? !grpShares(t, what) : S.grpOff) ? [] : S.tracks.filter(x => x !== t && x.grp === t.grp && x.kind === 'audio')      // (what: which of the things a group shares — groups.js)
 const sameSpan = (x, r) => Math.abs(x.a - r.a) < 1e-6 && Math.abs(x.b - r.b) < 1e-6
 /* the regions on a track's group mates that lie over the same stretch as r: [[region, track]] */
-const companions = (r, t) => groupMates(t).flatMap(m => m.regs.filter(x => sameSpan(x, r)).map(x => [x, m]))
+const companions = (r, t, what) => groupMates(t, what).flatMap(m => m.regs.filter(x => sameSpan(x, r)).map(x => [x, m]))
 const anyGroups = () => S.tracks.some(t => t.grp || t.regs.some(r => r.grp))
 /* ids, and everything that is chosen with them */
 function withTheirs (ids) {
@@ -1619,7 +1620,7 @@ function lanesPress (e, p) {
     else { const sorted = t.regs.slice().sort((x, y) => x.a - y.a), nx = sorted[sorted.indexOf(r) + 1]; if (nx) { S.selR = withTheirs([r.id, nx.id]); S.selX = null; S.focus = 'lanes'; joinNow() } }
   }
   else if (tool === 'mute') { const ids = pick(); if (ids.length) { const to = !r.mute; for (const id of ids) regOf(id)[0].mute = to; commit(before) } }
-  else if (tool === 'gain') { if (r) { if (e.altKey) { r.gain = 0; dirtyReg(r); commit(before) } else { S.selR = pick(); drag = { a: 'gain', y0: p.y, before, orig: new Map(S.selR.map(id => [id, regOf(id)[0].gain || 0])) } } } }
+  else if (tool === 'gain') { if (r) { if (e.altKey) { r.gain = 0; dirtyReg(r); commit(before) } else { S.selR = pick(); drag = { a: 'gain', y0: p.y, before, orig: new Map((typeof grpGainIds === 'function' ? grpGainIds(r, t, S.selR) : S.selR).map(id => [id, regOf(id)[0].gain || 0])) } } } }
   else if (tool === 'fade') {
     const near = joinsOf(t).find(([A, B]) => { const x0 = bx(B.a), x1 = bx(A.b); return p.x >= Math.min(x0, x1) - 6 && p.x <= Math.max(x0, x1) + 6 })
     if (near && !e.altKey) { S.selR = []; S.selX = [near[0].id, near[1].id]; drag = { a: 'xfade', A: near[0].id, B: near[1].id, mates: mateIds(near[0], near[1], t), x0: p.x, before, moved: false } }      // across a join: a crossfade
@@ -1800,7 +1801,7 @@ async function stopsOf (tracks) {
   for (const r of regs) {
     const ra = r.a - 1, rb = r.b - 1
     out.add(+ra.toFixed(6)); out.add(+rb.toFixed(6))
-    if (!r.loop && !r.rev) for (const s of TRANS.get(srcKey(r)) || []) { const b = barOfD(r, sToD(r, s)); if (b > ra + 1e-4 && b < rb - 1e-4) out.add(+b.toFixed(6)) }
+    if (!r.loop && !r.rev) for (const s of transOf(r)) { const b = barOfD(r, sToD(r, s)); if (b > ra + 1e-4 && b < rb - 1e-4) out.add(+b.toFixed(6)) }
   }
   return [...out].sort((x, y) => x - y)
 }
@@ -1840,14 +1841,14 @@ const KEYS = {
   KeyF: () => act.fades(), KeyD: () => act.fadeTo(false), KeyG: () => act.fadeTo(true),
   '⌃⌘KeyX': () => timeAct.cut(S.cycle.a, S.cycle.b), '⌃⌘KeyZ': () => timeAct.room(S.cycle.a, S.cycle.b - S.cycle.a), '⌃⌘KeyV': () => timeAct.put(Math.max(0, snapPos(curPos(), null))), '⌃⌘KeyR': () => timeAct.repeat(S.cycle.a, S.cycle.b),
   '⌃KeyX': () => act.strip(), '⌃⌥KeyT': () => act.tempoFrom(), '⌃⌥KeyF': () => act.fitTempo(),
-  '⌃⌘KeyG': () => groupTracks(), '⇧KeyG': () => { S.grpOff = !S.grpOff; say(S.grpOff ? 'groups off' : 'groups on'); uiDirty('head') }, '⌥⌘KeyG': () => act.groupRegs(), '⌥⌘KeyU': () => act.ungroupRegs(),
+  '⌃⌘KeyG': () => (typeof grpMake === 'function' ? grpMake() : groupTracks()), '⇧KeyG': () => { S.grpOff = !S.grpOff; say(S.grpOff ? 'groups off' : 'groups on'); uiDirty('head') }, '⌥⌘KeyG': () => act.groupRegs(), '⌥⌘KeyU': () => act.ungroupRegs(),
   '⇧KeyD': () => act.deselect(), '⇧KeyI': () => act.invert(), '⇧KeyF': () => act.following(false), '⌃⇧KeyF': () => act.following(true), '⇧KeyL': () => act.inCycle(), '⇧KeyM': () => act.muted(), '⇧Home': () => act.edge(false), '⇧End': () => act.edge(true),
   '⌥⌘KeyT': () => act.splitAtCycle(), '⌥BracketLeft': () => act.shuffle(-1), '⌥BracketRight': () => act.shuffle(1),
   KeyT: () => { if (S.menu) { S.menu = null; uiDirty('menu') } else openToolMenu(S.px || 400, S.py || 300) },
   KeyA: () => toggleAuto(), '⌘KeyY': () => cycleAutoParam(), '⌘KeyF': () => toggleFlex(),
   KeyQ: () => act.quantize(), '⌥⌘KeyQ': () => act.dequantize(), '⌃KeyF': () => act.follow(), '⌃⇧KeyR': () => act.reverse(),
   '⌥ArrowUp': () => act.transpose(1), '⌥ArrowDown': () => act.transpose(-1), '⌥⇧ArrowUp': () => act.transpose(12), '⌥⇧ArrowDown': () => act.transpose(-12),
-  '⌘KeyG': () => setMode(S.mode === 'slip' ? S.mode0 || 'smart' : 'slip'), F1: () => setMode('shuffle'), F2: () => setMode('slip'), F3: () => setMode('spot'), F4: () => setMode('grid'),
+  '⌘KeyG': () => (typeof grpMake === 'function' ? grpMake() : groupTracks()), F1: () => setMode('shuffle'), F2: () => setMode(S.mode === 'slip' ? S.mode0 || 'smart' : 'slip'), F3: () => setMode('spot'), F4: () => setMode('grid'),      // (⌘G makes a group, as in Pro Tools; F2 goes into slip and, again, back out of it)
   '⌘ArrowRight': () => setZoom(PXB * 1.5), '⌘ArrowLeft': () => setZoom(PXB / 1.5), '⌘ArrowDown': () => setRowH(S.rh * 1.25), '⌘ArrowUp': () => setRowH(S.rh / 1.25),
   '⌘Equal': () => setWaveZoom((S.wz || 1) * 1.5), '⇧⌘Equal': () => setWaveZoom((S.wz || 1) * 1.5), '⌘NumpadAdd': () => setWaveZoom((S.wz || 1) * 1.5), '⌘Minus': () => setWaveZoom((S.wz || 1) / 1.5), '⌘NumpadSubtract': () => setWaveZoom((S.wz || 1) / 1.5),
   Home: () => scrollBy(-(X1 - X0) / PXB * .9), End: () => scrollBy((X1 - X0) / PXB * .9), PageUp: () => pageV(-1), PageDown: () => pageV(1), Backquote: () => showPlayhead(), '⇧Backquote': () => showChosen(),

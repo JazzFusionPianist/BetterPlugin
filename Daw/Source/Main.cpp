@@ -87,19 +87,26 @@ juce::File projectsRoot() { return daw::musicRoot().getChildFile ("Projects"); }
 bool isProjectKind (const juce::File& f) { const auto ext = f.getFileExtension().toLowerCase(); return ext == ".sls" || ext == ".slur"; }
 const char* const AUDIO_FILES = "Audio Files";
 const char* const BOUNCES = "Bounces";
-/** The folder a project lies in when it has one of its own (<name>/<name>.sls beside Audio Files); none for one from before. */
+/** The folder a project lies in when it has one of its own (<name>/<name>.sls beside Audio Files); none for one from before.
+    Known by what it holds, not by its name: a project's folder copied to another Mac, or sent and renamed by the Finder
+    ("DRESS 2"), is still its home. One from before keeps its sounds inside itself (audio/) wherever it lies. */
 juce::File projectHome (const juce::File& dir)
 {
     const auto p = dir.getParentDirectory();
-    if (p.getFileName() != dir.getFileNameWithoutExtension() || p == projectsRoot()) return {};
-    return p.getChildFile (AUDIO_FILES).isDirectory() || ! dir.exists() ? p : juce::File();      // (one not made yet, in a folder of its own: that folder is its home — a sound brought in before it is first saved goes to its Audio Files)
+    if (p == projectsRoot() || dir.getChildFile ("audio").isDirectory()) return {};
+    if (p.getChildFile (AUDIO_FILES).isDirectory()) return p;
+    return p.getFileName() == dir.getFileNameWithoutExtension() && ! dir.exists() ? p : juce::File();      // (one not made yet, in a folder of its own: that folder is its home — a sound brought in before it is first saved goes to its Audio Files)
 }
-/** The project a folder of a project's own holds, or none: the folder is then a plain one (a person's, among the projects). */
+/** The project a folder of a project's own holds, or none: the folder is then a plain one (a person's, among the projects).
+    The one named as the folder is; else the only project in it (the folder was renamed). */
 juce::File projectIn (const juce::File& home)
 {
     if (! home.isDirectory() || isProjectKind (home) || ! home.getChildFile (AUDIO_FILES).isDirectory()) return {};
     for (auto* ext : { ".sls", ".slur" }) { const auto f = home.getChildFile (home.getFileName() + ext); if (f.getChildFile ("project.json").existsAsFile()) return f; }
-    return {};
+    juce::File only;
+    for (const auto& f : home.findChildFiles (juce::File::findDirectories, false, "*"))
+        if (isProjectKind (f) && f.getChildFile ("project.json").existsAsFile()) { if (only != juce::File()) return {}; only = f; }
+    return only;
 }
 bool isProjectHome (const juce::File& d) { return projectIn (d) != juce::File(); }
 /** Where a project's sounds are, and where its bounces go by themselves (none for one from before: as it always was). */
@@ -129,7 +136,8 @@ juce::File projectDir (const juce::String& key)
 juce::String projectKey (const juce::File& dir)
 {
     const auto h = projectHome (dir), at = h != juce::File() ? h : dir;
-    return at.getParentDirectory() == projectsRoot() ? dir.getFileNameWithoutExtension() : dir.getFullPathName();
+    const bool bare = at.getParentDirectory() == projectsRoot() && (h == juce::File() || h.getFileName() == dir.getFileNameWithoutExtension());      // (its folder renamed: known by where it lies)
+    return bare ? dir.getFileNameWithoutExtension() : dir.getFullPathName();
 }
 /** What is the project's to move, copy, rename or put away: its folder when it has one, else the project itself */
 juce::File projectWhole (const juce::File& dir) { const auto h = projectHome (dir); return h != juce::File() ? h : dir; }
@@ -527,11 +535,12 @@ private:
             for (auto* pattern : { "*.sls", "*.slur" }) top.addArray (projectsRoot().findChildFiles (juce::File::findDirectories, false, pattern));
             for (auto& h : projectsRoot().findChildFiles (juce::File::findDirectories, false, "*")) if (isProjectHome (h)) top.add (projectIn (h));      // (one in a folder of its own)
             for (auto& f : top)
-                    if (f.getChildFile ("project.json").existsAsFile() && ! seen.contains (f.getFileNameWithoutExtension()))
+                    if (f.getChildFile ("project.json").existsAsFile() && ! seen.contains (projectKey (f)))
                     {
-                        seen.add (f.getFileNameWithoutExtension());
+                        seen.add (projectKey (f));                                     // (a copy in a renamed folder beside the one it was copied from is a project of its own)
+                        const auto h = projectHome (f);
                         auto* o = new juce::DynamicObject();
-                        o->setProperty ("name", f.getFileNameWithoutExtension()); o->setProperty ("key", f.getFileNameWithoutExtension());
+                        o->setProperty ("name", h != juce::File() ? h.getFileName() : f.getFileNameWithoutExtension()); o->setProperty ("key", projectKey (f));
                         o->setProperty ("modified", f.getChildFile ("project.json").getLastModificationTime().toMilliseconds());
                         out.add (juce::var (o));
                     }
@@ -1089,7 +1098,41 @@ private:
             }
             done (out); return;
         }
-        if (op == "audioLoad") { auto file = audioDirOf (projectDir (d["project"].toString())).getChildFile (d["file"].toString()); done (withFile (engine.decodeFile (file), file.getFileName(), file.getFileNameWithoutExtension())); return; }
+        if (op == "audioLoad")
+        {
+            /* a project's sound, by its name: in the project's own sounds; else wherever else a copy of the project may have
+               left it (inside the project as projects kept them before, beside it, among the projects here under the same
+               name); else in the folders the page was shown (`also`: picked by hand — then it is copied into the
+               project's own sounds, so the project is whole again). Not found: {ok: false, missing: 1} */
+            const auto dir = projectDir (d["project"].toString()), own = audioDirOf (dir);
+            const auto name = d["file"].toString();
+            juce::Array<juce::File> look { own, dir.getChildFile ("audio"), dir.getParentDirectory().getChildFile (AUDIO_FILES),
+                                           projectsRoot().getChildFile (dir.getFileNameWithoutExtension()).getChildFile (AUDIO_FILES), projectsRoot().getChildFile (dir.getFileName()).getChildFile ("audio") };
+            if (auto* also = d["also"].getArray()) for (auto& v : *also) look.add (juce::File (v.toString()));
+            juce::File file;
+            for (auto& at : look) if (at != juce::File() && at.getChildFile (name).existsAsFile()) { file = at.getChildFile (name); break; }
+            if (file == juce::File()) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); o->setProperty ("missing", 1); o->setProperty ("file", name); done (juce::var (o)); return; }
+            if ((int) d["adopt"] != 0 && file.getParentDirectory() != own)
+            {
+                own.createDirectory();
+                const auto in = own.getChildFile (name);
+                if ((in.existsAsFile() || file.copyFileTo (in)) && in.existsAsFile()) file = in;
+            }
+            done (withFile (engine.decodeFile (file), file.getFileName(), file.getFileNameWithoutExtension())); return;
+        }
+        if (op == "audioFind")                                                  // the folder the sounds of a project are in, picked by hand (the Mac lets the app read what is picked)
+        {
+            const auto dir = projectDir (d["project"].toString());
+            chooser = std::make_unique<juce::FileChooser> ("Where are the sounds of " + dir.getFileNameWithoutExtension() + "?", dir.getParentDirectory(), "");
+            chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories, [done] (const juce::FileChooser& fc)
+            {
+                auto* o = new juce::DynamicObject();
+                const auto picked = fc.getResult();
+                o->setProperty ("ok", picked.isDirectory()); o->setProperty ("dir", picked.getFullPathName());
+                done (juce::var (o));
+            });
+            return;
+        }
         if (op == "patchPreset")                                               // a track's patch as a file Patch on Slur opens (for the hand-off folder)
         {
             auto* o = new juce::DynamicObject();
@@ -1250,7 +1293,6 @@ private:
             }, [done] (juce::var r) { done (r); });
             return;
         }
-        if (op == "listen") { engine.listen (d, [done] (juce::var r) { done (r); }); return; }      // how tracks sound over a stretch, as numbers (Engine::listen)
         if (op == "bounceLive")                                                // a print played through in real time (Engine::liveStart): the room draws it as it goes
         {
             juce::var opts = d;

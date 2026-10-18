@@ -5,7 +5,7 @@
    makes music in Korean and changed here, line by line. */
 LANG.lists.ko = {
   /* the bars at the top: panels, tools, what is chosen */
-  'patch': '패치', 'mixer': '믹서', 'hand off': '내보내기', 'auto': '오토', 'flex': '플렉스',
+  'patch': '패치', 'mixer': '믹서', 'hand off': '내보내기', 'auto': '오토', 'rubato': '루바토',
   'tool': '도구', 'cmd': '커맨드', 'pointer': '포인터', 'pencil': '연필', 'eraser': '지우개', 'scissors': '가위', 'marquee': '마키', 'smart': '스마트',
   'mode': '모드', 'snap': '스냅', 'grid': '그리드', 'slip': '슬립', 'shuffle': '셔플', 'spot': '스팟',
   'region': '리전', 'regions': '리전', 'gain': '게인', 'transpose': '트랜스포즈', 'fine': '미세 조정', 'fade': '페이드', 'fades': '페이드',
@@ -34,7 +34,7 @@ LANG.lists.ko = {
 
   /* the sheet of keys: its groups */
   'transport': '트랜스포트', 'panels': '패널', 'tools': '도구', 'project': '프로젝트', 'choosing': '선택', 'view': '보기', 'zoom': '확대',
-  'cycle': '사이클', 'the song’s time': '곡의 시간', 'automation': '오토메이션', 'flex and lines': '플렉스와 라인', 'alternatives': '대체 버전', 'group': '그룹',
+  'cycle': '사이클', 'the song’s time': '곡의 시간', 'automation': '오토메이션', 'rubato and lines': '루바토와 라인', 'alternatives': '대체 버전', 'group': '그룹',
   /* …and its lines */
   'play, stop': '재생, 정지', 'record': '녹음', 'throw the take away': '테이크 버리기', 'click': '클릭', 'count-in': '카운트인',
   'to the start': '처음으로', 'a bar back, a bar on': '한 마디 뒤로, 앞으로', 'eight bars': '여덟 마디', 'go to a bar': '마디로 이동',
@@ -71,7 +71,7 @@ LANG.lists.ko = {
   'to the playhead': '플레이헤드로', 'to its end': '끝까지', 'to its start, its end': '시작으로, 끝으로', 'to the end of the sound': '소리 끝까지', 'back to where it starts': '시작 지점으로',
   'begin, end at the playhead': '플레이헤드에서 시작, 끝', 'in, up to the playhead': '페이드 인, 플레이헤드까지', 'out, from the playhead': '페이드 아웃, 플레이헤드부터',
   'fill': '채우기', 'fill to the next': '다음 것까지 채우기', 'follow the tempo': '템포 따라가기', 'fit to the tempo': '템포에 맞추기', 'tempo from the file': '파일의 템포로',
-  'a transient on, back': '트랜지언트 다음, 이전', 'flex view': '플렉스 보기', 'next parameter': '다음 파라미터',
+  'a transient on, back': '트랜지언트 다음, 이전', 'rubato view': '루바토 보기', 'next parameter': '다음 파라미터',
   'close plug-in windows': '플러그인 창 닫기', 'a plug-in off, on': '플러그인 끄기, 켜기', 'its key': '단축키', 'on, off': '켜기, 끄기', 'change': '바꾸기',
 
   /* the page the app opens on */
@@ -178,7 +178,7 @@ LANG.menuKo = {
   'Click': '클릭', 'Count-In': '카운트인',
   'Markers': '마커', 'Add Marker Here': '여기에 마커 추가', 'Add Marker for Selection': '선택한 곳에 마커 추가', 'Rename Marker…': '마커 이름 변경…', 'Delete Marker Here': '여기 마커 삭제',
   'Previous Marker': '이전 마커', 'Next Marker': '다음 마커', 'Cycle the Marker': '마커를 사이클로', 'Go to Marker': '마커로 가기', 'Marker #': '마커 #',
-  'Tools': '도구', 'Tool': '도구', 'Pointer': '포인터', 'Smart': '스마트', 'Pencil': '연필', 'Eraser': '지우개', 'Scissors': '가위', 'Fade': '페이드', 'Marquee': '마키', 'Flex': '플렉스', 'Zoom': '확대/축소', 'Velocity': '벨로시티', 'Tool Menu': '도구 메뉴',
+  'Tools': '도구', 'Tool': '도구', 'Pointer': '포인터', 'Smart': '스마트', 'Pencil': '연필', 'Eraser': '지우개', 'Scissors': '가위', 'Fade': '페이드', 'Marquee': '마키', 'Rubato': '루바토', 'Zoom': '확대/축소', 'Velocity': '벨로시티', 'Tool Menu': '도구 메뉴',
   'Edit Mode': '편집 모드', 'Grid': '그리드', 'Slip': '슬립', 'Shuffle': '셔플', 'Spot': '스팟', 'Slip, and Back': '슬립 켜고 끄기',
   'Nudge Value': '넛지 값', 'Bar': '마디', 'Beat': '박', '10 ticks': '10틱', 'Tick': '틱', 'Sample': '샘플', 'Quantize Value': '퀀타이즈 값', '1/8 Triplet': '1/8 셋잇단', '1/16 Triplet': '1/16 셋잇단',
   'View': '보기', 'Patch': '패치', 'Mixer': '믹서', 'Notes': '노트', 'Prompt': '프롬프트', 'Automation': '오토메이션', 'Next Automation Parameter': '다음 오토메이션 파라미터',
@@ -193,4 +193,25 @@ LANG.menuKo = {
 Object.assign(LANG.lists.ko, {
   'bounce': '바운스', 'offline': '오프라인', 'realtime': '실시간', 'realtime bounce': '실시간 바운스', 'in place': '제자리', 'esc stops it': 'esc로 멈춤',
   '#:# of #:#': '#:# / #:#', 'realtime bounce stopped: nothing was kept': '실시간 바운스를 멈춤: 남긴 것 없음', 'stopping': '멈추는 중', 'stopped: nothing was kept': '멈춤: 남긴 것 없음', 'stopped': '멈춤',
+})
+/* rubato (flex.js): how a track is stretched, and how sure a marker must be to be shown */
+Object.assign(LANG.lists.ko, {
+  'stretch': '늘이기', 'hits': '히트',
+  'chords — anything; every pitch is kept': 'chords — 무엇이든: 모든 음정을 지킴', 'voice — one line: a voice, a bass, a solo': 'voice — 한 줄: 목소리, 베이스, 솔로',
+  'cut — cut at each hit, never stretched: drums': 'cut — 히트마다 자르고 늘이지 않음: 드럼', 'beat — each hit as played, the gap after it held': 'beat — 히트는 연주한 그대로, 그 뒤 빈자리는 이어서',
+})
+/* groups (groups.js) */
+Object.assign(LANG.lists.ko, {
+  'what is shared': '함께 하는 것', 'region gain': '리전 게인', '+ the chosen tracks': '+ 고른 트랙', 'delete the group': '그룹 지우기', 'the tracks stay': '트랙은 남음',
+  'Group Tracks': '트랙 그룹 만들기', 'choose two tracks or more to group them': '그룹으로 묶을 트랙을 두 개 이상 고르세요', 'choose the tracks to group': '그룹으로 묶을 트랙을 고르세요',
+  'the group is gone; its tracks stay': '그룹을 지웠습니다. 트랙은 남아 있습니다',
+})
+/* the rubato panel (rubpanel.js) */
+Object.assign(LANG.lists.ko, {
+  'as played': '연주되는 소리', 'as recorded': '녹음된 소리', 'let go of every pin': '모든 핀 풀기', 'choose a region of sound to see it here, close up': '소리 리전을 고르면 여기서 크게 볼 수 있습니다',
+  'rubato panel': '루바토 패널', 'fit': '맞춤', 'Rubato Panel': '루바토 패널', 'Rubato View': '루바토 보기',
+})
+/* sounds not found (missing.js) */
+Object.assign(LANG.lists.ko, {
+  'Find Missing Sounds…': '찾을 수 없는 사운드 찾기…', 'no sound of this project is missing': '이 프로젝트에 빠진 사운드가 없습니다',
 })

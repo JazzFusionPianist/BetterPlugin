@@ -6,6 +6,7 @@
 #include "FxEngine.h"
 #include "Stretch.h"
 #include "Transients.h"
+#include "Modes.h"
 #include "Pool.h"
 #include "Recover.h"
 #include "Instruments.h"
@@ -2368,8 +2369,26 @@ public:
             if (auto* m = o["marks"].getArray()) for (auto& p : *m) map.push_back ({ (double) p[0], (double) p[1] });
             const double outSec = (double) src->data.getNumSamples() / sr0 / rate;
             const auto t0 = juce::Time::getMillisecondCounterHiRes();
-            auto out = warp (src->data, sr0, semis, map, outSec, (int) o["loop"] != 0, (int) o["reverse"] != 0);
-            logLine ("warp: " + String (outSec, 2) + " s, " + String (semis) + " st, " + String ((int) map.size()) + " pins, in " + String (juce::Time::getMillisecondCounterHiRes() - t0, 0) + " ms");
+            /* how the track is stretched (Modes.h): voice, cut and beat lay the pieces between its pins and its hits (`cuts`,
+               seconds of the source, as the page shows them) by themselves; chords — and a loop, or a sound played
+               backwards — goes through the phase vocoder. A new pitch is given after, the time as it is. */
+            const String how = o["mode"].toString();
+            const auto mode = how == "voice" ? slur::StretchMode::voice : how == "cut" ? slur::StretchMode::cut : how == "beat" ? slur::StretchMode::beat : slur::StretchMode::chords;
+            const bool loop = (int) o["loop"] != 0, reverse = (int) o["reverse"] != 0;
+            juce::AudioBuffer<float> out;
+            if (mode != slur::StretchMode::chords && ! loop && ! reverse)
+            {
+                std::vector<slur::Pin> pins;
+                for (auto& w : map) pins.push_back ({ w.s, w.d });
+                std::vector<double> cuts;
+                if (auto* c = o["cuts"].getArray()) for (auto& v : *c) cuts.push_back ((double) v);
+                const int outN = (int) std::llround (outSec * sr0);
+                out.setSize (src->data.getNumChannels(), juce::jmax (64, outN));
+                slur::renderMode (mode, src->data.getArrayOfReadPointers(), src->data.getNumChannels(), src->data.getNumSamples(), sr0, pins, cuts, out.getArrayOfWritePointers(), out.getNumSamples());
+                if (std::abs (semis) > 1.0e-6) out = warp (out, sr0, semis, {}, (double) out.getNumSamples() / sr0, false, false);
+            }
+            else out = warp (src->data, sr0, semis, map, outSec, loop, reverse);
+            logLine ("warp: " + String (outSec, 2) + " s, " + String (semis) + " st, " + String ((int) map.size()) + " pins, by " + (how.isEmpty() ? String ("chords") : how) + ", in " + String (juce::Time::getMillisecondCounterHiRes() - t0, 0) + " ms");
             auto* shared = new juce::AudioBuffer<float> (std::move (out));
             juce::MessageManager::callAsync ([this, shared, key, done]
             {

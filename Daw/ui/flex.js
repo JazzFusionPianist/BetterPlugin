@@ -1,19 +1,35 @@
-/* ── the pitch and the time of a file: transpose, flex, quantize, reverse ──
+/* ── the pitch and the time of a file: transpose, rubato (S.flex: pins and quantize), reverse ──
    The app renders a new buffer away from the clock and the region plays that instead (r.wkey). The new buffer is as
    long as the old one played at the region's rate, so trimming, splitting and moving go on as before.
    r.tr: semitones; r.ft: cents, −100…100, on top of them (fine tune). r.flex: pins [{s, d}], s seconds into the file landing at d seconds of what is played.
    r.fx: follow the tempo by stretching, not by turning the tape faster. r.rev: backwards. */
-const TRANS = new Map()            // a file's key -> where things begin in it, seconds (those the sensitivity shows)
+const TRANS = new Map()            // a file's key -> where things begin in it, seconds (as a track that was never set shows them)
 /* everything the app heard begin in a file: [{s: seconds, k: 0 a hit | 1 a note — the pitch changed without one, v: how
-   sure, 1 as sure as the clearest of that file}]. How many of them are shown is the sensitivity's (TRANS_SENS: the
-   least sureness shown, for hits and for notes), chosen afterwards, without the file being listened to again. */
+   sure, 1 as sure as the clearest of that file}]. How many of them a region shows is its track's sensitivity, chosen
+   afterwards, without the file being listened to again. */
 const TRANS_ALL = new Map()
-const TRANS_SENS = { hit: .12, note: .15 }
-const transShown = list => list.filter(h => typeof h === 'number' || h.v >= (h.k ? TRANS_SENS.note : TRANS_SENS.hit)).map(h => typeof h === 'number' ? h : h.s)
+/* ── rubato: how a track is stretched, and how sure a marker must be to be shown ──
+   t.stretch: chords (anything; every pitch is kept — what there is when nothing was chosen), voice (one line: a voice, a
+   bass, a solo), cut (cut at each hit, never stretched: drums), beat (each hit as played, the gap after it held).
+   t.hs, t.ns: the sensitivity for hits and for notes, 0…100 (70 and 60 at first): to the right, more of them — 100 shows
+   everything the app heard, 0 only the surest. */
+const STRETCH = [['chords', 'anything; every pitch is kept', 'polyphonic'], ['voice', 'one line: a voice, a bass, a solo', 'monophonic'], ['cut', 'cut at each hit, never stretched: drums', 'slicing'], ['beat', 'each hit as played, the gap after it held', 'rhythmic']]
+const stretchOf = t => (t && STRETCH.some(m => m[0] === t.stretch)) ? t.stretch : 'chords'
+const sensOf = (t, k) => k ? (t && t.ns != null ? t.ns : 60) : (t && t.hs != null ? t.hs : 70)
+const leastOf = (t, k) => (1 - sensOf(t, k) / 100) * (k ? .375 : .4)
+const transShown = (list, t) => list.filter(h => typeof h === 'number' || h.v >= leastOf(t, h.k) - 1e-9).map(h => typeof h === 'number' ? h : h.s)
+/* what a region shows: [{s, k}] — by its track's sensitivity */
+function marksOf (r) {
+  const all = TRANS_ALL.get(srcKey(r))
+  if (!all) return (TRANS.get(srcKey(r)) || []).map(s => ({ s, k: 0 }))
+  const t = regOf(r.id)[1]
+  return all.filter(h => typeof h === 'number' || h.v >= leastOf(t, h.k) - 1e-9).map(h => typeof h === 'number' ? { s: h, k: 0 } : h)
+}
+const transOf = r => marksOf(r).map(h => h.s)
 function heardTransients (k, list) {
   list = Array.isArray(list) ? list : []
   TRANS_ALL.set(k, list)
-  TRANS.set(k, transShown(list))
+  TRANS.set(k, transShown(list, null))
 }
 const WARPS = new Map()            // what was asked for -> what came back (or the promise of it)
 const LIVEW = new Map()            // a rendered buffer the app still holds -> what it was asked as
@@ -22,14 +38,19 @@ const rateOf = r => r.loop ? 1 : (r.rate || 1)
 const warped = r => !r.notes && !!(r.tr || r.ft || (r.flex && r.flex.length) || r.rev || (r.fx && Math.abs(rateOf(r) - 1) > 1e-6))
 /* a region not told to follow the tempo keeps the pitch its rate gives it, as it had before it was touched */
 const warpSemis = r => (r.tr || 0) + (r.ft || 0) / 100 + (r.fx || r.loop ? 0 : 12 * Math.log2(rateOf(r)))
-const warpSig = r => warped(r) ? `${srcKey(r)}|${+warpSemis(r).toFixed(4)}|${+rateOf(r).toFixed(6)}|${r.rev ? 1 : 0}|${(r.flex || []).map(m => m.s.toFixed(4) + ':' + m.d.toFixed(4)).join(',')}` : ''
+const warpSig = r => warped(r) ? `${srcKey(r)}|${+warpSemis(r).toFixed(4)}|${+rateOf(r).toFixed(6)}|${r.rev ? 1 : 0}|${(r.flex || []).map(m => m.s.toFixed(4) + ':' + m.d.toFixed(4)).join(',')}${modeSig(r)}` : ''
+/* how the region's track is stretched, and — voice, cut, beat — the hits it is cut at, as its track shows them (rubato.js) */
+const modeOf = r => r.loop || r.rev || r.notes ? 'chords' : stretchOf(regOf(r.id)[1])
+const cutsOf = r => modeOf(r) === 'chords' ? [] : marksOf(r).filter(h => !h.k).map(h => +h.s.toFixed(5))
+const modeSig = r => { const m = modeOf(r); return m === 'chords' ? '' : `|${m}|${cutsOf(r).join(',')}` }
 async function renderWarp (r) {
+  if (modeOf(r) !== 'chords' && warped(r)) await ensureTransients(r)                    // (cut where its hits are: they are heard first)
   const sig = warpSig(r)
   if (!sig) { if (r.wkey) { r.wkey = null; r.wsig = ''; r.wpeaks = null; dirtyReg(r) } return true }
   if (r.wsig === sig && r.wkey && LIVEW.has(r.wkey)) return true
   if (!NAT || !srcKey(r)) return false
   let w = WARPS.get(sig)
-  if (!w) { w = NAT.call('stretch', { src: srcKey(r), semis: warpSemis(r), rate: rateOf(r), marks: (r.flex || []).map(m => [m.s, m.d]), loop: r.loop ? 1 : 0, reverse: r.rev ? 1 : 0 }); WARPS.set(sig, w) }
+  if (!w) { w = NAT.call('stretch', { src: srcKey(r), semis: warpSemis(r), rate: rateOf(r), marks: (r.flex || []).map(m => [m.s, m.d]), loop: r.loop ? 1 : 0, reverse: r.rev ? 1 : 0, mode: modeOf(r), cuts: cutsOf(r) }); WARPS.set(sig, w) }
   const res = await w
   if (!res || !res.ok) { WARPS.delete(sig); return false }
   WARPS.set(sig, res); LIVEW.set(res.key, sig)
@@ -81,7 +102,7 @@ function ensureTransients (r) {
   if (!NAT) return Promise.resolve()                                                    // in a browser there is no one to ask: whatever is in TRANS is all there is
   if (!TRANS_WAIT.has(k)) {
     if (!TRANS.has(k)) TRANS.set(k, [])
-    TRANS_WAIT.set(k, NAT.call('onsets', { key: k }).then(list => { heardTransients(k, list); uiDirty('lanes') }))
+    TRANS_WAIT.set(k, NAT.call('onsets', { key: k }).then(list => { heardTransients(k, list); uiDirty('lanes'); rewarp(S.tracks.flatMap(t => stretchOf(t) === 'chords' ? [] : t.regs.filter(q => srcKey(q) === k))) }))      // (a track cut at its hits is rendered again now that they are known)
   }
   return TRANS_WAIT.get(k)
 }
@@ -95,35 +116,42 @@ const Q_VALUES = [[1 / 4, '1/4'], [1 / 8, '1/8'], [1 / 12, '1/8 triplet'], [1 / 
 const qName = q => (Q_VALUES.find(x => Math.abs(x[0] - q) < 1e-9) || [0, '1/16'])[1]
 const openQMenu = (x, y) => openMenu(x, y, Q_VALUES.map(([v, t]) => ({ t, v, on: Math.abs(S.q - v) < 1e-9 })), it => { S.q = it.v; uiDirty('info') })
 
-/* in the flex view: where things begin (faint), and the pins that hold them (bright, with a head) */
+
+/* in the rubato view: where things begin (faint: a hit a line, a note a dotted line), and the pins that hold them
+   (bright, with a head). On a chosen region, whose ground is light, the marks are dark. */
 function flexLines (r, xa, xb, ly, lh) {
   if (r.loop) return ''
-  let faint = '', bright = ''
+  let faint = '', dots = '', bright = ''
   const lo = Math.max(xa + 1, X0), hi = Math.min(xb - 1, X1), held = new Set((r.flex || []).map(m => m.s.toFixed(4)))
-  if (!r.rev) for (const s of TRANS.get(srcKey(r)) || []) { if (held.has(s.toFixed(4))) continue; const x = xOfD(r, sToD(r, s)); if (x > lo && x < hi) faint += `M${n(x)} ${ly + 2}V${ly + lh - 2}` }
+  if (!r.rev) for (const h of marksOf(r)) { if (held.has(h.s.toFixed(4))) continue; const x = xOfD(r, sToD(r, h.s)); if (x > lo && x < hi) { const d = `M${n(x)} ${ly + 2}V${ly + lh - 2}`; if (h.k) dots += d; else faint += d } }
+  const on = S.selR.includes(r.id), ink = on ? K0 : INK
+  const marks = (d, dash) => d ? (on ? '' : P(d, { stroke: K0, sa: .22, sw: 2, dash })) + P(d, { stroke: ink, sa: dash ? (on ? .8 : .75) : (on ? .55 : .5), sw: dash ? 1 : .8, dash }) : ''
   const pinsN = (r.flex || []).length, room = pinsN ? (xb - xa) / pinsN : 99                                  // crowded pins are drawn as plain lines: their heads would run into one block
   for (const m of r.flex || []) { const x = xOfD(r, m.d); if (x > lo && x < hi) bright += `M${n(x)} ${ly}V${ly + lh}` + (room >= 9 ? `M${n(x - 3)} ${ly}H${n(x + 3)}L${n(x)} ${ly + 4}Z` : '') }
   if (room < 4) return bright ? P(bright, { stroke: K0, sa: .3, sw: 2 }) + P(bright, { stroke: INK, sa: .55 }) : ''
-  return (faint && room >= 9 ? P(faint, { stroke: K0, sa: .22, sw: 2 }) + P(faint, { stroke: INK, sa: .5, sw: .8 }) : '') + (bright ? P(bright, { stroke: K0, sa: .5, sw: 3 }) + P(bright, { stroke: INK, fill: INK, sw: room >= 9 ? 1.2 : 1, sa: room >= 9 ? 1 : .8 }) : '')
+  return (room >= 9 ? marks(faint) + marks(dots, '2.5 2') : '') + (bright ? P(bright, { stroke: K0, sa: .5, sw: 3 }) + P(bright, { stroke: INK, fill: INK, sw: room >= 9 ? 1.2 : 1, sa: room >= 9 ? 1 : .8 }) : '')
 }
 /* the nearest thing to take hold of in a region: a pin, or a place where something begins */
-function flexPick (r, x) {
+/* where things stand: on the lanes, or (rubpanel.js) in the rubato panel — a moment of what is played to a pixel and a
+   pixel to a bar */
+const LANE_AT = { xOf: (r, d) => xOfD(r, d), barAt: x => barAt(x) }
+function flexPick (r, x, at = LANE_AT) {
   let best = null, bd = 5
-  for (const m of r.flex || []) { const d = Math.abs(xOfD(r, m.d) - x); if (d < bd) { bd = d; best = { pin: m } } }
-  if (!best && !r.rev) for (const s of TRANS.get(srcKey(r)) || []) { const d = Math.abs(xOfD(r, sToD(r, s)) - x); if (d < bd) { bd = d; best = { s } } }
+  for (const m of r.flex || []) { const d = Math.abs(at.xOf(r, m.d) - x); if (d < bd) { bd = d; best = { pin: m } } }
+  if (!best && !r.rev) for (const s of transOf(r)) { const d = Math.abs(at.xOf(r, sToD(r, s)) - x); if (d < bd) { bd = d; best = { s } } }
   return best
 }
 const flexNear = (r, x) => !!flexPick(r, x)
 /* take hold: a new pin also pins the beginnings on either side of it, so only what lies between them moves */
-function flexDown (e, p, r, t, tool, before) {
-  let pk = flexPick(r, p.x)
-  if (!pk && tool === 'flex') pk = { s: dToS(r, dOfBar(r, barAt(p.x))) }
+function flexDown (e, p, r, t, tool, before, at = LANE_AT) {
+  let pk = flexPick(r, p.x, at)
+  if (!pk && tool === 'flex') pk = { s: dToS(r, dOfBar(r, at.barAt(p.x))) }
   if (!pk) return false
   const keep = (r.flex || []).map(m => Object.assign({}, m))
   r.flex = r.flex || []
   let pin = pk.pin
   if (!pin) {
-    const tr = (TRANS.get(srcKey(r)) || []).slice().sort((a, b) => a - b), has = s => r.flex.some(m => Math.abs(m.s - s) < 1e-4)
+    const tr = transOf(r).slice().sort((a, b) => a - b), has = s => r.flex.some(m => Math.abs(m.s - s) < 1e-4)
     const left = r.flex.filter(m => m.s < pk.s - 1e-4).map(m => m.s), right = r.flex.filter(m => m.s > pk.s + 1e-4).map(m => m.s)
     const tl = tr.filter(s => s < pk.s - .02).pop(), trr = tr.find(s => s > pk.s + .02)
     if (tl != null && !(left.length && Math.max(...left) >= tl) && !has(tl)) r.flex.push({ s: tl, d: sToD(r, tl) })
@@ -136,13 +164,13 @@ function flexDown (e, p, r, t, tool, before) {
   /* a stretch may not be squeezed below a quarter nor pulled beyond four times */
   const lo = Math.max(L.d + (pin.s - L.s) / k / 4, Rr.d - (Rr.s - pin.s) / k * 4), hi = Math.min(L.d + (pin.s - L.s) / k * 4, Rr.d - (Rr.s - pin.s) / k / 4)
   S.selR = [r.id]; S.sel = S.tracks.indexOf(t)
-  drag = { a: 'flex', id: r.id, pin, lo, hi, d0: pin.d, grab: pin.d - dOfBar(r, barAt(p.x)), keep, before, mates: flexMates(r, keep).map(x => x.id) }                // it is held where it was taken, so it does not jump to the pointer (mates: those stretched with it, which follow it as it goes)
+  drag = { a: 'flex', id: r.id, pin, lo, hi, d0: pin.d, grab: pin.d - dOfBar(r, at.barAt(p.x)), keep, before, mates: flexMates(r, keep).map(x => x.id), at }                // it is held where it was taken, so it does not jump to the pointer (mates: those stretched with it, which follow it as it goes)
   return true
 }
 function flexMove (e, p) {
   const d = drag, [r] = regOf(d.id)
   if (!r) return
-  d.pin.d = clamp(dOfBar(r, snapPos(barOfD(r, dOfBar(r, barAt(p.x)) + d.grab), e, new Set([r.id]))), d.lo, d.hi)
+  d.pin.d = clamp(dOfBar(r, snapPos(barOfD(r, dOfBar(r, (d.at || LANE_AT).barAt(p.x)) + d.grab), e, new Set([r.id]))), d.lo, d.hi)
   if (Math.abs(d.pin.d - d.d0) > 1e-5) d.moved = true
   for (const id of d.mates || []) { const [x] = regOf(id); if (x) x.flex = r.flex.map(m => Object.assign({}, m)) }
   uiDirty('lanes')
@@ -167,11 +195,9 @@ function flexDbl (e, p) {                                                       
   const ti = laneAt(p.y), r = hitRegion(ti, barAt(p.x))
   if (!r || !r.flex) return
   const m = r.flex.find(x => Math.abs(xOfD(r, x.d) - p.x) < 5)
-  if (!m) return
-  let ms = []
-  edit(() => { const was = r.flex; r.flex = r.flex.filter(x => x !== m); ms = flexShare(r, was) })
-  rewarp([r].concat(ms))
+  if (m) unpin(r, m)
 }
+function unpin (r, m) { let ms = []; edit(() => { const was = r.flex; r.flex = r.flex.filter(x => x !== m); ms = flexShare(r, was) }); rewarp([r].concat(ms)) }
 /* the regions that are stretched as one with r, and so carry the very same pins:
    – on its own lane, the other pieces of the same take: the same file at the same speed, lying where it would lie had it
      never been cut. A take cut in two is still one sound; pins of their own would let the two pieces drift apart, and at
@@ -189,7 +215,7 @@ function flexMates (r, pins) {
   if (!t || r.loop) return []
   if (pins === undefined) pins = r.flex
   const own = t.regs.filter(x => sameTake(x, r) && samePins(x.flex, pins)), out = new Set(own)
-  for (const q of [r].concat(own)) for (const [x] of companions(q, t)) if (!x.loop && !x.rev === !q.rev && Math.abs(rateOf(x) - rateOf(q)) < 1e-9 && Math.abs((x.off || 0) - (q.off || 0)) < 1e-6 && Math.abs((x.sec || 0) - (q.sec || 0)) < .005 && samePins(x.flex, pins)) out.add(x)
+  for (const q of [r].concat(own)) for (const [x] of companions(q, t, 'rubato')) if (!x.loop && !x.rev === !q.rev && Math.abs(rateOf(x) - rateOf(q)) < 1e-9 && Math.abs((x.off || 0) - (q.off || 0)) < 1e-6 && Math.abs((x.sec || 0) - (q.sec || 0)) < .005 && samePins(x.flex, pins)) out.add(x)
   out.delete(r)
   return [...out]
 }
@@ -212,7 +238,7 @@ async function quantize (regs) {
       const r = set.find(x => asked.has(x.id))
       if (!r || r.rev) continue
       const k = rateOf(r), [, t] = regOf(r.id), out = []
-      const every = set.flatMap(x => TRANS.get(srcKey(x)) || []).sort((a, b) => a - b), tr = []
+      const every = set.flatMap(x => transOf(x)).sort((a, b) => a - b), tr = []
       for (const s of every) if (!tr.length || s - tr[tr.length - 1] > .03) tr.push(s)                      // (heard by several within three hundredths of a second: one beginning)
       const pulled = set.filter(x => asked.has(x.id) && (x === r || sameTake(x, r))), held = t.regs.filter(x => sameTake(x, r) && !pulled.includes(x))      // on r's own lane: the pieces that are pulled, and the pieces of the same take that are not
       const within = bar => pulled.some(x => bar >= x.a - 1 - 1e-6 && bar <= x.b - 1 + 1e-6)

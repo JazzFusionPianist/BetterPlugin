@@ -352,7 +352,7 @@ async function loadProjectNow (key, json) {
     if (!(t.h >= ROW_MIN && t.h <= ROW_MAX)) delete t.h                                    // (a row's own height, when it was pulled to one)
     delete t.c; delete t.own                                                             // a project from before colours were read from what a track holds
     if (d.demo && MOCK_PATCH[t.name] && JSON.stringify(t.patch) === JSON.stringify(MOCK_PATCH[t.name])) t.patch = NO_PATCH()          // the first song's mock-up patch, exactly as it was put there and never touched: taken off
-    const back = list => list.map(q => { const f = q.file ? files.get(q.file) : null; return Object.assign({ off: 0, gain: 0, mute: false, fi: 0, fo: 0 }, q, f && f.ok ? { key: f.key, peaksAll: f.peaks, buf: null } : {}) }).filter(q => q.notes ? Array.isArray(q.notes) : q.loop ? LOOPS[q.buf] : q.key)
+    const back = list => list.map(q => { const f = q.file ? files.get(q.file) : null; return Object.assign({ off: 0, gain: 0, mute: false, fi: 0, fo: 0 }, q, f && f.ok ? { key: f.key, peaksAll: f.peaks, buf: null } : q.file && !q.loop ? { missing: true } : {}) }).filter(q => q.notes ? Array.isArray(q.notes) : q.loop ? LOOPS[q.buf] : q.key || q.missing)      // (a sound not found is never let go of: its region stays, says so, and is written back as it was — missing.js)
     t.regs = back(o.regs)
     t.alts = Array.isArray(o.alts) ? o.alts.map(a => ({ name: String(a.name), regs: back(a.regs || []) })) : []
     t.patch0 = copy(t.patch)
@@ -612,7 +612,7 @@ const MENU_DO = {
   keys: () => toggleSheet(), revert: () => openRevertMenu(),
   timecut: () => KEYS['⌃⌘KeyX'](), timeroom: () => KEYS['⌃⌘KeyZ'](), timeput: () => KEYS['⌃⌘KeyV'](), timerepeat: () => KEYS['⌃⌘KeyR'](),
   fades: () => act.fades(), strip: () => act.strip(), groupregs: () => act.groupRegs(), ungroupregs: () => act.ungroupRegs(), tempofrom: () => act.tempoFrom(), fittempo: () => act.fitTempo(),
-  grouptracks: () => groupTracks(), groupsoff: () => KEYS['⇧KeyG'](),
+  grouptracks: () => (typeof grpMake === 'function' ? grpMake() : groupTracks()), groupsoff: () => KEYS['⇧KeyG'](),
   newtracks: () => openNewTrack(), newaudio: () => newTrack('audio'), newbus: () => newTrack('bus'), duptrack: () => duplicateTrack(S.sel), deltrack: () => deleteTracks(chosen()), renametrack: () => startRename('track', S.sel),
   new: () => newProject(), open: () => openProjectAsk(), recent: () => openProjectMenu(), save: () => KEYS['⌘KeyS'](), saveas: () => saveAsAsk(), rename: () => startRename('proj'),
   import: () => importAudio(), handoff: () => KEYS['⌘KeyB'](), audio: () => NAT.call('audioSettings'),

@@ -146,9 +146,9 @@ function pTool () {
   let x = 38
   for (const [l, v] of [['tracks', S.tracks.filter(t => t.kind === 'audio').length], ['stacks', S.tracks.filter(t => t.kind === 'stack').length], ['buses', S.tracks.filter(t => t.kind === 'bus').length]]) { if (!v && l !== 'tracks') continue; const [f, fw] = field(x, by, l, String(v)); s += f; x += fw + 12 }
   x = X0 + 10
-  const [c, cw] = cells(x, y + 4, 18, [{ t: 'auto', on: S.auto, a: 'autokey' }, { t: 'flex', on: S.flex, a: 'flexkey' }], { size: 9.5 }); s += c; x += cw + 16
+  const [c, cw] = cells(x, y + 4, 18, [{ t: 'auto', on: S.auto, a: 'autokey' }, { t: 'rubato', on: S.flex, a: 'flexkey' }], { size: 9.5 }); s += c; x += cw + 16
   const put = (label, word, a, dim) => { s += T(x, by, label, { size: 9.5, a: .4 }); x += tw(label, 9.5) + 6; const [k, w] = menuKey(x, y + 4, word, { a, dim }); s += k; x += w + 14 }
-  put('tool', S.tool, 'toolmenu'); put('cmd', S.tool2, 'tool2menu'); put('mode', S.mode, 'modemenu', S.mode === 'slip')
+  put('tool', toolWord(S.tool), 'toolmenu'); put('cmd', toolWord(S.tool2), 'tool2menu'); put('mode', S.mode, 'modemenu', S.mode === 'slip')
   const zx = RX - 156, lim = zx - 28, zoomFits = zx - 24 > x, rs = S.focus === 'tracks' ? [] : selRegs(), st = S.tracks[S.sel], named = !!st && x + 14 + 190 < lim
   if (named) s += vline(x, y + 6, y + TOOL_H - 6, .1)
   x += 14
@@ -164,13 +164,15 @@ function pTool () {
     const [f, fw] = r ? field(x, by, 'region', rs.length > 1 ? String(rs.length) : fit(asGiven(r.tag || r.name || rs[0][1].name), 110, 9.5)) : many > 1 ? field(x, by, 'tracks', String(many)) : field(x, by, 'track', fit(st.name, 110, 9.5))
     s += f; x += fw + 12
     LOOK_X = x
-    s += R(x + .5, y + 4.5, 31, 17, { rx: 2, stroke: INK, sa: S.look ? .5 : .2 }) + R(x + 5, y + 8, 11, 10, { fill: look.c }) + caret(x + 23.5, y + 13, .45) + hit(x, y + 4, 32, 18, 'look'); x += 37
-    s += R(x + .5, y + 4.5, 37, 17, { rx: 2, stroke: INK, sa: S.look ? .5 : .2 }) + P(shapePath(x + 5, y + 8.5, 17, 9, SHAPES[look.outline], .5), { fill: INK, fa: .86 }) + caret(x + 29.5, y + 13, .45) + hit(x, y + 4, 38, 18, 'look'); x += 37 + 14
-    if (r) {
+    if (!(S.flex && r)) {                                                             // (in rubato, with a region chosen, they make room for how it is stretched)
+      s += R(x + .5, y + 4.5, 31, 17, { rx: 2, stroke: INK, sa: S.look ? .5 : .2 }) + R(x + 5, y + 8, 11, 10, { fill: look.c }) + caret(x + 23.5, y + 13, .45) + hit(x, y + 4, 32, 18, 'look'); x += 37
+      s += R(x + .5, y + 4.5, 37, 17, { rx: 2, stroke: INK, sa: S.look ? .5 : .2 }) + P(shapePath(x + 5, y + 8.5, 17, 9, SHAPES[look.outline], .5), { fill: INK, fa: .86 }) + caret(x + 29.5, y + 13, .45) + hit(x, y + 4, 38, 18, 'look'); x += 37 + 14
+    }
+    if (r && S.flex) { const [q, nx] = rubatoBar(x, y, by, r, rs[0][1], lim); s += q; x = nx }      // (flex.js)
+    else if (r) {
       const tr = (r.tr > 0 ? '+' : r.tr < 0 ? '−' : '') + Math.abs(r.tr || 0), ft = (r.ft > 0 ? '+' : r.ft < 0 ? '−' : '') + Math.abs(r.ft || 0), fade = `${+(r.fi || 0).toFixed(2)} ${+(r.fo || 0).toFixed(2)}`
       for (const [l, v, a] of [['gain', fmtDb(r.gain || 0), 'rgain'], ['transpose', tr, 'rtr']].concat(r.notes || rs[0][1].midi ? [] : [['fine', ft, 'rft']], [['fade', fade, null]]).concat(!r.loop && r.bpm > 0 ? [['bpm', String(+r.bpm.toFixed(1)), 'rbpm']] : [])) { if (x + tw(l, 9.5) + 5 + tw(v, 9.5) > lim) break; const [f2, fw2] = field(x, by, l, v, { a, cur: a === 'rbpm' ? 'text' : undefined }); s += f2; x += fw2 + 14 }
       if (DRAFT.fades && ((r.fi || 0) > 0 || (r.fo || 0) > 0) && x + 100 < lim) { const [k1, w1] = menuKey(x - 6, y + 4, FADE_CURVES[(r.fi > 0 ? r.fic : r.foc) || 0], { a: 'fcurve' }); s += k1; x += w1 + 8 }
-      if (S.flex && x + 130 < lim) { const [k1, w1] = key(x, y + 4, 'quantize', { a: 'qgo' }); s += k1 + menuKey(x + w1 + 6, y + 4, qName(S.q), { a: 'qval' })[0] }
     }
   }
   if (zoomFits) {
@@ -309,7 +311,7 @@ function pMenu () {
   })
   return s
 }
-const openToolMenu = (x, y, second) => openMenu(x, y, TOOLS.map(([name, , letter]) => ({ t: name, k: second ? '' : letter, on: name === (second ? S.tool2 : S.tool), v: name })), it => { if (second) { S.tool2 = it.v; uiDirty('info') } else pickTool(it.v) }, { tools: !second, w: 132 })
+const openToolMenu = (x, y, second) => openMenu(x, y, TOOLS.map(([name, , letter]) => ({ t: toolWord(name), k: second ? '' : letter, on: name === (second ? S.tool2 : S.tool), v: name })), it => { if (second) { S.tool2 = it.v; uiDirty('info') } else pickTool(it.v) }, { tools: !second, w: 132 })
 
 /* ── one track's head, on one line: its colour, its number, its name, whose it is; its cells; its level under its fader;
    what the fader reads ── */
@@ -358,14 +360,14 @@ function headRow (i) {
   if (lk('heads.num') === 'on') c += T(25, by - .4, pad2(i + 1), { size: 8.5, a: sel ? .8 : .32, anchor: 'end' })
   if (stack) s += triMark(deep ? x0 - 7 : 34, by - 4, t.open, .62)
   const its = cellsOf(t), cw = 15, cx = 214 - its.length * cw
-  const grp = t.kind === 'audio' && t.grp ? t.grp : '', grpW = grp ? tw(grp, 9, 500) + 7 : 0                 // the edit group it is in: a letter after its name
+  const grp = t.kind === 'audio' && t.grp ? t.grp : '', grpW = grp ? (typeof grpChipW === 'function' ? grpChipW(t) : tw(grp, 9, 500) + 7) : 0                 // the group it is in: its name after the track's (groups.js)
   const alt = t.kind === 'audio' && (t.alts || []).length ? `alt ${altName(t)}` : ''                      // which of its alternatives is on the lane, once it has more than one
   const tag = t.theirs || (t.kind === 'bus' ? 'bus' : alt), tagW = tag ? tw(tag, 9, 400, !!t.theirs) + 6 : 0, wt = stack || sel ? 500 : 400
   const hs = lkN('heads.size'), nm = fit(asGiven(t.name), cx - 8 - x0 - tagW - grpW, hs, wt)      // (as large as the look says)
   s += T(x0, by, nm, { size: hs, w: wt, a: t.mute ? .42 : sel ? 1 : .88 })
   if (tag) s += T(x0 + tw(nm, hs, wt) + 6, by, tag, { size: 9, it: !!t.theirs, a: .4 })
-  if (grp) s += T(x0 + tw(nm, hs, wt) + 6 + tagW, by, grp, { size: 9, w: 500, a: S.grpOff ? .22 : .62 })
   s += hit(0, y, cx - 4, rh, 'sel', ` data-i="${i}"`) + (stack ? hit(deep ? x0 - 13 : 27, y, 14, rh, 'fold', ` data-i="${i}"`) : '')      // from its number to its cells, a press chooses it
+  if (grp) s += typeof grpChip === 'function' ? grpChip(t, i, x0 + tw(nm, hs, wt) + 8 + tagW, by) : T(x0 + tw(nm, hs, wt) + 6 + tagW, by, grp, { size: 9, w: 500, a: S.grpOff ? .22 : .62 })      // (over the row's own press: it opens the group)
   c += miniCells(cx, y + rh / 2 - 7, its, cw, 14, 8.5, i)
   const vol = shown(t, 'vol'), led = autoPts(t, 'vol').length > 0
   if (S.auto) {
@@ -623,6 +625,7 @@ function laneRow (i, sel, xEnd) {
     const L = regLook(r, t), sh = SHAPES[L.outline], body = on ? L.sel : L.c
     const cx = Math.max(x, X0 - 256), cw = n(Math.min(x + w, X1 + 256) - cx)             // as much of it as the window can show (close up a region is millions of pixels long, and numbers that large are not drawn truly)
     const how = lk('snd.drawn'), half = how === 'half'
+    if (r.missing && typeof missingLook === 'function') { g += missingLook(r, x, w, ly, lh, cx, cw, sh, on); continue }      // (its sound was not found: missing.js)
     let q = P(shapePath(cx, ly, cw, lh, sh), { fill: body, fa: on ? 1 : lkA('reg.fill') })
     if (w > 4) {
       const v0 = Math.max(1, Math.floor(X0 - 4 - x)), v1 = Math.min(Math.floor(w - 1), Math.ceil(X1 + 4 - x))
@@ -717,8 +720,8 @@ function pPanelHead (y, tab) {
   const t = S.tracks[S.sel], by = y + 16.6
   let s = R(0, y, RX, PH, { fill: K2 }) + hline(0, RX, y, .14) + hline(0, RX, y + PH - .5, .08)
   s += R(RX / 2 - 12, y + 2, 24, 2, { rx: 1, fill: INK, fa: .2 }) + hit(0, y - 3, RX, 8, 'pgrip', '', 'ns-resize')       // the edge that is dragged to give the panel more of the window
-  const roll = typeof pRoll === 'function', said = typeof pPrompt === 'function', nx = (roll ? 168 : 120) + (said ? 52 : 0)      // (roll.js: a third page, the notes; prompt.js: a fourth, the prompt)
-  s += cells(10, y + 4, 18, [{ t: 'patch', on: tab === 'patch', a: 'tab-patch' }, { t: 'mixer', on: tab === 'mixer', a: 'tab-mixer' }].concat(roll ? [{ t: 'notes', a: 'tab-notes' }] : [], said ? [{ t: 'prompt', on: tab === 'prompt', a: 'tab-prompt' }] : []), { size: 9.5, widths: [48, 48].concat(roll ? [48] : [], said ? [52] : []) })[0]
+  const roll = typeof pRoll === 'function', said = typeof pPrompt === 'function', rub = typeof pRubato === 'function', nx = (roll ? 168 : 120) + (said ? 52 : 0) + (rub ? 52 : 0)      // (roll.js: a third page, the notes; prompt.js: a fourth, the prompt; rubpanel.js: a fifth, rubato)
+  s += cells(10, y + 4, 18, [{ t: 'patch', on: tab === 'patch', a: 'tab-patch' }, { t: 'mixer', on: tab === 'mixer', a: 'tab-mixer' }].concat(roll ? [{ t: 'notes', a: 'tab-notes' }] : [], said ? [{ t: 'prompt', on: tab === 'prompt', a: 'tab-prompt' }] : [], rub ? [{ t: 'rubato', on: tab === 'rubato', a: 'tab-rubato' }] : []), { size: 9.5, widths: [48, 48].concat(roll ? [48] : [], said ? [52] : [], rub ? [52] : []) })[0]
   if (tab === 'patch') {
     s += R(nx, y + 10, 6, 6, { fill: t.c }) + T(nx + 12, by, fit(asGiven(t.name), 160, 10.5, 500), { size: 10.5, w: 500 }) + T(nx + 12 + tw(fit(asGiven(t.name), 160, 10.5, 500), 10.5, 500) + 7, by, `track ${S.sel + 1}`, { size: 9.5, a: .4 })
     const rx = RX - SIDE
@@ -1056,18 +1059,18 @@ function pSlur () {
 const SHEET = [
   [['transport', [['play, stop', 'space'], ['play what is chosen', '⇧space'], ['record', 'r'], ['throw the take away', '⌘.'], ['click', 'k'], ['count-in', '⇧k'], ['to the start', '↩'], ['to the end of the sound', '⌥↩'], ['a bar back, a bar on', ', .'], ['eight bars', '⇧, ⇧.'], ['a transient on, back', 'tab ⌥tab'], ['go to a bar', '/ 17 ↩']]],
    ['cycle', [['on, off', 'c'], ['round what is chosen', 'u'], ['to its start, its end', '⌃⇧, ⌃⇧.'], ['on, back by its length', '⇧⌘. ⇧⌘,'], ['twice as long, half', '⌥⇧⌘. ⌥⇧⌘,'], ['zoom to it', '⌃⇧z']]],
-   ['panels', [['patch', 'b'], ['mixer', 'x'], ['notes', 'p'], ['slur', 'o'], ['this sheet', '⇧/']]],
+   ['panels', [['patch', 'b'], ['mixer', 'x'], ['notes', 'p'], ['rubato panel', 'w'], ['slur', 'o'], ['this sheet', '⇧/']]],
    ['the notes page', [['quantize what is chosen', 'q'], ['as it was played', '⌥⌘q'], ['force legato', 'l'], ['cut a note', 't, i'], ['its lane', 'a'], ['its own zoom', '⌘←→↑↓']]],
    ['the hand', [['back to where it starts', '⌥ click'], ['finely', '⇧ drag']]]],
-  [['tools', [['tool menu, then a letter', 't'], ['the other tool, while held', '⌘'], ['shuffle, slip, spot, grid', 'f1 f2 f3 f4'], ['slip, and back', '⌘g'], ['a finer grid, in a drag', '⌃'], ['no grid', '⌃⇧']]],
+  [['tools', [['tool menu, then a letter', 't'], ['the other tool, while held', '⌘'], ['shuffle, slip, spot, grid', 'f1 f2 f3 f4'], ['slip, and back', 'f2'], ['a finer grid, in a drag', '⌃'], ['no grid', '⌃⇧']]],
    ['regions', [['split at the playhead', '⌘t'], ['at the cycle’s ends', '⌥⌘t'], ['join', 'j'], ['mute', 'n'], ['repeat', '⌘r'], ['fill to the next', 'l'], ['to the playhead', ';'], ['and choose the next', '⇧;'], ['begin, end at the playhead', '[ ]'], ['against the last, the next', '⌥[ ⌥]'], ['gain', '⌃⇧↑↓'], ['transpose', '⌥↑↓'], ['an octave', '⌥⇧↑↓'], ['reverse', '⌃⇧r'], ['follow the tempo', '⌃f'], ['fit to the tempo', '⌃⌥f'], ['tempo from the file', '⌃⌥t'], ['strip silence', '⌃x'], ['group, ungroup', '⌥⌘g ⌥⌘u'], ['bounce in place', '⌃b'], ['rename', '⇧↩']]]],
   [['choosing', [['all', '⌘a'], ['none', '⇧d'], ['the others', '⇧i'], ['all that follow', '⇧f'], ['on the same track', '⌃⇧f'], ['inside the cycle', '⇧l'], ['the muted ones', '⇧m'], ['the last, the next', '← →'], ['one more', '⇧← ⇧→'], ['the first, the last', '⇧home ⇧end']]],
    ['nudge', [['earlier, later', '⌥← ⌥→'], ['shorter, longer', '⌥⇧← ⌥⇧→'], ['by a bar', '⌥⇧m'], ['by a beat', '⌥⇧b'], ['by a sixteenth', '⌥⇧s'], ['by ten ticks', '⌥⇧t'], ['by a tick', '⌥⇧q'], ['by 10 ms', '⌃⌥0'], ['by 1 ms', '⌃⌥1'], ['by a sample', '⌃⌥s']]],
    ['fades', [['for what is chosen', 'f'], ['in, up to the playhead', 'd'], ['out, from the playhead', 'g']]]],
-  [['tracks', [['new track', '⌥⌘n'], ['new audio track', '⌥⌘a'], ['new bus', '⌃n'], ['duplicate', '⌘d'], ['with what is on it', '⌥⇧⌘d'], ['stack', '⇧⌘d'], ['take the stack apart', '⇧⌘u'], ['open, close a stack', '⌃⌘→←'], ['group', '⌃⌘g'], ['groups off, on', '⇧g'], ['rename', '⇧↩'], ['choose several', '⇧ click ⌘ click'], ['delete, regions first', '⌫'], ['delete the track', '⌘⌫'], ['delete the empty ones', '⇧⌘⌫'], ['mute, solo', 'm s'], ['solo only this', '⌥ click s'], ['hear the input', '⌃i'], ['a plug-in off, on', '⌥ click']]],
+  [['tracks', [['new track', '⌥⌘n'], ['new audio track', '⌥⌘a'], ['new bus', '⌃n'], ['duplicate', '⌘d'], ['with what is on it', '⌥⇧⌘d'], ['stack', '⇧⌘d'], ['take the stack apart', '⇧⌘u'], ['open, close a stack', '⌃⌘→←'], ['group', '⌘g'], ['groups off, on', '⇧g'], ['rename', '⇧↩'], ['choose several', '⇧ click ⌘ click'], ['delete, regions first', '⌫'], ['delete the track', '⌘⌫'], ['delete the empty ones', '⇧⌘⌫'], ['mute, solo', 'm s'], ['solo only this', '⌥ click s'], ['hear the input', '⌃i'], ['a plug-in off, on', '⌥ click']]],
    ['markers', [['a marker here', "⌥'"], ['for what is chosen', "⌥⇧'"], ['rename', "⇧'"], ['delete the pressed one', '⌫'], ['delete the one here', '⌥⌫'], ['the next, the last', '⌥. ⌥,'], ['cycle it', '⌃⌥c']]]],
   [['the song’s time', [['cut the cycle out', '⌃⌘x'], ['make room at the cycle', '⌃⌘z'], ['put it in at the playhead', '⌃⌘v'], ['repeat the cycle', '⌃⌘r']]],
-   ['flex and lines', [['flex view', '⌘f'], ['quantize', 'q'], ['let go of quantize', '⌥⌘q'], ['automation', 'a'], ['next parameter', '⌘y']]],
+   ['rubato and lines', [['rubato view', '⌘f'], ['quantize', 'q'], ['let go of quantize', '⌥⌘q'], ['automation', 'a'], ['next parameter', '⌘y']]],
    ['view', [['zoom', '⌘←→'], ['taller, shorter rows', '⌘↓↑'], ['taller, lower waveforms', '⌘+ ⌘−'], ['fit, or what is chosen', 'z'], ['a page left, right', 'home end'], ['a page up, down', 'pgup pgdn'], ['find the playhead', '`'], ['find what is chosen', '⇧`'], ['close plug-in windows', 'v']]],
    ['project', [['save', '⌘s'], ['save as', '⇧⌘s'], ['new', '⌘n'], ['open', '⌘o'], ['import audio', '⌘i'], ['hand off', '⌘b'], ['settings', '⌘,'], ['undo, redo', '⌘z ⇧⌘z'], ['say it', '/']]]],
 ]
@@ -1174,7 +1177,7 @@ function seekX (x, e) {
 }
 const fine = e => e && e.shiftKey ? .2 : 1                                           // with shift held, a pull moves a fifth as far
 /* the other chosen tracks a fader or a pan takes along, with where each stood when the hand came (a fader with a line drawn for it stays with its line) */
-const others = (i, k) => new Map(groupOf(i).filter(t => t !== S.tracks[i] && !(k === 'vol' && autoPts(t, 'vol').length)).map(t => [t, t[k] || 0]))
+const others = (i, k) => new Map(groupOf(i, k === 'vol' ? 'volume' : null).filter(t => t !== S.tracks[i] && !(k === 'vol' && autoPts(t, 'vol').length)).map(t => [t, t[k] || 0]))
 function carry (d, k, now) {
   if (!d.others || !d.others.size) return
   for (const [t, v] of d.others) { if (k === 'vol') { t.vol = clamp(Math.round((v + now - d.v0) * 10) / 10, -48, 6); t.ghost = null } else t.pan = clamp(Math.round((v + now - d.v0) * 64) / 64, -1, 1); pushTrack(t) }
@@ -1197,7 +1200,7 @@ function optReset (a, el, i) {
   const t = S.tracks[S.sel]
   if (a === 'rowh') { rowBack(i); return true }
   if (a === 'volnum' && i < 0) a = 'master'
-  if (a === 'vol' || a === 'mvol' || a === 'volnum') { for (const tr of groupOf(i)) if (!autoPts(tr, 'vol').length) { tr.vol = 0; tr.ghost = null } applyAll(); uiDirty('head', 'dock') }
+  if (a === 'vol' || a === 'mvol' || a === 'volnum') { for (const tr of groupOf(i, 'volume')) if (!autoPts(tr, 'vol').length) { tr.vol = 0; tr.ghost = null } applyAll(); uiDirty('head', 'dock') }
   else if (a === 'mpan') { for (const tr of groupOf(i)) tr.pan = 0; applyAll(); uiDirty('dock') }
   else if (a === 'msend') { const tr = S.tracks[i], sd = tr && tr.sends[+el.dataset.k]; if (!sd) return false; sd.db = 0; pushTrack(tr); uiDirty('dock') }
   else if (a === 'master' || a === 'mmaster') { S.master = 0; pushMaster(); uiDirty('top', 'dock') }
@@ -1225,7 +1228,8 @@ function onDown (e) {
     if (L && L.mark === mark && now - L.t < 420 && Math.abs(p.x - L.x) < 5 && Math.abs(p.y - L.y) < 5 && twice(el, e, p)) { LASTP = null; e.preventDefault(); return } }
   if (S.picker.open && a !== 'plugs' && a !== 'inst-pick' && a !== 'new-voice' && !(S.picker.what === 'new' && /^new-/.test(a))) closePicker()
   const cur = S.tracks[S.sel], tr = i != null && i >= 0 ? S.tracks[i] : null
-  switch (a) {
+  if (typeof DOWN_MORE === 'object' && DOWN_MORE && DOWN_MORE[a]) DOWN_MORE[a](e, el, p, i)      // (what a module draws and takes presses for itself: groups.js)
+  else switch (a) {
     case 'patch': case 'mixer': togglePanel(a); break
     case 'tab-patch': case 'tab-mixer': S.panel.tab = a.slice(4); closePicker(); uiDirty('dock', 'top'); break
     case 'slur': toggleSlur(); break
@@ -1272,6 +1276,8 @@ function onDown (e) {
     case 'autokey': toggleAuto(); break
     case 'flexkey': toggleFlex(); break
     case 'qval': openQMenu(p.x - 10, TOOL_Y + TOOL_H + 2); break
+    case 'rstretch': openStretchMenu(p.x - 10, TOOL_Y + TOOL_H + 2); break
+    case 'rsens': sensDown(+el.dataset.k, p, e.altKey); break
     case 'qgo': act.quantize(); break
     case 'rbpm': startRename('rbpm', 0, { x: +el.getAttribute('x'), y: +el.getAttribute('y'), w: +el.getAttribute('width'), h: +el.getAttribute('height') }); break      // how fast the file goes, as it was heard: pressed, it can be put right (heard at twice or half its speed, say)
     case 'fcurve': {                                                                  // how a fade bends: of the crossfade that is chosen, else of the chosen regions' own fades
@@ -1297,7 +1303,7 @@ function onDown (e) {
     case 'mout': openOutMenu(tr, p.x - 10, p.y + 10); break
     case 'min': openInputMenu(tr, p.x - 10, p.y + 10); break
     case 'audiokey': if (NAT) NAT.call('audioSettings'); break
-    case 'rgain': drag = { a, ly: p.y, acc: 0, before: editState(), orig: new Map(selRegs().map(([r]) => [r.id, r.gain || 0])) }; break
+    case 'rgain': { const rs = selRegs(), ids = rs.length && typeof grpGainIds === 'function' ? grpGainIds(rs[0][0], rs[0][1], rs.map(([r]) => r.id)) : rs.map(([r]) => r.id); drag = { a, ly: p.y, acc: 0, before: editState(), orig: new Map(ids.map(id => [id, regOf(id)[0].gain || 0])) }; break }
     case 'rtr': drag = { a, y0: p.y, before: editState(), orig: new Map(selRegs().map(([r]) => [r.id, r.tr || 0])) }; break
     case 'rft': drag = { a, ly: p.y, acc: 0, before: editState(), orig: new Map(selRegs().filter(([r]) => !r.notes).map(([r]) => [r.id, r.ft || 0])) }; break      // fine tune: a cent a point (with shift, finer)
     /* a head pressed by its name: with shift, all from the one last pressed to this one; with command, this one more (or one
@@ -1315,7 +1321,7 @@ function onDown (e) {
     /* m and s: every chosen row goes with the one pressed; and the hand can go on across the rows, setting each it passes the same way.
        With option, s leaves this one row alone in solo (or lets every solo go) */
     case 'mute': case 'solo': {
-      const only = a === 'solo' && e.altKey, to = only ? !(tr.solo && S.tracks.filter(t => t.solo).length === 1) : !tr[a], g = only ? [tr] : groupOf(i)
+      const only = a === 'solo' && e.altKey, to = only ? !(tr.solo && S.tracks.filter(t => t.solo).length === 1) : !tr[a], g = only ? [tr] : groupOf(i, a)
       if (only) for (const t of S.tracks) t.solo = false
       for (const t of g) t[a] = to
       applyAll(); uiDirty('head', 'lanes', 'dock')
@@ -1400,6 +1406,7 @@ function onMove (e) {
   else if (drag.a === 'pgrip') { S.panel.h = Math.round(drag.h0 + (drag.y0 - p.y)); relayout(); dirtyAll() }
   else if (drag.a === 'rowh') { const h = clamp(Math.round(drag.h0 + (p.y - drag.y0)), ROW_MIN, ROW_MAX); for (const t of drag.who) t.h = h; VY = clamp(VY, 0, maxVY()); uiDirty('head', 'lanes') }
   else if (drag.a === 'zoomx' || drag.a === 'zoomy') zoomDrag(drag, p.x)
+  else if (drag.a === 'rsens') sensMove(p)
   else if (drag.a === 'print') { setPrint(t, drag.k, drag.v0 + pulled(drag, p.y, .6, e)); touchPatch(t) }
   else if (drag.a === 'seek') seekX(p.x, e)
   else if (drag.a === 'reorder') reorderMove(p)
@@ -1442,6 +1449,7 @@ function onUp () {
   else if ((d.a === 'vol' || d.a === 'mvol') && d.before) commit(d.before)          // the fader moved a line drawn along the song
   else if (d.a === 'msend' && !d.moved) openSendMenu(S.tracks[d.i], d.k, S.px - 10, S.py + 10)       // a press that moved nothing asks where it goes
   else if (d.a === 'rgain' && d.moved) commit(d.before)
+  else if (d.a === 'rsens') sensUp(d)
   else if (d.a === 'rtr' && d.moved) { commit(d.before); rewarp(selRegs().map(x => x[0])) }
   else if (d.a === 'rft' && d.moved) { commit(d.before); rewarp(selRegs().map(x => x[0])) }
   else if (d.a === 'pgrip') syncSlur()
@@ -1475,7 +1483,7 @@ function under (e) {
 let LASTP = null
 function twice (el, e, p) {
   const a = el.dataset.a, t = S.tracks[S.sel], i = el.dataset.i != null ? +el.dataset.i : null
-  if (a === 'vol' || a === 'mvol') { for (const tr of groupOf(i)) if (!autoPts(tr, 'vol').length) { tr.vol = 0; tr.ghost = null } applyAll(); uiDirty('head', 'dock') }      // twice, like option and a press: the fader at 0 dB
+  if (a === 'vol' || a === 'mvol') { for (const tr of groupOf(i, 'volume')) if (!autoPts(tr, 'vol').length) { tr.vol = 0; tr.ghost = null } applyAll(); uiDirty('head', 'dock') }      // twice, like option and a press: the fader at 0 dB
   else if (a === 'print') { const k = pk(el.dataset.k); if (k === 'share') { t.patch.A.share = t.patch.B.share = 62 } else setPrint(t, k, 0); touchPatch(t) }      // twice: the print comes off (the mix goes back to where it starts)
   else if (a === 'sel' || a === 'msel') startRename('track', i)
   else if (a === 'rowh') rowBack(i)                                                    // twice on the line under a row: the room's own height again

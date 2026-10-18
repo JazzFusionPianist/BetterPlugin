@@ -242,6 +242,42 @@ async function runSelfTest (mode) {
     await note('page', { errors: window.__errs || [] })
     await NAT.call('testDone'); return
   }
+  if (mode === 'keys') {                                                           // only this: settings > key commands (keypage.js), the room wearing a set of keys (commands.js)
+    await step('keys', async () => {
+      const res = {}, there = js => NAT.call('testSettingsJs', { js })
+      await sleep(800)
+      res.catalog = KC.catalog.length; res.plainAtFirst = KC.plain
+      await NAT.call('settings', { part: 'key commands' })
+      for (let k = 0; k < 40; k++) { await sleep(300); const r = await there(`JSON.stringify({ ready: KP.ready, cat: KP.cat.length })`); if (r && r.ready) { res.page = r; break } }
+      res.window = await NAT.call('testSettings', { name: 'selftest-keys.png' }); await sleep(600)
+      /* logic pro's keys, pressed as a hand does */
+      await there(`keyPress(document.querySelector('[data-a="k-base"][data-v="logic"]'), {}); '{}'`); await sleep(900)
+      res.logic = { base: KC.set.base, n: keyFor('KeyN') === undefined, muteOn: KC.by.get('⌃KeyM'), fades: KC.map['Region > Fades > Fades for Selection'], escape: keyFor('Escape') === KEYS.Escape, menuShows: MENUS.sent.includes('"key":"m","cmd":0,"ctrl":1') }
+      await there(`KP.layer = '⌘'; draw(); '{}'`); await sleep(300); await NAT.call('testSettings', { name: 'selftest-keys-logic.png' }); await sleep(600)
+      /* his own set of another program: found on this Mac, read, turned into the room's keys */
+      await there(`KP.found = null; keyPress(document.querySelector('[data-a="k-foreign"]'), {}); '{}'`); await sleep(1500)
+      res.found = await there(`JSON.stringify({ found: (KP.found || []).map(f => f.daw + ': ' + f.name) })`)
+      await NAT.call('testSettings', { name: 'selftest-keys-found.png' }); await sleep(600)
+      await there(`const f = (KP.found || []).find(x => x.daw === 'logic' && x.name === 'the set in use'); if (f) keyPress({ dataset: { a: 'k-read', v: f.path } }, {}); '{}'`); await sleep(1800)
+      res.his = await there(`JSON.stringify({ said: KP.said, base: KP.set.base, changes: Object.keys(KP.set.changes).length })`)
+      await sleep(600)
+      res.room = { base: KC.set.base, n: KC.by.get('KeyN'), f: KC.by.get('KeyF'), bar: KC.by.get('⌥⇧KeyM') }
+      await NAT.call('testSettings', { name: 'selftest-keys-his.png' }); await sleep(600)
+      /* a key given by hand, taken from another, and undone */
+      await there(`KP.rec = 'Transport > Record'; keyRecord({ code: 'KeyJ', key: 'j', metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, preventDefault () {}, stopPropagation () {} }); JSON.stringify({ conflict: KP.conflict, said: KP.said })`)
+      res.conflict = await there(`JSON.stringify({ conflict: !!KP.conflict })`)
+      await there(`keyPress(document.querySelector('[data-a="k-take"]') || { dataset: {} }, {}); '{}'`); await sleep(800)
+      res.given = KC.by.get('KeyJ') === 'Transport > Record'
+      await there(`kpUndo(); '{}'`); await sleep(800)
+      res.undone = KC.by.get('KeyJ') !== 'Transport > Record'
+      await there(`keyPress(document.querySelector('[data-a="k-base"][data-v="slur"]'), {}); '{}'`); await sleep(900)
+      res.back = KC.plain && keyFor('KeyN') === KEYS.KeyN
+      await NAT.call('settingsClose')
+      return res
+    })
+    await note('page', { errors: window.__errs || [] })
+    await NAT.call('testDone'); return
+  }
   if (mode === 'plugins') {                                                        // only this: settings > plug-ins (plugpage.js), and the room's lists without what is left out there
     await step('plugins', async () => {
       const res = {}, there = js => NAT.call('testSettingsJs', { js })

@@ -1,0 +1,3334 @@
+{
+ "daw": "Pro Tools",
+ "about": "Pro Tools internal command names (the \"Command\" field of .ptpreset / PTCustomHotkeys.txt) for each Slur row, in menu-commands.json order. ids: commands whose bindings give the row its key (first non-focus binding of the first id that has one); focusIds: extra commands that only lend their Commands-Focus key; filter: \"shift\" = only the bindings that include ⇧ (the extend form of a navigation command), \"noshift\" = only those without. Rows whose Pro Tools command already belongs to another row are left empty so an import gives no duplicate keys. Use with protools-decode.mjs: ptRowKeys(ptApply(defaults, userFile).table, row).",
+ "storage": {
+  "activeSet": "~/Library/Preferences/Avid/Pro Tools/PTCustomHotkeys.txt",
+  "quickPresets": "~/Documents/Pro Tools/Pro Tools Presets/Keyboard Shortcuts/Quick Preset 1.ptpreset … Quick Preset 5.ptpreset",
+  "namedPresets": "~/Documents/Pro Tools/Pro Tools Presets/Keyboard Shortcuts/*.ptpreset (Application/ = Avid's alternate-DAW presets)"
+ },
+ "rows": [
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "General",
+   "ids": [
+    "AppPrefs"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "Setup > Preferences"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Display",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "same Pro Tools command as General (AppPrefs, the Preferences window); not repeated"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Audio",
+   "ids": [
+    "PlaybackEngine"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Plug-ins",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Slur Studio",
+   "line": "Key Commands",
+   "ids": [
+    "ShowKeyBindings"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "File",
+   "line": "New",
+   "ids": [
+    "CreateNew"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "File",
+   "line": "Open…",
+   "ids": [
+    "Open"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "low",
+   "note": "id not confirmed; \"OpenProject\" also exists in Pro Tools"
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "No Projects Yet",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "placeholder row; Pro Tools numbers its recent items OpenRecentDocument1, 2, … (OpenRecentDocument1 is ⇧⌘O)"
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "More…",
+   "ids": [
+    "WelcomeDashboard"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "the Dashboard (⌥⌘O)"
+  },
+  {
+   "menu": "File",
+   "line": "Save",
+   "ids": [
+    "SaveFrontDocument"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "File",
+   "line": "Save As…",
+   "ids": [
+    "SaveFrontDocumentAs"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "File",
+   "line": "Rename…",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "File",
+   "line": "Revert To…",
+   "ids": [
+    "Revert"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "File > Revert to Saved"
+  },
+  {
+   "menu": "File",
+   "line": "Find Missing Sounds…",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "the Relink window has no command id with a key"
+  },
+  {
+   "menu": "File",
+   "line": "Import Audio…",
+   "ids": [
+    "ImportAudio"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off…",
+   "ids": [
+    "BounceToDisk"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off Stems…",
+   "ids": [
+    "BounceTracks"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place",
+   "ids": [
+    "CommitTracksToNewTracks"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place in Realtime",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Edit",
+   "line": "Undo",
+   "ids": [
+    "Undo"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Edit",
+   "line": "Redo",
+   "ids": [
+    "Redo"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut",
+   "ids": [
+    "Cut"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Edit",
+   "line": "Copy",
+   "ids": [
+    "Copy"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Edit",
+   "line": "Paste",
+   "ids": [
+    "Paste"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Edit",
+   "line": "Delete",
+   "ids": [
+    "DeleteSelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Edit",
+   "line": "Select All",
+   "ids": [
+    "SelectAll"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "None",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Invert",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "same Pro Tools command as the next row (MoveEditInsertionToSessionEnd with Shift); not repeated"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following on the Same Track",
+   "ids": [
+    "MoveEditInsertionToSessionEnd"
+   ],
+   "focusIds": [],
+   "filter": "shift",
+   "confidence": "high",
+   "note": "its ⌥⇧Return binding (Shift = extend)"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Inside the Cycle",
+   "ids": [
+    "TimelineSelectionToEditSelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "Edit > Selection > Change Edit to Match Timeline; Focus 0 is this id in Avid's presets, ⌥⇧Numpad6 assumed to be the same id"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Muted Regions",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Region",
+   "ids": [
+    "MoveEditSelectionToPreviousRegion"
+   ],
+   "focusIds": [],
+   "filter": "noshift",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Region",
+   "ids": [
+    "MoveEditSelectionToNextRegion"
+   ],
+   "focusIds": [],
+   "filter": "noshift",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Previous Region",
+   "ids": [
+    "MoveEditSelectionToPreviousRegion"
+   ],
+   "focusIds": [],
+   "filter": "shift",
+   "confidence": "high",
+   "note": "the same command's Shift bindings"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Next Region",
+   "ids": [
+    "MoveEditSelectionToNextRegion"
+   ],
+   "focusIds": [],
+   "filter": "shift",
+   "confidence": "high",
+   "note": "the same command's Shift bindings"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "First Region",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Last Region",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Track",
+   "ids": [
+    "MoveEditInsertionToPreviousTrack"
+   ],
+   "focusIds": [],
+   "filter": "noshift",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Track",
+   "ids": [
+    "MoveEditInsertionToNextTrack"
+   ],
+   "focusIds": [],
+   "filter": "noshift",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Playhead",
+   "ids": [
+    "SeparateRegion"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Cycle Ends",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "same Pro Tools command as Split at Playhead (SeparateRegion); not repeated"
+  },
+  {
+   "menu": "Edit",
+   "line": "Join",
+   "ids": [
+    "ConsolidateSelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "Edit > Consolidate Clip; HealSeparation (⌘H) is the non-rendering join"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat",
+   "ids": [
+    "DuplicateAndShiftSelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "Edit > Duplicate (⌘D); Edit > Repeat… is \"Repeat\""
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut Section Between Locators",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Silence at Locators",
+   "ids": [
+    "InsertSilence"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Section at Playhead",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat Section Between Locators",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Region",
+   "line": "Mute",
+   "ids": [
+    "MuteUnmute"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Rename…",
+   "ids": [
+    "RenameSelectedTimeRegions"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead",
+   "ids": [
+    "MoveRegionStartToPlayPosition"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "Focus H in Avid's presets; ⌃H is the documented focus-key-with-Control form"
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead and Select Next",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Region",
+   "line": "Loop to the Next Region",
+   "ids": [
+    "LoopRegions"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Trim Start to Playhead",
+   "ids": [
+    "TrimRegionStartToCursor"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "Focus A in Avid's presets; the menu key ⌥⇧7 is assumed to belong to the same id"
+  },
+  {
+   "menu": "Region",
+   "line": "Trim End to Playhead",
+   "ids": [
+    "TrimRegionEndToCursor"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "Focus S and ⌃S in Avid's presets; ⌥⇧8 assumed to be the same id"
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Left",
+   "ids": [
+    "SnapToPrevious"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Right",
+   "ids": [
+    "SnapToNext"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 1 dB",
+   "ids": [
+    "NudgeClipGainUp"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 1 dB",
+   "ids": [
+    "NudgeClipGainDown"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 0.1 dB",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 0.1 dB",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Back to 0 dB",
+   "ids": [
+    "ClearSelectedClipGain"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "\"ClearClipGain\" also exists"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up a Semitone",
+   "ids": [
+    "SplitCommand_MidiUp",
+    "EventMIDIUpOrLargerTrackOrPreviousPlaylistOrSelEnd"
+   ],
+   "focusIds": [],
+   "filter": "noshift",
+   "confidence": "medium",
+   "note": "Up Arrow with MIDI notes selected; Pro Tools 2025 binds ↑ both to the old combined command and to the split ones"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down a Semitone",
+   "ids": [
+    "cSplitCommand_MidiDown",
+    "EventMIDIDownOrSmallerTrackOrNextPlaylistOrSelStart"
+   ],
+   "focusIds": [],
+   "filter": "noshift",
+   "confidence": "medium",
+   "note": "Down Arrow with MIDI notes selected; the split command is spelled \"cSplitCommand_MidiDown\" in Pro Tools 2025.12 (sic, beside \"SplitCommand_MidiUp\")"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up an Octave",
+   "ids": [
+    "SplitCommand_MidiUp",
+    "EventMIDIUpOrLargerTrackOrPreviousPlaylistOrSelEnd"
+   ],
+   "focusIds": [],
+   "filter": "shift",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down an Octave",
+   "ids": [
+    "cSplitCommand_MidiDown",
+    "EventMIDIDownOrSmallerTrackOrNextPlaylistOrSelStart"
+   ],
+   "focusIds": [],
+   "filter": "shift",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Up 10 Cents",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Down 10 Cents",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Back to the Original Pitch",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Region",
+   "line": "Reverse",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "AudioSuite plug-in, not a command"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fades for Selection",
+   "ids": [
+    "CreateFades"
+   ],
+   "focusIds": [
+    "CrossfadeWithNoDialog"
+   ],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade In up to the Playhead",
+   "ids": [
+    "FadeInFromStartToCursor"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade Out from the Playhead",
+   "ids": [
+    "FadeOutFromCursorToEnd"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Earlier",
+   "ids": [
+    "NudgeRegionEarlierByGrid"
+   ],
+   "focusIds": [
+    "NudgePlayEarlierByGrid"
+   ],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Later",
+   "ids": [
+    "NudgeRegionLaterByGrid"
+   ],
+   "focusIds": [
+    "NudgePlayLaterByGrid"
+   ],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Shorter",
+   "ids": [
+    "NudgeRegionEndEarlierByGrid"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Longer",
+   "ids": [
+    "NudgeRegionEndLaterByGrid"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Follow the Tempo",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "a track timebase setting"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Fit Region to Project Tempo",
+   "ids": [
+    "ConformElasticRegionToTempo"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Set Project Tempo from Region",
+   "ids": [
+    "IdentifyBeat"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Quantize",
+   "ids": [
+    "MIDIQuantize"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Undo Quantize",
+   "ids": [
+    "MIDIDisplayRestorePanel"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "opens MIDI Operations > Restore Performance"
+  },
+  {
+   "menu": "Region",
+   "line": "Strip Silence",
+   "ids": [
+    "ShowStripSilenceWindow"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Group",
+   "ids": [
+    "GroupRegions"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Ungroup",
+   "ids": [
+    "UngroupRegions"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Colour and Outline…",
+   "ids": [
+    "ShowColorPaletteWindow"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Track",
+   "line": "New Tracks…",
+   "ids": [
+    "NewTrack"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Track",
+   "line": "New Audio Track",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no command for one track type"
+  },
+  {
+   "menu": "Track",
+   "line": "New Instrument Track",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no command for one track type"
+  },
+  {
+   "menu": "Track",
+   "line": "New Bus",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no command for one track type"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "same Pro Tools command as the next row (DuplicateSelectedTracks); not repeated"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate with Its Regions",
+   "ids": [
+    "DuplicateSelectedTracks"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Track",
+   "line": "Rename…",
+   "ids": [
+    "RenameTracks"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "Batch Track Rename (⌥⇧R)"
+  },
+  {
+   "menu": "Track",
+   "line": "Delete",
+   "ids": [
+    "DeleteTracks"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Track",
+   "line": "Delete Empty Tracks",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Track",
+   "line": "Mute",
+   "ids": [
+    "MuteTracksWithSelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Track",
+   "line": "Solo",
+   "ids": [
+    "SoloTracksWithSelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Track",
+   "line": "Record Enable",
+   "ids": [
+    "RecordArmTracksWithSelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Track",
+   "line": "Hear the Input",
+   "ids": [
+    "InputMonitorTracksWithSelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Make a Stack",
+   "ids": [
+    "MoveTrackToNewFolder"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Take the Stack Apart",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Open the Stack",
+   "ids": [
+    "CollapseExpandFoldersWithSelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Close the Stack",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "same toggle as Open the Stack (CollapseExpandFoldersWithSelection); not repeated"
+  },
+  {
+   "menu": "Track",
+   "line": "Group Tracks",
+   "ids": [
+    "GroupTracks"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Track",
+   "line": "Suspend Groups",
+   "ids": [
+    "SuspendGroups"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Typing Keyboard",
+   "ids": [
+    "UseKeyboardAsMIDIController"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "Window > MIDI Keyboard (⇧K)"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Capture as Recording",
+   "ids": [
+    "MIDIRecallRetrospectiveData"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "Event > Retrospective MIDI Record"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "All Notes Off",
+   "ids": [
+    "AllNotesOff"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Play or Stop",
+   "ids": [
+    "TogglePlayState"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "Numpad 0 is this id in Avid's presets; Space assumed to be the same id"
+  },
+  {
+   "menu": "Transport",
+   "line": "Play from Selection",
+   "ids": [
+    "PlayEditSelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Record",
+   "ids": [
+    "RecordPunch"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Discard Recording",
+   "ids": [
+    "Abort"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Start",
+   "ids": [
+    "ReturnToZero"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to End of Sound",
+   "ids": [
+    "GoToEnd"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Back a Bar",
+   "ids": [
+    "Rewind"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward a Bar",
+   "ids": [
+    "FastForward"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Back Eight Bars",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward Eight Bars",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Transport",
+   "line": "Previous Transient",
+   "ids": [
+    "MoveEditInsertionToPreviousEdit"
+   ],
+   "focusIds": [],
+   "filter": "noshift",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Next Transient",
+   "ids": [
+    "MoveEditInsertionToNextEdit"
+   ],
+   "focusIds": [],
+   "filter": "noshift",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Bar…",
+   "ids": [
+    "EnterMainCounterField"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Cycle",
+   "ids": [
+    "NormalLoopPlayback"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Set to Selection",
+   "ids": [
+    "EditSelectionToTimelineSelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "Change Timeline to Match Edit (⌥⇧5, Focus O)"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its Start",
+   "ids": [
+    "DisplaySelStartOrSelectPrevMIDIEventOrTogglePlaylist",
+    "SplitCommand_DisplaySelStart"
+   ],
+   "focusIds": [],
+   "filter": "noshift",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its End",
+   "ids": [
+    "DisplaySelEndOrSelectNextMIDIEventOrShowPlaylist",
+    "SplitCommand_DisplaySelEnd"
+   ],
+   "focusIds": [],
+   "filter": "noshift",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Forward by Its Length",
+   "ids": [
+    "MoveSelectionForwardBySelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Back by Its Length",
+   "ids": [
+    "MoveSelectionBackwardBySelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Twice as Long",
+   "ids": [
+    "SelectDouble"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Half as Long",
+   "ids": [
+    "SelectHalf"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Zoom to the Cycle",
+   "ids": [
+    "ZoomToFitSelection"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Click",
+   "ids": [
+    "MIDIClick"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "Options > Click; keypad 7 in Transport mode"
+  },
+  {
+   "menu": "Transport",
+   "line": "Count-In",
+   "ids": [
+    "CountoffToggle"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker Here",
+   "ids": [
+    "CreateMemoryLocationRuler"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker for Selection",
+   "ids": [
+    "CreateMemoryLocationSelected"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "low",
+   "note": "name suggests it; not confirmed"
+  },
+  {
+   "menu": "Markers",
+   "line": "Rename Marker…",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Markers",
+   "line": "Delete Marker Here",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Markers",
+   "line": "Previous Marker",
+   "ids": [
+    "GoToPreviousMemoryLocation"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no factory key in Transport keypad mode; Avid's Live preset gives it ⌥⌘←"
+  },
+  {
+   "menu": "Markers",
+   "line": "Next Marker",
+   "ids": [
+    "GoToNextMemoryLocation"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "Avid's Live preset gives it ⌥⌘→"
+  },
+  {
+   "menu": "Markers",
+   "line": "Cycle the Marker",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 1",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "recalled by the keypad sequence . 1 . (RecallPendingMemoryLocation), not a per-number command"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 2",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "recalled by the keypad sequence . 2 . (RecallPendingMemoryLocation), not a per-number command"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 3",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "recalled by the keypad sequence . 3 . (RecallPendingMemoryLocation), not a per-number command"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 4",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "recalled by the keypad sequence . 4 . (RecallPendingMemoryLocation), not a per-number command"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 5",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "recalled by the keypad sequence . 5 . (RecallPendingMemoryLocation), not a per-number command"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 6",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "recalled by the keypad sequence . 6 . (RecallPendingMemoryLocation), not a per-number command"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 7",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "recalled by the keypad sequence . 7 . (RecallPendingMemoryLocation), not a per-number command"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 8",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "recalled by the keypad sequence . 8 . (RecallPendingMemoryLocation), not a per-number command"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 9",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "recalled by the keypad sequence . 9 . (RecallPendingMemoryLocation), not a per-number command"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pointer",
+   "ids": [
+    "GrabberTool"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Smart",
+   "ids": [
+    "SmartTool"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pencil",
+   "ids": [
+    "PencilTool"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Eraser",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Scissors",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Join",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Mute",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Gain",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Fade",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Marquee",
+   "ids": [
+    "SelectorTool"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Rubato",
+   "ids": [
+    "TrimTool"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "low",
+   "note": "closest only; \"SetTCETrimmer\" selects the TCE Trimmer directly (no factory key)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Zoom",
+   "ids": [
+    "ZoomTool"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Velocity",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Tool Menu",
+   "ids": [
+    "NextTool"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Smart",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Grid",
+   "ids": [
+    "GridMode"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip",
+   "ids": [
+    "SlipMode"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Shuffle",
+   "ids": [
+    "ShuffleMode"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Spot",
+   "ids": [
+    "SpotMode"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip, and Back",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "NextMode (the ` key) cycles the modes"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/1",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/2",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/4",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/8",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/16",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/32",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/3",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/6",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/12",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/24",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Bar",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Beat",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1/16",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ticks",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Tick",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ms",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1 ms",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Sample",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/4",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8 Triplet",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16 Triplet",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/32",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no per-value command (NextLarger/NextSmallerGridValue and …NudgeValue step through them)"
+  },
+  {
+   "menu": "View",
+   "line": "Patch",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "View",
+   "line": "Mixer",
+   "ids": [
+    "ShowMixWindow"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "ShowEditWindow has the same ⌘="
+  },
+  {
+   "menu": "View",
+   "line": "Notes",
+   "ids": [
+    "ShowDockedMIDIEditor"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "View",
+   "line": "Prompt",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "View",
+   "line": "Rubato Panel",
+   "ids": [
+    "ShowElasticPropertiesWindow"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "low",
+   "note": ""
+  },
+  {
+   "menu": "View",
+   "line": "Slur",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "View",
+   "line": "Automation",
+   "ids": [
+    "PlaylistViewToggle"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "View",
+   "line": "Next Automation Parameter",
+   "ids": [
+    "NextTrackWhatToShow"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "View",
+   "line": "Rubato View",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "a Track View choice (Warp), not a command"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom In",
+   "ids": [
+    "ZoomInHorizontal"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "View",
+   "line": "Zoom Out",
+   "ids": [
+    "ZoomOutHorizontal"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "View",
+   "line": "Zoom to Fit or Selection",
+   "ids": [
+    "EZoom"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "View",
+   "line": "Taller Rows",
+   "ids": [
+    "NextLargerTrackSize"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "View",
+   "line": "Shorter Rows",
+   "ids": [
+    "NextSmallerTrackSize"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "View",
+   "line": "Taller Waveforms",
+   "ids": [
+    "ZoomInAudioVertical"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "View",
+   "line": "Lower Waveforms",
+   "ids": [
+    "ZoomOutAudioVertical"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": ""
+  },
+  {
+   "menu": "View",
+   "line": "Page Left",
+   "ids": [
+    "ScrollTimeLeftAPageCmd"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "id exists; its factory key is not documented"
+  },
+  {
+   "menu": "View",
+   "line": "Page Right",
+   "ids": [
+    "ScrollTimeRightAPageCmd"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "id exists; its factory key is not documented"
+  },
+  {
+   "menu": "View",
+   "line": "Page Up",
+   "ids": [
+    "ScrollTimeUpAPageCmd"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "id exists; its factory key is not documented"
+  },
+  {
+   "menu": "View",
+   "line": "Page Down",
+   "ids": [
+    "ScrollTimeDownAPageCmd"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "id exists; its factory key is not documented"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Playhead",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Selection",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "View",
+   "line": "Close Plug-in Windows",
+   "ids": [
+    "HideOrUnhideFloaters"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "View",
+   "line": "Say It",
+   "ids": [
+    "ProToolsSearch2",
+    "ProToolsSearch"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "low",
+   "note": "Pro Tools Search (⌃⇧S); which of the two ids carries the key is not confirmed"
+  },
+  {
+   "menu": "Window",
+   "line": "Patch",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Window",
+   "line": "Mixer",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "same Pro Tools command as View > Mixer (ShowMixWindow); not repeated"
+  },
+  {
+   "menu": "Window",
+   "line": "Slur",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Window",
+   "line": "Rubato Panel",
+   "ids": [
+    "ShowElasticPropertiesWindow"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "low",
+   "note": "same Slur command as View > Rubato Panel"
+  },
+  {
+   "menu": "Window",
+   "line": "Minimize",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Window",
+   "line": "Zoom",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Window",
+   "line": "Enter Full Screen",
+   "ids": [],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "high",
+   "note": "no Pro Tools command"
+  },
+  {
+   "menu": "Help",
+   "line": "Slur Studio Help",
+   "ids": [
+    "ShowPTHelp"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": ""
+  },
+  {
+   "menu": "Help",
+   "line": "Key Commands",
+   "ids": [
+    "ShowKeyboardShortcutsGuide"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "medium",
+   "note": "Help > Pro Tools Shortcuts"
+  },
+  {
+   "menu": "Help",
+   "line": "Say It",
+   "ids": [
+    "ProToolsSearch2",
+    "ProToolsSearch"
+   ],
+   "focusIds": [],
+   "filter": "",
+   "confidence": "low",
+   "note": "same Slur command as View > Say It"
+  }
+ ],
+ "defaults": {
+  "Undo": [
+   "⌘KeyZ",
+   "focus:KeyZ"
+  ],
+  "Paste": [
+   "⌘KeyV",
+   "focus:KeyV"
+  ],
+  "NewTrack": [
+   "⇧⌘KeyN"
+  ],
+  "SeparateRegion": [
+   "⌘KeyE",
+   "focus:KeyB"
+  ],
+  "MuteUnmute": [
+   "⌘KeyM"
+  ],
+  "IdentifyBeat": [
+   "⌘KeyI"
+  ],
+  "TrimAutoToCurrentControl": [
+   "⇧⌘Slash"
+  ],
+  "NudgeRegionEarlierByGrid": [
+   "NumpadSubtract"
+  ],
+  "NudgeRegionLaterByGrid": [
+   "NumpadAdd"
+  ],
+  "NudgePlayEarlierByNextBiggerGrid": [
+   "focus:KeyM"
+  ],
+  "NudgeRegionEndEarlierByGrid": [
+   "⌘NumpadSubtract"
+  ],
+  "NudgeRegionEndLaterByGrid": [
+   "⌘NumpadAdd"
+  ],
+  "NudgeRegionContentsEarlierByGrid": [
+   "⌃NumpadSubtract"
+  ],
+  "NudgeRegionContentsLaterByGrid": [
+   "⌃NumpadAdd"
+  ],
+  "EditSelectionToTimelineSelection": [
+   "⌥⇧Numpad5",
+   "⌃⌥⇧KeyO",
+   "⌃⇧⌘KeyO",
+   "⌥⇧Digit5",
+   "focus:KeyO"
+  ],
+  "PrePostRollPlayback": [
+   "⌘KeyK"
+  ],
+  "ShowEditWindow": [
+   "⌘Equal"
+  ],
+  "ShowMixWindow": [
+   "⌘Equal"
+  ],
+  "ShowEventListWindow": [
+   "⌥Equal"
+  ],
+  "VolumesWorkspace": [
+   "⌥Semicolon"
+  ],
+  "PlaylistViewToggle": [
+   "⌃Minus",
+   "focus:Minus",
+   "focus:⌥Minus"
+  ],
+  "SuspendGroups": [
+   "⇧⌘KeyG"
+  ],
+  "MoveSelectionForwardBySelection": [
+   "⌃⌥⌘Quote"
+  ],
+  "MoveSelectionBackwardBySelection": [
+   "⌃⌥⌘KeyL"
+  ],
+  "TimeStampSelectedRegions": [
+   "⇧⌘KeyM"
+  ],
+  "ClearFindRegions": [
+   "⇧⌘KeyD"
+  ],
+  "ZoomOutHorizontal": [
+   "⌘BracketLeft",
+   "⌃KeyR",
+   "focus:KeyR"
+  ],
+  "ZoomInHorizontal": [
+   "⌘BracketRight",
+   "⌃KeyT",
+   "focus:KeyT"
+  ],
+  "ZoomOutAudioVertical": [
+   "⌥⌘BracketLeft"
+  ],
+  "ZoomInAudioVertical": [
+   "⌥⌘BracketRight"
+  ],
+  "ZoomToFitSelection": [
+   "⌥KeyF"
+  ],
+  "ZoomToShowAll": [
+   "⌥KeyA"
+  ],
+  "EZoom": [
+   "⌃KeyE",
+   "focus:KeyE"
+  ],
+  "DisplayTimelineSelectionStart": [
+   "focus:KeyQ"
+  ],
+  "DisplayTimelineSelectionEnd": [
+   "focus:KeyW"
+  ],
+  "PlayHalfSpeed": [
+   "⇧Space"
+  ],
+  "RecordPunch": [
+   "⌘Space",
+   "F12",
+   "Numpad3"
+  ],
+  "FastForward": [
+   "Numpad2",
+   "⇧Period"
+  ],
+  "Rewind": [
+   "Numpad1",
+   "⇧Comma"
+  ],
+  "ToggleMasterMachine": [
+   "⌘Backslash"
+  ],
+  "SynchronizerShuttleBackward": [
+   "⌥Comma"
+  ],
+  "SynchronizerShuttleForward": [
+   "⌥Period"
+  ],
+  "PlayThroughEditStart": [
+   "⌥⌘ArrowLeft"
+  ],
+  "PlayThroughEditEnd": [
+   "⌥⌘ArrowRight"
+  ],
+  "MoveEditInsertionToPreviousEdit": [
+   "⌥⇧Tab",
+   "⌥Tab",
+   "focus:KeyL",
+   "focus:⇧KeyL"
+  ],
+  "MoveEditInsertionToPreviousTrack": [
+   "⌃KeyP",
+   "focus:KeyP"
+  ],
+  "NudgeSelectionLaterByGrid": [
+   "⇧NumpadAdd",
+   "⌥⇧NumpadAdd"
+  ],
+  "NudgeSelectionEarlierByGrid": [
+   "⇧NumpadSubtract",
+   "⌥⇧NumpadSubtract"
+  ],
+  "FadeOutFromCursorToEnd": [
+   "⌃KeyG",
+   "focus:KeyG"
+  ],
+  "CrossfadeWithNoDialog": [
+   "⌃⌘KeyF",
+   "focus:KeyF"
+  ],
+  "MoveRegionEndToCurrentTC": [
+   "focus:KeyI"
+  ],
+  "MoveRegionSyncPointToPlayPosition": [
+   "focus:KeyJ"
+  ],
+  "MoveRegionEndToPlayPosition": [
+   "focus:KeyK"
+  ],
+  "NextLargerTrackSize": [
+   "⌃ArrowUp",
+   "⌃⌥⌘ArrowUp"
+  ],
+  "NextSmallerTrackSize": [
+   "⌃ArrowDown",
+   "⌃⌥⌘ArrowDown"
+  ],
+  "PreviousTrackWhatToShow": [
+   "⌃⌘ArrowLeft"
+  ],
+  "NextTrackWhatToShow": [
+   "⌃⌘ArrowRight"
+  ],
+  "SoloTracksWithSelection": [
+   "⇧KeyS"
+  ],
+  "MuteTracksWithSelection": [
+   "⇧KeyM"
+  ],
+  "BypassInsertsFJ": [
+   "⇧Digit3"
+  ],
+  "DisplaySelStartOrSelectPrevMIDIEventOrTogglePlaylist": [
+   "ArrowLeft",
+   "⇧ArrowLeft"
+  ],
+  "DisplaySelEndOrSelectNextMIDIEventOrShowPlaylist": [
+   "ArrowRight",
+   "⇧ArrowRight"
+  ],
+  "CreateMemoryLocationRuler": [
+   "NumpadEnter"
+  ],
+  "Cut": [
+   "⌘KeyX",
+   "focus:KeyX"
+  ],
+  "GroupTracks": [
+   "⌘KeyG"
+  ],
+  "Repeat": [
+   "⌥KeyR"
+  ],
+  "ShiftSelection": [
+   "⌥KeyH"
+  ],
+  "HealSeparation": [
+   "⌘KeyH"
+  ],
+  "EventMIDIDownOrSmallerTrackOrNextPlaylistOrSelStart": [
+   "ArrowDown",
+   "⇧ArrowDown"
+  ],
+  "EventMIDIUpOrLargerTrackOrPreviousPlaylistOrSelEnd": [
+   "ArrowUp",
+   "⇧ArrowUp"
+  ],
+  "EventMIDIDupDownOrCopyPlaylistOrSmallerTrackOrSelStart": [
+   "⌥ArrowDown"
+  ],
+  "EventMIDIDupUpOrLargerTrackOrSelStart": [
+   "⌥ArrowUp"
+  ],
+  "CreateFades": [
+   "⌘KeyF"
+  ],
+  "NudgeRegionStartEarlierByGrid": [
+   "⌥NumpadSubtract"
+  ],
+  "NudgeRegionStartLaterByGrid": [
+   "⌥NumpadAdd"
+  ],
+  "RecordEnableMoveOrVelocityDown": [
+   "⌘ArrowDown",
+   "⇧⌘ArrowDown"
+  ],
+  "RecordEnableMoveOrVelocityUp": [
+   "⌘ArrowUp"
+  ],
+  "GroupRegions": [
+   "⌥⌘KeyG"
+  ],
+  "NormalLoopPlayback": [
+   "⇧⌘KeyL"
+  ],
+  "ShowMemoryLocationsWindow": [
+   "⌘Numpad5"
+  ],
+  "MIDIDisplayQuantizePanel": [
+   "⌥Digit0"
+  ],
+  "MIDIDisplayChangeDurationPanel": [
+   "⌥KeyP"
+  ],
+  "RecallPresetMemory1": [
+   "focus:Digit1"
+  ],
+  "RecallPresetMemory2": [
+   "focus:Digit2"
+  ],
+  "RecallPresetMemory4": [
+   "focus:Digit4"
+  ],
+  "PlayToEditStart": [
+   "focus:Digit6"
+  ],
+  "PlayFromEditStart": [
+   "⌘ArrowLeft"
+  ],
+  "PlayToEditEnd": [
+   "focus:Digit8"
+  ],
+  "PlayFromEditEnd": [
+   "⌘ArrowRight"
+  ],
+  "MoveEditInsertionToNextEdit": [
+   "Tab",
+   "⇧Tab",
+   "focus:Quote"
+  ],
+  "MoveEditSelectionToPreviousRegion": [
+   "⌃⌥Tab",
+   "⌃⌥⇧Tab",
+   "⌃⌘KeyL",
+   "⌃⇧⌘KeyL"
+  ],
+  "MoveEditSelectionToNextRegion": [
+   "⌃Tab",
+   "⌃⇧Tab",
+   "⌃⌘Quote",
+   "⌃⇧⌘Quote"
+  ],
+  "MoveEditInsertionToNextTrack": [
+   "⌃Semicolon",
+   "focus:Semicolon"
+  ],
+  "ExtendEditInsertionToNextTrack": [
+   "focus:⇧Semicolon"
+  ],
+  "ExtendEditInsertionToPreviousTrack": [
+   "focus:⇧KeyP"
+  ],
+  "TrimRegionStartToCursor": [
+   "⌥⇧Digit7",
+   "focus:KeyA"
+  ],
+  "TrimRegionEndToCursor": [
+   "⌥⇧Digit8",
+   "⌃KeyS",
+   "focus:KeyS"
+  ],
+  "TrimNoteEndEarlierByGridAmount": [
+   "⌥ArrowLeft"
+  ],
+  "TrimNoteEndLaterByGridAmount": [
+   "⌥ArrowRight"
+  ],
+  "TrimNoteEndEarlierByDoubleAmount": [
+   "⌥⇧ArrowLeft"
+  ],
+  "TrimNoteEndLaterByDoubleAmount": [
+   "⌥⇧ArrowRight"
+  ],
+  "FadeInFromStartToCursor": [
+   "⌃KeyD",
+   "focus:KeyD"
+  ],
+  "MoveRegionStartToPlayPosition": [
+   "⌃KeyH",
+   "focus:KeyH"
+  ],
+  "GridMode": [
+   "F4",
+   "⌥Digit4"
+  ],
+  "ZoomTool": [
+   "F5",
+   "⌘Digit1"
+  ],
+  "SelectorTool": [
+   "F7",
+   "⌘Digit3"
+  ],
+  "GrabberTool": [
+   "F8",
+   "⌘Digit4"
+  ],
+  "SmartTool": [
+   "⌘Digit7"
+  ],
+  "ScrubTool": [
+   "F9",
+   "⌘Digit5"
+  ],
+  "PencilTool": [
+   "F10",
+   "⌘Digit6"
+  ],
+  "NextTool": [
+   "Escape"
+  ],
+  "EnterMainCounterField": [
+   "NumpadMultiply"
+  ],
+  "RecallPendingWindowConfig": [
+   "NumpadMultiply"
+  ],
+  "CollapseExpandFoldersWithSelection": [
+   "⇧KeyF"
+  ],
+  "ToggleInsertionFollowsPlayback": [
+   "focus:KeyN"
+  ],
+  "RecordArmTracksWithSelection": [
+   "⇧KeyR"
+  ],
+  "SplitCommand_SelectPrevMIDIEvent": [
+   "⇧ArrowLeft",
+   "ArrowLeft"
+  ],
+  "SplitCommand_SelectNextMIDIEvent": [
+   "⇧ArrowRight",
+   "ArrowRight"
+  ],
+  "ToggleMarkerCommentsInSelection": [
+   "⇧KeyN"
+  ],
+  "Redo": [
+   "⇧⌘KeyZ",
+   "⌃⇧KeyZ",
+   "focus:⇧KeyZ"
+  ],
+  "ImportAudio": [
+   "⇧⌘KeyI"
+  ],
+  "BounceToDisk": [
+   "⌥⌘KeyB"
+  ],
+  "DuplicateSelectedTracks": [
+   "⌥⇧KeyD"
+  ],
+  "ImportTracks": [
+   "⌥⇧KeyI"
+  ],
+  "DuplicateAndShiftSelection": [
+   "⌘KeyD"
+  ],
+  "BringRegionToFront": [
+   "⌥⇧KeyF"
+  ],
+  "EditLockRegion": [
+   "⌘KeyL"
+  ],
+  "WriteAutoToCurrentControl": [
+   "⌘Slash"
+  ],
+  "QuickPunch": [
+   "⇧⌘KeyP"
+  ],
+  "TrimTool": [
+   "F6",
+   "⌘Digit2"
+  ],
+  "PrintScore": [
+   "⌘KeyP"
+  ],
+  "OpenRecentDocument1": [
+   "⇧⌘KeyO"
+  ],
+  "BypassAllInserts": [
+   "⇧KeyA"
+  ],
+  "MoveMarkerTargetPrev": [
+   "⇧BracketLeft"
+  ],
+  "MoveMarkerTargetNext": [
+   "⇧BracketRight"
+  ],
+  "Quit": [
+   "⌘KeyQ"
+  ],
+  "Copy": [
+   "⌘KeyC",
+   "focus:KeyC"
+  ],
+  "Clear": [
+   "⌘KeyB"
+  ],
+  "ImportMIDI": [
+   "⌥⌘KeyI"
+  ],
+  "DeleteSelection": [
+   "Backspace",
+   "Delete"
+  ],
+  "CaptureRegion": [
+   "⌘KeyR"
+  ],
+  "LoopRegions": [
+   "⌥⌘KeyL"
+  ],
+  "QuantizeRegions": [
+   "⌘Digit0"
+  ],
+  "MIDIQuantize": [
+   "⌥⌘Digit0",
+   "⌥⌘Numpad0"
+  ],
+  "UngroupRegions": [
+   "⌥⌘KeyU"
+  ],
+  "MIDIDisplayTransposePanel": [
+   "⌥KeyT"
+  ],
+  "SelectHalf": [
+   "⌃⌥⇧⌘KeyL"
+  ],
+  "SelectDouble": [
+   "⌃⌥⇧⌘Quote"
+  ],
+  "TogglePlayState": [
+   "Space",
+   "Numpad0"
+  ],
+  "STMStop": [
+   "Numpad0"
+  ],
+  "ReturnToZero": [
+   "Enter"
+  ],
+  "OneShotLoopPlayEditSelection": [
+   "Numpad0"
+  ],
+  "MoveRegionStartToCurrentTC": [
+   "focus:KeyY"
+  ],
+  "MuteAllSends": [
+   "⇧KeyQ"
+  ],
+  "MuteSendsAE": [
+   "⇧Digit4"
+  ],
+  "MuteSendsFJ": [
+   "⇧Digit5"
+  ],
+  "CreateMemoryLocationTargeted": [
+   "⌘NumpadEnter"
+  ],
+  "CommandID_UndoStep": [
+   "Numpad0"
+  ],
+  "TimelineSelectionToEditSelection": [
+   "⌥⇧Numpad6",
+   "focus:Digit0"
+  ],
+  "ScrollToTrack": [
+   "⌥⌘KeyF"
+  ],
+  "ShowStripSilenceWindow": [
+   "⌘KeyU"
+  ],
+  "SelectUnusedRegions": [
+   "⇧⌘KeyU"
+  ],
+  "RenameSelectedBinRegions": [
+   "⇧⌘KeyR"
+  ],
+  "TrimRegionToSelection": [
+   "⌘KeyT"
+  ],
+  "NextLargerGridValue": [
+   "⇧Equal"
+  ],
+  "NextSmallerGridValue": [
+   "⇧Minus"
+  ],
+  "NudgePlayEarlierByGrid": [
+   "focus:Comma"
+  ],
+  "NudgePlayLaterByGrid": [
+   "focus:Period"
+  ],
+  "LinkTrackAndEditSelection": [
+   "⇧KeyT"
+  ],
+  "TrimRegionToFileBoundaries": [
+   "⌃⌘KeyT"
+  ],
+  "SplitCommand_SelectionStart": [
+   "ArrowDown"
+  ],
+  "SplitCommand_SelectionEnd": [
+   "ArrowUp"
+  ],
+  "OpenSketch": [
+   "⌃⌥⌘KeyO"
+  ],
+  "RecallPresetMemory3": [
+   "focus:Digit3"
+  ],
+  "NudgePlayLaterByNextBiggerGrid": [
+   "focus:Slash"
+  ],
+  "RegroupRegions": [
+   "⌥⌘KeyR"
+  ],
+  "PlayTimelineSelection": [
+   "⌥BracketRight",
+   "focus:BracketRight"
+  ],
+  "PlayEditSelection": [
+   "⌥BracketLeft",
+   "focus:BracketLeft"
+  ],
+  "SessionWorkspace": [
+   "⌥KeyO"
+  ],
+  "RenameSelectedTimeRegions": [
+   "⌥⇧⌘KeyR"
+  ],
+  "MoveRegionSyncPointToCurrentTC": [
+   "focus:KeyU"
+  ],
+  "ShuffleMode": [
+   "F1",
+   "⌥Digit1"
+  ],
+  "NextMode": [
+   "Backquote"
+  ],
+  "CommitTracksToNewTracks": [
+   "⌥⇧KeyC"
+  ],
+  "NudgeClipGainUp": [
+   "⌃⇧ArrowUp"
+  ],
+  "NudgeClipGainDown": [
+   "⌃⇧ArrowDown"
+  ],
+  "ShowVideoRegionsInBin": [
+   "⇧⌘Numpad3"
+  ],
+  "RecallPresetMemory5": [
+   "focus:Digit5"
+  ],
+  "MoveEditInsertionToSessionStart": [
+   "⇧Enter"
+  ],
+  "MoveEditInsertionToSessionEnd": [
+   "⌥⇧Enter"
+  ],
+  "SpotMode": [
+   "F3",
+   "⌥Digit3"
+  ],
+  "InputMonitorTracksWithSelection": [
+   "⇧KeyI"
+  ],
+  "ShowFirstPlaylist": [
+   "⇧Home"
+  ],
+  "ShowLastPlaylist": [
+   "⇧End"
+  ],
+  "BypassAllEQ": [
+   "⇧KeyE"
+  ],
+  "BypassAllModulation": [
+   "⇧KeyW"
+  ],
+  "ShowKeyBindings": [
+   "⌃⇧KeyK"
+  ],
+  "CreateNew": [
+   "⌘KeyN"
+  ],
+  "Open": [
+   "⌘KeyO"
+  ],
+  "WelcomeDashboard": [
+   "⌥⌘KeyO"
+  ],
+  "SaveFrontDocument": [
+   "⌘KeyS"
+  ],
+  "SaveFrontDocumentAs": [
+   "⌃⌘KeyS"
+  ],
+  "BounceTracks": [
+   "⌥⇧⌘KeyB"
+  ],
+  "SelectAll": [
+   "⌘KeyA"
+  ],
+  "ConsolidateSelection": [
+   "⌥⇧Digit3"
+  ],
+  "InsertSilence": [
+   "⇧⌘KeyE"
+  ],
+  "SnapToPrevious": [
+   "⌃⌥Comma"
+  ],
+  "SnapToNext": [
+   "⌃⌥Period"
+  ],
+  "ClearSelectedClipGain": [
+   "⌃⇧KeyB"
+  ],
+  "RenameTracks": [
+   "⌥⇧KeyR"
+  ],
+  "MoveTrackToNewFolder": [
+   "⌥⇧⌘KeyN"
+  ],
+  "UseKeyboardAsMIDIController": [
+   "⇧KeyK"
+  ],
+  "MIDIRecallRetrospectiveData": [
+   "⌥⇧KeyZ"
+  ],
+  "AllNotesOff": [
+   "⇧⌘Period"
+  ],
+  "Abort": [
+   "⌘Period"
+  ],
+  "GoToEnd": [
+   "⌥Enter"
+  ],
+  "MIDIClick": [
+   "Numpad7"
+  ],
+  "CountoffToggle": [
+   "Numpad8"
+  ],
+  "SlipMode": [
+   "F2",
+   "⌥Digit2"
+  ],
+  "ShowDockedMIDIEditor": [
+   "⌃⌥⇧Equal"
+  ],
+  "ShowElasticPropertiesWindow": [
+   "⌥Numpad5"
+  ],
+  "ScrollTimeLeftAPageCmd": [
+   "⌥PageUp"
+  ],
+  "ScrollTimeRightAPageCmd": [
+   "⌥PageDown"
+  ],
+  "ScrollTimeUpAPageCmd": [
+   "PageUp"
+  ],
+  "ScrollTimeDownAPageCmd": [
+   "PageDown"
+  ],
+  "HideOrUnhideFloaters": [
+   "⌃⌥⌘KeyW"
+  ],
+  "ProToolsSearch2": [
+   "⌃⇧KeyS"
+  ],
+  "SplitCommand_MidiUp": [
+   "ArrowUp",
+   "⇧ArrowUp"
+  ],
+  "cSplitCommand_MidiDown": [
+   "ArrowDown",
+   "⇧ArrowDown"
+  ],
+  "SplitCommand_DisplaySelStart": [
+   "ArrowLeft"
+  ],
+  "SplitCommand_DisplaySelEnd": [
+   "ArrowRight"
+  ],
+  "GoToPreviousMemoryLocation": [],
+  "GoToNextMemoryLocation": []
+ },
+ "defaultsSource": {
+  "Undo": "presets+guide",
+  "Paste": "presets+guide",
+  "NewTrack": "presets",
+  "SeparateRegion": "presets",
+  "MuteUnmute": "presets",
+  "IdentifyBeat": "presets",
+  "TrimAutoToCurrentControl": "presets",
+  "NudgeRegionEarlierByGrid": "presets",
+  "NudgeRegionLaterByGrid": "presets",
+  "NudgePlayEarlierByNextBiggerGrid": "presets",
+  "NudgeRegionEndEarlierByGrid": "presets",
+  "NudgeRegionEndLaterByGrid": "presets",
+  "NudgeRegionContentsEarlierByGrid": "presets",
+  "NudgeRegionContentsLaterByGrid": "presets",
+  "EditSelectionToTimelineSelection": "presets+guide",
+  "PrePostRollPlayback": "presets",
+  "ShowEditWindow": "presets",
+  "ShowMixWindow": "presets",
+  "ShowEventListWindow": "presets",
+  "VolumesWorkspace": "presets",
+  "PlaylistViewToggle": "presets",
+  "SuspendGroups": "presets",
+  "MoveSelectionForwardBySelection": "presets",
+  "MoveSelectionBackwardBySelection": "presets",
+  "TimeStampSelectedRegions": "presets",
+  "ClearFindRegions": "presets",
+  "ZoomOutHorizontal": "presets+guide",
+  "ZoomInHorizontal": "presets+guide",
+  "ZoomOutAudioVertical": "presets",
+  "ZoomInAudioVertical": "presets",
+  "ZoomToFitSelection": "presets",
+  "ZoomToShowAll": "presets",
+  "EZoom": "presets+guide",
+  "DisplayTimelineSelectionStart": "presets",
+  "DisplayTimelineSelectionEnd": "presets",
+  "PlayHalfSpeed": "presets",
+  "RecordPunch": "presets+guide",
+  "FastForward": "presets+guide",
+  "Rewind": "presets+guide",
+  "ToggleMasterMachine": "presets",
+  "SynchronizerShuttleBackward": "presets",
+  "SynchronizerShuttleForward": "presets",
+  "PlayThroughEditStart": "presets",
+  "PlayThroughEditEnd": "presets",
+  "MoveEditInsertionToPreviousEdit": "presets",
+  "MoveEditInsertionToPreviousTrack": "presets+guide",
+  "NudgeSelectionLaterByGrid": "presets",
+  "NudgeSelectionEarlierByGrid": "presets",
+  "FadeOutFromCursorToEnd": "presets+guide",
+  "CrossfadeWithNoDialog": "presets+guide",
+  "MoveRegionEndToCurrentTC": "presets",
+  "MoveRegionSyncPointToPlayPosition": "presets",
+  "MoveRegionEndToPlayPosition": "presets",
+  "NextLargerTrackSize": "presets",
+  "NextSmallerTrackSize": "presets",
+  "PreviousTrackWhatToShow": "presets",
+  "NextTrackWhatToShow": "presets",
+  "SoloTracksWithSelection": "presets",
+  "MuteTracksWithSelection": "presets",
+  "BypassInsertsFJ": "presets",
+  "DisplaySelStartOrSelectPrevMIDIEventOrTogglePlaylist": "presets",
+  "DisplaySelEndOrSelectNextMIDIEventOrShowPlaylist": "presets",
+  "CreateMemoryLocationRuler": "presets",
+  "Cut": "presets+guide",
+  "GroupTracks": "presets",
+  "Repeat": "presets",
+  "ShiftSelection": "presets",
+  "HealSeparation": "presets",
+  "EventMIDIDownOrSmallerTrackOrNextPlaylistOrSelStart": "presets",
+  "EventMIDIUpOrLargerTrackOrPreviousPlaylistOrSelEnd": "presets",
+  "EventMIDIDupDownOrCopyPlaylistOrSmallerTrackOrSelStart": "presets",
+  "EventMIDIDupUpOrLargerTrackOrSelStart": "presets",
+  "CreateFades": "presets",
+  "NudgeRegionStartEarlierByGrid": "presets",
+  "NudgeRegionStartLaterByGrid": "presets",
+  "RecordEnableMoveOrVelocityDown": "presets",
+  "RecordEnableMoveOrVelocityUp": "presets",
+  "GroupRegions": "presets",
+  "NormalLoopPlayback": "presets",
+  "ShowMemoryLocationsWindow": "presets",
+  "MIDIDisplayQuantizePanel": "presets",
+  "MIDIDisplayChangeDurationPanel": "presets",
+  "RecallPresetMemory1": "presets",
+  "RecallPresetMemory2": "presets",
+  "RecallPresetMemory4": "presets",
+  "PlayToEditStart": "presets",
+  "PlayFromEditStart": "presets",
+  "PlayToEditEnd": "presets",
+  "PlayFromEditEnd": "presets",
+  "MoveEditInsertionToNextEdit": "presets",
+  "MoveEditSelectionToPreviousRegion": "presets+guide",
+  "MoveEditSelectionToNextRegion": "presets+guide",
+  "MoveEditInsertionToNextTrack": "presets+guide",
+  "ExtendEditInsertionToNextTrack": "presets",
+  "ExtendEditInsertionToPreviousTrack": "presets",
+  "TrimRegionStartToCursor": "presets+guide",
+  "TrimRegionEndToCursor": "presets+guide",
+  "TrimNoteEndEarlierByGridAmount": "presets",
+  "TrimNoteEndLaterByGridAmount": "presets",
+  "TrimNoteEndEarlierByDoubleAmount": "presets",
+  "TrimNoteEndLaterByDoubleAmount": "presets",
+  "FadeInFromStartToCursor": "presets+guide",
+  "MoveRegionStartToPlayPosition": "presets+guide",
+  "GridMode": "presets",
+  "ZoomTool": "presets",
+  "SelectorTool": "presets",
+  "GrabberTool": "presets",
+  "SmartTool": "presets",
+  "ScrubTool": "presets+guide",
+  "PencilTool": "presets",
+  "NextTool": "presets",
+  "EnterMainCounterField": "presets",
+  "RecallPendingWindowConfig": "presets",
+  "CollapseExpandFoldersWithSelection": "presets",
+  "ToggleInsertionFollowsPlayback": "presets",
+  "RecordArmTracksWithSelection": "presets",
+  "SplitCommand_SelectPrevMIDIEvent": "presets",
+  "SplitCommand_SelectNextMIDIEvent": "presets",
+  "ToggleMarkerCommentsInSelection": "presets",
+  "Redo": "presets",
+  "ImportAudio": "presets",
+  "BounceToDisk": "presets",
+  "DuplicateSelectedTracks": "presets",
+  "ImportTracks": "presets",
+  "DuplicateAndShiftSelection": "presets",
+  "BringRegionToFront": "presets",
+  "EditLockRegion": "presets",
+  "WriteAutoToCurrentControl": "presets",
+  "QuickPunch": "presets",
+  "TrimTool": "presets",
+  "PrintScore": "presets",
+  "OpenRecentDocument1": "presets",
+  "BypassAllInserts": "presets",
+  "MoveMarkerTargetPrev": "presets",
+  "MoveMarkerTargetNext": "presets",
+  "Quit": "presets",
+  "Copy": "presets+guide",
+  "Clear": "presets",
+  "ImportMIDI": "presets",
+  "DeleteSelection": "presets+guide",
+  "CaptureRegion": "presets",
+  "LoopRegions": "presets",
+  "QuantizeRegions": "presets",
+  "MIDIQuantize": "presets",
+  "UngroupRegions": "presets",
+  "MIDIDisplayTransposePanel": "presets",
+  "SelectHalf": "presets",
+  "SelectDouble": "presets",
+  "TogglePlayState": "presets+guide",
+  "STMStop": "presets",
+  "ReturnToZero": "presets",
+  "OneShotLoopPlayEditSelection": "presets",
+  "MoveRegionStartToCurrentTC": "presets",
+  "MuteAllSends": "presets",
+  "MuteSendsAE": "presets",
+  "MuteSendsFJ": "presets",
+  "CreateMemoryLocationTargeted": "presets",
+  "CommandID_UndoStep": "presets",
+  "TimelineSelectionToEditSelection": "presets+guide",
+  "ScrollToTrack": "presets",
+  "ShowStripSilenceWindow": "presets",
+  "SelectUnusedRegions": "presets",
+  "RenameSelectedBinRegions": "presets",
+  "TrimRegionToSelection": "presets",
+  "NextLargerGridValue": "presets",
+  "NextSmallerGridValue": "presets",
+  "NudgePlayEarlierByGrid": "presets",
+  "NudgePlayLaterByGrid": "presets",
+  "LinkTrackAndEditSelection": "presets",
+  "TrimRegionToFileBoundaries": "presets",
+  "SplitCommand_SelectionStart": "presets",
+  "SplitCommand_SelectionEnd": "presets",
+  "OpenSketch": "presets",
+  "RecallPresetMemory3": "presets",
+  "NudgePlayLaterByNextBiggerGrid": "presets",
+  "RegroupRegions": "presets",
+  "PlayTimelineSelection": "presets+guide",
+  "PlayEditSelection": "presets+guide",
+  "SessionWorkspace": "presets",
+  "RenameSelectedTimeRegions": "presets",
+  "MoveRegionSyncPointToCurrentTC": "presets",
+  "ShuffleMode": "presets+guide",
+  "NextMode": "presets",
+  "CommitTracksToNewTracks": "presets",
+  "NudgeClipGainUp": "presets",
+  "NudgeClipGainDown": "presets",
+  "ShowVideoRegionsInBin": "presets",
+  "RecallPresetMemory5": "presets",
+  "MoveEditInsertionToSessionStart": "presets",
+  "MoveEditInsertionToSessionEnd": "presets",
+  "SpotMode": "presets+guide",
+  "InputMonitorTracksWithSelection": "presets",
+  "ShowFirstPlaylist": "presets",
+  "ShowLastPlaylist": "presets",
+  "BypassAllEQ": "presets",
+  "BypassAllModulation": "presets",
+  "ShowKeyBindings": "guide",
+  "CreateNew": "guide",
+  "Open": "guide",
+  "WelcomeDashboard": "guide",
+  "SaveFrontDocument": "guide",
+  "SaveFrontDocumentAs": "guide",
+  "BounceTracks": "guide",
+  "SelectAll": "guide",
+  "ConsolidateSelection": "guide",
+  "InsertSilence": "guide",
+  "SnapToPrevious": "guide",
+  "SnapToNext": "guide",
+  "ClearSelectedClipGain": "guide",
+  "RenameTracks": "guide",
+  "MoveTrackToNewFolder": "guide",
+  "UseKeyboardAsMIDIController": "guide",
+  "MIDIRecallRetrospectiveData": "guide",
+  "AllNotesOff": "guide",
+  "Abort": "guide",
+  "GoToEnd": "guide",
+  "MIDIClick": "guide",
+  "CountoffToggle": "guide",
+  "SlipMode": "guide",
+  "ShowDockedMIDIEditor": "guide",
+  "ShowElasticPropertiesWindow": "guide",
+  "ScrollTimeLeftAPageCmd": "guess (keys not documented for the Edit window)",
+  "ScrollTimeRightAPageCmd": "guess (keys not documented for the Edit window)",
+  "ScrollTimeUpAPageCmd": "guess (keys not documented for the Edit window)",
+  "ScrollTimeDownAPageCmd": "guess (keys not documented for the Edit window)",
+  "HideOrUnhideFloaters": "guide",
+  "ProToolsSearch2": "guide",
+  "SplitCommand_MidiUp": "guide",
+  "cSplitCommand_MidiDown": "guide",
+  "SplitCommand_DisplaySelStart": "guide",
+  "SplitCommand_DisplaySelEnd": "guide",
+  "GoToPreviousMemoryLocation": "guide",
+  "GoToNextMemoryLocation": "guide"
+ }
+}

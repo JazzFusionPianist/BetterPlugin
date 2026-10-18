@@ -232,6 +232,13 @@ async function others () {
     await d.sleep(400); await d.ev(`LOOK = { 'reg.corners': 4, 'reg.line': { c: null, a: 35 }, 'reg.shape': 'off' }; draw(); return 1`)
     await d.pic('display', [0, 0, 1100, 692], 1.2); await d.close()
   }
+  if (!want.length || want.includes('keycommands')) {                                // settings > key commands, with the room's own commands, as logic pro with a change or two
+    const r0 = await room({}); await r0.sleep(800)
+    const cat = await r0.ev(`return kcCatalog().map(c => ({ id: c.id, menu: c.menu, name: c.name, keys0: c.keys0, shown: c.shown, loose: !!c.loose }))`); await r0.close()
+    const k = await room({ file: join(dirname(UI), 'settings.html') + '?part=key+commands', w: 1100, h: 692, before: `window.KEY_STAND_IN = ${JSON.stringify(cat)}; window.KEY_STAND_SET = { base: 'logic', changes: { 'Region > Mute': ['KeyN'], 'Tools > Nudge Value > Bar': ['⌥⇧KeyM'] } }` })
+    await k.sleep(600); await k.ev(`KP.rec = 'Transport > Record'; KP.said = inWords('press its key, ⌫ for none, esc to keep it'); draw(); return 1`)
+    await k.pic('keycommands', [0, 0, 1100, 692], 1.2); await k.close()
+  }
   if (!want.length || want.includes('plugins')) {                                    // settings > plug-ins, with the plug-ins of a Mac like his (design/plugins draft 1), a few left out
     const list = (await import('node:fs')).readFileSync(new URL('../design/plugins draft 1/plugs.json', import.meta.url), 'utf8')
     const out = ['Console Recall', 'Ocean Way Studios', 'Auto-Key', 'UAD Fairchild 660', 'UAD Fairchild 670', 'UAD dbx 160', 'UAD Teletronix LA-3A', 'UAD Precision Limiter', 'UAD Precision Multiband', 'UAD Precision Buss Compressor']
@@ -242,7 +249,7 @@ async function others () {
   }
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  if (!want.length || want.includes('start') || want.includes('settings') || want.includes('folders') || want.includes('display') || want.includes('plugins')) await others()
+  if (!want.length || want.includes('start') || want.includes('settings') || want.includes('folders') || want.includes('display') || want.includes('plugins') || want.includes('keycommands')) await others()
   if (!want.length || want.includes('keys')) { const b = await room(); writeFileSync(join(here, 'keys.json'), JSON.stringify(await b.ev(`return SHEET`), null, 1)); await b.close(); console.log('took keys.json') }       // the app's own sheet of keys: the guide's last chapter is set from it
   for (const [name, fn] of Object.entries(SHOTS)) {
     const b = await fresh(SIZE[name])

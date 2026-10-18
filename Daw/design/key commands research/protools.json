@@ -1192,8 +1192,8 @@
    "line": "Previous Transient",
    "equivalent": "Locate to previous transient (Tab to Transients on)",
    "key": "⌥Tab",
-   "keyFocus": "",
-   "note": "⌥⌘Tab toggles Tab to Transients; with it off ⌥Tab goes to the previous clip boundary",
+   "keyFocus": "KeyL",
+   "note": "⌥⌘Tab toggles Tab to Transients; with it off ⌥Tab goes to the previous clip boundary; Commands Focus L = Move Edit Insertion to Previous Edit (same command)",
    "confidence": "high",
    "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
   },
@@ -1202,8 +1202,8 @@
    "line": "Next Transient",
    "equivalent": "Locate to next transient (Tab to Transients on)",
    "key": "Tab",
-   "keyFocus": "",
-   "note": "with Tab to Transients off, Tab goes to the next clip boundary",
+   "keyFocus": "Quote",
+   "note": "with Tab to Transients off, Tab goes to the next clip boundary; Commands Focus ' = Move Edit Insertion to Next Edit (same command)",
    "confidence": "high",
    "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
   },

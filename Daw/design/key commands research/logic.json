@@ -634,11 +634,11 @@
   {
    "menu": "Region > Fades",
    "line": "Fades for Selection",
-   "equivalent": "",
-   "key": "",
-   "note": "no equivalent (nearest: Apply Default Crossfade ⌃⌥X, Apply Last Edited Fade Again ⌥⇧X; Logic F = Show/Hide Browsers)",
+   "equivalent": "Apply Default Crossfade",
+   "key": "⌃⌥KeyX",
+   "note": "Logic default F = Show/Hide Browsers; Apply Last Edited Fade Again = ⌥⇧X; your own customised Logic set (com.apple.logic10.plist) has KeyF here, not the default",
    "confidence": "medium",
-   "source": ""
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
   },
   {
    "menu": "Region > Fades",
@@ -708,16 +708,16 @@
    "line": "Fit Region to Project Tempo",
    "equivalent": "",
    "key": "",
-   "note": "no equivalent as one command (in Logic: Flex/Follow Tempo On/Off ⌃F with Smart Tempo; Apply Project Tempo to Region and Downbeat has no default key); Logic ⌃⌥F = Set Nudge Value to SMPTE Frame",
+   "note": "no equivalent as one command (in Logic: Flex/Follow Tempo On/Off ⌃F with Smart Tempo; Apply Project Tempo to Region and Downbeat sets the region's tempo information, not the same, and has no default key); Logic ⌃⌥F = Set Nudge Value to SMPTE Frame",
    "confidence": "medium",
    "source": ""
   },
   {
    "menu": "Region > Tempo",
    "line": "Set Project Tempo from Region",
-   "equivalent": "Apply Region Tempo to Project Tempo",
+   "equivalent": "Apply Region Tempo to Project Tempo…",
    "key": "",
-   "note": "no default key; Logic ⌃⌥T = Set Nudge Value to Tick",
+   "note": "no default key (Tracks-area command; the Smart Tempo Editor has its own Apply Region Tempo to Project Tempo, also without a key); Logic ⌃⌥T = Set Nudge Value to Tick",
    "confidence": "medium",
    "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
   },
@@ -1930,11 +1930,11 @@
   {
    "menu": "View",
    "line": "Close Plug-in Windows",
-   "equivalent": "Show/Hide All Plug-in Windows",
-   "key": "KeyV",
-   "note": "Logic's key shows and hides all plug-in windows; your own customised Logic set has no key here, not the default",
-   "confidence": "medium",
-   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+   "equivalent": "Close All Plug-in Windows",
+   "key": "",
+   "note": "no default key; Logic default V = Show/Hide All Plug-in Windows (shows and hides them); your own customised Logic set (com.apple.logic10.plist) has KeyV here, not the default",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
   },
   {
    "menu": "View",

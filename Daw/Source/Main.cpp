@@ -316,6 +316,70 @@ public:
     }
     /** Help > Slur Studio Help: the user guide (Daw/guide), in the language the program speaks, opened as the Mac opens a PDF.
         It travels inside the app (build.sh puts it in Resources/Guide); a build without it says so at the foot. */
+    /** settings > key commands' files: sets of keys kept as .sska files in Slur Studio/Key Commands, and the sets other
+        programs keep (Logic's preferences and its .logikcs files, Cubase's Key Commands.xml and its presets, Pro Tools'
+        keyboard shortcut presets), read whole for the page to turn into Slur's keys (ui/keyimport.js). */
+    static juce::File keysFolder() { return daw::musicRoot().getChildFile ("Key Commands"); }
+    static juce::Array<juce::var> keysForeignFound()
+    {
+        juce::Array<juce::var> out;
+        const auto home = juce::File::getSpecialLocation (juce::File::userHomeDirectory);
+        auto add = [&out] (const juce::String& daw, const juce::String& name, const juce::File& f) { if (! f.existsAsFile() || f.getSize() > (8 << 20)) return; auto* o = new juce::DynamicObject(); o->setProperty ("daw", daw); o->setProperty ("name", name); o->setProperty ("path", f.getFullPathName()); o->setProperty ("modified", (double) f.getLastModificationTime().toMilliseconds()); out.add (juce::var (o)); };
+        add ("logic", "the set in use", home.getChildFile ("Library/Preferences/com.apple.logic10.plist"));
+        if (selfTestMode().isEmpty())                                          // (the check stays out of the folders the Mac asks about: its window would wait for an answer)
+            for (auto& f : home.getChildFile ("Music/Audio Music Apps/Key Commands").findChildFiles (juce::File::findFiles, false, "*.logikcs")) add ("logic", f.getFileNameWithoutExtension(), f);
+        for (auto& dir : home.getChildFile ("Library/Preferences").findChildFiles (juce::File::findDirectories, false, "Cubase*"))
+        {
+            add ("cubase", dir.getFileName() + ", the set in use", dir.getChildFile ("Key Commands.xml"));
+            for (auto& f : dir.getChildFile ("Presets/KeyCommands").findChildFiles (juce::File::findFiles, false, "*.xml")) add ("cubase", dir.getFileName() + ", " + f.getFileNameWithoutExtension(), f);
+        }
+        add ("protools", "the set in use", home.getChildFile ("Library/Preferences/Avid/Pro Tools/PTCustomHotkeys.txt"));      // (its presets are in Documents, which the Mac asks before it is read: those are opened as a file)
+        return out;
+    }
+    static juce::var keysFileVar (const juce::File& f)
+    {
+        juce::MemoryBlock mb;
+        if (! f.existsAsFile() || f.getSize() > (8 << 20) || ! f.loadFileAsData (mb)) return okVar (false);
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("ok", true); o->setProperty ("name", f.getFileNameWithoutExtension()); o->setProperty ("ext", f.getFileExtension().toLowerCase()); o->setProperty ("b64", juce::Base64::toBase64 (mb.getData(), mb.getSize()));
+        return juce::var (o);
+    }
+    void keysFiles (const juce::String& op, const juce::var& d, juce::WebBrowserComponent::NativeFunctionCompletion done)
+    {
+        if (op == "keysList")                                                  // the sets kept in the folder, read whole
+        {
+            juce::Array<juce::var> out;
+            for (auto& f : keysFolder().findChildFiles (juce::File::findFiles, false, "*.sska"))
+                if (f.getSize() < (1 << 20)) { auto* o = new juce::DynamicObject(); o->setProperty ("name", f.getFileNameWithoutExtension()); o->setProperty ("json", f.loadFileAsString()); out.add (juce::var (o)); }
+            done (juce::var (out)); return;
+        }
+        if (op == "keysFind") { done (juce::var (keysForeignFound())); return; }
+        if (op == "keysRead")                                                  // one of those found (only those)
+        {
+            const auto path = d["path"].toString();
+            for (auto& v : keysForeignFound()) if (v["path"].toString() == path) { done (keysFileVar (juce::File (path))); return; }
+            done (okVar (false)); return;
+        }
+        if (selfTestMode().isNotEmpty()) { done (okVar (false)); return; }   // (the check opens no window of the Mac's)
+        keysFolder().createDirectory();
+        if (op == "keysExport")
+        {
+            const auto json = d["json"].toString(), name = juce::File::createLegalFileName (d["name"].toString().isNotEmpty() ? d["name"].toString() : juce::String ("my keys"));
+            chooser = std::make_unique<juce::FileChooser> ("Export Key Commands", keysFolder().getChildFile (name + ".sska"), "*.sska");
+            chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting, [done, json] (const juce::FileChooser& fc)
+            {
+                auto f = fc.getResult();
+                if (f == juce::File()) { done (okVar (false)); return; }
+                if (! f.hasFileExtension ("sska")) f = f.withFileExtension ("sska");
+                auto* o = new juce::DynamicObject(); o->setProperty ("ok", f.replaceWithText (json)); o->setProperty ("name", f.getFileNameWithoutExtension());
+                done (juce::var (o));
+            });
+            return;
+        }
+        const bool foreign = op == "keysForeign";
+        chooser = std::make_unique<juce::FileChooser> (foreign ? "Keys of Another Program" : "Import Key Commands", foreign ? juce::File::getSpecialLocation (juce::File::userHomeDirectory) : keysFolder(), foreign ? "*.logikcs;*.plist;*.xml;*.ptpreset;*.txt" : "*.sska");
+        chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles, [done] (const juce::FileChooser& fc) { done (keysFileVar (fc.getResult())); });
+    }
     void openGuide()
     {
         const auto dir = juce::File::getSpecialLocation (juce::File::currentApplicationFile).getChildFile ("Contents/Resources/Guide");
@@ -431,6 +495,13 @@ private:
             if (slur != nullptr) slur->evaluateJavascript (juce::String ("window.__slurLook && window.__slurLook('") + (slurLight ? "light" : "dark") + "')");
             done (okVar()); return;
         }
+        if (op == "keysCatalog")                                               // the room's commands (ui/commands.js), kept here for the settings window (ui/keypage.js)
+        {
+            if (d.hasProperty ("list")) { keysCatalog = d["list"]; done (okVar()); return; }
+            done (keysCatalog.isArray() ? keysCatalog : juce::var (juce::Array<juce::var>())); return;
+        }
+        if (op == "menuPick") { menuPicked (d["id"].toString()); done (okVar()); return; }      // a line the page runs as the menu bar would (settings' parts, the guide)
+        if (op == "keysList" || op == "keysExport" || op == "keysImport" || op == "keysFind" || op == "keysForeign" || op == "keysRead") { keysFiles (op, d, std::move (done)); return; }
         if (op == "lookShare")                                                 // a look written to a file of its own, to be handed to someone (ui/settings.js)
         {
             const auto json = d["json"].toString(), name = juce::File::createLegalFileName (d["name"].toString().isNotEmpty() ? d["name"].toString() : juce::String ("a look"));
@@ -1525,7 +1596,7 @@ private:
             if (web != nullptr) web->emitEventIfBrowserIsVisible ("dawLowLat", facts);
             return okVar();
         }
-        if (what == "plugOut" || what == "plugKind")                           // settings > plug-ins: the ones left out of the room's lists, the kinds set by hand (ui/cats.js) — kept, and the room told at once
+        if (what == "plugOut" || what == "plugKind" || what == "keys")         // settings > plug-ins: the ones left out of the room's lists, the kinds set by hand (ui/cats.js); settings > key commands: the set of keys (ui/keymap.js) — kept, and the room told at once
         {
             if (selfTestMode().isEmpty())
             {
@@ -1535,7 +1606,8 @@ private:
                 prefsFile().getParentDirectory().createDirectory();
                 prefsFile().replaceWithText (juce::JSON::toString (v));
             }
-            if (web != nullptr && what == "plugKind") { auto* o = new juce::DynamicObject(); o->setProperty ("kinds", d["value"]); web->emitEventIfBrowserIsVisible ("dawPlugKind", juce::var (o)); }
+            if (web != nullptr && what == "keys") { auto* o = new juce::DynamicObject(); o->setProperty ("keys", d["value"]); web->emitEventIfBrowserIsVisible ("dawKeys", juce::var (o)); }
+            else if (web != nullptr && what == "plugKind") { auto* o = new juce::DynamicObject(); o->setProperty ("kinds", d["value"]); web->emitEventIfBrowserIsVisible ("dawPlugKind", juce::var (o)); }
             else if (web != nullptr) { auto* o = new juce::DynamicObject(); o->setProperty ("ids", d["value"]); o->setProperty ("again", (bool) d["again"]); web->emitEventIfBrowserIsVisible ("dawPlugOut", juce::var (o)); }
             return okVar();
         }
@@ -1588,6 +1660,7 @@ private:
 
     std::unique_ptr<juce::WebBrowserComponent> web, slur;
     bool slurLight = false;                                                    // slur's panel is light: the room's look asked for it (slurLook)
+    juce::var keysCatalog;                                                     // the room's commands, for settings > key commands (keysCatalog)
     bool keysToPage = false;                                                   // (command x, c, v and a go to the page as keys: see slurKeysToPage)
     std::unique_ptr<SettingsWindow> settings;
     std::map<juce::String, std::unique_ptr<MeterWindow>> meters;      // the meters' faces, by track and node

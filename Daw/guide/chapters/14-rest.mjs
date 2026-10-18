@@ -65,6 +65,18 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
     note('By the ground, the Slur panel turns light by itself when the window’s ground grows lighter than the mark ({{light when the ground is lighter than}}, 60% at first), and dark again below it.', '바탕에 따라로 두면, 창의 바탕이 기준({{light when the ground is lighter than}}, 처음엔 60%)보다 밝아질 때 Slur 패널이 저절로 밝아지고, 그 아래로 내려가면 다시 어두워집니다.'),
     art: fig('display-room', { w: 150, cap: ['the room in a look of its own: a light ground, dark ink, round corners, the sound standing on each region’s foot, drums from red to amber', '직접 만든 모습을 입은 방: 밝은 바탕, 짙은 잉크, 둥근 모서리, 리전 바닥에 선 소리, 빨강에서 호박색으로 가는 드럼'] }) }),
 
+  page(t('key commands: every key, and other programs’ keys', 'key commands: 모든 키, 다른 프로그램의 키'), { kind: 'split', tw: 104, txt:
+    lead('Settings › {{key commands}} ([[⌥K]]) holds every key of the room. Any of them can be changed, and with one press the keys become those of Logic Pro, Ableton Live, Cubase or Pro Tools.', '설정 › {{key commands}}([[⌥K]])에는 방의 모든 키가 있습니다. 어느 키든 바꿀 수 있고, 한 번 눌러 Logic Pro, Ableton Live, Cubase, Pro Tools의 키로 바꿀 수 있습니다.') +
+    legend(
+      [1, '{{keys like}} slur studio, logic pro, ableton live, cubase or pro tools: each as that program comes. What only Slur Studio has keeps its own key, with ⌃⇧ or ⌥⇧ added where the program uses it, and a key the program gives something Slur Studio does not have is left empty', '{{keys like}} slur studio, logic pro, ableton live, cubase, pro tools: 각 프로그램의 기본 키 그대로입니다. Slur Studio에만 있는 기능은 원래 키를 쓰되, 그 프로그램이 쓰는 키라면 ⌃⇧나 ⌥⇧를 붙여 옮깁니다. 그 프로그램에만 있는 기능의 키는 비워 둡니다'],
+      [2, '{{from my own set…}} reads your own set of Logic Pro (the set in use, or a .logikcs), Cubase (Key Commands.xml) or Pro Tools (the set in use, or a .ptpreset) and turns it into the room’s keys. Ableton Live’s keys cannot be changed, so its set is the one above', '{{from my own set…}}는 내가 쓰는 Logic Pro(지금 쓰는 설정이나 .logikcs), Cubase(Key Commands.xml), Pro Tools(지금 쓰는 설정이나 .ptpreset)의 키 설정을 읽어 방의 키로 바꿉니다. Ableton Live는 키를 바꿀 수 없어 위의 기본 설정이 곧 그 설정입니다'],
+      [3, 'the keyboard: what each key does, with no key held or with ⇧, ⌥, ⌃, ⌘ …; click a key to find its command', '키보드: 아무것도 누르지 않았을 때나 ⇧, ⌥, ⌃, ⌘ … 를 누른 채일 때 각 키가 하는 일. 키를 클릭하면 그 명령을 찾아 줍니다'],
+      [4, 'a command and its keys. Click it, then press its new key; [[⌫]] leaves it without, [[esc]] keeps it. A key another command has is asked for first', '명령과 그 키. 클릭한 뒤 새 키를 누릅니다. [[⌫]]는 키 없음, [[esc]]는 그대로. 다른 명령이 쓰는 키면 가져올지 먼저 묻습니다'],
+      [5, 'a dot before a command: its key is not its set’s. Click the dot to put it back', '명령 앞의 점: 그 설정의 키와 다르다는 뜻입니다. 점을 클릭하면 되돌아갑니다'],
+      [6, '{{save as default}} keeps the keys as {{my default}}, one press away. {{export .sska…}} and {{import…}} write and read a set as a .sska file, in Slur Studio / Key Commands', '{{save as default}}는 지금 키를 {{my default}}로 간직해 한 번에 돌아올 수 있게 합니다. {{export .sska…}}와 {{import…}}는 키 설정을 .sska 파일로 쓰고 읽습니다(Slur Studio / Key Commands 폴더)']) +
+    p('Every change is the room’s at once: its keys, and the keys the menu bar shows (so Help’s search shows them too). [[⌘Z]] in the window takes the last change back.', '바뀐 키는 바로 방에 적용됩니다. 방의 키도, 메뉴 막대에 보이는 키도(그래서 도움말 검색에도) 바뀝니다. 창에서 [[⌘Z]]를 누르면 마지막 변경이 되돌아갑니다.'),
+    art: fig('keycommands', { w: 150, calls: [[1, 'k-base', 't'], [2, 'k-foreign', 't'], [3, 'k-layer', 'l'], [4, 'k-cmd', 'l'], [6, 'k-default', 't']] }) }),
+
   page(t('plug-ins: in the lists or left out', 'plug-ins: 목록에 두기, 빼기'), { kind: 'split', tw: 104, txt:
     lead('Settings › {{plug-ins}} shows every plug-in on this Mac, sorted by kind or by maker. One you never use can be left out, and the room’s lists stop showing it.', '설정 › {{plug-ins}}는 이 Mac에 깔린 모든 플러그인을 종류별이나 제작사별로 보여 줍니다. 쓰지 않는 것은 뺄 수 있고, 그러면 방의 목록에 더는 나오지 않습니다.') +
     legend(
@@ -133,9 +145,8 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
       ['a clip light on the mixer’s strips that stays lit', '믹서 스트립에 계속 켜져 있는 클립 표시등']) +
     h('the app', '앱') +
     list(
-      ['changing key commands: the sheet only lists them', '단축키 바꾸기: 표는 보여 주기만 합니다'],
       ['a way back to the start page without quitting; more than one project open', '종료 없이 시작 화면으로 돌아가기. 프로젝트 여러 개 동시에 열기'],
       ['templates of your own', '직접 만든 템플릿'],
-      ['settings other than general, display, audio and plug-ins', 'general, display, audio, plug-ins 외의 설정'],
+      ['settings other than general, display, audio, key commands and plug-ins', 'general, display, audio, key commands, plug-ins 외의 설정'],
       ['a Windows version', 'Windows 버전']) }),
 ])

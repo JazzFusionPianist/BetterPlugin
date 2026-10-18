@@ -137,6 +137,16 @@ Object.assign(LANG.lists.ko, {
   'the panel': '패널', 'slur, beside the lanes': '레인 옆의 slur', 'its look': '모습', 'by the ground': '바탕에 따라', 'dark': '어둡게', 'light': '밝게',
   'light when the ground is lighter than': '바탕이 이보다 밝으면 밝게', 'on': '켬',
 })
+/* settings > key commands (keypage.js, keymap.js): every key of the room, as it comes or as another program has them */
+Object.assign(LANG.lists.ko, {
+  'key commands': '단축키', 'as #': '# 방식', '# commands, # with a key': '명령 #개, 키가 있는 것 #개', 'keys like': '키 방식', 'held': '누른 채로', 'no key': '없음',
+  'transport, markers': '재생, 마커', 'views': '보기', 'the rest': '나머지', 'find a command, or its key': '명령이나 키 찾기', 'press a key': '키를 누르세요',
+  'press its key, ⌫ for none, esc to keep it': '키를 누르세요. ⌫는 키 없음, esc는 그대로', '# is #’s already: take it from it, or press another': '#는 이미 # 키입니다. 가져오거나 다른 키를 누르세요',
+  'take it': '이 키로', 'save as default': '기본으로 저장', 'export .sska…': '.sska로 내보내기…', 'my default': '내 기본', 'kept as my default': '내 기본으로 저장함',
+  'from my own set…': '내 설정에서…', 'a file of another program…': '다른 프로그램의 파일…', 'none found on this Mac': '이 Mac에서 찾지 못함', 'the set in use': '지금 쓰는 설정',
+  '#, #: # commands take its keys, # not as # comes': '#, #: 명령 #개가 그 키를 받음, 그중 #개는 # 기본과 다름', 'that file holds no set of keys this room can read': '읽을 수 있는 키 설정이 없는 파일',
+  'that file holds no set of keys': '키 설정이 없는 파일', 'written as': '이 이름으로 씀:', 'read': '읽음:', 'kept as .sska files in Slur Studio / Key Commands': 'Slur Studio / Key Commands 폴더에 .sska 파일로 보관',
+})
 /* settings > plug-ins (plugpage.js): every plug-in on the Mac, by kind or by maker, in the room's lists or left out */
 Object.assign(LANG.lists.ko, {
   'look again': '다시 찾기', 'bring every one back': '모두 되돌리기', 'looking': '찾는 중',
@@ -189,6 +199,13 @@ LANG.menuKo = {
   /* the app's own menu, which the Mac makes and the page names */
   'About Slur Studio': 'Slur Studio 정보', 'Settings…': '설정…', 'Services': '서비스', 'Hide Slur Studio': 'Slur Studio 가리기', 'Hide Others': '기타 가리기', 'Show All': '모두 보기', 'Quit Slur Studio': 'Slur Studio 종료',
 }
+/* settings > key commands: the room's keys no menu line shows, and the line that opens them (commands.js, menus.js) */
+Object.assign(LANG.menuKo, {
+  'Key Commands…': '단축키 설정…', 'Keys': '키', 'Play (Keypad)': '재생 (키패드)', 'Stop (Keypad)': '정지 (키패드)', 'Play or Stop (Keypad)': '재생 또는 정지 (키패드)', 'Record (Keypad)': '녹음 (키패드)',
+  'Go to the Start of the Selection': '선택 영역의 처음으로', 'Go to the End of the Selection': '선택 영역의 끝으로', 'Cycle Exactly Round the Selection': '선택 영역에 딱 맞게 사이클',
+  'Select to the Next Transient': '다음 트랜지언트까지 선택', 'Select to the Previous Transient': '이전 트랜지언트까지 선택', 'Add the Track Above': '위 트랙도 선택', 'Add the Track Below': '아래 트랙도 선택',
+  'Rename What Is Chosen': '선택한 것 이름 바꾸기', 'Audio Settings': '오디오 설정',
+})
 /* a realtime print (realtime.js) */
 Object.assign(LANG.lists.ko, {
   'bounce': '바운스', 'offline': '오프라인', 'realtime': '실시간', 'realtime bounce': '실시간 바운스', 'in place': '제자리', 'esc stops it': 'esc로 멈춤',

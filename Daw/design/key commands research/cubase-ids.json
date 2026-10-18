@@ -1,0 +1,1509 @@
+[
+ {
+  "menu": "Slur Studio > Settings",
+  "line": "General",
+  "category": "Edit",
+  "name": "Preferences"
+ },
+ {
+  "menu": "Slur Studio > Settings",
+  "line": "Display",
+  "category": "",
+  "name": "",
+  "note": "no separate command; the Preferences dialog is Edit | Preferences (row General)"
+ },
+ {
+  "menu": "Slur Studio > Settings",
+  "line": "Audio",
+  "category": "Devices",
+  "name": "Setup",
+  "note": "Studio Setup"
+ },
+ {
+  "menu": "Slur Studio > Settings",
+  "line": "Plug-ins",
+  "category": "Devices",
+  "name": "Plug-in Manager",
+  "note": "VST Plug-in Manager"
+ },
+ {
+  "menu": "Slur Studio",
+  "line": "Key Commands",
+  "category": "Edit",
+  "name": "Key Commands"
+ },
+ {
+  "menu": "File",
+  "line": "New",
+  "category": "File",
+  "name": "New"
+ },
+ {
+  "menu": "File",
+  "line": "Open…",
+  "category": "File",
+  "name": "Open"
+ },
+ {
+  "menu": "File > Open Recent",
+  "line": "No Projects Yet",
+  "category": "",
+  "name": "",
+  "note": "placeholder line; recent projects have no commands"
+ },
+ {
+  "menu": "File > Open Recent",
+  "line": "More…",
+  "category": "Hub",
+  "name": "Steinberg Hub",
+  "note": "label \"Open Hub\""
+ },
+ {
+  "menu": "File",
+  "line": "Save",
+  "category": "File",
+  "name": "Save"
+ },
+ {
+  "menu": "File",
+  "line": "Save As…",
+  "category": "File",
+  "name": "Save As"
+ },
+ {
+  "menu": "File",
+  "line": "Rename…",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "File",
+  "line": "Revert To…",
+  "category": "File",
+  "name": "Revert"
+ },
+ {
+  "menu": "File",
+  "line": "Find Missing Sounds…",
+  "category": "Media",
+  "name": "Check Files",
+  "note": "label \"Find Missing Files...\""
+ },
+ {
+  "menu": "File",
+  "line": "Import Audio…",
+  "category": "File",
+  "name": "Import Audio File"
+ },
+ {
+  "menu": "File",
+  "line": "Hand Off…",
+  "category": "File",
+  "name": "Export Audio Mixdown"
+ },
+ {
+  "menu": "File",
+  "line": "Hand Off Stems…",
+  "category": "File",
+  "name": "Export Audio Mixdown",
+  "note": "same command as Hand Off; stems are a setting of that dialog"
+ },
+ {
+  "menu": "File",
+  "line": "Bounce in Place",
+  "category": "Render in Place",
+  "name": "Render",
+  "note": "label \"Render (with Current Settings)\""
+ },
+ {
+  "menu": "File",
+  "line": "Bounce in Place in Realtime",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Edit",
+  "line": "Undo",
+  "category": "Edit",
+  "name": "Undo"
+ },
+ {
+  "menu": "Edit",
+  "line": "Redo",
+  "category": "Edit",
+  "name": "Redo"
+ },
+ {
+  "menu": "Edit",
+  "line": "Cut",
+  "category": "Edit",
+  "name": "Cut"
+ },
+ {
+  "menu": "Edit",
+  "line": "Copy",
+  "category": "Edit",
+  "name": "Copy"
+ },
+ {
+  "menu": "Edit",
+  "line": "Paste",
+  "category": "Edit",
+  "name": "Paste"
+ },
+ {
+  "menu": "Edit",
+  "line": "Delete",
+  "category": "Edit",
+  "name": "Delete"
+ },
+ {
+  "menu": "Edit",
+  "line": "Select All",
+  "category": "Edit",
+  "name": "Select All"
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "None",
+  "category": "Edit",
+  "name": "Select None"
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "Invert",
+  "category": "Edit",
+  "name": "Invert Selection",
+  "note": "label \"Invert\" (Select submenu); the other \"Invert\" label is Edit | Flip/Invert on ⌥F"
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "All Following",
+  "category": "Edit",
+  "name": "Select from Cursor to End",
+  "note": "label \"From Cursor to End\""
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "All Following on the Same Track",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "Inside the Cycle",
+  "category": "Edit",
+  "name": "Select in Loop",
+  "note": "label \"In Loop\""
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "Muted Regions",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "Previous Region",
+  "category": "Navigate",
+  "name": "Left"
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "Next Region",
+  "category": "Navigate",
+  "name": "Right"
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "Add Previous Region",
+  "category": "Navigate",
+  "name": "Add Left"
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "Add Next Region",
+  "category": "Navigate",
+  "name": "Add Right"
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "First Region",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "Last Region",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "Previous Track",
+  "category": "Navigate",
+  "name": "Up"
+ },
+ {
+  "menu": "Edit > Select",
+  "line": "Next Track",
+  "category": "Navigate",
+  "name": "Down"
+ },
+ {
+  "menu": "Edit",
+  "line": "Split at Playhead",
+  "category": "Edit",
+  "name": "Split at Cursor"
+ },
+ {
+  "menu": "Edit",
+  "line": "Split at Cycle Ends",
+  "category": "Edit",
+  "name": "Split Loop"
+ },
+ {
+  "menu": "Edit",
+  "line": "Join",
+  "category": "Edit",
+  "name": "Glue"
+ },
+ {
+  "menu": "Edit",
+  "line": "Repeat",
+  "category": "Edit",
+  "name": "Repeat",
+  "note": "label \"Repeat...\""
+ },
+ {
+  "menu": "Edit",
+  "line": "Cut Section Between Locators",
+  "category": "Edit",
+  "name": "Cut Time"
+ },
+ {
+  "menu": "Edit",
+  "line": "Insert Silence at Locators",
+  "category": "Edit",
+  "name": "Insert Silence"
+ },
+ {
+  "menu": "Edit",
+  "line": "Insert Section at Playhead",
+  "category": "Edit",
+  "name": "Paste Time"
+ },
+ {
+  "menu": "Edit",
+  "line": "Repeat Section Between Locators",
+  "category": "",
+  "name": "",
+  "note": "nearest: Edit | Global Copy then Edit | Paste Time (two commands)"
+ },
+ {
+  "menu": "Region",
+  "line": "Mute",
+  "category": "Edit",
+  "name": "Mute/Unmute Objects"
+ },
+ {
+  "menu": "Region",
+  "line": "Rename…",
+  "category": "Edit",
+  "name": "Rename Selected Events",
+  "note": "Cubase 13+"
+ },
+ {
+  "menu": "Region",
+  "line": "Move to Playhead",
+  "category": "Edit",
+  "name": "Move to Cursor",
+  "note": "label \"Event Starts to Cursor\" / \"Move Event Start/Range Start to Cursor\""
+ },
+ {
+  "menu": "Region",
+  "line": "Move to Playhead and Select Next",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region",
+  "line": "Loop to the Next Region",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region",
+  "line": "Trim Start to Playhead",
+  "category": "Edit",
+  "name": "Cut Head"
+ },
+ {
+  "menu": "Region",
+  "line": "Trim End to Playhead",
+  "category": "Edit",
+  "name": "Cut Tail"
+ },
+ {
+  "menu": "Region",
+  "line": "Shuffle Left",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region",
+  "line": "Shuffle Right",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region > Gain",
+  "line": "Up 1 dB",
+  "category": "Audio",
+  "name": "Increment Event Volume"
+ },
+ {
+  "menu": "Region > Gain",
+  "line": "Down 1 dB",
+  "category": "Audio",
+  "name": "Decrement Event Volume"
+ },
+ {
+  "menu": "Region > Gain",
+  "line": "Up 0.1 dB",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region > Gain",
+  "line": "Down 0.1 dB",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region > Gain",
+  "line": "Back to 0 dB",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region > Transpose",
+  "line": "Up a Semitone",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region > Transpose",
+  "line": "Down a Semitone",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region > Transpose",
+  "line": "Up an Octave",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region > Transpose",
+  "line": "Down an Octave",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region > Transpose",
+  "line": "Fine Tune Up 10 Cents",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region > Transpose",
+  "line": "Fine Tune Down 10 Cents",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region > Transpose",
+  "line": "Back to the Original Pitch",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Region",
+  "line": "Reverse",
+  "category": "Process",
+  "name": "Reverse",
+  "note": "audio process (Direct Offline Processing); MIDI | Reverse is the MIDI function"
+ },
+ {
+  "menu": "Region > Fades",
+  "line": "Fades for Selection",
+  "category": "Audio",
+  "name": "Adjust Fades to Range"
+ },
+ {
+  "menu": "Region > Fades",
+  "line": "Fade In up to the Playhead",
+  "category": "Audio",
+  "name": "Fade In to Cursor"
+ },
+ {
+  "menu": "Region > Fades",
+  "line": "Fade Out from the Playhead",
+  "category": "Audio",
+  "name": "Fade Out to Cursor",
+  "note": "label \"Fade Out from Cursor\""
+ },
+ {
+  "menu": "Region > Nudge",
+  "line": "Earlier",
+  "category": "Nudge",
+  "name": "Left"
+ },
+ {
+  "menu": "Region > Nudge",
+  "line": "Later",
+  "category": "Nudge",
+  "name": "Right"
+ },
+ {
+  "menu": "Region > Nudge",
+  "line": "Shorter",
+  "category": "Nudge",
+  "name": "End Left",
+  "note": "label \"Nudge End Left\""
+ },
+ {
+  "menu": "Region > Nudge",
+  "line": "Longer",
+  "category": "Nudge",
+  "name": "End Right",
+  "note": "label \"Nudge End Right\""
+ },
+ {
+  "menu": "Region > Tempo",
+  "line": "Follow the Tempo",
+  "category": "",
+  "name": "",
+  "note": "Musical Mode has no command"
+ },
+ {
+  "menu": "Region > Tempo",
+  "line": "Fit Region to Project Tempo",
+  "category": "Audio",
+  "name": "Stretch to Project Tempo"
+ },
+ {
+  "menu": "Region > Tempo",
+  "line": "Set Project Tempo from Region",
+  "category": "Audio",
+  "name": "Set Tempo From Event"
+ },
+ {
+  "menu": "Region",
+  "line": "Quantize",
+  "category": "Quantize Category",
+  "name": "Quantize",
+  "alt": [
+   {
+    "category": "MIDI",
+    "name": "Quantize"
+   }
+  ]
+ },
+ {
+  "menu": "Region",
+  "line": "Undo Quantize",
+  "category": "Quantize Category",
+  "name": "Undo Quantize",
+  "alt": [
+   {
+    "category": "MIDI",
+    "name": "Undo Quantize"
+   }
+  ],
+  "note": "label \"Reset Quantize\""
+ },
+ {
+  "menu": "Region",
+  "line": "Strip Silence",
+  "category": "Audio",
+  "name": "Detect Silence"
+ },
+ {
+  "menu": "Region",
+  "line": "Group",
+  "category": "Edit",
+  "name": "Group"
+ },
+ {
+  "menu": "Region",
+  "line": "Ungroup",
+  "category": "Edit",
+  "name": "Ungroup"
+ },
+ {
+  "menu": "Region",
+  "line": "Colour and Outline…",
+  "category": "Project",
+  "name": "Set Track/Event Color",
+  "note": "label \"Colorize\""
+ },
+ {
+  "menu": "Track",
+  "line": "New Tracks…",
+  "category": "AddTrack",
+  "name": "OpenDialog",
+  "note": "label \"Add Track...\""
+ },
+ {
+  "menu": "Track",
+  "line": "New Audio Track",
+  "category": "AddTrack",
+  "name": "Audio"
+ },
+ {
+  "menu": "Track",
+  "line": "New Instrument Track",
+  "category": "AddTrack",
+  "name": "Instrument"
+ },
+ {
+  "menu": "Track",
+  "line": "New Bus",
+  "category": "AddTrack",
+  "name": "Group Channel",
+  "note": "label \"Group\""
+ },
+ {
+  "menu": "Track",
+  "line": "Duplicate",
+  "category": "Project",
+  "name": "Duplicate Tracks"
+ },
+ {
+  "menu": "Track",
+  "line": "Duplicate with Its Regions",
+  "category": "Project",
+  "name": "Duplicate Tracks"
+ },
+ {
+  "menu": "Track",
+  "line": "Rename…",
+  "category": "Edit",
+  "name": "Rename First Selected Track"
+ },
+ {
+  "menu": "Track",
+  "line": "Delete",
+  "category": "Project",
+  "name": "Remove Selected Tracks"
+ },
+ {
+  "menu": "Track",
+  "line": "Delete Empty Tracks",
+  "category": "Project",
+  "name": "Remove Empty Tracks"
+ },
+ {
+  "menu": "Track",
+  "line": "Mute",
+  "category": "Edit",
+  "name": "Mute"
+ },
+ {
+  "menu": "Track",
+  "line": "Solo",
+  "category": "Edit",
+  "name": "Solo"
+ },
+ {
+  "menu": "Track",
+  "line": "Record Enable",
+  "category": "Edit",
+  "name": "Record Enable"
+ },
+ {
+  "menu": "Track",
+  "line": "Hear the Input",
+  "category": "Edit",
+  "name": "Monitor"
+ },
+ {
+  "menu": "Track > Stack",
+  "line": "Make a Stack",
+  "category": "Project",
+  "name": "Folding: Tracks To Folder",
+  "note": "label \"Move Selected Tracks to New Folder\""
+ },
+ {
+  "menu": "Track > Stack",
+  "line": "Take the Stack Apart",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Track > Stack",
+  "line": "Open the Stack",
+  "category": "Project",
+  "name": "Folding: Toggle Selected Track",
+  "note": "toggle; Folding: Unfold Tracks opens every folder"
+ },
+ {
+  "menu": "Track > Stack",
+  "line": "Close the Stack",
+  "category": "Project",
+  "name": "Folding: Toggle Selected Track",
+  "note": "toggle; Folding: Fold Tracks closes every folder"
+ },
+ {
+  "menu": "Track",
+  "line": "Group Tracks",
+  "category": "Mixer",
+  "name": "Link Channels",
+  "note": "Mixer | Unlink Channels undoes it"
+ },
+ {
+  "menu": "Track",
+  "line": "Suspend Groups",
+  "category": "",
+  "name": "",
+  "note": "Suspend All Channel Linking has no command in the list"
+ },
+ {
+  "menu": "Track > Instruments",
+  "line": "Typing Keyboard",
+  "category": "Devices",
+  "name": "Virtual Keyboard",
+  "note": "label \"On-Screen Keyboard\""
+ },
+ {
+  "menu": "Track > Instruments",
+  "line": "Capture as Recording",
+  "category": "Transport",
+  "name": "Global Retrospective Record",
+  "note": "label \"Insert from All MIDI Inputs\""
+ },
+ {
+  "menu": "Track > Instruments",
+  "line": "All Notes Off",
+  "category": "MIDI",
+  "name": "Reset"
+ },
+ {
+  "menu": "Transport",
+  "line": "Play or Stop",
+  "category": "Transport",
+  "name": "StartStop",
+  "note": "label \"Start/Stop\""
+ },
+ {
+  "menu": "Transport",
+  "line": "Play from Selection",
+  "category": "Transport",
+  "name": "Play Selection Range"
+ },
+ {
+  "menu": "Transport",
+  "line": "Record",
+  "category": "Transport",
+  "name": "Record"
+ },
+ {
+  "menu": "Transport",
+  "line": "Discard Recording",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Transport",
+  "line": "Go to Start",
+  "category": "Transport",
+  "name": "Return to Zero",
+  "note": "label \"Go to Project Start\""
+ },
+ {
+  "menu": "Transport",
+  "line": "Go to End of Sound",
+  "category": "Transport",
+  "name": "Goto End",
+  "note": "label \"Go to Project End\""
+ },
+ {
+  "menu": "Transport",
+  "line": "Back a Bar",
+  "category": "Transport",
+  "name": "Rewind",
+  "note": "one-bar step is Transport | Step Back Bar (label \"Nudge -1 Bar\")"
+ },
+ {
+  "menu": "Transport",
+  "line": "Forward a Bar",
+  "category": "Transport",
+  "name": "Forward",
+  "note": "one-bar step is Transport | Step Bar (label \"Nudge +1 Bar\")"
+ },
+ {
+  "menu": "Transport",
+  "line": "Back Eight Bars",
+  "category": "Transport",
+  "name": "Fast Rewind"
+ },
+ {
+  "menu": "Transport",
+  "line": "Forward Eight Bars",
+  "category": "Transport",
+  "name": "Fast Forward"
+ },
+ {
+  "menu": "Transport",
+  "line": "Previous Transient",
+  "category": "Transport",
+  "name": "Locate Previous Hitpoint"
+ },
+ {
+  "menu": "Transport",
+  "line": "Next Transient",
+  "category": "Transport",
+  "name": "Locate Next Hitpoint"
+ },
+ {
+  "menu": "Transport",
+  "line": "Go to Bar…",
+  "category": "Transport",
+  "name": "Input Position",
+  "note": "label \"Enter Project Cursor Position\""
+ },
+ {
+  "menu": "Transport",
+  "line": "Cycle",
+  "category": "Transport",
+  "name": "Cycle"
+ },
+ {
+  "menu": "Transport > Cycle Area",
+  "line": "Set to Selection",
+  "category": "Transport",
+  "name": "Locators to Selection",
+  "note": "label \"Set Locators to Selection Range\""
+ },
+ {
+  "menu": "Transport > Cycle Area",
+  "line": "Go to Its Start",
+  "category": "Transport",
+  "name": "To Left Locator"
+ },
+ {
+  "menu": "Transport > Cycle Area",
+  "line": "Go to Its End",
+  "category": "Transport",
+  "name": "To Right Locator"
+ },
+ {
+  "menu": "Transport > Cycle Area",
+  "line": "Move Forward by Its Length",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Transport > Cycle Area",
+  "line": "Move Back by Its Length",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Transport > Cycle Area",
+  "line": "Twice as Long",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Transport > Cycle Area",
+  "line": "Half as Long",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Transport > Cycle Area",
+  "line": "Zoom to the Cycle",
+  "category": "Zoom",
+  "name": "Zoom to Locators"
+ },
+ {
+  "menu": "Transport",
+  "line": "Click",
+  "category": "Transport",
+  "name": "Metronome On",
+  "note": "label \"Activate Metronome\""
+ },
+ {
+  "menu": "Transport",
+  "line": "Count-In",
+  "category": "Transport",
+  "name": "Precount On",
+  "note": "label \"Use Precount\" / \"Activate Count-in\""
+ },
+ {
+  "menu": "Markers",
+  "line": "Add Marker Here",
+  "category": "Marker",
+  "name": "Insert Marker",
+  "alt": [
+   {
+    "category": "Transport",
+    "name": "Insert Marker"
+   }
+  ],
+  "note": "label \"Add Position Marker on Active Track\""
+ },
+ {
+  "menu": "Markers",
+  "line": "Add Marker for Selection",
+  "category": "Marker",
+  "name": "Insert Cycle Marker",
+  "alt": [
+   {
+    "category": "Transport",
+    "name": "Insert Cycle Marker"
+   }
+  ],
+  "note": "label \"Add Cycle Marker on Active Track\""
+ },
+ {
+  "menu": "Markers",
+  "line": "Rename Marker…",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Markers",
+  "line": "Delete Marker Here",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Markers",
+  "line": "Previous Marker",
+  "category": "Transport",
+  "name": "Locate Previous Marker"
+ },
+ {
+  "menu": "Markers",
+  "line": "Next Marker",
+  "category": "Transport",
+  "name": "Locate Next Marker"
+ },
+ {
+  "menu": "Markers",
+  "line": "Cycle the Marker",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Markers > Go to Marker",
+  "line": "Marker 1",
+  "category": "Transport",
+  "name": "To Marker 1"
+ },
+ {
+  "menu": "Markers > Go to Marker",
+  "line": "Marker 2",
+  "category": "Transport",
+  "name": "To Marker 2"
+ },
+ {
+  "menu": "Markers > Go to Marker",
+  "line": "Marker 3",
+  "category": "Transport",
+  "name": "To Marker 3"
+ },
+ {
+  "menu": "Markers > Go to Marker",
+  "line": "Marker 4",
+  "category": "Transport",
+  "name": "To Marker 4"
+ },
+ {
+  "menu": "Markers > Go to Marker",
+  "line": "Marker 5",
+  "category": "Transport",
+  "name": "To Marker 5"
+ },
+ {
+  "menu": "Markers > Go to Marker",
+  "line": "Marker 6",
+  "category": "Transport",
+  "name": "To Marker 6"
+ },
+ {
+  "menu": "Markers > Go to Marker",
+  "line": "Marker 7",
+  "category": "Transport",
+  "name": "To Marker 7"
+ },
+ {
+  "menu": "Markers > Go to Marker",
+  "line": "Marker 8",
+  "category": "Transport",
+  "name": "To Marker 8"
+ },
+ {
+  "menu": "Markers > Go to Marker",
+  "line": "Marker 9",
+  "category": "Transport",
+  "name": "To Marker 9"
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Pointer",
+  "category": "Tool",
+  "name": "Select Tool",
+  "note": "label \"Object Selection Tool\""
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Smart",
+  "category": "Tool",
+  "name": "Combine Selection Tools On/Off"
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Pencil",
+  "category": "Tool",
+  "name": "Draw Tool"
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Eraser",
+  "category": "Tool",
+  "name": "Delete Tool",
+  "note": "label \"Erase Tool\""
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Scissors",
+  "category": "Tool",
+  "name": "Split Tool"
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Join",
+  "category": "Tool",
+  "name": "Glue Tool"
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Mute",
+  "category": "Tool",
+  "name": "Mute Tool"
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Gain",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Fade",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Marquee",
+  "category": "Tool",
+  "name": "Range Tool",
+  "note": "label \"Range Selection Tool\""
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Rubato",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Zoom",
+  "category": "Tool",
+  "name": "Zoom Tool"
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Velocity",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Tools > Tool",
+  "line": "Tool Menu",
+  "category": "Tool",
+  "name": "Popup Tools",
+  "note": "label \"Pop-up Toolbox\""
+ },
+ {
+  "menu": "Tools > Edit Mode",
+  "line": "Smart",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Tools > Edit Mode",
+  "line": "Grid",
+  "category": "Edit",
+  "name": "Snap Type: Grid"
+ },
+ {
+  "menu": "Tools > Edit Mode",
+  "line": "Slip",
+  "category": "Edit",
+  "name": "Snap Off"
+ },
+ {
+  "menu": "Tools > Edit Mode",
+  "line": "Shuffle",
+  "category": "Edit",
+  "name": "Snap Type: Shuffle"
+ },
+ {
+  "menu": "Tools > Edit Mode",
+  "line": "Spot",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Tools > Edit Mode",
+  "line": "Slip, and Back",
+  "category": "Edit",
+  "name": "Snap On/Off"
+ },
+ {
+  "menu": "Tools > Grid",
+  "line": "1/1",
+  "category": "Edit",
+  "name": "Grid Type: Bar"
+ },
+ {
+  "menu": "Tools > Grid",
+  "line": "1/2",
+  "category": "Quantize Category",
+  "name": "Set Quantize to 2th",
+  "alt": [
+   {
+    "category": "MIDI Quantize",
+    "name": "Set Quantize to 2th"
+   }
+  ],
+  "note": "label \"Set Quantize to 1/2\"; the grid follows it with Grid Type: Use Quantize"
+ },
+ {
+  "menu": "Tools > Grid",
+  "line": "1/4",
+  "category": "Edit",
+  "name": "Grid Type: Beat"
+ },
+ {
+  "menu": "Tools > Grid",
+  "line": "1/8",
+  "category": "Quantize Category",
+  "name": "Set Quantize to 8th",
+  "alt": [
+   {
+    "category": "MIDI Quantize",
+    "name": "Set Quantize to 8th"
+   }
+  ],
+  "note": "label \"Set Quantize to 1/8\"; the grid follows it with Grid Type: Use Quantize"
+ },
+ {
+  "menu": "Tools > Grid",
+  "line": "1/16",
+  "category": "Quantize Category",
+  "name": "Set Quantize to 16th",
+  "alt": [
+   {
+    "category": "MIDI Quantize",
+    "name": "Set Quantize to 16th"
+   }
+  ],
+  "note": "label \"Set Quantize to 1/16\"; the grid follows it with Grid Type: Use Quantize"
+ },
+ {
+  "menu": "Tools > Grid",
+  "line": "1/32",
+  "category": "Quantize Category",
+  "name": "Set Quantize to 32th",
+  "alt": [
+   {
+    "category": "MIDI Quantize",
+    "name": "Set Quantize to 32th"
+   }
+  ],
+  "note": "label \"Set Quantize to 1/32\"; the grid follows it with Grid Type: Use Quantize"
+ },
+ {
+  "menu": "Tools > Grid",
+  "line": "1/3",
+  "category": "",
+  "name": "",
+  "note": "triplet grids need two commands (Set Quantize to … + Toggle Quantize Triplet)"
+ },
+ {
+  "menu": "Tools > Grid",
+  "line": "1/6",
+  "category": "",
+  "name": "",
+  "note": "triplet grids need two commands (Set Quantize to … + Toggle Quantize Triplet)"
+ },
+ {
+  "menu": "Tools > Grid",
+  "line": "1/12",
+  "category": "",
+  "name": "",
+  "note": "triplet grids need two commands (Set Quantize to … + Toggle Quantize Triplet)"
+ },
+ {
+  "menu": "Tools > Grid",
+  "line": "1/24",
+  "category": "",
+  "name": "",
+  "note": "triplet grids need two commands (Set Quantize to … + Toggle Quantize Triplet)"
+ },
+ {
+  "menu": "Tools > Nudge Value",
+  "line": "Bar",
+  "category": "",
+  "name": "",
+  "note": "no command per nudge value"
+ },
+ {
+  "menu": "Tools > Nudge Value",
+  "line": "Beat",
+  "category": "",
+  "name": "",
+  "note": "no command per nudge value"
+ },
+ {
+  "menu": "Tools > Nudge Value",
+  "line": "1/16",
+  "category": "",
+  "name": "",
+  "note": "no command per nudge value"
+ },
+ {
+  "menu": "Tools > Nudge Value",
+  "line": "10 ticks",
+  "category": "",
+  "name": "",
+  "note": "no command per nudge value"
+ },
+ {
+  "menu": "Tools > Nudge Value",
+  "line": "Tick",
+  "category": "",
+  "name": "",
+  "note": "no command per nudge value"
+ },
+ {
+  "menu": "Tools > Nudge Value",
+  "line": "10 ms",
+  "category": "",
+  "name": "",
+  "note": "no command per nudge value"
+ },
+ {
+  "menu": "Tools > Nudge Value",
+  "line": "1 ms",
+  "category": "",
+  "name": "",
+  "note": "no command per nudge value"
+ },
+ {
+  "menu": "Tools > Nudge Value",
+  "line": "Sample",
+  "category": "",
+  "name": "",
+  "note": "no command per nudge value"
+ },
+ {
+  "menu": "Tools > Quantize Value",
+  "line": "1/4",
+  "category": "Quantize Category",
+  "name": "Set Quantize to 4th",
+  "alt": [
+   {
+    "category": "MIDI Quantize",
+    "name": "Set Quantize to 4th"
+   }
+  ],
+  "note": "label \"Set Quantize to 1/4\""
+ },
+ {
+  "menu": "Tools > Quantize Value",
+  "line": "1/8",
+  "category": "Quantize Category",
+  "name": "Set Quantize to 8th",
+  "alt": [
+   {
+    "category": "MIDI Quantize",
+    "name": "Set Quantize to 8th"
+   }
+  ],
+  "note": "label \"Set Quantize to 1/8\""
+ },
+ {
+  "menu": "Tools > Quantize Value",
+  "line": "1/8 Triplet",
+  "category": "",
+  "name": "",
+  "note": "triplet values need two commands (Set Quantize to … + Toggle Quantize Triplet)"
+ },
+ {
+  "menu": "Tools > Quantize Value",
+  "line": "1/16",
+  "category": "Quantize Category",
+  "name": "Set Quantize to 16th",
+  "alt": [
+   {
+    "category": "MIDI Quantize",
+    "name": "Set Quantize to 16th"
+   }
+  ],
+  "note": "label \"Set Quantize to 1/16\""
+ },
+ {
+  "menu": "Tools > Quantize Value",
+  "line": "1/16 Triplet",
+  "category": "",
+  "name": "",
+  "note": "triplet values need two commands (Set Quantize to … + Toggle Quantize Triplet)"
+ },
+ {
+  "menu": "Tools > Quantize Value",
+  "line": "1/32",
+  "category": "Quantize Category",
+  "name": "Set Quantize to 32th",
+  "alt": [
+   {
+    "category": "MIDI Quantize",
+    "name": "Set Quantize to 32th"
+   }
+  ],
+  "note": "label \"Set Quantize to 1/32\""
+ },
+ {
+  "menu": "View",
+  "line": "Patch",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "View",
+  "line": "Mixer",
+  "category": "Devices",
+  "name": "MixConsole Lower Zone",
+  "note": "label \"MixConsole in Project Window\""
+ },
+ {
+  "menu": "View",
+  "line": "Notes",
+  "category": "Editors",
+  "name": "Open/Close Editor",
+  "alt": [
+   {
+    "category": "Edit",
+    "name": "Open/Close Editor"
+   }
+  ]
+ },
+ {
+  "menu": "View",
+  "line": "Prompt",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "View",
+  "line": "Rubato Panel",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "View",
+  "line": "Slur",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "View",
+  "line": "Automation",
+  "category": "Automation",
+  "name": "Show All Used Automation"
+ },
+ {
+  "menu": "View",
+  "line": "Next Automation Parameter",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "View",
+  "line": "Rubato View",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "View",
+  "line": "Zoom In",
+  "category": "Zoom",
+  "name": "Zoom In"
+ },
+ {
+  "menu": "View",
+  "line": "Zoom Out",
+  "category": "Zoom",
+  "name": "Zoom Out"
+ },
+ {
+  "menu": "View",
+  "line": "Zoom to Fit or Selection",
+  "category": "Zoom",
+  "name": "Zoom to Selection"
+ },
+ {
+  "menu": "View",
+  "line": "Taller Rows",
+  "category": "Zoom",
+  "name": "Zoom In Vertically"
+ },
+ {
+  "menu": "View",
+  "line": "Shorter Rows",
+  "category": "Zoom",
+  "name": "Zoom Out Vertically"
+ },
+ {
+  "menu": "View",
+  "line": "Taller Waveforms",
+  "category": "Zoom",
+  "name": "Zoom In On Waveform Vertically"
+ },
+ {
+  "menu": "View",
+  "line": "Lower Waveforms",
+  "category": "Zoom",
+  "name": "Zoom Out Of Waveform Vertically"
+ },
+ {
+  "menu": "View",
+  "line": "Page Left",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "View",
+  "line": "Page Right",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "View",
+  "line": "Page Up",
+  "category": "Window Zones",
+  "name": "Show Previous Page"
+ },
+ {
+  "menu": "View",
+  "line": "Page Down",
+  "category": "Window Zones",
+  "name": "Show Next Page"
+ },
+ {
+  "menu": "View",
+  "line": "Show the Playhead",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "View",
+  "line": "Show the Selection",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "View",
+  "line": "Close Plug-in Windows",
+  "category": "Windows",
+  "name": "Close All Plug-in Windows"
+ },
+ {
+  "menu": "View",
+  "line": "Say It",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Window",
+  "line": "Patch",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Window",
+  "line": "Mixer",
+  "category": "Devices",
+  "name": "Mixer",
+  "note": "label \"MixConsole\""
+ },
+ {
+  "menu": "Window",
+  "line": "Slur",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Window",
+  "line": "Rubato Panel",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Window",
+  "line": "Minimize",
+  "category": "Windows",
+  "name": "Minimize"
+ },
+ {
+  "menu": "Window",
+  "line": "Zoom",
+  "category": "Windows",
+  "name": "Maximize",
+  "note": "label \"Zoom\""
+ },
+ {
+  "menu": "Window",
+  "line": "Enter Full Screen",
+  "category": "",
+  "name": ""
+ },
+ {
+  "menu": "Help",
+  "line": "Slur Studio Help",
+  "category": "",
+  "name": "",
+  "note": "Help has no command in the list"
+ },
+ {
+  "menu": "Help",
+  "line": "Key Commands",
+  "category": "Edit",
+  "name": "Key Commands",
+  "note": "same command as Slur Studio > Key Commands"
+ },
+ {
+  "menu": "Help",
+  "line": "Say It",
+  "category": "",
+  "name": ""
+ }
+]

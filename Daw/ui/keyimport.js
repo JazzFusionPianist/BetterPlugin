@@ -1,0 +1,2818 @@
+/* ── reading another program's own set of keys ──
+   Written by design/key commands research/build-import.mjs (2026-10-18) from the readers and the tables there: Logic
+   Pro's (its preferences, a .logikcs), Cubase's (Key Commands.xml), Pro Tools' (PTCustomHotkeys.txt, a .ptpreset). Each
+   reader gives the program's own commands and their keys in the room's notation; KI_IDS says which of them each command
+   of Slur Studio is. keypage.js turns that into a set of the room's keys. Ableton Live has no set of its own to read: its
+   keys cannot be changed. */
+const KI_LOGIC = (() => {
+/* Logic Pro key command sets, read into Slur's key notation.
+
+   Two places hold a Logic set:
+   (a) a .logikcs file (Key Commands > Export, or the presets in Logic Pro.app/Contents/Resources/Key Commands).
+       It is a property list (XML, sometimes binary) whose "LogicBinaryPreferences" data is a table of 6-byte records:
+         byte 0  key        (with flags bit 0 set: the Mac virtual key code; otherwise the legacy character)
+         byte 1  modifiers  (1 shift, 4 control, 8 option, 32 command)
+         byte 2  0
+         byte 3-4 character (little-endian UTF-16 unit, e.g. 0x0071 'q', 0xF702 left arrow; 0 for key-code records)
+         byte 5  flags      (bit 0: by key position, i.e. byte 0 is a key code)
+       Records 0-72 are a header, 73-2194 an older copy of commands 0-2121, and from record 2195 on the table that
+       counts: record 2195 + n is Logic command n (n < 5000). Older presets (Logic 9-10.6) carry other data after
+       record 7194 and in the older copy; neither is read.
+   (b) the active set in ~/Library/Preferences/com.apple.logic10.plist (a binary property list). Its "KeyCommands"
+       entry is NOT a .logikcs blob but a dictionary: command number (as a string) -> { Key, Modifier, CharCode, Flags },
+       the same four fields as above.
+
+   Key positions: Slur reads KeyboardEvent.code, the physical key. Records by key code are physical already.
+   Records by character are what Logic matches as typed text, so the physical key depends on the keyboard layout;
+   they are placed on a US keyboard unless opts.layoutMap is given (the result of navigator.keyboard.getLayoutMap(),
+   code -> character), which is then used to find the key that types that character.
+
+   Pure JavaScript: no Node or browser APIs (TextDecoder is used when present, with a fallback). */
+
+const LOGIC_NAMES = {
+  1: "Record / Record Repeat",
+  2: "Record Toggle",
+  3: "Play",
+  4: "Pause",
+  5: "Stop",
+  6: "Record Repeat",
+  7: "Record",
+  8: "Record/Record Toggle",
+  9: "Discard Recording and Return to Last Play Position",
+  10: "Rewind",
+  11: "Forward",
+  12: "Fast Rewind",
+  13: "Fast Forward",
+  14: "Play from Beginning",
+  15: "Toggle Cycle Mode",
+  16: "Toggle Autopunch Mode",
+  17: "Region Solo",
+  18: "Scrub Rewind",
+  19: "Scrub Forward",
+  20: "Toggle Replace",
+  21: "Go to Position…",
+  22: "Copy MIDI Events…",
+  23: "Sync intern/extern",
+  24: "MIDI Machine Control",
+  25: "Solo Tracks (Channel Strips) of Selected Regions/Cells",
+  26: "Set Rounded Locators and Play",
+  27: "Send Reset Controllers",
+  28: "Send Maximum Volume",
+  29: "Send discrete Note Offs (Panic)",
+  30: "Open Settings…",
+  32: "Save Project as…",
+  33: "Region Inspector Float",
+  34: "Set Locators and Play",
+  35: "Open Key Command Assignments…",
+  36: "Open Environment Mixer…",
+  37: "Set Rounded Locators and Cycle Play",
+  38: "Send All Current Fader Values except Sysex",
+  39: "Open Tempo List…",
+  40: "Show Tool Menu",
+  41: "Zoom Horizontal Out",
+  42: "Zoom Horizontal In",
+  43: "Zoom Vertical Out",
+  44: "Zoom Vertical In",
+  45: "Show/Hide Inspector",
+  46: "Page Up",
+  47: "Page Down",
+  48: "Page Left",
+  49: "Page Right",
+  50: "1/3 Page Right",
+  51: "Catch Playhead Position",
+  52: "Link View (Same Level) On/Off",
+  53: "MIDI Out Toggle",
+  54: "1/3 Page Left",
+  55: "Page Top",
+  56: "Page Bottom",
+  57: "Page Left-Most",
+  58: "Page Right-Most",
+  59: "1/8 Page Right",
+  60: "Mute Notes/Regions/Cells/Folders On/Off",
+  61: "Open MIDI Project Settings…",
+  62: "Open Recording Project Settings…",
+  63: "Recall Zoom 1",
+  64: "Recall Zoom 2",
+  65: "Recall Zoom 3",
+  66: "Save as Zoom 1",
+  67: "Save as Zoom 2",
+  68: "Save as Zoom 3",
+  69: "Open Chase Events Project Settings…",
+  70: "Set Next Tool or Edit Mode",
+  71: "Set Previous Tool or Edit Mode",
+  72: "MIDI In Toggle (Step Record)",
+  73: "1/8 Page Left",
+  74: "Zoom to fit Selection vertically and horizontally, store Navigation Snapshot",
+  75: "Zoom to fit Selection horizontally, store Navigation Snapshot",
+  76: "Navigation: Forward",
+  77: "Zoom to fit Locators, store Navigation Snapshot",
+  78: "Navigation: Back",
+  79: "Store Navigation Snapshot",
+  82: "Select Previous Region/Cell on Focused Track",
+  83: "Select Next Region/Cell on Focused Track",
+  84: "Pack Folder",
+  85: "Unpack Take Folder to New Tracks",
+  86: "Append Track to Track List",
+  87: "New Track with Same Channel Strip/Instrument",
+  88: "Delete Track",
+  89: "Delete unused Tracks",
+  90: "Join Regions/Notes",
+  91: "Split Regions/Events at Locators or Marquee Selection",
+  92: "Separate MIDI Region by MIDI Channel",
+  95: "Make Alias",
+  96: "Convert Alias to a Region Copy",
+  97: "Reassign Alias",
+  98: "Find Original of Alias",
+  100: "Set Locators/Loop by Regions/Events/Marquee and Enable Cycle/Loop",
+  101: "Apply All Region/Cell Parameters Permanently",
+  102: "Apply Quantization Permanently",
+  103: "Convert Loops to Regions",
+  104: "Set Optimal Region/Cell Lengths Rounded by Bar",
+  105: "Remove Overlaps",
+  106: "Trim Region End to Next Region",
+  108: "Delete MIDI Events Inside Locators",
+  109: "Delete MIDI Events Outside Locators",
+  110: "Quantize Selected Regions/Cells/Events",
+  111: "Loop Regions/Cells/Folders On/Off",
+  112: "Set Region Start to Bar",
+  113: "Delete MIDI Events Outside Region Boundaries",
+  114: "Delete Duplicated MIDI Events",
+  115: "New Tracks for Overlapped Regions",
+  116: "Show/Hide Automation",
+  117: "Hide/Show Selected Tracks",
+  118: "Unhide All Tracks",
+  119: "Shuffle Left",
+  121: "Engage Solo Tracks (Channel Strips) of Selected Regions/Cells",
+  122: "Send Used Instruments MIDI Settings",
+  123: "Set Rounded Locators/Loop by Regions/Events/Marquee and Enable Cycle/Loop",
+  124: "Set Optimal Region/Cell Lengths Rounded by Note Value",
+  125: "Insert Instrument MIDI settings as Events",
+  126: "Make Groove Template",
+  127: "Remove Groove Template from List",
+  128: "Adjust Tempo using Region Length and Locators",
+  129: "Move Region to Recorded Position",
+  130: "New MIDI Instrument",
+  131: "New Mapped Instrument",
+  132: "New Channel Splitter",
+  133: "New Fader/Knobs/…",
+  134: "New Keyboard",
+  135: "New Arpeggiator",
+  136: "New Delay Line",
+  137: "New Voice Limiter",
+  138: "New Chord Memorizer",
+  139: "New Transformer",
+  140: "New Multi-Instrument",
+  141: "New Monitor",
+  142: "New Audio Channel Strip",
+  146: "Show Track Automation",
+  147: "Show Region Automation",
+  148: "Hide/Show Unselected Tracks",
+  149: "Create MIDI Region/Cell",
+  150: "Create Session Player Region/Cell",
+  151: "Create Pattern Region/Cell",
+  152: "Populate Track with Session Player Regions",
+  153: "Reactivate Upbeat Event Playback",
+  154: "Clear Cables only",
+  155: "Clean Up Positions",
+  156: "Reset Sizes",
+  157: "Align Objects",
+  158: "Trim Region Start to Playhead Position",
+  159: "Trim Region End to Playhead Position",
+  161: "Show/Hide Cables",
+  162: "Select Cable Destination",
+  163: "Go to Layer of Object",
+  164: "Toggle Channel Display Default of Multi-Instrument",
+  166: "Send Selected Fader Values",
+  168: "Object move left",
+  169: "Object move right",
+  170: "Object move up",
+  171: "Object move down",
+  172: "Object Width -1 Pixel",
+  173: "Object Width +1 Pixel",
+  174: "Object Height -1 Pixel",
+  175: "Object Height +1 Pixel",
+  176: "Protect Cabling/Positions",
+  177: "Define Custom Bank Messages…",
+  178: "Select Used Instruments",
+  179: "Select Unused Instruments",
+  180: "Delete Layer",
+  181: "Create Layer",
+  182: "Cable serially",
+  183: "Apply Buffer Template to Position and Size",
+  184: "Apply Buffer Template to Position",
+  185: "Apply Buffer Template to Size",
+  186: "Apply Buffer Template to Definition",
+  187: "Apply Buffer Template to Definition, channel increment",
+  188: "Apply Buffer Template to Definition, number increment",
+  189: "Apply Buffer Template to Cables",
+  190: "Go to Previous Layer",
+  191: "Select Cable Origin",
+  192: "Select Next Object Below",
+  193: "Select Next Object Above",
+  194: "Select Next Object Left",
+  195: "Select Next Object Right",
+  200: "Explode Folders",
+  201: "Explode Polyphony",
+  202: "Page View",
+  203: "Linear Axis View",
+  204: "Go to Page…",
+  205: "Color View: Force Black and White",
+  206: "Toggle Duration Bar Display",
+  207: "Toggle Guide Line Display",
+  208: "Show/Hide Instrument Names",
+  209: "Show/Hide Page Rulers",
+  210: "Paste Multiple",
+  211: "Paste Multiple at original Position",
+  215: "Next Staff",
+  216: "Previous Staff",
+  217: "Force Syncopation",
+  218: "Defeat Syncopation",
+  219: "Default Syncopation",
+  220: "Force Interpretation",
+  221: "Defeat Interpretation",
+  222: "Default Interpretation",
+  223: "Stems: default",
+  224: "Stems: up",
+  225: "Stems: down",
+  226: "Stems: hide",
+  227: "Ties: default",
+  228: "Ties: up",
+  229: "Ties: down",
+  230: "Beam Selected Notes",
+  231: "Unbeam Selected Notes",
+  232: "Default Beams",
+  234: "Not Independent",
+  235: "Independent",
+  236: "Independent Grace",
+  237: "Flats to Sharps",
+  238: "Default Accidentals",
+  239: "Enharmonic Shift: #",
+  240: "Enharmonic Shift: b",
+  241: "Force Accidental",
+  242: "Hide Accidental",
+  243: "Guide Accidental",
+  244: "Reset Line Layout",
+  245: "Align Object Positions Vertically",
+  246: "Align Object Positions Horizontally",
+  247: "Align Object Positions",
+  248: "Show/Hide Staff Style Window",
+  249: "Show/Hide Score Sets Window",
+  250: "Settings: Global Format",
+  251: "Settings: Numbers and Names",
+  252: "Settings: Guitar Tablature",
+  253: "Sharps to Flats",
+  254: "Settings: Score Colors",
+  255: "Settings: Clefs and Signatures",
+  257: "Assign MIDI Channels based on Score Split",
+  258: "Reset Note Attributes",
+  259: "Color View: individual",
+  260: "Color View: Show Pitch",
+  261: "Color View: Show Velocity",
+  262: "Create Score Set from Selection",
+  263: "Part Box: 1/1 Note",
+  264: "Part Box: 1/2 Note",
+  265: "Part Box: 1/4 Note",
+  266: "Part Box: 1/8 Note",
+  267: "Part Box: 1/16 Note",
+  268: "Part Box: 1/32 Note",
+  269: "Color View: Show Polyphony",
+  270: "Next Part Box Symbol",
+  271: "Previous Part Box Symbol",
+  272: "Next Part Box Group",
+  273: "Previous Part Box Group",
+  274: "Attach Symbol: Fermata Up",
+  275: "Attach Symbol: Fermata Down",
+  276: "Attach Symbol: Staccato",
+  277: "Attach Symbol: Staccatissimo",
+  278: "Attach Symbol: Accent",
+  279: "Attach Symbol: Tenuto",
+  280: "Attach Symbol: Up-Bow",
+  281: "Attach Symbol: Down-Bow",
+  282: "Attach Symbol: Flageolet",
+  283: "Attach Symbol: Pizzicato",
+  284: "Attach Symbol: Left Hand",
+  285: "Attach Symbol: Right Hand",
+  286: "Attach Symbol: Soft",
+  287: "Attach Symbol: Heavy",
+  288: "Insert: Slur Up",
+  289: "Insert: Slur Down",
+  290: "Insert: Crescendo",
+  291: "Insert: Decrescendo",
+  292: "Attach Symbol: Strong Accent",
+  293: "Attach Symbol: Long Accent",
+  295: "Nudge Position Up",
+  296: "Nudge Position Down",
+  297: "Nudge Position Left",
+  298: "Nudge Position Right",
+  299: "Settings: Chords and Grids",
+  300: "Select Previous Event",
+  301: "Select Next Event",
+  302: "Show Event Position and Length as Time or Bars/Beats",
+  303: "Length as Absolute Position",
+  305: "Articulation",
+  311: "Trim Note End to Remove Overlaps to Following Notes (8 Ticks Gap)",
+  312: "Trim Note End to Following Notes (8 Ticks Gap)",
+  313: "Numerical Edit of Event Position",
+  314: "Relative Position",
+  315: "Copy Value to All Following Events",
+  316: "Duplicate Event and Numerical Edit",
+  317: "Trim Note End to Following Notes (4 Ticks Overlap)",
+  318: "Trim Note End to Selected Notes (4 Ticks Overlap)",
+  320: "Select Highest Notes",
+  321: "Select Lowest Notes",
+  322: "Set MIDI Channel to Voice Number",
+  323: "Trim Note End to Remove Overlaps to Selected Notes (8 Ticks Gap)",
+  324: "Trim Note End to Selected Notes (8 Ticks Gap)",
+  325: "Trim Note End to Remove Overlaps to Repeated Notes (8 Ticks Gap)",
+  326: "Create Event",
+  327: "Create Time Signature Change",
+  328: "Create Key Signature Change",
+  329: "Create Tempo Change",
+  330: "Create Chord",
+  332: "Nudge Region/Event/Marquee Position Right by Nudge Value",
+  333: "Nudge Region/Event/Marquee Position Left by Nudge Value",
+  334: "Set Nudge Value to Tick",
+  335: "Set Nudge Value to Division",
+  336: "Set Nudge Value to Beat",
+  337: "Set Nudge Value to Bar",
+  338: "Set Nudge Value to SMPTE Frame",
+  339: "Set Nudge Value to 0.5 SMPTE Frame",
+  340: "Invert Selection",
+  341: "Select All Inside Locators",
+  342: "Select Empty Regions/Cells",
+  343: "Select Overlapped Regions/Events",
+  344: "Select Similar Regions/Events",
+  345: "Select Equal Regions/Events",
+  346: "Select All Following",
+  347: "Deselect All",
+  348: "Select First, or Shift Marquee Selection Left",
+  349: "Select Last, or Shift Marquee Selection Right",
+  350: "Delete Similar Regions/Events",
+  351: "Delete but Keep Similar Regions/Events",
+  352: "Go Into Folder or Region",
+  353: "Go Out of Folder or Region",
+  354: "Select Previous Region/Cell/Event or Move Marquee End (or Marquee Point) to Previous Transient",
+  355: "Select Next Region/Cell/Event or Move Marquee End (or Marquee Point) to Next Transient",
+  356: "Toggle Previous Region/Cell/Event or Move Marquee Start (or Extend Marquee Selection) to Previous Transient",
+  357: "Toggle Next Region/Cell/Event or Move Marquee Start (or Extend Marquee Selection) to Next Transient",
+  358: "Move Region/Event to Playhead Position (Pickup Clock)",
+  359: "Move Region/Event to Playhead Position and Select Next Region/Event (Pickup Clock+)",
+  360: "Paste at Original Position",
+  361: "Unlock SMPTE Position",
+  362: "Lock SMPTE Position",
+  363: "Select Same Channels",
+  364: "Scroll to Selection",
+  365: "Nudge Region/Event Position Right by SMPTE Frame",
+  366: "Nudge Region/Event Position Left by SMPTE Frame",
+  367: "Nudge Region/Event Position Right by Tick",
+  368: "Nudge Region/Event Position Left by Tick",
+  369: "Nudge Region/Event Position Right by Division",
+  370: "Nudge Region/Event Position Left by Division",
+  371: "Nudge Region/Event Position Right by Beat",
+  372: "Nudge Region/Event Position Left by Beat",
+  373: "Nudge Region/Event Position Right by Bar",
+  374: "Nudge Region/Event Position Left by Bar",
+  375: "Nudge Region/Event Position Right by SMPTE Bit",
+  376: "Nudge Region/Event Position Left by SMPTE Bit",
+  377: "Set Quantize Parameter to Next Value",
+  378: "Set Quantize Parameter to Previous Value",
+  379: "Deselect Outside Locators",
+  380: "Delete and Select Next Region/Event",
+  381: "Dequantize",
+  382: "Convert Sustain Pedal to Note Length",
+  383: "Paste Replace",
+  384: "Delete Unselected MIDI Events Within Selection",
+  385: "Nudge Region/Event Length Right by Tick",
+  386: "Nudge Region/Event Length Left by Tick",
+  387: "Nudge Region/Event Length Right by Division",
+  388: "Nudge Region/Event Length Left by Division",
+  389: "Nudge Region/Event Length Right by SMPTE Frame",
+  390: "Nudge Region/Event Length Left by SMPTE Frame",
+  391: "Transpose KeySignature/Chord/Region/Event +1 Semitone, Nudge Automation Up 1 Step or Move Marquee Top Up 1 Track",
+  392: "Transpose KeySignature/Chord/Region/Event -1 Semitone, Nudge Automation Down 1 Step or Move Marquee Top Down 1 Track",
+  393: "Nudge Region/Event Position Right by 1/2 SMPTE Frame",
+  394: "Nudge Region/Event Position Left by 1/2 SMPTE Frame",
+  395: "Nudge Region/Event Position Right by 5 SMPTE Frames",
+  396: "Nudge Region/Event Position Left by 5 SMPTE Frames",
+  397: "Event Channel +1",
+  398: "Event Channel -1",
+  399: "Select Same Subpositions",
+  400: "Select Previous Audio File",
+  401: "Select Next Audio File",
+  403: "Add Audio File…",
+  404: "Add Region",
+  406: "Select Used",
+  407: "Select Unused",
+  408: "Delete Files",
+  409: "Optimize Files…",
+  410: "Show All Regions",
+  411: "Hide All Regions",
+  412: "Remove Silence from Audio Region…",
+  413: "Backup Files",
+  414: "Copy/Convert Files…",
+  415: "Move Files out of Project",
+  416: "Import Region Information",
+  417: "Export Region Information",
+  418: "Hide Audio File Details",
+  419: "Region -> Selection",
+  421: "Normalize",
+  422: "Change Gain…",
+  423: "Fade-In",
+  424: "Fade-Out",
+  425: "Silence",
+  426: "Invert",
+  427: "Reverse",
+  428: "Trim",
+  429: "Selection -> Region",
+  430: "Play/Stop All",
+  434: "Create New Region",
+  436: "Time and Pitch Machine…",
+  440: "Create Backup",
+  441: "Revert to Backup",
+  442: "Save A Copy of Audio File As…",
+  443: "Save Selection As…",
+  444: "Search Peak",
+  445: "Search Silence",
+  446: "Go to Region Start",
+  447: "Go to Region End",
+  448: "Go to Region Anchor",
+  449: "Show Audio File Details",
+  450: "Samples",
+  451: "Min:Sec:Ms",
+  452: "SMPTE Time",
+  453: "Bars/Beats",
+  454: "Amplitude Percentage",
+  455: "Amplitude Sample Value",
+  470: "Set Next Higher Division",
+  471: "Set Next Lower Division",
+  472: "Play from Left Locator",
+  473: "Play from Right Locator",
+  474: "Toggle Metronome Click",
+  475: "Show/Hide Event Float",
+  476: "Set Left Locator numerically…",
+  477: "Set Right Locator numerically…",
+  478: "Revert to Saved Screenset",
+  479: "Lock/Unlock Current Screenset",
+  480: "Go to Left Locator",
+  481: "Go to Right Locator",
+  482: "Set Solo Lock Mode",
+  483: "Show/Hide Colors",
+  487: "Open Event List…",
+  488: "Open Score Editor…",
+  489: "Open Piano Roll…",
+  490: "Open Step Editor…",
+  495: "Open Environment…",
+  496: "Play from Previous Bar",
+  497: "Open Project Audio…",
+  498: "Open Audio File Editor…",
+  499: "Open Transport Float…",
+  500: "Open Tempo Operations…",
+  501: "Set Rounded Locators and Record",
+  502: "Set Rounded Locators and Cycle Record",
+  503: "Set Left Locator by Playhead",
+  504: "Set Right Locator by Playhead",
+  505: "Set Punch In Locator by Playhead",
+  506: "Set Punch Out Locator by Playhead",
+  507: "Set Left Locator by Rounded Playhead",
+  508: "Set Right Locator by Rounded Playhead",
+  509: "Set Punch In Locator by Rounded Playhead",
+  510: "Set Punch Out Locator Point by Rounded Playhead",
+  511: "Toggle Level of Input Channel Strips",
+  513: "Create Marker",
+  514: "Delete Marker",
+  515: "Go to Next Marker And Set Locators",
+  516: "Go to Previous Marker And Set Locators",
+  517: "Open Marker List",
+  519: "Open Marker Text",
+  520: "Go to Marker Number…",
+  521: "Go to Marker Number 1",
+  522: "Go to Marker Number 2",
+  523: "Go to Marker Number 3",
+  524: "Go to Marker Number 4",
+  525: "Go to Marker Number 5",
+  526: "Go to Last Locate Position",
+  527: "Stop and Go to Last Locate Position",
+  528: "Create Marker without rounding",
+  529: "Close Window",
+  531: "Open Tempo Interpreter…",
+  532: "Tap Tempo",
+  533: "Next Screenset",
+  534: "Previous Screenset",
+  535: "Play or Stop",
+  536: "Close Project without Saving",
+  537: "Redraw current window",
+  540: "Import Project Settings…",
+  541: "Send All Current Fader Values",
+  542: "Flashback Capture as Recording",
+  543: "Flashback Capture as Recording and Play",
+  544: "Play from Selection",
+  545: "Cycle Through Windows",
+  546: "Go to Marker Number 6",
+  547: "Go to Marker Number 7",
+  548: "Go to Marker Number 8",
+  549: "Go to Marker Number 9",
+  551: "Insert Silence Between Locators (Selection)",
+  552: "Cut Section Between Locators (Selection)",
+  553: "Join Regions per Tracks / Fill Cell",
+  554: "Automation: Display Off",
+  555: "Region Automation: Volume",
+  556: "Region Automation: Panorama",
+  559: "Region Automation: Modulation",
+  560: "Color Regions/Cells by Track Color",
+  561: "Convert MIDI Loops to Aliases",
+  562: "New Tracks for Selected Regions",
+  563: "Insert Section at Playhead (Selection)",
+  564: "Audio Crossfade Options for Merge…",
+  566: "Toggle Track On",
+  567: "Toggle Track On of all Tracks of Folder",
+  568: "Toggle Track On of all Tracks With Same Instrument of Project",
+  569: "Select All Aliases of Region",
+  570: "Deselect All Regions/Cells except on Focused Track",
+  571: "Rename Track",
+  572: "Delete Track Name",
+  573: "Split Regions/Events at Rounded Playhead Position",
+  574: "Split Regions/Events at Playhead Position",
+  575: "Apply Region/Cell Parameters except Channel Permanently",
+  576: "Apply Region/Cell Parameters except Channel and Delay Permanently",
+  577: "Automation: Cycle Through Used Parameters",
+  578: "Name Regions/Cells by Track Name",
+  579: "Convert Regions to New Regions",
+  581: "New Track with Next Channel / MIDI Channel",
+  582: "Convert Regions to New Audio Files…",
+  583: "Open in External Sample Editor",
+  584: "Move Selected Regions to Focused Track",
+  585: "Trim Regions to Fill within Locators",
+  587: "Select Muted Regions/Cells/Events",
+  588: "Select Same-Colored Regions/Cells/Events",
+  589: "Individual Track Zoom In",
+  590: "Individual Track Zoom Out",
+  591: "Reset Individual Track Zoom",
+  592: "Individual Track Zoom Reset for All Tracks",
+  593: "Toggle Track Record Enable",
+  594: "Make Alias but Copy Folder",
+  595: "Region Automation: Pitch Bend",
+  596: "Region Automation: Note Velocity",
+  597: "Toggle Individual Track Zoom",
+  598: "Toggle Zoom Focused Track or Row",
+  602: "Toggle Level of Audio Channel Strips",
+  603: "Toggle Level of Auxiliary Channel Strips",
+  604: "Toggle Level of Bus Channel Strips",
+  605: "Toggle Level of Output Channel Strips",
+  607: "Play/Stop Region",
+  608: "Play/Stop Region to Anchor",
+  609: "Play/Stop Region from Anchor",
+  629: "Select Zone of Last Played Key",
+  632: "New Zone",
+  633: "New Group",
+  640: "Shift selected Zones/Groups Left",
+  641: "Shift selected Zones/Groups Right",
+  642: "Shift selected Zones/Groups Left (Zones incl. Root Key)",
+  643: "Shift selected Zones/Groups Right (Zones incl. Root Key)",
+  644: "Load or Replace Audio File…",
+  645: "I/O Labels…",
+  647: "Audio Hardware Setup",
+  649: "Apogee Control Panel",
+  650: "Create Lane",
+  651: "Delete Lane",
+  652: "Create Multiple Lanes…",
+  653: "Convert Lane…",
+  654: "Copy Lane",
+  655: "Paste Lane",
+  656: "Select All Lanes",
+  657: "Toggle Fix Value",
+  658: "Toggle Auto Define",
+  659: "Create Lane Set",
+  660: "Create Lane Set for GM Drums",
+  661: "Create Lane Set for Current Events",
+  662: "Clear Lane Set",
+  663: "Select Next Lane",
+  664: "Select Previous Lane",
+  665: "Delete Lane Set",
+  666: "Convert Repetitions to Loops",
+  667: "Delete Section Between Locators (Selection)",
+  668: "Delete Section Between Locators (Global)",
+  669: "Mastering Assistant…",
+  670: "Go to Marker Number 10",
+  671: "Go to Marker Number 11",
+  672: "Go to Marker Number 12",
+  673: "Go to Marker Number 13",
+  674: "Go to Marker Number 14",
+  675: "Go to Marker Number 15",
+  676: "Go to Marker Number 16",
+  677: "Go to Marker Number 17",
+  678: "Go to Marker Number 18",
+  679: "Go to Marker Number 19",
+  680: "Go to Marker Number 20",
+  681: "Open Synchronization Project Settings…",
+  682: "Go to Selection Start",
+  683: "Play from Left Window Edge",
+  685: "Show/Hide Performance Meter",
+  686: "Open Main Window…",
+  687: "Stop and Go to Left Locator",
+  688: "Rewind one Frame",
+  689: "Forward one Frame",
+  690: "Open Mixer…",
+  691: "Rewind by Division Value",
+  692: "Forward by Division Value",
+  693: "Varispeed",
+  694: "Auto Input Monitoring",
+  695: "Set Locators by Marker and Enable Cycle",
+  696: "Set Locators by Previous Marker and Enable Cycle",
+  697: "Set Locators by Next Marker and Enable Cycle",
+  698: "Skip Cycle",
+  699: "Move Locators Forward by Cycle Length / Loop Forward by Loop Length",
+  700: "Move Locators Backwards by Cycle Length / Loop Backwards by Loop Length",
+  701: "Reselect Solo-Locked Regions",
+  703: "Move Locators/Loop Forward by 1 Bar",
+  704: "Move Locators/Loop Backwards by 1 Bar",
+  707: "Select Previous Project",
+  708: "Select Next Project",
+  711: "Select Project 1",
+  712: "Select Project 2",
+  713: "Select Project 3",
+  714: "Select Project 4",
+  715: "Select Project 5",
+  716: "Select Project 6",
+  717: "Select Project 7",
+  718: "Select Project 8",
+  719: "Select Project 9",
+  720: "Select Project 10",
+  721: "Select Project 11",
+  722: "Select Project 12",
+  723: "Select Project 13",
+  724: "Select Project 14",
+  725: "Select Project 15",
+  726: "Select Project 16",
+  727: "Select Project 17",
+  728: "Select Project 18",
+  729: "Select Project 19",
+  730: "Select Project 20",
+  732: "Clear Overload Flag in Audio Channel Display",
+  733: "Show/Hide Event List",
+  734: "Show/Hide Main Window",
+  735: "Show/Hide Mixer",
+  736: "Show/Hide Score Editor",
+  737: "Show/Hide Transform",
+  738: "Show/Hide Step Editor",
+  739: "Show/Hide Piano Roll",
+  740: "Show/Hide Transport Float",
+  741: "Show/Hide Environment",
+  742: "Show/Hide Project Audio",
+  743: "Show/Hide Audio File Editor",
+  744: "Show/Hide Signature List",
+  746: "Show/Hide Tempo List",
+  747: "Show/Hide Marker List",
+  748: "Show/Hide Loop Browser",
+  749: "Show/Hide Library",
+  750: "Show/Hide File Browser",
+  751: "New from Template…",
+  752: "Open…",
+  753: "Close Project",
+  754: "Save",
+  755: "Revert to Saved…",
+  756: "Page Setup…",
+  757: "Print",
+  758: "Import…",
+  759: "Export Selection as MIDI File…",
+  760: "Quit",
+  761: "Undo",
+  762: "Cut",
+  763: "Copy",
+  764: "Paste",
+  765: "Delete",
+  766: "Select All",
+  768: "Open Signature List…",
+  772: "Zoom Window",
+  775: "Open Transform…",
+  785: "New Empty Project",
+  796: "Redo",
+  797: "Undo History…",
+  798: "Delete Undo History",
+  799: "Cycle Through Windows (counter-clockwise)",
+  800: "Attach Symbol: Jazz 1",
+  801: "Attach Symbol: Jazz 2",
+  802: "Attach Symbol: Jazz 3",
+  803: "Attach Symbol: Jazz 4",
+  804: "Attach Symbol: Jazz 5",
+  805: "Attach Symbol: Jazz 6",
+  810: "Stem End: Default Length",
+  811: "Stem End: Move Up",
+  812: "Stem End: Move Down",
+  813: "Voice/Staff Assignment: default",
+  814: "Voice/Staff Assignment: staff above voice",
+  815: "Voice/Staff Assignment: staff below voice",
+  816: "Settings: Extended Layout",
+  817: "Settings: MIDI Meaning",
+  818: "Stem Position: Default",
+  819: "Stem Position: Center",
+  820: "Stem Position: Automatic",
+  821: "Stem Position: Side",
+  822: "Slur Last Note",
+  823: "Slur Auto Direction",
+  824: "Auto Slur Above",
+  825: "Auto Slur Below",
+  826: "Convert Auto Slur",
+  827: "Reset Auto Slur",
+  828: "Slurs for non-contiguous selected notes",
+  833: "Select All Regions and Events",
+  836: "Wrapped View",
+  837: "Change View",
+  838: "Diatonic Insert",
+  839: "Show/Hide Text Style Window",
+  840: "Fix Displayed Note Positions",
+  841: "Fix Displayed Note Positions and Durations",
+  842: "Snap on/off",
+  850: "Set Pointer Tool",
+  851: "Set Scissors Tool",
+  852: "Set Join Tool",
+  853: "Set Eraser Tool",
+  854: "Set MIDI Thru Tool",
+  855: "Set Text Tool",
+  856: "Set Solo Tool",
+  857: "Set Pencil Tool",
+  858: "Set Crosshair Tool",
+  859: "Set Mute Tool",
+  860: "Set Finger Tool",
+  861: "Set Layout Tool",
+  862: "Set Zoom Tool",
+  863: "Set Resize Tool",
+  864: "Set Voice Separation Tool",
+  865: "Set Camera Tool",
+  866: "Set Velocity Tool",
+  867: "Set Quantize Tool",
+  868: "Set Fade Tool",
+  871: "Set Marquee Tool",
+  872: "Set Automation Select Tool",
+  873: "Set Automation Curve Tool",
+  875: "Set Flex Tool",
+  876: "Set Brush Tool",
+  877: "Set Flex Pitch Vibrato Tool",
+  878: "Set Flex Pitch Velocity Tool",
+  879: "Increase Last Clicked Parameter by 1",
+  880: "Decrease Last Clicked Parameter by 1",
+  881: "Increase Last Clicked Parameter by 10",
+  882: "Decrease Last Clicked Parameter by 10",
+  883: "Configure Global Tracks…",
+  884: "Scroll in Play",
+  885: "Deselect Global Tracks",
+  887: "Show/Hide Movie Track",
+  888: "Show/Hide Marker Track",
+  889: "Show All Global Tracks",
+  890: "Hide All Global Tracks",
+  892: "Show/Hide Control Bar",
+  893: "Show/Hide Global Tracks",
+  894: "Show/Hide Signature Track",
+  895: "Show/Hide Tempo Track",
+  896: "Show/Hide Chord Track",
+  897: "Show/Hide Beat Mapping Track",
+  898: "Show/Hide Background Grid Lines",
+  899: "Show/Hide Arrangement Track",
+  900: "Note “C”",
+  901: "Note “C#”",
+  902: "Note “D”",
+  903: "Note “D#”",
+  904: "Note “E”",
+  905: "Note “F”",
+  906: "Note “F#”",
+  907: "Note “G”",
+  908: "Note “G#”",
+  909: "Note “A”",
+  910: "Note “A#”",
+  911: "Note “B”",
+  912: "Rest",
+  913: "Octave 0",
+  914: "Octave 1",
+  915: "Octave 2",
+  916: "Octave 3",
+  917: "Octave 4",
+  918: "Octave 5",
+  919: "Octave 6",
+  920: "1/1 Note",
+  921: "1/2 Note",
+  922: "1/4 Note",
+  923: "1/8 Note",
+  924: "1/16 Note",
+  925: "1/32 Note",
+  926: "1/64 Note",
+  927: "1/128 Note",
+  930: "Velocity 16 (ppp)",
+  931: "Velocity 32 (pp)",
+  932: "Velocity 48 (p)",
+  933: "Velocity 64 (mp)",
+  934: "Velocity 80 (mf)",
+  935: "Velocity 96 (f)",
+  936: "Velocity 112 (ff)",
+  937: "Velocity 127 (fff)",
+  940: "Step Forward",
+  941: "Delete - Step Input",
+  942: "Step Backwards",
+  943: "Dotted note values On/Off",
+  944: "Triplets On/Off",
+  945: "Next note will be flat",
+  946: "Next note will be sharp",
+  948: "Chord Mode",
+  960: "Octave - 2",
+  961: "Octave - 1",
+  962: "Octave + 1",
+  963: "Octave + 2",
+  964: "Sustain inserted notes",
+  965: "Quantize note starts On/Off",
+  966: "Set Gain Tool",
+  967: "Set Slip Tool",
+  968: "Select Members of Group 1",
+  969: "Select Members of Group 2",
+  970: "Select Members of Group 3",
+  971: "Select Members of Group 4",
+  972: "Select Members of Group 5",
+  973: "Select Members of Group 6",
+  974: "Select Members of Group 7",
+  975: "Select Members of Group 8",
+  976: "Select Members of Group 9",
+  977: "Select Members of Group 10",
+  978: "Select Members of Group 11",
+  979: "Select Members of Group 12",
+  980: "Select Members of Group 13",
+  981: "Select Members of Group 14",
+  982: "Select Members of Group 15",
+  983: "Select Members of Group 16",
+  984: "Select Members of Group 17",
+  985: "Select Members of Group 18",
+  986: "Select Members of Group 19",
+  987: "Select Members of Group 20",
+  988: "Select Members of Group 21",
+  989: "Select Members of Group 22",
+  990: "Select Members of Group 23",
+  991: "Select Members of Group 24",
+  992: "Select Members of Group 25",
+  993: "Select Members of Group 26",
+  994: "Select Members of Group 27",
+  995: "Select Members of Group 28",
+  996: "Select Members of Group 29",
+  997: "Select Members of Group 30",
+  998: "Select Members of Group 31",
+  999: "Select Members of Group 32",
+  1000: "Set Rotate Tool",
+  1001: "Recall Screenset 1",
+  1002: "Recall Screenset 2",
+  1003: "Recall Screenset 3",
+  1004: "Recall Screenset 4",
+  1005: "Recall Screenset 5",
+  1006: "Recall Screenset 6",
+  1007: "Recall Screenset 7",
+  1008: "Recall Screenset 8",
+  1009: "Recall Screenset 9",
+  1010: "Shuttle Rewind",
+  1011: "Shuttle Forward",
+  1012: "Toggle Selected Tracks or Channel Strips Automation Off/Read",
+  1013: "Set Selected Tracks or Channel Strips to Automation Read",
+  1014: "Toggle Selected Tracks or Channel Strips Automation Touch/Read",
+  1015: "Toggle Selected Tracks or Channel Strips Automation Latch/Read",
+  1016: "Toggle Selected Tracks or Channel Strips Automation Write/Read",
+  1019: "Set All Tracks to Automation Off",
+  1020: "Set All Tracks to Automation Read",
+  1021: "Set All Tracks to Automation Touch",
+  1022: "Set All Tracks to Automation Latch",
+  1023: "Set All Tracks to Automation Write",
+  1030: "Toggle Automation Quick Access",
+  1031: "Enable/Disable Groups",
+  1032: "Track Automation Event List…",
+  1037: "Delete Visible Automation on Selected Track",
+  1038: "Delete All Automation on Selected Track",
+  1039: "Delete All Track Automation",
+  1040: "Clear/Recall Solo",
+  1041: "Mute off for all",
+  1042: "Record off for all",
+  1043: "Move Visible Region Data to Track Automation",
+  1044: "Move Visible Track Automation to Region",
+  1045: "Move All Region Data to Track Automation",
+  1046: "Move All Track Automation to Region",
+  1048: "Next Plug-in Setting",
+  1049: "Previous Plug-in Setting",
+  1050: "Next Sampler Instrument",
+  1051: "Previous Sampler Instrument",
+  1053: "Fill Chord Track from selected Regions",
+  1055: "Show/Hide Chords",
+  1056: "Next Plug-in Setting for topmost Plug-in Window",
+  1057: "Previous Plug-in Setting for topmost Plug-in Window",
+  1079: "Open Group Settings…",
+  1121: "Regenerate",
+  1122: "Convert to MIDI Region/Cell",
+  1123: "Replace with Session Player Region/Cell",
+  1151: "Bounce…",
+  1152: "Open General Settings…",
+  1153: "Open Audio Settings…",
+  1154: "Open MIDI Settings…",
+  1155: "Open View Settings…",
+  1156: "Open Score Settings…",
+  1157: "Open Movie Settings…",
+  1158: "Open Automation Settings…",
+  1159: "Open Control Surfaces Settings…",
+  1160: "Reset All Settings Except Key Command Assignments…",
+  1163: "Open Metronome Project Settings…",
+  1164: "Open Tuning Project Settings…",
+  1165: "Open Audio Project Settings…",
+  1166: "Open Score Project Settings…",
+  1167: "Open Movie Project Settings…",
+  1168: "Open Assets Project Settings…",
+  1170: "Project Settings…",
+  1171: "Clean Up Project…",
+  1172: "Consolidate Project…",
+  1173: "Rename Project…",
+  1174: "Save A Copy As…",
+  1175: "Save as Template…",
+  1177: "Export Regions as Audio Files…",
+  1178: "Export Track as Audio File",
+  1179: "Export All Tracks as Audio Files…",
+  1182: "Export Project as AAF File…",
+  1183: "Project to Final Cut Pro XML…",
+  1186: "Import Audio File…",
+  1187: "Open Surround Settings…",
+  1189: "Allow Quick Punch-in",
+  1190: "Pre-Fader Metering",
+  1191: "Create Marker for Region/Marquee Selection",
+  1192: "Rename Marker",
+  1193: "Delete Orphaned Automation on Selected Track",
+  1194: "Open Movie…",
+  1196: "Import Audio from Movie",
+  1197: "Export Audio to Movie…",
+  1198: "Create Movie Scene Cut Markers (Auto Range)",
+  1199: "Remove Movie Scene Cut Markers (Auto Range)",
+  1200: "Writing Volume Automation in Write Mode",
+  1201: "Writing Pan Automation in Write Mode",
+  1202: "Writing Mute Automation in Write Mode",
+  1203: "Writing Send Levels Automation in Write Mode",
+  1204: "Writing Plug-in parameters Automation in Write Mode",
+  1205: "Writing Solo Automation in Write Mode",
+  1206: "Refresh Freeze Files",
+  1207: "Project Information…",
+  1208: "Show/Hide Step Input Keyboard",
+  1209: "Low Latency Monitoring Mode",
+  1210: "Next Plug-in Setting or Sampler Instrument",
+  1211: "Previous Plug-in Setting or Sampler Instrument",
+  1212: "Next Patch, Plug-in Setting or Sampler Instrument",
+  1213: "Previous Patch, Plug-in Setting or Sampler Instrument",
+  1214: "Next Channel Strip Setting of focused Track",
+  1215: "Previous Channel Strip Setting of focused Track",
+  1216: "Copy Channel Strip Setting",
+  1217: "Paste Channel Strip Setting",
+  1218: "Save Channel Strip Setting as…",
+  1219: "Set Plug-in Latency Compensation Mode",
+  1220: "Remove Movie",
+  1221: "Go to Selection End",
+  1222: "Go to Beginning",
+  1223: "Save as Performance…",
+  1224: "Rename Screenset…",
+  1225: "Delete Screenset",
+  1226: "Duplicate Screenset…",
+  1227: "Software Monitoring",
+  1228: "Reset Channel Strip Setting",
+  1229: "Delete Channel Strip Setting",
+  1230: "Select Previous Section for Realtime Comping",
+  1231: "Toggle Channel Strip Mute",
+  1232: "Toggle Channel Strip Solo",
+  1233: "Toggle Channel Strip Record Enable",
+  1234: "Toggle Channel Strip Input Monitoring",
+  1235: "Toggle Channel Strip Format (mono/stereo)",
+  1236: "Stop and Go to Beginning",
+  1237: "Channel Strip Arpeggiator",
+  1239: "Go to Beginning of First Region",
+  1240: "Go to End of Last Region",
+  1241: "Go to End",
+  1242: "Paste Channel Strip Setting Sends Only",
+  1243: "Paste Channel Strip Setting Plug-ins Only",
+  1244: "Remove Empty Insert Slots",
+  1245: "Remove Bypassed Plug-ins",
+  1246: "Remove All Effect Plug-ins",
+  1247: "Remove All Sends",
+  1248: "Bypass All Effect Plug-ins",
+  1249: "Search and Add Plug-in…",
+  1252: "Minimize Window",
+  1253: "Show/Hide Browsers",
+  1254: "Show/Hide List Editors",
+  1255: "Show/Hide All Plug-in Windows",
+  1256: "Delete Redundant Automation Points",
+  1258: "Create 1 Track Automation Point at Region Borders",
+  1259: "Create 2 Track Automation Points at Region Borders",
+  1260: "Select Regions on Track Selection",
+  1261: "Recall Screenset 1x",
+  1262: "Recall Screenset 2x",
+  1263: "Recall Screenset 3x",
+  1264: "Recall Screenset 4x",
+  1265: "Recall Screenset 5x",
+  1266: "Recall Screenset 6x",
+  1267: "Recall Screenset 7x",
+  1268: "Recall Screenset 8x",
+  1269: "Recall Screenset 9x",
+  1270: "Stop or Play From Last Position",
+  1271: "Play or Stop and Go to Last Locate Position",
+  1272: "Select Previous Track",
+  1273: "Select Next Track",
+  1274: "Show/Hide Editor",
+  1275: "Set Move Track Automation with Regions to Never",
+  1276: "Set Move Track Automation with Regions to Always",
+  1277: "Set Move Track Automation with Regions to Ask",
+  1278: "Move Track Automation with Regions",
+  1279: "Auto Set Locators",
+  1280: "Show/Hide Groups Window",
+  1282: "Show/Hide Note Pad",
+  1284: "Include Track Automation Region Trails, if possible",
+  1285: "Forward by Transient",
+  1286: "Rewind by Transient",
+  1287: "Set Punch Locators by Regions/Events/Marquee",
+  1288: "Set Rounded Punch Locators by Regions/Events",
+  1289: "Set Punch Locators by Cycle Locators",
+  1290: "Show/Hide Quick Help",
+  1291: "Toggle Count-in",
+  1292: "Delete and Move",
+  1293: "Show Detailed Help",
+  1294: "Export Score as MusicXML…",
+  1295: "Open Smart Controls…",
+  1296: "Show/Hide Smart Controls",
+  1297: "Enter/Exit Full Screen",
+  1298: "Select Track on Region Selection",
+  1299: "Show/Hide Tuner",
+  1301: "Create 1 Track Automation Point at Every Region Border",
+  1302: "Create 2 Track Automation Points at Every Region Border",
+  1303: "Show/Hide Graphic Keyboard…",
+  1304: "Show/Hide Musical Typing…",
+  1306: "Show/Hide Movie Window",
+  1309: "Show/Hide Audio Track Editor",
+  1310: "Open My Info Settings…",
+  1315: "Plug-in Manager…",
+  1318: "Note Repeat",
+  1319: "Spot Erase",
+  1320: "Mute Movie Audio On/Off",
+  1321: "Solo Movie Audio On/Off",
+  1322: "Set Movie Region Start to Playhead",
+  1323: "Set Movie Region End to Playhead",
+  1324: "Move Movie Region (and SMPTE Position) to Project Start",
+  1325: "Move Movie Region (and SMPTE Position) to Playhead",
+  1326: "Reset Movie Region",
+  1327: "Use Musical Grid",
+  1328: "Delete All Region Automation",
+  1329: "Go to Next Marker",
+  1330: "Go to Previous Marker",
+  1331: "Set Locators/Loop by Regions/Events/Marquee",
+  1332: "Set Rounded Locators/Loop by Regions/Events/Marquee",
+  1333: "Reverse On/Off",
+  1334: "Record into Cell",
+  1336: "MIDI Remote for Articulation Switches",
+  1337: "Toggle Activation of All Tracks",
+  1342: "Open Recording Settings…",
+  1344: "Export Selection as Audio File…",
+  1345: "Apply Last Edited Fade Again",
+  1346: "Move Movie Region to Playhead",
+  1347: "Show Movie in Finder",
+  1348: "Write Project Tempo to Audio File",
+  1349: "Apply Default Crossfade",
+  1351: "Switch Quick Help Appearance between Bubbles and Inspector Pane/Float Window",
+  1352: "Show/Hide Help Tags",
+  1353: "Remove Fades",
+  1354: "Toggle Smart Tempo Mode (Keep/Adapt)",
+  1356: "Set Smart Tempo Mode to Automatic",
+  1357: "Set Smart Tempo Mode to Keep",
+  1358: "Set Smart Tempo Mode to Adapt",
+  1365: "Copy to Live Loops Scene",
+  1366: "Close All Plug-in Windows",
+  1367: "Open Smart Tempo Settings…",
+  1368: "Apply Region Tempo to Project Tempo…",
+  1369: "Free Tempo Recording",
+  1376: "Show/Hide Live Loops Grid",
+  1377: "Show/Hide Tracks area",
+  1378: "Autoselect Automation Parameter in Read Mode",
+  1379: "Export All MIDI Tracks as MIDI File…",
+  1380: "Automation: Toggle Track/Region",
+  1381: "Move Region to Beat",
+  1382: "Apply Project Tempo to Region and Downbeat",
+  1385: "Switch between Live Loops Grid and Tracks View",
+  1386: "Select Previous Region/Cell/Event of Same Type/Number",
+  1387: "Select Next Region/Cell/Event of Same Type/Number",
+  1388: "Double Cycle/Loop Length",
+  1389: "Halve Cycle/Loop Length",
+  1390: "Show Both, Live Loops Grid and Tracks View",
+  1393: "Select All Regions of Selected Tracks",
+  1394: "Show Live Loops Grid only",
+  1395: "Show Tracks View only",
+  1396: "Show/Hide Keyswitches",
+  1397: "Show/Hide Keyswitches Window",
+  1398: "Copy Cycle to Live Loops Scene",
+  1399: "Remove Fade Ins",
+  1400: "Remove Crossfades",
+  1401: "Remove Fade Outs",
+  1402: "Region Gain +1 dB",
+  1403: "Region Gain -1 dB",
+  1404: "Region Gain +0.1 dB",
+  1405: "Region Gain -0.1 dB",
+  1406: "Convert to Scene Marker",
+  1407: "Convert to Standard Marker",
+  1500: "Set Region/Event/Marquee Start to Playhead Position",
+  1501: "Set Region/Event/Marquee End to Playhead Position",
+  1502: "Nudge Region/Event Length Right by Beat",
+  1503: "Nudge Region/Event Length Left by Beat",
+  1504: "Nudge Region/Event Length Right by Bar",
+  1505: "Nudge Region/Event Length Left by Bar",
+  1506: "Select All Following of Same Track/Pitch",
+  1507: "Snap Mode: Smart",
+  1508: "Snap Mode: Bar",
+  1509: "Snap Mode: Beat",
+  1510: "Snap Mode: Division",
+  1511: "Snap Mode: Ticks",
+  1512: "Snap Mode: Frames",
+  1513: "Snap Mode: Quarter Frames",
+  1514: "Snap Mode: Samples",
+  1515: "Drag Mode: Overlap",
+  1516: "Drag Mode: No Overlap",
+  1517: "Drag Mode: X-Fade",
+  1518: "Drag Mode: Shuffle L",
+  1519: "Drag Mode: Shuffle R",
+  1520: "Transpose Region/Event +12 Semitone, Nudge Automation Up 10 Steps or Move Marquee Bottom Up 1 Track",
+  1521: "Transpose Region/Event -12 Semitone, Nudge Automation Down 10 Steps or Move Marquee Bottom Down 1 Track",
+  1522: "Secondary Ruler",
+  1523: "Repeat Regions/Events Multiple Times…",
+  1524: "Snap Automation",
+  1525: "Snap Regions to Absolute/Relative Value",
+  1526: "Set Nudge Value to Sample",
+  1527: "Nudge Region/Event/Marquee Length Right by Nudge Value",
+  1528: "Nudge Region/Event/Marquee Length Left by Nudge Value",
+  1529: "Nudge Region/Event Position Right by Sample",
+  1530: "Nudge Region/Event Position Left by Sample",
+  1531: "Nudge Region/Event Length Right by SMPTE Bit",
+  1532: "Nudge Region/Event Length Left by SMPTE Bit",
+  1533: "Nudge Region/Event Length Right by 1/2 SMPTE Frame",
+  1534: "Nudge Region/Event Length Left by 1/2 SMPTE Frame",
+  1535: "Nudge Region/Event Length Right by 5 SMPTE Frames",
+  1536: "Nudge Region/Event Length Left by 5 SMPTE Frames",
+  1537: "Nudge Region/Event Length Right by Sample",
+  1538: "Nudge Region/Event Length Left by Sample",
+  1539: "Clear main finger",
+  1540: "Set main finger 1",
+  1541: "Set main finger 2",
+  1542: "Set main finger 3",
+  1543: "Set main finger 4",
+  1544: "Set main finger 5",
+  1545: "Clear pick finger",
+  1546: "Set pick finger P",
+  1547: "Set pick finger I",
+  1548: "Set pick finger M",
+  1549: "Set pick finger A",
+  1550: "Set pick finger C",
+  1551: "Event Channel =  1",
+  1552: "Event Channel =  2",
+  1553: "Event Channel =  3",
+  1554: "Event Channel =  4",
+  1555: "Event Channel =  5",
+  1556: "Event Channel =  6",
+  1557: "Event Channel =  7",
+  1558: "Event Channel =  8",
+  1559: "Event Channel =  9",
+  1560: "Event Channel = 10",
+  1561: "Event Channel = 11",
+  1562: "Event Channel = 12",
+  1563: "Event Channel = 13",
+  1564: "Event Channel = 14",
+  1565: "Event Channel = 15",
+  1566: "Event Channel = 16",
+  1572: "Set Nudge Value to 5 SMPTE Frame",
+  1573: "Set Nudge Value to 1 ms",
+  1574: "Nudge Region/Event Position Right by 1 ms",
+  1575: "Nudge Region/Event Position Left by 1 ms",
+  1576: "Nudge Region/Event Length Right by 1 ms",
+  1577: "Nudge Region/Event Length Left by 1 ms",
+  1578: "Set Nudge Value to 10 ms",
+  1579: "Nudge Region/Event Position Right by 10 ms",
+  1580: "Nudge Region/Event Position Left by 10 ms",
+  1581: "Nudge Region/Event Length Right by 10 ms",
+  1582: "Nudge Region/Event Length Left by 10 ms",
+  1583: "Select Tracks and Set Default Region/Cell Parameters by Region/Cell/Folder",
+  1584: "Select Tracks of Selected Regions/Cells/Folders",
+  1585: "Set Default Region/Cell Parameters by Region/Cell/Folder",
+  1592: "Force Accidental (only flats & sharps)",
+  1599: "Select All Regions/Cells of Same Track",
+  1600: "Search and Select Track…",
+  1700: "Waveform Vertical Zoom x 1 (Normal)",
+  1701: "Waveform Vertical Zoom x 2",
+  1702: "Waveform Vertical Zoom x 4",
+  1703: "Waveform Vertical Zoom x 8",
+  1705: "Waveform Vertical Zoom Out",
+  1706: "Waveform Vertical Zoom In",
+  1707: "Crop Regions/Cells Outside Locators/Playable Range or Marquee Selection",
+  1710: "Toggle Hide View",
+  1711: "Time Stretch Region Length to Locators",
+  1712: "Time Stretch Region Length to Nearest Bar",
+  1714: "Toggle Track Solo",
+  1715: "New Tracks…",
+  1717: "Unpack Take Folder to Existing Tracks",
+  1718: "Separate MIDI Region by Note Pitch",
+  1719: "Select All Orphan Aliases",
+  1720: "Delete All Orphan Aliases",
+  1724: "Separate MIDI Region by Articulation",
+  1726: "Repeat Section Between Locators (Selection)",
+  1727: "Advanced Quantization Parameters",
+  1728: "New Track with Duplicate Settings",
+  1729: "Pack Take Folder",
+  1733: "Cut Section Between Locators (Global)",
+  1734: "Insert Silence Between Locators (Global)",
+  1735: "Insert Section at Playhead (Global)",
+  1736: "Repeat Section Between Locators (Global)",
+  1737: "Un/disclose Take Folder",
+  1738: "Flatten Take Folder/Cell",
+  1739: "Flatten and Merge Take Folder/Cell",
+  1740: "Rename Take or Comp",
+  1741: "Delete Take or Comp",
+  1742: "Export Active Take or Comp to New Track",
+  1744: "Configure Track Header…",
+  1745: "Toggle Take Folder Quick Swipe Comping Mode",
+  1746: "Move Active Take or Comp to New Track",
+  1747: "Create New Comp",
+  1748: "Bounce Regions/Cells in Place…",
+  1749: "Bounce Tracks in Place",
+  1750: "Drum Replacement/Doubling",
+  1751: "Slice at Transient Markers",
+  1752: "Slice at Flex Markers",
+  1753: "Show/Hide Flex Pitch/Time",
+  1754: "Select Previous Take or Comp",
+  1755: "Select Next Take or Comp",
+  1756: "Toggle Waveform Vertical Zoom",
+  1757: "Convert Regions to New Sampler Track…",
+  1758: "Show/Hide Toolbar",
+  1759: "Customize Toolbar…",
+  1760: "Move Selection with First Transient to Nearest Beat",
+  1761: "Trim Region Start to Previous Transient",
+  1762: "Trim Region Start to Next Transient",
+  1763: "Trim Region End to Previous Transient",
+  1764: "Trim Region End to Next Transient",
+  1765: "Add Region/Cell to Loop Library…",
+  1766: "Slice at Comp Section Borders",
+  1767: "Trim to Active Comp Sections",
+  1770: "Shuffle Right",
+  1771: "Marquee Ruler",
+  1775: "Show/Hide Output Track",
+  1776: "Toggle Hide Group 1",
+  1777: "Toggle Hide Group 2",
+  1778: "Toggle Hide Group 3",
+  1779: "Toggle Hide Group 4",
+  1780: "Toggle Hide Group 5",
+  1781: "Toggle Hide Group 6",
+  1782: "Toggle Hide Group 7",
+  1783: "Toggle Hide Group 8",
+  1784: "Toggle Hide Group 9",
+  1785: "Extend Track Selection Up",
+  1786: "Extend Track Selection Down",
+  1787: "Extend Track Selection to Top",
+  1788: "Extend Track Selection to Bottom",
+  1789: "Name Tracks by Region/Cell Name",
+  1790: "Color Tracks by Region/Cell Color",
+  1791: "Create Track Stack…",
+  1792: "Create Folder Stack",
+  1793: "Create Summing Stack",
+  1794: "Flatten Stack",
+  1795: "New Audio Track",
+  1796: "New Software Instrument Track",
+  1797: "New Session Player SI Track…",
+  1798: "New External MIDI Track",
+  1799: "Rename Regions/Cells/Scenes",
+  1800: "Create Group…",
+  1801: "Delete Selected Audio File Groups",
+  1802: "Remove DC Offset",
+  1803: "Toggle Keyboard/Group/Zone View",
+  1806: "Load Multiple Audio Files…",
+  1807: "Open in Audio File Editor",
+  1808: "Show all List Columns",
+  1809: "Restore Default List Columns",
+  1810: "Lock Position in Track when moving Anchor",
+  1811: "Sample Loop -> Selection",
+  1812: "Selection -> Sample Loop",
+  1813: "Select All Previous Samples",
+  1814: "Select All Following Samples",
+  1815: "Go to Previous Transient",
+  1816: "Go to Next Transient",
+  1817: "Set Selection Start To Previous Transient",
+  1818: "Set Selection Start To Next Transients",
+  1819: "Set Selection End To Previous Transient",
+  1820: "Set Selection End To Next Transient",
+  1821: "Increase Number of Transients",
+  1822: "Decrease Number of Transients",
+  1823: "Toggle Transient Editing Mode",
+  1824: "Detect Transients of Audio File",
+  1825: "Set Region Anchor to Previous Transient",
+  1826: "Set Region Anchor to Next Transient",
+  1827: "Selection Start and End to Previous Transient",
+  1828: "Selection Start and End to Next Transient",
+  1829: "Selection Start and End to Previous Transient and Play",
+  1830: "Selection Start and End to Next Transient and Play",
+  1831: "Rename…",
+  1832: "New Mapping",
+  1833: "Duplicate Group",
+  1834: "Crop Sample",
+  1835: "Crop Loop",
+  1836: "Toggle Snap mode",
+  1837: "Vertical Autozoom",
+  1838: "Horizontal Autozoom",
+  1839: "Automap using Current Root Note",
+  1840: "Automap using Root Note from Audio File Names",
+  1841: "Remap All Notes",
+  1842: "Remap To Root Notes",
+  1843: "Fill Gaps",
+  1844: "Always Move Root Key with Zone",
+  1845: "Preview Selected Zone",
+  1846: "Set Region Anchor to Playhead",
+  1847: "Set Region Anchor to Marquee Start",
+  1848: "Set Region Anchor to Marquee End",
+  1849: "Switch to Keyboard View",
+  1850: "Switch to Group View",
+  1851: "Switch to Zone View",
+  1852: "Remap Notes…",
+  1853: "Fill Gaps (Notes Only)",
+  1854: "Fill Gaps (Vel Only)",
+  1855: "Swap Zones",
+  1856: "Unpack Take Folder to Tracks with same channel",
+  1857: "Unpack Take Folder to Track Alternatives",
+  1858: "Set Region Anchor to Region Start",
+  1859: "Remap Evenly",
+  1860: "New Drummer SI Track",
+  1861: "New Bass Player SI Track",
+  1862: "New Keyboard Player SI Track",
+  1863: "Create New Empty MIDI Take",
+  1864: "Duplicate Active MIDI Take",
+  1865: "Convert Folder Stack to Summing Stack",
+  1866: "Remap To Round Robin",
+  1900: "Show Files in Finder",
+  1901: "Toggle Snap Edits to Zero Crossings",
+  1902: "Add to Tracks…",
+  1903: "Preview",
+  1904: "Toggle Cycle Preview",
+  1905: "Show/Hide Selection-Based Processing",
+  1906: "Apply Selection-Based Processing Again",
+  1907: "Stem Splitter…",
+  1908: "Stem Splitter Preset 1 (Acapella)",
+  1909: "Stem Splitter Preset 2 (Instrumental)",
+  1910: "Stem Splitter Preset 3 (Vocals + Instrumental)",
+  1911: "Stem Splitter Preset 4 (Vocals + Instruments + Drums)",
+  1912: "Stem Splitter Preset 5 (Vocals + Instruments + Drums + Bass)",
+  1913: "Stem Splitter Preset 6 (Separate all Stems)",
+  2000: "Show/Hide MIDI Instruments",
+  2001: "Show/Hide Input Channel Strips",
+  2002: "Show/Hide Audio Channel Strips",
+  2003: "Show/Hide Instrument Channel Strips",
+  2004: "Show/Hide Auxiliary Channel Strips",
+  2005: "Show/Hide Bus Channel Strips",
+  2006: "Show/Hide Output Channel Strips",
+  2007: "Cycle Through Mixer Modes (Single, Track, All)",
+  2008: "Create New Auxiliary Channel Strip",
+  2010: "Select Audio Channel Strips",
+  2011: "Select Instrument Channel Strips",
+  2012: "Select Auxiliary Channel Strips",
+  2013: "Select Output Channel Strips",
+  2014: "Select MIDI Channel Strips",
+  2015: "Select Same-Colored Channel Strips",
+  2016: "Select Muted Channel Strips",
+  2017: "Create Tracks for Selected Channel Strips",
+  2018: "Send All MIDI Mixer Data",
+  2024: "Link Control Surfaces",
+  2025: "Scroll to Audio",
+  2026: "Scroll to Instruments",
+  2027: "Scroll to Auxiliaries",
+  2028: "Scroll to Buses",
+  2029: "Scroll to Inputs",
+  2030: "Scroll to Outputs",
+  2031: "Scroll to Master/VCA",
+  2032: "Scroll to MIDI Instruments",
+  2033: "Show/Hide Signal Flow Channel Strips",
+  2034: "Show/Hide Folder Tracks",
+  2035: "Show/Hide Other Tracks",
+  2036: "Show/Hide All Tracks with Same Channel Strip/Instrument",
+  2037: "Show/Hide Instrument Name",
+  2038: "Show/Hide Program",
+  2039: "Show/Hide Bank",
+  2040: "Show/Hide Assign 1",
+  2041: "Show/Hide Assign 2",
+  2042: "Show/Hide Assign 3",
+  2043: "Show/Hide Assign 4",
+  2044: "Show/Hide Assign 5",
+  2045: "Show/Hide EQ Thumbnails",
+  2046: "Show/Hide Audio Effects",
+  2047: "Show/Hide Sends",
+  2048: "Show/Hide Output",
+  2049: "Show/Hide Track Name",
+  2050: "Show/Hide Track Number",
+  2051: "Show/Hide Control Surface Bars",
+  2052: "Select Previous (Left) Channel Strip",
+  2053: "Select Next (Right) Channel Strip",
+  2054: "Show/Hide Type and Number Label",
+  2055: "Show/Hide Audio Device Controls",
+  2056: "Show/Hide Setting Menu",
+  2057: "Show/Hide Gain Reduction Meter",
+  2059: "Show/Hide MIDI Effects",
+  2060: "Show/Hide Input / Instrument",
+  2061: "Show/Hide Grouping",
+  2062: "Show/Hide Automation Mode Menu",
+  2063: "Show/Hide Track Icon",
+  2064: "Show/Hide Track Color",
+  2065: "Show/Hide Pan Knob",
+  2066: "Show/Hide Track Stacks",
+  2067: "Show/Hide VCA",
+  2068: "Create New VCA Fader",
+  2069: "Configure Channel Strip Components…",
+  2070: "Create Track Stack for Selected Channel Strips",
+  2071: "Flatten Track Stack for Selected Channel Strips",
+  2072: "Mixer Undo",
+  2073: "Mixer Redo",
+  2074: "Mixer Undo for selected Channel Strips",
+  2075: "Mixer Redo for selected Channel Strips",
+  2076: "Sends on Faders - On/Off",
+  2077: "Sends on Faders - Next Send",
+  2078: "Sends on Faders - Previous Send",
+  2079: "Sends on Faders - Cycle Through Sends",
+  2080: "Sends on Faders - Cycle Through Returns",
+  2081: "Autoscroll to Selection",
+  2082: "Select Next Pad",
+  2083: "Select Previous Pad",
+  2084: "Preview Pad",
+  2085: "Mute Pad",
+  2086: "Solo Pad",
+  2087: "Resample Pad",
+  2088: "Assign To Exclusive Group: Off",
+  2089: "Assign To Exclusive Group: 1",
+  2090: "Assign To Exclusive Group: 2",
+  2091: "Assign To Exclusive Group: 3",
+  2092: "Assign To Exclusive Group: 4",
+  2093: "Assign To Exclusive Group: 5",
+  2094: "Assign To Exclusive Group: 6",
+  2095: "Assign To Exclusive Group: 7",
+  2096: "Assign To Exclusive Group: 8",
+  2097: "Clear Pad",
+  2098: "Select Summing Stack Channel Strips",
+  2099: "Delete Mixer Undo History",
+  2100: "Include Mixer Undo Steps in Project Undo History",
+  2101: "Show/Hide Channels with Sends only",
+  2102: "Toggle Follow Track Stacks",
+  2103: "Toggle Follow Hide",
+  2105: "Show/Hide Long Faders",
+  2106: "Show/Hide Notes",
+  2200: "Region Automation: Balance",
+  2201: "Region Automation: Breath",
+  2202: "Region Automation: Foot Control",
+  2203: "Region Automation: Portamento Time",
+  2204: "Region Automation: Expression",
+  2205: "Region Automation: Sustain Pedal",
+  2206: "Region Automation: Surround Angle",
+  2207: "Region Automation: Surround Diversity",
+  2208: "Region Automation: Surround LFE",
+  2209: "Region Automation: Aftertouch",
+  2210: "Region Automation: Program Change",
+  2211: "Zoom to fit All Contents, store Navigation Snapshot",
+  2212: "Customize Control Bar and Display…",
+  2213: "Region Automation: Control Change 20",
+  2214: "Region Automation: Control Change 21",
+  2215: "Region Automation: Control Change 22",
+  2216: "Region Automation: Control Change 23",
+  2217: "Region Automation: Control Change 24",
+  2218: "Region Automation: Control Change 25",
+  2219: "Region Automation: Control Change 26",
+  2220: "Region Automation: Control Change 27",
+  2221: "Region Automation: Control Change 28",
+  2222: "Region Automation: Control Change 29",
+  2223: "Region Automation: Control Change 30",
+  2224: "Region Automation: Control Change 31",
+  2225: "Toggle Zoom to fit Selection or All Contents",
+  2226: "Zoom to fit Selection vertically, store Navigation Snapshot",
+  2227: "Set Nudge Value to SMPTE Bit",
+  2228: "Toggle Alignment Guides",
+  2229: "Cut Sections of Selected Arrangement Markers",
+  2240: "Show/Hide Signature Track Only",
+  2241: "Show/Hide Tempo Track Only",
+  2242: "Show/Hide Chord Track Only",
+  2243: "Show/Hide Beat Mapping Track Only",
+  2244: "Show/Hide Marker Track Only",
+  2245: "Show/Hide Movie Track Only",
+  2247: "Show/Hide Arrangement Track Only",
+  2248: "Show/Hide Local Inspector",
+  2249: "Create Volume Fade-Out on Main Output",
+  2250: "Toggle Track Protect",
+  2251: "Toggle Track Freeze",
+  2252: "Trim Region Start to Previous Region",
+  2253: "Create 1 Track Automation Point each for Volume, Pan, Sends",
+  2254: "Show Beat Mapping Track",
+  2255: "Detect Tempo of Selected Region…",
+  2256: "Create 2 Track Automation Points each for Volume, Pan, Sends",
+  2257: "Create 1 Track Automation Point for Visible Parameter",
+  2258: "Create 2 Track Automation Points for Visible Parameter",
+  2259: "Include Non-Note MIDI Events",
+  2260: "View Mode: One Track",
+  2261: "View Mode: Selected Regions",
+  2262: "Set Note Color By Region Color",
+  2263: "Set Note Color By Velocity",
+  2264: "Set Note Color By MIDI Channel",
+  2265: "Toggle Horizontal Auto Zoom",
+  2266: "Toggle View Mode",
+  2268: "Toggle Vertical Auto Zoom",
+  2269: "Toggle Time Handles",
+  2270: "Toggle Selected Tracks or Channel Strips Automation Trim Mode",
+  2271: "Add Mapping",
+  2272: "Toggle Selected Tracks or Channel Strips Automation Write Relative Mode",
+  2273: "Flex/Follow Tempo On/Off",
+  2274: "Open Track Stack",
+  2275: "Close Track Stack",
+  2276: "Repeat Regions/Cells/Events",
+  2277: "Define Brush Pattern and Set Brush Tool",
+  2278: "Reset Brush Pattern",
+  2279: "Open/Close Track Stack",
+  2280: "Set Nudge Value to 1/1 Note",
+  2281: "Set Nudge Value to 1/2 Note",
+  2282: "Set Nudge Value to 1/4 Note",
+  2283: "Set Nudge Value to 1/8 Note",
+  2284: "Set Nudge Value to 1/16 Note",
+  2285: "Set Nudge Value to 1/32 Note",
+  2286: "Set Nudge Value to 1/64 Note",
+  2287: "Set Nudge Value to 1/2 Triplet (1/3)",
+  2288: "Set Nudge Value to 1/4 Triplet (1/6)",
+  2289: "Set Nudge Value to 1/8 Triplet (1/12)",
+  2290: "Set Nudge Value to 1/16 Triplet (1/24)",
+  2291: "Set Nudge Value to 1/32 Triplet (1/48)",
+  2292: "Set Nudge Value to 1/64 Triplet (1/96)",
+  2293: "Set Nudge Value to 10 Ticks",
+  2294: "Set Nudge Value to Step Input",
+  2295: "Region Automation: Surround Elevation",
+  2299: "Set Division Value to 1/128 Triplet (1/192)",
+  2300: "Set Division Value to 1/4 Note",
+  2301: "Set Division Value to 1/4 Triplet (1/6)",
+  2302: "Set Division Value to 1/8 Note",
+  2303: "Set Division Value to 1/8 Triplet (1/12)",
+  2304: "Set Division Value to 1/16 Note",
+  2305: "Set Division Value to 1/16 Triplet (1/24)",
+  2306: "Set Division Value to 1/32 Note",
+  2307: "Set Division Value to 1/32 Triplet (1/48)",
+  2308: "Set Division Value to 1/64 Note",
+  2309: "Set Division Value to 1/64 Triplet (1/96)",
+  2310: "Set Division Value to 1/128 Note",
+  2311: "Hide/Show All Empty Tracks",
+  2312: "Hide Logic Pro",
+  2313: "Hide Others",
+  2314: "Minimize All Windows",
+  2315: "Cycle Through Window Views",
+  2316: "Cycle Through Window Views (counter-clockwise)",
+  2317: "Open Chord Grid Library…",
+  2318: "Scissors Tool",
+  2319: "Join Tool",
+  2320: "Eraser Tool",
+  2321: "MIDI Thru Tool",
+  2322: "Text Tool",
+  2323: "Solo Tool",
+  2324: "Pencil Tool",
+  2325: "Crosshair Tool",
+  2326: "Mute Tool",
+  2327: "Finger Tool",
+  2328: "Layout Tool",
+  2329: "Zoom Tool",
+  2330: "Resize Tool",
+  2331: "Voice Separation Tool",
+  2332: "Camera Tool",
+  2333: "Velocity Tool",
+  2334: "Quantize Tool",
+  2335: "Fade Tool",
+  2336: "Automation Select Tool",
+  2337: "Automation Curve Tool",
+  2338: "Marquee Tool",
+  2339: "Flex Tool",
+  2340: "Brush Tool",
+  2341: "Set Previously Set Tool",
+  2343: "Rename Track Alternative by Selected Region",
+  2344: "Normalize Region/Cell Gain…",
+  2345: "New Track Alternative",
+  2346: "Duplicate Track Alternative",
+  2349: "Delete Inactive Track Alternatives",
+  2350: "Apply Normalize Region/Cell Gain Again",
+  2351: "New Track with Duplicate Settings and Content",
+  2352: "Tempo Track: Extend Left",
+  2353: "Tempo Track: Replace By Average",
+  2354: "Show/Hide Inactive Track Alternatives",
+  2355: "Save and Clean Up Project",
+  2356: "Copy Selected Regions to Focused Track",
+  2357: "Rename Track Alternative",
+  2358: "New Project Alternative…",
+  2359: "Edit Project Alternatives",
+  2360: "Export Alternative as Project…",
+  2361: "Open/Close All Track Stacks",
+  2362: "Create Arrangement Marker",
+  2364: "Region Automation: Control Change 32",
+  2365: "Repeat Regions/Events as Alias",
+  2366: "Activate Next Track Alternative",
+  2367: "Activate Previous Track Alternative",
+  2368: "Copy Section Between Locators (Global)",
+  2369: "Collapse/Expand All Inspector Tiles",
+  2370: "Create Group for Selected Channel Strips / Tracks",
+  2373: "Toggle Hide Group 10",
+  2374: "Toggle Hide Group 11",
+  2375: "Toggle Hide Group 12",
+  2376: "Toggle Hide Group 13",
+  2377: "Toggle Hide Group 14",
+  2378: "Toggle Hide Group 15",
+  2379: "Toggle Hide Group 16",
+  2380: "Toggle Hide Group 17",
+  2381: "Toggle Hide Group 18",
+  2382: "Toggle Hide Group 19",
+  2383: "Toggle Hide Group 20",
+  2384: "Toggle Hide Group 21",
+  2385: "Toggle Hide Group 22",
+  2386: "Toggle Hide Group 23",
+  2387: "Toggle Hide Group 24",
+  2388: "Toggle Hide Group 25",
+  2389: "Toggle Hide Group 26",
+  2390: "Toggle Hide Group 27",
+  2391: "Toggle Hide Group 28",
+  2392: "Toggle Hide Group 29",
+  2393: "Toggle Hide Group 30",
+  2394: "Toggle Hide Group 31",
+  2395: "Toggle Hide Group 32",
+  2396: "Select Frozen Tracks",
+  2397: "Open/Close Instrument Plug-in Window of focused Track",
+  2398: "Apply Control Bar and Display Defaults",
+  2399: "Save As Control Bar and Display Defaults",
+  2400: "Apply Transform User Preset  1 to selected Events",
+  2401: "Apply Transform User Preset  2 to selected Events",
+  2402: "Apply Transform User Preset  3 to selected Events",
+  2403: "Apply Transform User Preset  4 to selected Events",
+  2404: "Apply Transform User Preset  5 to selected Events",
+  2405: "Apply Transform User Preset  6 to selected Events",
+  2406: "Apply Transform User Preset  7 to selected Events",
+  2407: "Apply Transform User Preset  8 to selected Events",
+  2408: "Apply Transform User Preset  9 to selected Events",
+  2409: "Apply Transform User Preset 10 to selected Events",
+  2410: "Apply Transform User Preset 11 to selected Events",
+  2411: "Apply Transform User Preset 12 to selected Events",
+  2412: "Apply Transform User Preset 13 to selected Events",
+  2413: "Apply Transform User Preset 14 to selected Events",
+  2414: "Apply Transform User Preset 15 to selected Events",
+  2415: "Apply Transform User Preset 16 to selected Events",
+  2416: "Apply Transform User Preset 17 to selected Events",
+  2417: "Apply Transform User Preset 18 to selected Events",
+  2418: "Apply Transform User Preset 19 to selected Events",
+  2419: "Apply Transform User Preset 20 to selected Events",
+  2420: "Apply Transform User Preset 21 to selected Events",
+  2421: "Apply Transform User Preset 22 to selected Events",
+  2422: "Apply Transform User Preset 23 to selected Events",
+  2423: "Apply Transform User Preset 24 to selected Events",
+  2424: "Apply Transform User Preset 25 to selected Events",
+  2425: "Apply Transform User Preset 26 to selected Events",
+  2426: "Apply Transform User Preset 27 to selected Events",
+  2427: "Apply Transform User Preset 28 to selected Events",
+  2428: "Apply Transform User Preset 29 to selected Events",
+  2429: "Apply Transform User Preset 30 to selected Events",
+  2430: "Delete Unused Track Alternatives",
+  2450: "Show/Hide All Inactive Track Alternatives",
+  2451: "Create Flex Marker At Playhead Position",
+  2452: "Create Flex Marker At Previous Transient",
+  2453: "Create Flex Marker At Next Transient",
+  2454: "Open/Close Audio Insert 1 Plug-in Window of focused Track",
+  2455: "Open/Close Audio Insert 2 Plug-in Window of focused Track",
+  2456: "Open/Close Audio Insert 3 Plug-in Window of focused Track",
+  2457: "Open/Close Audio Insert 4 Plug-in Window of focused Track",
+  2458: "Open/Close Audio Insert 5 Plug-in Window of focused Track",
+  2459: "Open/Close Audio Insert 6 Plug-in Window of focused Track",
+  2460: "Open/Close Audio Insert 7 Plug-in Window of focused Track",
+  2461: "Open/Close Audio Insert 8 Plug-in Window of focused Track",
+  2462: "Open/Close Audio Insert 9 Plug-in Window of focused Track",
+  2463: "Open/Close Audio Insert 10 Plug-in Window of focused Track",
+  2464: "Open/Close Audio Insert 11 Plug-in Window of focused Track",
+  2465: "Open/Close Audio Insert 12 Plug-in Window of focused Track",
+  2466: "Open/Close Audio Insert 13 Plug-in Window of focused Track",
+  2467: "Open/Close Audio Insert 14 Plug-in Window of focused Track",
+  2468: "Open/Close Audio Insert 15 Plug-in Window of focused Track",
+  2469: "Open/Close MIDI Insert 1 Plug-in Window of focused Track",
+  2470: "Open/Close MIDI Insert 2 Plug-in Window of focused Track",
+  2471: "Open/Close MIDI Insert 3 Plug-in Window of focused Track",
+  2472: "Open/Close MIDI Insert 4 Plug-in Window of focused Track",
+  2473: "Open/Close MIDI Insert 5 Plug-in Window of focused Track",
+  2474: "Open/Close MIDI Insert 6 Plug-in Window of focused Track",
+  2475: "Open/Close MIDI Insert 7 Plug-in Window of focused Track",
+  2476: "Open/Close MIDI Insert 8 Plug-in Window of focused Track",
+  2477: "Open/Close MIDI Insert 9 Plug-in Window of focused Track",
+  2478: "Open/Close MIDI Insert 10 Plug-in Window of focused Track",
+  2479: "Open/Close MIDI Insert 11 Plug-in Window of focused Track",
+  2480: "Open/Close MIDI Insert 12 Plug-in Window of focused Track",
+  2481: "Open/Close MIDI Insert 13 Plug-in Window of focused Track",
+  2482: "Open/Close MIDI Insert 14 Plug-in Window of focused Track",
+  2483: "Open/Close MIDI Insert 15 Plug-in Window of focused Track",
+  2484: "Snap Automation Mode: Automatic",
+  2485: "Snap Automation Mode: Bar",
+  2486: "Snap Automation Mode: 1/2 Note",
+  2487: "Snap Automation Mode: 1/4 Note",
+  2488: "Snap Automation Mode: 1/8 Note",
+  2489: "Snap Automation Mode: 1/16 Note",
+  2490: "Snap Automation Mode: 1/32 Note",
+  2491: "Snap Automation Mode: 1/64 Note",
+  2492: "Snap Automation Mode: 1/2 Triplet (1/3)",
+  2493: "Snap Automation Mode: 1/4 Triplet (1/6)",
+  2494: "Snap Automation Mode: 1/8 Triplet (1/12)",
+  2495: "Snap Automation Mode: 1/16 Triplet (1/24)",
+  2496: "Snap Automation Mode: 1/32 Triplet (1/48)",
+  2497: "Snap Automation Mode: 1/64 Triplet (1/96)",
+  2498: "Toggle Collapse Mode",
+  2499: "Set Marquee to Selection",
+  2500: "Snap Quick Swipe Comping",
+  2501: "Lock/Unlock SMPTE Position",
+  2502: "Select Same Articulation",
+  2503: "Snap Mode: Off",
+  2504: "Toggle Snap to Grid",
+  2505: "Select SMPTE Locked Regions",
+  2506: "Snap Regions to Absolute Value",
+  2507: "Snap Regions to Relative Value",
+  2508: "Snap Mode: 1/1 Note",
+  2509: "Snap Mode: 1/2 Note",
+  2510: "Snap Mode: 1/4 Note",
+  2511: "Snap Mode: 1/8 Note",
+  2512: "Snap Mode: 1/16 Note",
+  2513: "Snap Mode: 1/32 Note",
+  2514: "Snap Mode: 1/64 Note",
+  2515: "Snap Mode: 1/2 Triplet (1/3)",
+  2516: "Snap Mode: 1/4 Triplet (1/6)",
+  2517: "Snap Mode: 1/8 Triplet (1/12)",
+  2518: "Snap Mode: 1/16 Triplet (1/24)",
+  2519: "Snap Mode: 1/32 Triplet (1/48)",
+  2520: "Snap Mode: 1/64 Triplet (1/96)",
+  2521: "Snap Mode: As Time Quantization",
+  2522: "Nudge Automation Up 1 Step",
+  2523: "Nudge Automation Down 1 Step",
+  2524: "Nudge Automation Up 10 Steps",
+  2525: "Nudge Automation Down 10 Steps",
+  2526: "Snap Flexed Audio Regions by First Downbeat",
+  2527: "Plug-in Undo",
+  2528: "Plug-in Redo",
+  2529: "Rewind one 1/8 Note",
+  2530: "Forward one 1/8 Note",
+  2531: "Rewind one 1/16 Note",
+  2532: "Forward one 1/16 Note",
+  2533: "Select All Tracks",
+  2534: "Select Unused Tracks",
+  2535: "Select Muted Tracks",
+  2536: "Select Soloed Tracks",
+  2537: "Select Same-Colored Tracks",
+  2538: "Select Instrument Tracks",
+  2539: "Select MIDI Tracks",
+  2540: "Select Audio Tracks",
+  2542: "Select Aux Tracks",
+  2543: "Select Sub/VCA Tracks",
+  2544: "Select Summing Stack Tracks",
+  2545: "Select Folder Stack Tracks",
+  2546: "Select Folder Tracks",
+  2547: "Open Articulation Editor",
+  2548: "Store Track Header Configuration as User Default",
+  2549: "Apply Track Header Configuration User Default",
+  2550: "Revert to Track Header Configuration Default",
+  2551: "Delete Selected Groups",
+  2552: "Delete Unused Groups",
+  2553: "Select Members of Selected Groups",
+  2554: "Add Selected Channel Strips to Selected Groups",
+  2555: "Remove Selected Channel Strips from Selected Groups",
+  2556: "Copy Group Settings",
+  2557: "Paste Group Settings",
+  2558: "Link View (Content) On/Off",
+  2559: "Cycle Link View",
+  2560: "Set Link View to Off",
+  2561: "Set Link View to Same Level",
+  2562: "Set Link View to Content",
+  2563: "Insert Scenes at Playhead",
+  2564: "Create Marker by Cycle Area",
+  2566: "Convert to Pattern Region/Cell",
+  2567: "Double Region/Cell/Event/Chord Length",
+  2568: "Halve Region/Cell/Event/Chord Length",
+  2569: "Flex Pitch Vibrato Tool",
+  2570: "Flex Pitch Velocity Tool",
+  2571: "Move Tool",
+  2572: "Set Move Tool",
+  2573: "Live Loops: Keep Cells Squared When Zooming",
+  2575: "Live Loops: Show Start Positions as Offset",
+  2576: "Live Loops: Show Length as Position",
+  2577: "Trigger Cells or Scene",
+  2578: "Change Region/Cell/Event Length…",
+  2579: "Store Channel Strip Configuration as User Default",
+  2580: "Apply Channel Strip Configuration User Default",
+  2581: "Revert to Channel Strip Configuration Default",
+  2582: "Set Note Color By Articulation",
+  2583: "Slip Left by Nudge Value",
+  2584: "Slip Right by Nudge Value",
+  2585: "Rotate Left by Nudge Value",
+  2586: "Rotate Right by Nudge Value",
+  2587: "Select Next Upper Cell, or Previous Track",
+  2588: "Select Next Lower Cell, or Next Track",
+  2589: "Extend Cell, or Track Selection Up",
+  2590: "Extend Cell, or Track Selection Down",
+  2591: "Play Previous Scene",
+  2592: "Play Next Scene",
+  2593: "Stop All Cells",
+  2594: "Rewind by Nudge Value",
+  2595: "Forward by Nudge Value",
+  2596: "Duplicate Staff Style",
+  2597: "Open Staff Style Window",
+  2598: "Toggle Selected Tracks or Channel Strips Record Region Automation Mode",
+  2599: "Queue Cell/Scene Playback",
+  2651: "Tap Tempo - Smart Tempo Editor",
+  2652: "Tap Tempo (Downbeat)",
+  2653: "Toggle Metronome Click - Smart Tempo Editor",
+  2655: "Scroll Left",
+  2656: "Scroll Right",
+  2657: "Select from Start to Playhead",
+  2658: "Select from Playhead to End",
+  2659: "Zoom All",
+  2660: "Center around Playhead",
+  2665: "Half Tempo",
+  2666: "Double Tempo",
+  2667: "Set Average Tempo for Selection",
+  2668: "Extend First Tempo in Selection to Beginning",
+  2669: "Extend Last Tempo in Selection to End",
+  2670: "Set Downbeat to Playhead Position",
+  2671: "Trim Region To Selection",
+  2672: "Forward by Bar",
+  2673: "Rewind by Bar",
+  2674: "Forward by Beat",
+  2675: "Rewind by Beat",
+  2676: "Forward 8 Bars",
+  2677: "Rewind 8 Bars",
+  2678: "Snap To Transients",
+  2679: "Maintain Time Positions of All Regions",
+  2681: "Preview Selection-Based Processing",
+  2683: "Gain Tool",
+  2684: "Apply Region Tempo to Project Tempo",
+  2685: "Apply Project Tempo to Region and Downbeat",
+  2686: "Analyze Tempo",
+  2687: "Clear Hints",
+  2689: "Revert to Original Recording Tempo",
+  2690: "Revert Changes",
+  2692: "Set Average Tempo within each Bar",
+  2693: "Remove Tempo Information",
+  2700: "Select Previous Scene",
+  2701: "Select Next Scene",
+  2702: "Select And Operate using Transform User Preset  1",
+  2703: "Select And Operate using Transform User Preset  2",
+  2704: "Select And Operate using Transform User Preset  3",
+  2705: "Select And Operate using Transform User Preset  4",
+  2706: "Select And Operate using Transform User Preset  5",
+  2707: "Select And Operate using Transform User Preset  6",
+  2708: "Select And Operate using Transform User Preset  7",
+  2709: "Select And Operate using Transform User Preset  8",
+  2710: "Select And Operate using Transform User Preset  9",
+  2711: "Select And Operate using Transform User Preset 10",
+  2712: "Select And Operate using Transform User Preset 11",
+  2713: "Select And Operate using Transform User Preset 12",
+  2714: "Select And Operate using Transform User Preset 13",
+  2715: "Select And Operate using Transform User Preset 14",
+  2716: "Select And Operate using Transform User Preset 15",
+  2717: "Select And Operate using Transform User Preset 16",
+  2718: "Select And Operate using Transform User Preset 17",
+  2719: "Select And Operate using Transform User Preset 18",
+  2720: "Select And Operate using Transform User Preset 19",
+  2721: "Select And Operate using Transform User Preset 20",
+  2722: "Select And Operate using Transform User Preset 21",
+  2723: "Select And Operate using Transform User Preset 22",
+  2724: "Select And Operate using Transform User Preset 23",
+  2725: "Select And Operate using Transform User Preset 24",
+  2726: "Select And Operate using Transform User Preset 25",
+  2727: "Select And Operate using Transform User Preset 26",
+  2728: "Select And Operate using Transform User Preset 27",
+  2729: "Select And Operate using Transform User Preset 28",
+  2730: "Select And Operate using Transform User Preset 29",
+  2731: "Select And Operate using Transform User Preset 30",
+  2750: "Quantize 1/1 Note",
+  2751: "Quantize 1/2 Note",
+  2752: "Quantize 1/4 Note",
+  2753: "Quantize 1/8 Note",
+  2754: "Quantize 1/16 Note",
+  2755: "Quantize 1/32 Note",
+  2756: "Quantize 1/64 Note",
+  2757: "Quantize 1/2 Triplet (1/3)",
+  2758: "Quantize 1/4 Triplet (1/6)",
+  2759: "Quantize 1/8 Triplet (1/12)",
+  2760: "Quantize 1/16 Triplet (1/24)",
+  2761: "Quantize 1/32 Triplet (1/48)",
+  2762: "Quantize 1/64 Triplet (1/96)",
+  2763: "Quantize 1/128 Triplet (1/192)",
+  2764: "Quantize 1/16 Swing A",
+  2765: "Quantize 1/16 Swing B",
+  2766: "Quantize 1/16 Swing C",
+  2767: "Quantize 1/16 Swing D",
+  2768: "Quantize 1/16 Swing E",
+  2769: "Quantize 1/16 Swing F",
+  2770: "Quantize 1/8 Swing A",
+  2771: "Quantize 1/8 Swing B",
+  2772: "Quantize 1/8 Swing C",
+  2773: "Quantize 1/8 Swing D",
+  2774: "Quantize 1/8 Swing E",
+  2775: "Quantize 1/8 Swing F",
+  2776: "Quantize 5-Tuplet/4",
+  2777: "Quantize 5-Tuplet/8",
+  2778: "Quantize 7-Tuplet",
+  2779: "Quantize 9-Tuplet",
+  2780: "Quantize 1/16 & 1/16 Triplet",
+  2781: "Quantize 1/16 & 1/8 Triplet",
+  2782: "Quantize 1/8 & 1/8 Triplet",
+  2783: "Quantize Off",
+  2800: "Enable Performance Recording On/Off",
+  2802: "Unpack Take Cell to Existing Scenes",
+  2803: "Unpack Take Cell to New Scenes",
+  2804: "Retrigger Selected Cells or Focused Scene",
+  2806: "Copy Scenes to Playhead",
+  2807: "Trigger Focused Scene",
+  2808: "Insert Empty Scene",
+  2809: "Copy Playing Cells Here",
+  2810: "Toggle Grid Horizontal Zoom",
+  2811: "Select Playing Cells",
+  2812: "Select All Cells of Same Scene",
+  2850: "Repeat Step",
+  2851: "Save Pattern",
+  2857: "Learn (Add)",
+  2858: "Store as Default Pattern Template",
+  2859: "Revert to Default Pattern Template",
+  2862: "Randomize Current Edit Mode Values for Row",
+  2864: "Live Record",
+  2866: "Mono Mode",
+  2867: "Rename Row",
+  2868: "Set Step Color by Region Color",
+  2869: "Set Step Color by Row Color",
+  2870: "Learn (Assign)",
+  2872: "Select Step Above",
+  2873: "Select Step Below",
+  2874: "Select Previous Step",
+  2875: "Select Next Step",
+  2877: "Copy Row",
+  2878: "Paste Row",
+  2879: "Paste Steps",
+  2880: "Paste Row Settings",
+  2881: "Paste to New Row",
+  2882: "Duplicate Row with Next Assignment",
+  2883: "Clear Step",
+  2884: "Clear Row",
+  2885: "Clear Pattern",
+  2886: "Transpose +1 Semitone",
+  2887: "Transpose -1 Semitone",
+  2888: "Transpose +1 Octave",
+  2889: "Transpose -1 Octave",
+  2890: "Transpose to Project Key",
+  2891: "Randomize Current Edit Mode Values for All Rows",
+  2892: "Delete Row",
+  2893: "Save Template",
+  2894: "Show/Hide Step Sequencer",
+  2895: "Show/Hide Pattern Browser",
+  2897: "Set Pattern Playback Mode to Forward",
+  2898: "Set Pattern Playback Mode to Reverse",
+  2899: "Set Pattern Playback Mode to Ping Pong",
+  2902: "Show/Hide Smart Tempo Editor",
+  2904: "Open Smart Tempo Editor…",
+  2905: "Open Audio Track Editor",
+  2906: "Copy Section Between Locators (Selection)",
+  2907: "Assign Track Color…",
+  2908: "Assign Track Icon…",
+  2909: "Open Step Sequencer…",
+  2950: "Set Pattern Playback Mode to Random",
+  2951: "Rotate Pattern Right",
+  2952: "Rotate Pattern Left",
+  2953: "Solo Row",
+  2954: "Mute Row",
+  2955: "Set Row Playback Mode to Forward",
+  2956: "Set Row Playback Mode to Reverse",
+  2957: "Set Row Playback Mode to Ping Pong",
+  2958: "Set Row Playback Mode to Random",
+  2959: "Rotate Row Right",
+  2960: "Rotate Row Left",
+  2961: "Increment Loop Start for Row",
+  2962: "Decrement Loop Start for Row",
+  2963: "Increment Loop End for Row",
+  2964: "Decrement Loop End for Row",
+  2965: "Separate Pattern Region/Cell by Kit Piece",
+  2966: "Delete Unused Rows",
+  2967: "Show Subrows for Row",
+  2968: "Toggle Selected Step",
+  2969: "Hide Subrows for Row",
+  2970: "Show Subrows for All Rows",
+  2971: "Hide Subrows for All Rows",
+  2972: "Clear Current Edit Mode Values for Row",
+  2973: "Clear Current Edit Mode Values for All Rows",
+  2974: "Rotate Values for Current Edit Mode Right",
+  2975: "Rotate Values for Current Edit Mode Left",
+  2976: "Select Next Pattern Page",
+  2977: "Set Global Edit Mode to Steps On/Off",
+  2978: "Set Global Edit Mode to Velocity/Value",
+  2979: "Set Global Edit Mode to Gate",
+  2980: "Set Global Edit Mode to Tie",
+  2981: "Set Global Edit Mode to Note",
+  2982: "Set Global Edit Mode to Octave",
+  2983: "Set Global Edit Mode to Loop Start/End",
+  2984: "Set Global Edit Mode to Note Repeat",
+  2985: "Set Global Edit Mode to Chance",
+  2986: "Set Global Edit Mode to Start Offset",
+  2987: "Set Global Edit Mode to Step Rate",
+  2988: "Set Global Edit Mode to Skip",
+  2989: "Increment Current Edit Mode Values for Row",
+  2990: "Decrement Current Edit Mode Values for Row",
+  2991: "Increment Pattern Step Rate",
+  2992: "Decrement Pattern Step Rate",
+  2993: "Increment Row Step Rate",
+  2994: "Decrement Row Step Rate",
+  2995: "Clear Current Edit Mode Values for All Note Rows",
+  2996: "Clear Current Edit Mode Values for All Automation Rows",
+  2997: "Randomize Current Edit Mode Values for All Note Rows",
+  2998: "Randomize Current Edit Mode Values for All Automation Rows",
+  3000: "Toggle Hide Group 33",
+  3001: "Toggle Hide Group 34",
+  3002: "Toggle Hide Group 35",
+  3003: "Toggle Hide Group 36",
+  3004: "Toggle Hide Group 37",
+  3005: "Toggle Hide Group 38",
+  3006: "Toggle Hide Group 39",
+  3007: "Toggle Hide Group 40",
+  3008: "Toggle Hide Group 41",
+  3009: "Toggle Hide Group 42",
+  3010: "Toggle Hide Group 43",
+  3011: "Toggle Hide Group 44",
+  3012: "Toggle Hide Group 45",
+  3013: "Toggle Hide Group 46",
+  3014: "Toggle Hide Group 47",
+  3015: "Toggle Hide Group 48",
+  3016: "Toggle Hide Group 49",
+  3017: "Toggle Hide Group 50",
+  3018: "Toggle Hide Group 51",
+  3019: "Toggle Hide Group 52",
+  3020: "Toggle Hide Group 53",
+  3021: "Toggle Hide Group 54",
+  3022: "Toggle Hide Group 55",
+  3023: "Toggle Hide Group 56",
+  3024: "Toggle Hide Group 57",
+  3025: "Toggle Hide Group 58",
+  3026: "Toggle Hide Group 59",
+  3027: "Toggle Hide Group 60",
+  3028: "Toggle Hide Group 61",
+  3029: "Toggle Hide Group 62",
+  3030: "Toggle Hide Group 63",
+  3031: "Toggle Hide Group 64",
+  3032: "Zoom to Horizontal Auto Zoom",
+  3033: "Zoom to Vertical Auto Zoom",
+  3034: "Slip Tool",
+  3035: "Rotate Tool",
+  3040: "Undo All Since Opened",
+  3042: "Open Setup",
+  3048: "Open Controller Assignments",
+  3050: "Open Install",
+  3053: "Open MIDI Monitor",
+  3087: "Scan All Models",
+  3095: "Rebuild Defaults",
+  3096: "Learn new Controller Assignment",
+  3097: "Bypass All Control Surfaces",
+  3098: "Define Group Settings as Default",
+  3100: "Select Members of Group 33",
+  3101: "Select Members of Group 34",
+  3102: "Select Members of Group 35",
+  3103: "Select Members of Group 36",
+  3104: "Select Members of Group 37",
+  3105: "Select Members of Group 38",
+  3106: "Select Members of Group 39",
+  3107: "Select Members of Group 40",
+  3108: "Select Members of Group 41",
+  3109: "Select Members of Group 42",
+  3110: "Select Members of Group 43",
+  3111: "Select Members of Group 44",
+  3112: "Select Members of Group 45",
+  3113: "Select Members of Group 46",
+  3114: "Select Members of Group 47",
+  3115: "Select Members of Group 48",
+  3116: "Select Members of Group 49",
+  3117: "Select Members of Group 50",
+  3118: "Select Members of Group 51",
+  3119: "Select Members of Group 52",
+  3120: "Select Members of Group 53",
+  3121: "Select Members of Group 54",
+  3122: "Select Members of Group 55",
+  3123: "Select Members of Group 56",
+  3124: "Select Members of Group 57",
+  3125: "Select Members of Group 58",
+  3126: "Select Members of Group 59",
+  3127: "Select Members of Group 60",
+  3128: "Select Members of Group 61",
+  3129: "Select Members of Group 62",
+  3130: "Select Members of Group 63",
+  3131: "Select Members of Group 64",
+  3132: "Set Articulation  1",
+  3133: "Set Articulation  2",
+  3134: "Set Articulation  3",
+  3135: "Set Articulation  4",
+  3136: "Set Articulation  5",
+  3137: "Set Articulation  6",
+  3138: "Set Articulation  7",
+  3139: "Set Articulation  8",
+  3140: "Set Articulation  9",
+  3141: "Set Articulation 10",
+  3142: "Set Articulation 11",
+  3143: "Set Articulation 12",
+  3144: "Set Articulation 13",
+  3145: "Set Articulation 14",
+  3146: "Set Articulation 15",
+  3147: "Set Articulation 16",
+  3148: "Set Articulation 17",
+  3149: "Set Articulation 18",
+  3150: "Set Articulation 19",
+  3151: "Set Articulation 20",
+  3152: "Set Articulation 21",
+  3153: "Set Articulation 22",
+  3154: "Set Articulation 23",
+  3155: "Set Articulation 24",
+  3156: "Set Articulation 25",
+  3157: "Set Articulation 26",
+  3158: "Set Articulation 27",
+  3159: "Set Articulation 28",
+  3160: "Set Articulation 29",
+  3161: "Set Articulation 30",
+  3162: "Set Articulation 31",
+  3163: "Set Articulation 32",
+  3197: "Set Next Articulation",
+  3198: "Set Previous Articulation",
+  3199: "Set No Articulation",
+  3300: "Global Chords: Analyze Key Signature",
+  3301: "Region Chords: Analyze Key Signature",
+  3304: "Paste Chords from Global Track",
+  3305: "Paste Region Chords to Global Track",
+  3311: "Select All Region Chords",
+  3312: "Double Chord Rhythm",
+  3313: "Halve Chord Rhythm",
+  3314: "Cut Chords",
+  3315: "Copy Chords",
+  3316: "Paste Chords",
+  3317: "Delete Chords",
+  3319: "Edit Chord…",
+  3320: "Ungroup Chords",
+  3321: "Group Chords",
+  3323: "Follow Global Chord Track",
+  3324: "Cut All Chords",
+  3325: "Copy All Chords",
+  3326: "Paste All Chords",
+  3327: "Delete All Chords",
+  3328: "Follow Region Chords",
+  3330: "Select All Chord Groups",
+  3331: "Select All Chord Groups In Cycle Range",
+  3332: "Create Chord",
+  3333: "Transpose Chords +1 Semitone",
+  3334: "Transpose Chords -1 Semitone",
+  3335: "Select All Chords In Cycle Range",
+  3336: "Show Single Global Track On/Off",
+  3337: "Select All Chords",
+  3400: "Search Sounds",
+  3401: "Save…",
+  3402: "Revert",
+  3403: "Enable Patch Merging",
+  3404: "Search Patch",
+  3500: "Select Channel Strips with Same Panner Type",
+  3501: "Toggle Track Master View",
+  3502: "Cycle Through Routing Destination Views",
+  3503: "Cycle Through Subviews",
+  3504: "Learn Parameter Mapping",
+  3505: "Learn External Assignment",
+  3850: "MIDI In",
+  3851: "MIDI Out",
+  3852: "Time Stamps",
+  3853: "… of status bytes only",
+  3854: "Note Off",
+  3855: "Note On",
+  3856: "Poly Aftertouch",
+  3857: "Control Change",
+  3858: "Program Change",
+  3859: "Aftertouch",
+  3860: "Pitch Bend",
+  3861: "System Messages",
+  3900: "Select Newest Track",
+  3901: "Select Oldest Track",
+  3902: "Select Next Newer Track",
+  3903: "Select Next Older Track",
+  3904: "Select Newest Region",
+  3905: "Select Oldest Region",
+  3906: "Select Next Newer Region",
+  3907: "Select Next Older Region",
+  3908: "Select First Modified Region",
+  3909: "Select Last Modified Region",
+  3910: "Select Next Modified Region",
+  3911: "Select Previous Modified Region"
+}
+
+/* Mac virtual key codes (kVK_*) -> KeyboardEvent.code */
+const VK = {
+  0: 'KeyA', 1: 'KeyS', 2: 'KeyD', 3: 'KeyF', 4: 'KeyH', 5: 'KeyG', 6: 'KeyZ', 7: 'KeyX', 8: 'KeyC', 9: 'KeyV', 10: 'IntlBackslash',
+  11: 'KeyB', 12: 'KeyQ', 13: 'KeyW', 14: 'KeyE', 15: 'KeyR', 16: 'KeyY', 17: 'KeyT', 18: 'Digit1', 19: 'Digit2', 20: 'Digit3',
+  21: 'Digit4', 22: 'Digit6', 23: 'Digit5', 24: 'Equal', 25: 'Digit9', 26: 'Digit7', 27: 'Minus', 28: 'Digit8', 29: 'Digit0',
+  30: 'BracketRight', 31: 'KeyO', 32: 'KeyU', 33: 'BracketLeft', 34: 'KeyI', 35: 'KeyP', 36: 'Enter', 37: 'KeyL', 38: 'KeyJ',
+  39: 'Quote', 40: 'KeyK', 41: 'Semicolon', 42: 'Backslash', 43: 'Comma', 44: 'Slash', 45: 'KeyN', 46: 'KeyM', 47: 'Period',
+  48: 'Tab', 49: 'Space', 50: 'Backquote', 51: 'Backspace', 53: 'Escape', 64: 'F17', 65: 'NumpadDecimal', 67: 'NumpadMultiply',
+  69: 'NumpadAdd', 71: 'NumLock' /* keypad Clear */, 75: 'NumpadDivide', 76: 'NumpadEnter', 78: 'NumpadSubtract', 79: 'F18',
+  80: 'F19', 81: 'NumpadEqual', 82: 'Numpad0', 83: 'Numpad1', 84: 'Numpad2', 85: 'Numpad3', 86: 'Numpad4', 87: 'Numpad5',
+  88: 'Numpad6', 89: 'Numpad7', 90: 'F20', 91: 'Numpad8', 92: 'Numpad9', 93: 'IntlYen', 94: 'IntlRo', 95: 'NumpadComma',
+  96: 'F5', 97: 'F6', 98: 'F7', 99: 'F3', 100: 'F8', 101: 'F9', 102: 'Lang2', 103: 'F11', 104: 'Lang1', 105: 'F13', 106: 'F16',
+  107: 'F14', 109: 'F10', 110: 'ContextMenu', 111: 'F12', 113: 'F15', 114: 'Insert' /* Help */, 115: 'Home', 116: 'PageUp',
+  117: 'Delete', 118: 'F4', 119: 'End', 120: 'F2', 121: 'PageDown', 122: 'F1', 123: 'ArrowLeft', 124: 'ArrowRight',
+  125: 'ArrowDown', 126: 'ArrowUp'
+}
+/* characters -> key on a US keyboard; [code, needs shift] */
+const US = (() => {
+  const m = {}
+  for (let c = 97; c <= 122; c++) m[String.fromCharCode(c)] = ['Key' + String.fromCharCode(c - 32), false]
+  for (let c = 65; c <= 90; c++) m[String.fromCharCode(c)] = ['Key' + String.fromCharCode(c), false]   // Logic files the letter, the shift is in the modifiers
+  for (let d = 0; d <= 9; d++) m[String(d)] = ['Digit' + d, false]
+  const plain = { ' ': 'Space', ',': 'Comma', '.': 'Period', '/': 'Slash', ';': 'Semicolon', "'": 'Quote', '[': 'BracketLeft',
+    ']': 'BracketRight', '`': 'Backquote', '-': 'Minus', '=': 'Equal', '\\': 'Backslash' }
+  for (const k in plain) m[k] = [plain[k], false]
+  const shifted = { '<': 'Comma', '>': 'Period', '?': 'Slash', ':': 'Semicolon', '"': 'Quote', '{': 'BracketLeft', '}': 'BracketRight',
+    '~': 'Backquote', '_': 'Minus', '+': 'Equal', '|': 'Backslash', '!': 'Digit1', '@': 'Digit2', '#': 'Digit3', '$': 'Digit4',
+    '%': 'Digit5', '^': 'Digit6', '&': 'Digit7', '*': 'Digit8', '(': 'Digit9', ')': 'Digit0' }
+  for (const k in shifted) m[k] = [shifted[k], true]
+  return m
+})()
+/* control characters and the Mac function-key characters (NSUpArrowFunctionKey ...) */
+const SPECIAL = { 3: 'NumpadEnter', 8: 'Backspace', 9: 'Tab', 13: 'Enter', 25: 'Tab', 27: 'Escape', 127: 'Backspace',
+  0xF700: 'ArrowUp', 0xF701: 'ArrowDown', 0xF702: 'ArrowLeft', 0xF703: 'ArrowRight', 0xF727: 'Insert', 0xF728: 'Delete',
+  0xF729: 'Home', 0xF72B: 'End', 0xF72C: 'PageUp', 0xF72D: 'PageDown', 0xF746: 'Insert' /* Help */ }
+for (let i = 1; i <= 24; i++) SPECIAL[0xF703 + i] = 'F' + i
+/* the legacy one-byte characters used when no character is filed */
+const LEGACY = { 1: 'Home', 3: 'NumpadEnter', 4: 'End', 8: 'Backspace', 9: 'Tab', 11: 'PageUp', 12: 'PageDown', 13: 'Enter', 27: 'Escape',
+  28: 'ArrowLeft', 29: 'ArrowRight', 30: 'ArrowUp', 31: 'ArrowDown', 127: 'Delete' }
+
+const MODS = [[4, '⌃'], [8, '⌥'], [1, '⇧'], [32, '⌘']]
+
+function invertLayout (layoutMap) {
+  if (!layoutMap) return null
+  const inv = {}
+  const add = (code, ch) => { if (typeof ch === 'string' && ch.length && !(ch in inv)) inv[ch] = code }
+  if (typeof layoutMap.forEach === 'function') layoutMap.forEach((ch, code) => add(code, ch))
+  else for (const code in layoutMap) add(code, layoutMap[code])
+  return inv
+}
+
+/* one record -> Slur key ('' when the key cannot be placed) */
+function logicKeyToSlur (rec, opts = {}) {
+  const { key, modifier, charCode, flags } = rec
+  let mod = modifier & 0x2D, code = ''
+  if (flags & 1) code = VK[key] || ''
+  else {
+    const ch = charCode || 0
+    if (SPECIAL[ch]) code = SPECIAL[ch]
+    else if (ch) {
+      const c = String.fromCharCode(ch)
+      const inv = opts._inv
+      if (inv && inv[c.toLowerCase()]) code = inv[c.toLowerCase()]
+      else if (inv && inv[c]) code = inv[c]
+      else if (US[c]) { code = US[c][0]; if (US[c][1]) mod |= 1 }
+    } else code = LEGACY[key] || (US[String.fromCharCode(key)] || [''])[0]
+  }
+  if (!code) return ''
+  return MODS.filter(([b]) => mod & b).map(([, s]) => s).join('') + code
+}
+
+function entry (id, rec, opts) {
+  const key = logicKeyToSlur(rec, opts)
+  const out = { id, name: LOGIC_NAMES[id] || '', key, raw: rec }
+  if (!key) out.unplaced = true
+  if (rec.modifier & ~0x2D) out.unknownModifierBits = rec.modifier & ~0x2D
+  return out
+}
+
+/* the "LogicBinaryPreferences" blob of a .logikcs -> [{id, name, key, raw}] */
+function decodeLogicBinaryPreferences (blob, opts = {}) {
+  const o = { ...opts, _inv: invertLayout(opts.layoutMap) }
+  const n = Math.floor(blob.length / 6), first = 2195, last = Math.min(n, first + 5000)
+  if (n <= first) throw new Error('LogicBinaryPreferences is too short (' + blob.length + ' bytes) for a key command table')
+  const out = []
+  for (let r = first; r < last; r++) {
+    const p = r * 6
+    const k = blob[p], m = blob[p + 1], z = blob[p + 2], cl = blob[p + 3], ch = blob[p + 4], f = blob[p + 5]
+    if (!(k | m | z | cl | ch | f)) continue
+    if (z !== 0 || f > 1) continue                                 // not a key command record
+    out.push(entry(r - first, { key: k, modifier: m, charCode: cl | (ch << 8), flags: f }, o))
+  }
+  return out
+}
+
+/* a .logikcs file (XML or binary property list) -> [{id, name, key, raw}] */
+function decodeLogikcs (bytes, opts = {}) {
+  const pl = readPlist(bytes)
+  if (pl && pl.LogicBinaryPreferences instanceof Uint8Array) return decodeLogicBinaryPreferences(pl.LogicBinaryPreferences, opts)
+  if (pl && pl.KeyCommands && typeof pl.KeyCommands === 'object') return keyCommandsDict(pl.KeyCommands, opts)
+  throw new Error('no Logic key commands in this file (no LogicBinaryPreferences entry)')
+}
+
+/* ~/Library/Preferences/com.apple.logic10.plist -> the active set, [{id, name, key, raw}] */
+function decodeLogicPrefs (bytes, opts = {}) {
+  const kc = readPlist(bytes, 'KeyCommands')
+  if (!kc || typeof kc !== 'object') throw new Error('no KeyCommands entry in this preferences file')
+  return keyCommandsDict(kc, opts)
+}
+
+/* either of the two */
+function decodeLogicKeyCommands (bytes, opts = {}) {
+  const pl = readPlist(bytes, ['KeyCommands', 'LogicBinaryPreferences'])
+  if (pl.LogicBinaryPreferences instanceof Uint8Array) return decodeLogicBinaryPreferences(pl.LogicBinaryPreferences, opts)
+  if (pl.KeyCommands) return keyCommandsDict(pl.KeyCommands, opts)
+  throw new Error('neither a .logikcs file nor Logic preferences')
+}
+
+function keyCommandsDict (kc, opts) {
+  const o = { ...opts, _inv: invertLayout(opts.layoutMap) }
+  const out = []
+  for (const k of Object.keys(kc)) {
+    const v = kc[k], id = parseInt(k, 10)
+    if (!(id >= 0) || !v || typeof v !== 'object') continue
+    out.push(entry(id, { key: v.Key | 0, modifier: v.Modifier | 0, charCode: v.CharCode | 0, flags: v.Flags | 0 }, o))
+  }
+  return out.sort((a, b) => a.id - b.id)
+}
+
+/* ---- property lists ---- */
+
+/* bytes -> object. With `only` (a key or list of keys), a binary plist's top dictionary is read for those keys only. */
+function readPlist (bytes, only) {
+  if (!(bytes instanceof Uint8Array)) bytes = new Uint8Array(bytes)
+  const head = String.fromCharCode(...bytes.subarray(0, 8))
+  if (head === 'bplist00') return readBinaryPlist(bytes, only)
+  const all = readXmlPlist(utf8(bytes))
+  return typeof only === 'string' ? (all || {})[only] : all
+}
+
+function utf8 (bytes) {
+  if (typeof TextDecoder !== 'undefined') return new TextDecoder('utf-8').decode(bytes)
+  let s = '', i = 0
+  while (i < bytes.length) {
+    const b = bytes[i++]
+    if (b < 0x80) s += String.fromCharCode(b)
+    else if (b < 0xE0) s += String.fromCharCode(((b & 31) << 6) | (bytes[i++] & 63))
+    else if (b < 0xF0) s += String.fromCharCode(((b & 15) << 12) | ((bytes[i++] & 63) << 6) | (bytes[i++] & 63))
+    else { const c = ((b & 7) << 18) | ((bytes[i++] & 63) << 12) | ((bytes[i++] & 63) << 6) | (bytes[i++] & 63); s += String.fromCodePoint(c) }
+  }
+  return s
+}
+
+function base64 (s) {
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+  const t = s.replace(/[^A-Za-z0-9+/]/g, '')
+  const out = new Uint8Array(Math.floor(t.length * 3 / 4))
+  let j = 0
+  for (let i = 0; i + 1 < t.length; i += 4) {
+    const a = A.indexOf(t[i]), b = A.indexOf(t[i + 1]), c = i + 2 < t.length ? A.indexOf(t[i + 2]) : -1, d = i + 3 < t.length ? A.indexOf(t[i + 3]) : -1
+    out[j++] = (a << 2) | (b >> 4)
+    if (c >= 0) out[j++] = ((b & 15) << 4) | (c >> 2)
+    if (d >= 0) out[j++] = ((c & 3) << 6) | d
+  }
+  return out.subarray(0, j)
+}
+
+function unescapeXml (s) {
+  return s.replace(/&(lt|gt|amp|quot|apos|#\d+|#x[0-9a-fA-F]+);/g, (_, e) =>
+    e === 'lt' ? '<' : e === 'gt' ? '>' : e === 'amp' ? '&' : e === 'quot' ? '"' : e === 'apos' ? "'" :
+      String.fromCodePoint(e[1] === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)))
+}
+
+function readXmlPlist (text) {
+  const re = /<(\/?)([A-Za-z]+)[^>]*?(\/?)>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!DOCTYPE[^>]*>/g
+  const toks = []
+  let m, last = 0
+  while ((m = re.exec(text))) {
+    if (m[2]) toks.push({ close: !!m[1], name: m[2], empty: !!m[3], start: m.index, end: re.lastIndex })
+    last = re.lastIndex
+  }
+  let i = 0
+  const value = () => {
+    const t = toks[i++]
+    if (!t || t.close) throw new Error('bad plist XML')
+    if (t.name === 'plist') { const v = value(); i++; return v }
+    if (t.empty) return t.name === 'true' ? true : t.name === 'false' ? false : t.name === 'dict' ? {} : t.name === 'array' ? [] : t.name === 'string' ? '' : t.name === 'data' ? new Uint8Array(0) : null
+    if (t.name === 'dict') {
+      const o = {}
+      while (!toks[i].close) { const k = value(); o[k] = value() }
+      i++; return o
+    }
+    if (t.name === 'array') {
+      const a = []
+      while (!toks[i].close) a.push(value())
+      i++; return a
+    }
+    const c = toks[i++], raw = text.slice(t.end, c.start)
+    switch (t.name) {
+      case 'key': case 'string': return unescapeXml(raw)
+      case 'integer': return parseInt(raw.trim(), 10)
+      case 'real': return parseFloat(raw.trim())
+      case 'data': return base64(raw)
+      case 'date': return raw.trim()
+      case 'true': return true
+      case 'false': return false
+      default: return unescapeXml(raw)
+    }
+  }
+  return value()
+}
+
+function readBinaryPlist (b, only) {
+  const n = b.length, T = n - 32
+  const offSize = b[T + 6], refSize = b[T + 7]
+  const be = (p, len) => { let v = 0; for (let k = 0; k < len; k++) v = v * 256 + b[p + k]; return v }
+  const numObjects = be(T + 8, 8), top = be(T + 16, 8), table = be(T + 24, 8)
+  const offsetOf = (i) => be(table + i * offSize, offSize)
+  const lenOf = (p, low) => {                                      // length from the marker's low nibble, or from the int that follows
+    if (low !== 0xF) return [low, p + 1]
+    const m = b[p + 1], sz = 1 << (m & 0xF)
+    return [be(p + 2, sz), p + 2 + sz]
+  }
+  const obj = (i, depth) => {
+    if (i >= numObjects) throw new Error('bad plist object reference')
+    const p = offsetOf(i), m = b[p], hi = m >> 4, low = m & 0xF
+    switch (hi) {
+      case 0x0: return m === 0x09 ? true : m === 0x08 ? false : null
+      case 0x1: {
+        const sz = 1 << low
+        if (sz === 8 && b[p + 1] & 0x80) { let v = 0; for (let k = 0; k < 8; k++) v = v * 256 + (255 - b[p + 1 + k]); return -(v + 1) }
+        return be(p + 1, Math.min(sz, 8))
+      }
+      case 0x2: {
+        const dv = new DataView(b.buffer, b.byteOffset + p + 1, 1 << low)
+        return low === 2 ? dv.getFloat32(0) : dv.getFloat64(0)
+      }
+      case 0x3: return new DataView(b.buffer, b.byteOffset + p + 1, 8).getFloat64(0)
+      case 0x4: { const [len, q] = lenOf(p, low); return b.slice(q, q + len) }
+      case 0x5: { const [len, q] = lenOf(p, low); let s = ''; for (let k = 0; k < len; k++) s += String.fromCharCode(b[q + k]); return s }
+      case 0x6: { const [len, q] = lenOf(p, low); let s = ''; for (let k = 0; k < len; k++) s += String.fromCharCode((b[q + 2 * k] << 8) | b[q + 2 * k + 1]); return s }
+      case 0x8: return { UID: be(p + 1, low + 1) }
+      case 0xA: case 0xC: { const [len, q] = lenOf(p, low); const a = []; for (let k = 0; k < len; k++) a.push(obj(be(q + k * refSize, refSize), depth + 1)); return a }
+      case 0xD: {
+        const [len, q] = lenOf(p, low), o = {}
+        const wanted = depth === 0 && only ? (Array.isArray(only) ? only : [only]) : null
+        for (let k = 0; k < len; k++) {
+          const key = obj(be(q + k * refSize, refSize), depth + 1)
+          if (wanted && !wanted.includes(key)) continue
+          o[key] = obj(be(q + (len + k) * refSize, refSize), depth + 1)
+        }
+        if (wanted && typeof only === 'string') return o[only]
+        return o
+      }
+      default: throw new Error('unsupported plist object type 0x' + hi.toString(16))
+    }
+  }
+  return obj(top, 0)
+}
+
+
+return { decodeLogicKeyCommands }
+})()
+
+const KI_CUBASE = (() => {
+// Reads Cubase's key commands file ("Key Commands.xml", or a preset from Presets/KeyCommands/*.xml)
+// and turns Cubase key names into Slur's notation: modifiers in the order ⌃ ⌥ ⇧ ⌘, then the
+// physical key as KeyboardEvent.code names it (KeyA, Digit1, Numpad5, NumpadMultiply, ArrowLeft, …).
+//
+// What Cubase writes (seen in real files from Cubase on macOS; Windows names by Steinberg's convention):
+//   <KeyCommands>
+//     <list name="Categories" type="list">
+//       <item>
+//         <string name="Name" value="Transport"/>
+//         <list name="Commands" type="list">
+//           <item><string name="Name" value="Goto End"/></item>                          ← no key
+//           <item><string name="Name" value="Start"/><string name="Key" value="Enter" wide="true"/></item>
+//           <item><string name="Name" value="Return to Zero"/>
+//                 <list name="Key" type="string"><item value="Pad ."/><item value=","/></list></item>
+//         …
+//     <list name="Macros" type="list">
+//       <item><string name="Name" value="My Macro"/>
+//             <list name="Commands" type="list"><item><string name="Category" value="Edit"/>
+//                                                   <string name="Name" value="Select All"/></item>…</list></item>
+// Names are Cubase's internal ones (the same pairs the MIDI Remote API binds), not the dialog's labels,
+// and they are English whatever language Cubase shows. A macro's key sits in the "Macro" category.
+//
+// Modifiers: macOS files say Command, Option, Control, Shift; Windows files say Ctrl, Alt, Shift.
+// Per Slur's rule a Windows Ctrl becomes ⌘ and Alt ⌥; the Mac Control key ("Control") becomes ⌃.
+// Keypad keys: Pad0…Pad9, "Pad *", "Pad +", "Pad -", "Pad /", "Pad ."; "Enter" is the keypad Enter and
+// "Return" the main one. Punctuation is the character itself (",", ".", ";", "'", "/", "\" …), read as a
+// US layout.
+//
+// No DOM and no Node APIs are used inside these functions.
+
+const MODS = [
+  [/^(command|cmd)\+/i, '⌘'],
+  [/^ctrl\+/i, '⌘'],            // a Windows Ctrl is ⌘ on the Mac
+  [/^control\+/i, '⌃'],         // the Mac Control key, as Cubase on macOS writes it
+  [/^(option|opt|alt)\+/i, '⌥'],
+  [/^shift\+/i, '⇧'],
+]
+const ORDER = '⌃⌥⇧⌘'
+
+const NAMED = {
+  'space': 'Space', 'return': 'Enter', 'enter': 'NumpadEnter', 'pad enter': 'NumpadEnter', 'padenter': 'NumpadEnter',
+  'tab': 'Tab', 'esc': 'Escape', 'escape': 'Escape', 'backspace': 'Backspace', 'back space': 'Backspace',
+  'del': 'Delete', 'delete': 'Delete', 'ins': 'Insert', 'insert': 'Insert', 'help': 'Insert',
+  'home': 'Home', 'end': 'End', 'pgup': 'PageUp', 'page up': 'PageUp', 'pageup': 'PageUp',
+  'pgdown': 'PageDown', 'pgdn': 'PageDown', 'page down': 'PageDown', 'pagedown': 'PageDown',
+  'up arrow': 'ArrowUp', 'down arrow': 'ArrowDown', 'left arrow': 'ArrowLeft', 'right arrow': 'ArrowRight',
+  'up': 'ArrowUp', 'down': 'ArrowDown', 'left': 'ArrowLeft', 'right': 'ArrowRight',
+  'clear': 'NumLock', 'pad clear': 'NumLock', 'num lock': 'NumLock', 'numlock': 'NumLock',
+  'pad *': 'NumpadMultiply', 'pad +': 'NumpadAdd', 'pad -': 'NumpadSubtract', 'pad /': 'NumpadDivide',
+  'pad .': 'NumpadDecimal', 'pad ,': 'NumpadDecimal', 'pad ;': 'NumpadDecimal', 'pad del': 'NumpadDecimal',
+  'pad =': 'NumpadEqual',
+  ',': 'Comma', '.': 'Period', '/': 'Slash', ';': 'Semicolon', "'": 'Quote', '[': 'BracketLeft',
+  ']': 'BracketRight', '\\': 'Backslash', '-': 'Minus', '=': 'Equal', '`': 'Backquote', '<': 'IntlBackslash',
+}
+
+// One Cubase key name ("Command+Shift+D", "Option+Pad8", "Shift+Pad *", "Pad .", "Up Arrow") → Slur notation
+// ("⇧⌘KeyD", "⌥Numpad8", "⇧NumpadMultiply", "NumpadDecimal", "ArrowUp"); null when it cannot be read.
+function cubaseKey(text) {
+  if (typeof text !== 'string') return null
+  let rest = text.trim()
+  let mods = ''
+  for (let changed = true; changed && rest.length > 1;) {
+    changed = false
+    for (const [re, sym] of MODS) {
+      const m = re.exec(rest)
+      if (m && rest.length > m[0].length) {           // keep a lone "+" as the key itself
+        if (!mods.includes(sym)) mods += sym
+        rest = rest.slice(m[0].length)
+        changed = true
+        break
+      }
+    }
+  }
+  if (/^(win|meta|super)\+/i.test(rest)) return null
+  const key = rest.trim() === '' ? rest : rest.trim()
+  const low = key.toLowerCase().replace(/\s+/g, ' ')
+  let code = null
+  if (/^[a-z]$/i.test(key)) code = 'Key' + key.toUpperCase()
+  else if (/^[0-9]$/.test(key)) code = 'Digit' + key
+  else if (/^pad ?[0-9]$/i.test(key)) code = 'Numpad' + key.slice(-1)
+  else if (/^f([1-9]|1[0-9]|2[0-4])$/i.test(key)) code = 'F' + key.slice(1)
+  else if (NAMED[low]) code = NAMED[low]
+  else if (low.startsWith('pad') && NAMED['pad ' + low.slice(3).trim()]) code = NAMED['pad ' + low.slice(3).trim()]
+  else if (key === '+') code = 'Equal'                  // "+" without "Pad": the =/+ key on a US layout
+  if (!code) return null
+  return [...ORDER].filter(c => mods.includes(c)).join('') + code
+}
+
+// ---- a tiny XML reader: elements, attributes, text is ignored ----
+const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
+function unescapeXml(s) {
+  return s.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (all, e) => {
+    if (e[0] === '#') {
+      const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)
+      return Number.isFinite(n) ? String.fromCodePoint(n) : all
+    }
+    return ENT[e.toLowerCase()] ?? all
+  })
+}
+function parseXml(text) {
+  const root = { tag: '#root', attrs: {}, kids: [] }
+  const stack = [root]
+  const n = text.length
+  let i = 0
+  while (i < n) {
+    const lt = text.indexOf('<', i)
+    if (lt < 0) break
+    if (text.startsWith('<!--', lt)) { const e = text.indexOf('-->', lt + 4); i = e < 0 ? n : e + 3; continue }
+    if (text.startsWith('<![CDATA[', lt)) { const e = text.indexOf(']]>', lt + 9); i = e < 0 ? n : e + 3; continue }
+    if (text.startsWith('<?', lt) || text.startsWith('<!', lt)) { const e = text.indexOf('>', lt + 2); i = e < 0 ? n : e + 1; continue }
+    // find the closing '>' outside quotes
+    let j = lt + 1, q = null
+    for (; j < n; j++) {
+      const c = text[j]
+      if (q) { if (c === q) q = null }
+      else if (c === '"' || c === "'") q = c
+      else if (c === '>') break
+    }
+    if (j >= n) break
+    const raw = text.slice(lt + 1, j)
+    i = j + 1
+    if (raw[0] === '/') {
+      const tag = raw.slice(1).trim()
+      for (let k = stack.length - 1; k > 0; k--) if (stack[k].tag === tag) { stack.length = k; break }
+      continue
+    }
+    const selfClose = raw.endsWith('/')
+    const body = selfClose ? raw.slice(0, -1) : raw
+    const m = /^\s*([^\s/>]+)/.exec(body)
+    if (!m) continue
+    const el = { tag: m[1], attrs: {}, kids: [] }
+    const re = /([^\s=]+)\s*=\s*("([^"]*)"|'([^']*)')/g
+    let a
+    const attrText = body.slice(m[0].length)
+    while ((a = re.exec(attrText))) el.attrs[a[1]] = unescapeXml(a[3] ?? a[4] ?? '')
+    stack[stack.length - 1].kids.push(el)
+    if (!selfClose) stack.push(el)
+  }
+  return root
+}
+const kidsNamed = (el, tag, name) => el.kids.filter(k => k.tag === tag && (name === undefined || k.attrs.name === name))
+const strVal = (el, name) => { const s = kidsNamed(el, 'string', name)[0]; return s ? s.attrs.value ?? '' : undefined }
+
+// The whole file → [{ category, name, keys: ['⇧⌘KeyD', …], raw: ['Command+Shift+D', …], unread: […] }]
+// One entry per command in the file, keys [] when none is assigned (the file lists every command, so an
+// empty list means "no key", not "default"). Commands of the "Macro" category also carry
+// macro: [{ category, name }, …], the steps of that macro from the file's Macros list.
+function decodeCubaseXml(text) {
+  const doc = parseXml(String(text ?? ''))
+  const top = doc.kids.find(k => k.tag === 'KeyCommands') ?? doc
+  const macros = new Map()
+  for (const list of kidsNamed(top, 'list', 'Macros')) {
+    for (const item of kidsNamed(list, 'item')) {
+      const name = strVal(item, 'Name')
+      if (name === undefined) continue
+      const steps = []
+      for (const cl of kidsNamed(item, 'list', 'Commands'))
+        for (const st of kidsNamed(cl, 'item')) steps.push({ category: strVal(st, 'Category') ?? '', name: strVal(st, 'Name') ?? '' })
+      macros.set(name, steps)
+    }
+  }
+  const out = []
+  for (const cats of kidsNamed(top, 'list', 'Categories')) {
+    for (const cat of kidsNamed(cats, 'item')) {
+      const category = strVal(cat, 'Name') ?? ''
+      for (const cl of kidsNamed(cat, 'list', 'Commands')) {
+        for (const cmd of kidsNamed(cl, 'item')) {
+          const name = strVal(cmd, 'Name')
+          if (name === undefined) continue
+          const raw = []
+          for (const s of kidsNamed(cmd, 'string', 'Key')) if (s.attrs.value) raw.push(s.attrs.value)
+          for (const l of kidsNamed(cmd, 'list', 'Key')) for (const it of kidsNamed(l, 'item')) if (it.attrs.value) raw.push(it.attrs.value)
+          const keys = [], unread = []
+          for (const r of raw) { const k = cubaseKey(r); if (k) { if (!keys.includes(k)) keys.push(k) } else unread.push(r) }
+          const entry = { category, name, keys, raw }
+          if (unread.length) entry.unread = unread
+          if (category === 'Macro' && macros.has(name)) entry.macro = macros.get(name)
+          out.push(entry)
+        }
+      }
+    }
+  }
+  return out
+}
+
+return { decodeCubaseXml }
+})()
+
+const KI_PROTOOLS = (() => {
+// Pro Tools keyboard-shortcut files -> Slur key notation.
+//
+// Where a Pro Tools user's own shortcuts live on macOS (Pro Tools 2022.4+, checked against 2025.12):
+//   ~/Library/Preferences/Avid/Pro Tools/PTCustomHotkeys.txt
+//       the set in use now (written by PTCustomHotkeys::SaveToDefaultFile; read with the same loader as presets).
+//   ~/Documents/Pro Tools/Pro Tools Presets/Keyboard Shortcuts/Quick Preset 1.ptpreset … Quick Preset 5.ptpreset
+//       the five preset buttons of Setup > Keyboard Shortcuts (Control+1…5).
+//   ~/Documents/Pro Tools/Pro Tools Presets/Keyboard Shortcuts/*.ptpreset
+//       named presets from the Librarian menu ("Save Settings As"); the Application/ subfolder holds Avid's
+//       alternate-DAW presets (copies of /Applications/Pro Tools.app/Contents/SharedSupport/Factory Content/…).
+//
+// File format (JSON, UTF-8):
+//   { "Version": { "Major": "1", "Minor": "0" },
+//     "Bindings": [ { "Command": "NewTrack",
+//                     "Original Key": "N", "Original Modifiers": "<Cmd>+<Shift>",
+//                     "New Key": "T",      "New Modifiers": "" }, … ] }
+//   The file holds only the changes from the factory set. One entry = one binding of one command:
+//     Original + New        the factory binding Original is replaced by New
+//     Original + New=Invalid the factory binding Original is removed (command left without it)
+//     New only              a binding added to the command (it had none, or this is an extra one)
+//   A command can own several bindings (e.g. MoveEditInsertionToNextEdit: Tab, Shift+Tab, Focus+').
+//   Modifiers: "<Cmd>", "<Opt>", "<Ctrl>", "<Shift>", "<Focus>" joined by "+", written in that order.
+//     <Ctrl> is the Mac Control key; <Focus> means the binding works only with Commands Keyboard Focus on
+//     (a single key in the Edit window). Pro Tools also knows "<Alt>" and "[Cmd]"-style spellings; a file
+//     written on Windows may use <Ctrl>/<Alt>/<Start> for Control/Alt/Windows key (see `windows` below).
+//   Keys: one character for letters, digits and punctuation ("A", "5", ",", "'", "[", "\\", "=", "-"),
+//     otherwise names: BackSpace Tab Clear Return Esc Space PageUp PageDown Home End LeftArrow RightArrow
+//     UpArrow DownArrow Insert Delete Tilde (= the ` key) "Numpad 0"…"Numpad 9" "Numpad *" "Numpad +" "Numpad -"
+//     "Numpad ." "Numpad /" "Numpad =" "Numpad ," "Numpad Enter" F1…F24 NumLock ScrollLock; "Invalid" = no key.
+//
+// Slur notation: modifiers ⌃ ⌥ ⇧ ⌘ in that order, then KeyboardEvent.code. A Commands-Focus binding is
+// returned as 'focus:' + notation (e.g. 'focus:KeyA', 'focus:⇧KeyZ'); Slur has no focus mode, so callers
+// decide what to do with those (Avid: with focus off the same key held with Control does the same).
+
+const NAMED = {
+  backspace: 'Backspace', tab: 'Tab', clear: 'NumLock', return: 'Enter', enter: 'Enter', esc: 'Escape', escape: 'Escape',
+  space: 'Space', pageup: 'PageUp', pagedown: 'PageDown', home: 'Home', end: 'End',
+  leftarrow: 'ArrowLeft', rightarrow: 'ArrowRight', uparrow: 'ArrowUp', downarrow: 'ArrowDown',
+  insert: 'Insert', delete: 'Delete', tilde: 'Backquote', numlock: 'NumLock', 'num lock': 'NumLock',
+  scrolllock: 'ScrollLock', 'scroll lock': 'ScrollLock', prtsc: 'PrintScreen',
+  comma: 'Comma', period: 'Period', apostrophe: 'Quote', semicolon: 'Semicolon', minus: 'Minus', equals: 'Equal',
+  'numpad *': 'NumpadMultiply', 'numpad +': 'NumpadAdd', 'numpad -': 'NumpadSubtract', 'numpad minus': 'NumpadSubtract',
+  'numpad .': 'NumpadDecimal', 'numpad period': 'NumpadDecimal', 'numpad /': 'NumpadDivide', 'numpad =': 'NumpadEqual',
+  'numpad ,': 'NumpadComma', 'numpad comma': 'NumpadComma', 'numpad enter': 'NumpadEnter',
+}
+const PUNCT = { "'": 'Quote', ',': 'Comma', '-': 'Minus', '.': 'Period', '/': 'Slash', ';': 'Semicolon', '=': 'Equal',
+  '[': 'BracketLeft', ']': 'BracketRight', '\\': 'Backslash', '`': 'Backquote', '~': 'Backquote' }
+
+// Pro Tools key name -> KeyboardEvent.code ('' when there is no key or it cannot be typed on a Mac)
+function ptCode(key) {
+  if (key == null) return ''
+  const k = String(key).trim()
+  if (!k || /^(invalid|unknown|none|cancel|select|execute|snapshot|alt)$/i.test(k)) return ''
+  if (k.length === 1) {
+    if (/[a-z]/i.test(k)) return 'Key' + k.toUpperCase()
+    if (/[0-9]/.test(k)) return 'Digit' + k
+    return PUNCT[k] || ''
+  }
+  const low = k.toLowerCase().replace(/\s+/g, ' ')
+  if (NAMED[low]) return NAMED[low]
+  let m = /^numpad ?([0-9])$/.exec(low); if (m) return 'Numpad' + m[1]
+  m = /^f([1-9]|1[0-9]|2[0-4])$/.exec(low); if (m) return 'F' + m[1]
+  return ''
+}
+
+// Modifier string -> { ctrl, alt, shift, meta, focus }. windows=true reads a Windows-written file
+// (<Ctrl> = Control there = ⌘ here, <Alt> = ⌥, <Start>/<Win> = ⌃).
+function ptMods(mods, { windows = false } = {}) {
+  const r = { ctrl: false, alt: false, shift: false, meta: false, focus: false }
+  for (const raw of String(mods || '').split('+')) {
+    const t = raw.replace(/[<>\[\]\s]/g, '').toLowerCase()
+    if (!t) continue
+    if (t === 'shift') r.shift = true
+    else if (t === 'focus') r.focus = true
+    else if (t === 'cmd' || t === 'command') r.meta = true
+    else if (t === 'opt' || t === 'option' || t === 'alt') r.alt = true
+    else if (t === 'ctrl' || t === 'cntrl' || t === 'control') { if (windows) r.meta = true; else r.ctrl = true }
+    else if (t === 'start' || t === 'win' || t === 'winkey' || t === 'windows') r.ctrl = true
+  }
+  return r
+}
+
+// Pro Tools key + modifiers -> Slur notation ('' when there is no key)
+function ptKey(key, mods, opts = {}) {
+  const code = ptCode(key)
+  if (!code) return ''
+  const m = ptMods(mods, opts)
+  const s = (m.ctrl ? '⌃' : '') + (m.alt ? '⌥' : '') + (m.shift ? '⇧' : '') + (m.meta ? '⌘' : '') + code
+  return m.focus ? 'focus:' + s : s
+}
+
+const isFocus = k => typeof k === 'string' && k.startsWith('focus:')
+
+// Parse the text of a .ptpreset or PTCustomHotkeys.txt (tolerates a BOM).
+function ptParse(text) {
+  const d = typeof text === 'string' ? JSON.parse(text.replace(/^﻿/, '')) : text
+  if (!d || !Array.isArray(d.Bindings)) throw new Error('not a Pro Tools keyboard shortcuts file (no "Bindings")')
+  return d
+}
+
+// True when the file looks written by Pro Tools for Windows (uses <Alt>/<Start>/<Win> and never <Cmd>/<Opt>).
+function ptLooksWindows(preset) {
+  let win = false, mac = false
+  for (const b of preset.Bindings || []) for (const f of ['Original Modifiers', 'New Modifiers']) {
+    const s = String(b[f] || '').toLowerCase()
+    if (/(<|\[)(cmd|opt)(>|\])/.test(s)) mac = true
+    if (/(<|\[)(alt|start|win|winkey)(>|\])/.test(s)) win = true
+  }
+  return win && !mac
+}
+
+// Apply a preset/active-set file to a default table { command: [slurKeys] }.
+// Returns { table, changed, conflicts, missingOriginal, unmapped }. Nothing is mutated.
+//   resolve: when true, a key newly given to a command is taken off every other command
+//            (Pro Tools itself keeps both and flags a conflict until the user presses Resolve).
+function ptApply(defaults, preset, { resolve = false, windows } = {}) {
+  const p = ptParse(preset)
+  const opts = { windows: windows ?? ptLooksWindows(p) }
+  const table = {}
+  for (const [c, ks] of Object.entries(defaults || {})) table[c] = [...ks]
+  const changed = new Set(), missingOriginal = [], unmapped = [], added = []
+  for (const b of p.Bindings) {
+    const cmd = b.Command
+    if (!cmd) continue
+    const list = table[cmd] || (table[cmd] = [])
+    const hasOrig = b['Original Key'] != null && String(b['Original Key']) !== ''
+    const orig = hasOrig ? ptKey(b['Original Key'], b['Original Modifiers'], opts) : ''
+    const neu = ptKey(b['New Key'], b['New Modifiers'], opts)
+    const newIsNone = /^\s*(invalid)?\s*$/i.test(String(b['New Key'] ?? ''))
+    if (!neu && !newIsNone) unmapped.push(b)
+    let at = -1
+    if (hasOrig) {
+      if (!orig) unmapped.push(b)
+      at = list.indexOf(orig)
+      if (at >= 0) list.splice(at, 1)
+      else if (orig) missingOriginal.push({ command: cmd, key: orig })
+    }
+    if (neu && !list.includes(neu)) {
+      if (at >= 0) list.splice(at, 0, neu); else list.push(neu)
+      added.push([cmd, neu])
+    }
+    changed.add(cmd)
+  }
+  if (resolve) {                                       // the last command in the file to take a key keeps it
+    const owner = new Map()
+    for (const [cmd, k] of added) if ((table[cmd] || []).includes(k)) owner.set(k, cmd)
+    for (const [k, cmd] of owner)
+      for (const [c, ks] of Object.entries(table)) if (c !== cmd) { const i = ks.indexOf(k); if (i >= 0) { ks.splice(i, 1); changed.add(c) } }
+  }
+  const owners = {}
+  for (const [c, ks] of Object.entries(table)) for (const k of ks) (owners[k] || (owners[k] = [])).push(c)
+  const conflicts = added.map(([, k]) => k).filter((k, i, a) => a.indexOf(k) === i && owners[k] && owners[k].length > 1)
+    .map(k => ({ key: k, commands: owners[k] }))
+  return { table, changed: [...changed], conflicts, missingOriginal, unmapped }
+}
+
+// The keys of one Slur command from a table, using a row of protools-ids.json
+// ({ ids, focusIds, filter }): key = first non-focus binding found in ids (in order), keyFocus = first
+// focus binding found in ids then focusIds; filter 'shift' keeps only bindings with ⇧, 'noshift' only without.
+function ptRowKeys(table, row) {
+  const pass = k => row.filter === 'shift' ? k.includes('⇧') : row.filter === 'noshift' ? !k.includes('⇧') : true
+  const keys = [], focus = []
+  for (const id of row.ids || []) for (const k of table[id] || []) if (pass(k)) (isFocus(k) ? focus : keys).push(k)
+  for (const id of row.focusIds || []) for (const k of table[id] || []) if (isFocus(k) && pass(k)) focus.push(k)
+  return { key: keys[0] || '', keyFocus: focus[0] ? focus[0].slice(6) : '', keys, focus: focus.map(k => k.slice(6)) }
+}
+
+return { ptApply, ptParse, ptRowKeys, isFocus }
+})()
+
+const KI_IDS = {"logic":{"Slur Studio > Settings > General":{"ids":[1152],"near":[30]},"Slur Studio > Settings > Display":{"ids":[1155],"near":[]},"Slur Studio > Settings > Audio":{"ids":[1153],"near":[]},"Slur Studio > Settings > Plug-ins":{"ids":[1315],"near":[]},"Slur Studio > Key Commands…":{"ids":[35],"near":[]},"File > New":{"ids":[751],"near":[785]},"File > Open…":{"ids":[752],"near":[]},"File > Save":{"ids":[754],"near":[]},"File > Save As…":{"ids":[32],"near":[]},"File > Rename…":{"ids":[1173],"near":[]},"File > Revert To…":{"ids":[755],"near":[]},"File > Import Audio…":{"ids":[1186],"near":[758]},"File > Hand Off…":{"ids":[1151],"near":[]},"File > Hand Off Stems…":{"ids":[1179],"near":[1178]},"File > Bounce in Place":{"ids":[1748],"near":[1749]},"Edit > Undo":{"ids":[761],"near":[]},"Edit > Redo":{"ids":[796],"near":[]},"Edit > Cut":{"ids":[762],"near":[]},"Edit > Copy":{"ids":[763],"near":[]},"Edit > Paste":{"ids":[764],"near":[]},"Edit > Delete":{"ids":[765],"near":[]},"Edit > Select All":{"ids":[766],"near":[]},"Edit > Select > None":{"ids":[347],"near":[]},"Edit > Select > Invert":{"ids":[340],"near":[]},"Edit > Select > All Following":{"ids":[346],"near":[]},"Edit > Select > All Following on the Same Track":{"ids":[1506],"near":[]},"Edit > Select > Inside the Cycle":{"ids":[341],"near":[]},"Edit > Select > Muted Regions":{"ids":[587],"near":[]},"Edit > Select > Previous Region":{"ids":[354,82],"near":[]},"Edit > Select > Next Region":{"ids":[355,83],"near":[]},"Edit > Select > Add Previous Region":{"ids":[356],"near":[]},"Edit > Select > Add Next Region":{"ids":[357],"near":[]},"Edit > Select > First Region":{"ids":[348],"near":[]},"Edit > Select > Last Region":{"ids":[349],"near":[]},"Edit > Select > Previous Track":{"ids":[1272],"near":[]},"Edit > Select > Next Track":{"ids":[1273],"near":[]},"Edit > Split at Playhead":{"ids":[574],"near":[]},"Edit > Split at Cycle Ends":{"ids":[91],"near":[]},"Edit > Join":{"ids":[553],"near":[90]},"Edit > Repeat":{"ids":[2276],"near":[]},"Edit > Cut Section Between Locators":{"ids":[1733],"near":[552]},"Edit > Insert Silence at Locators":{"ids":[1734],"near":[551]},"Edit > Insert Section at Playhead":{"ids":[1735],"near":[563]},"Edit > Repeat Section Between Locators":{"ids":[1736],"near":[1726]},"Region > Mute":{"ids":[60],"near":[]},"Region > Rename…":{"ids":[1799],"near":[]},"Region > Move to Playhead":{"ids":[358],"near":[]},"Region > Move to Playhead and Select Next":{"ids":[359],"near":[]},"Region > Loop to the Next Region":{"ids":[111],"near":[]},"Region > Trim Start to Playhead":{"ids":[1500,158],"near":[]},"Region > Trim End to Playhead":{"ids":[1501,159],"near":[]},"Region > Shuffle Left":{"ids":[119],"near":[]},"Region > Shuffle Right":{"ids":[1770],"near":[]},"Region > Gain > Up 1 dB":{"ids":[1402],"near":[]},"Region > Gain > Down 1 dB":{"ids":[1403],"near":[]},"Region > Gain > Up 0.1 dB":{"ids":[1404],"near":[]},"Region > Gain > Down 0.1 dB":{"ids":[1405],"near":[]},"Region > Transpose > Up a Semitone":{"ids":[391],"near":[]},"Region > Transpose > Down a Semitone":{"ids":[392],"near":[]},"Region > Transpose > Up an Octave":{"ids":[1520],"near":[]},"Region > Transpose > Down an Octave":{"ids":[1521],"near":[]},"Region > Reverse":{"ids":[1333],"near":[]},"Region > Fades > Fades for Selection":{"ids":[1349],"near":[1345]},"Region > Nudge > Earlier":{"ids":[333],"near":[]},"Region > Nudge > Later":{"ids":[332],"near":[]},"Region > Nudge > Shorter":{"ids":[1528],"near":[]},"Region > Nudge > Longer":{"ids":[1527],"near":[]},"Region > Tempo > Follow the Tempo":{"ids":[2273],"near":[]},"Region > Tempo > Set Project Tempo from Region":{"ids":[1368,2684],"near":[]},"Region > Quantize":{"ids":[110],"near":[]},"Region > Undo Quantize":{"ids":[381],"near":[]},"Region > Strip Silence":{"ids":[412],"near":[]},"Region > Colour and Outline…":{"ids":[483],"near":[]},"Track > New Tracks…":{"ids":[1715],"near":[]},"Track > New Audio Track":{"ids":[1795],"near":[]},"Track > New Instrument Track":{"ids":[1796],"near":[]},"Track > New Bus":{"ids":[2008],"near":[]},"Track > Duplicate":{"ids":[1728],"near":[]},"Track > Duplicate with Its Regions":{"ids":[2351],"near":[]},"Track > Rename…":{"ids":[571],"near":[1831]},"Track > Delete":{"ids":[88],"near":[]},"Track > Delete Empty Tracks":{"ids":[89],"near":[]},"Track > Mute":{"ids":[1231],"near":[]},"Track > Solo":{"ids":[1232,1714],"near":[]},"Track > Record Enable":{"ids":[593,1233],"near":[]},"Track > Hear the Input":{"ids":[1234],"near":[]},"Track > Stack > Make a Stack":{"ids":[1791],"near":[]},"Track > Stack > Take the Stack Apart":{"ids":[1794],"near":[]},"Track > Stack > Open the Stack":{"ids":[2274],"near":[]},"Track > Stack > Close the Stack":{"ids":[2275],"near":[]},"Track > Group Tracks":{"ids":[2370],"near":[]},"Track > Suspend Groups":{"ids":[1031],"near":[]},"Track > Instruments > Typing Keyboard":{"ids":[1304],"near":[]},"Track > Instruments > Capture as Recording":{"ids":[542],"near":[]},"Track > Instruments > All Notes Off":{"ids":[29],"near":[]},"Transport > Play or Stop":{"ids":[535],"near":[]},"Transport > Play from Selection":{"ids":[544],"near":[]},"Transport > Record":{"ids":[7],"near":[]},"Transport > Discard Recording":{"ids":[9],"near":[]},"Transport > Go to Start":{"ids":[1222],"near":[]},"Transport > Go to End of Sound":{"ids":[1240],"near":[]},"Transport > Back a Bar":{"ids":[10],"near":[]},"Transport > Forward a Bar":{"ids":[11],"near":[]},"Transport > Back Eight Bars":{"ids":[12],"near":[]},"Transport > Forward Eight Bars":{"ids":[13],"near":[]},"Transport > Previous Transient":{"ids":[1286],"near":[]},"Transport > Next Transient":{"ids":[1285],"near":[]},"Transport > Go to Bar…":{"ids":[21],"near":[]},"Transport > Cycle":{"ids":[15],"near":[]},"Transport > Cycle Area > Set to Selection":{"ids":[123],"near":[100]},"Transport > Cycle Area > Go to Its Start":{"ids":[480],"near":[]},"Transport > Cycle Area > Go to Its End":{"ids":[481],"near":[]},"Transport > Cycle Area > Move Forward by Its Length":{"ids":[699],"near":[]},"Transport > Cycle Area > Move Back by Its Length":{"ids":[700],"near":[]},"Transport > Cycle Area > Twice as Long":{"ids":[1388],"near":[]},"Transport > Cycle Area > Half as Long":{"ids":[1389],"near":[]},"Transport > Cycle Area > Zoom to the Cycle":{"ids":[77],"near":[]},"Transport > Click":{"ids":[474],"near":[]},"Transport > Count-In":{"ids":[1291],"near":[]},"Markers > Add Marker Here":{"ids":[513],"near":[]},"Markers > Add Marker for Selection":{"ids":[1191],"near":[]},"Markers > Rename Marker…":{"ids":[1192],"near":[]},"Markers > Delete Marker Here":{"ids":[514],"near":[]},"Markers > Previous Marker":{"ids":[516],"near":[]},"Markers > Next Marker":{"ids":[515],"near":[]},"Markers > Cycle the Marker":{"ids":[695],"near":[]},"Markers > Go to Marker > Marker 1":{"ids":[521],"near":[]},"Markers > Go to Marker > Marker 2":{"ids":[522],"near":[]},"Markers > Go to Marker > Marker 3":{"ids":[523],"near":[]},"Markers > Go to Marker > Marker 4":{"ids":[524],"near":[]},"Markers > Go to Marker > Marker 5":{"ids":[525],"near":[]},"Markers > Go to Marker > Marker 6":{"ids":[546],"near":[]},"Markers > Go to Marker > Marker 7":{"ids":[547],"near":[]},"Markers > Go to Marker > Marker 8":{"ids":[548],"near":[]},"Markers > Go to Marker > Marker 9":{"ids":[549],"near":[]},"Tools > Tool > Pointer":{"ids":[850],"near":[]},"Tools > Tool > Pencil":{"ids":[857],"near":[2324]},"Tools > Tool > Eraser":{"ids":[853],"near":[2320]},"Tools > Tool > Scissors":{"ids":[851],"near":[2318]},"Tools > Tool > Join":{"ids":[852],"near":[2319]},"Tools > Tool > Mute":{"ids":[859],"near":[2326]},"Tools > Tool > Gain":{"ids":[966],"near":[2683]},"Tools > Tool > Fade":{"ids":[868],"near":[2335]},"Tools > Tool > Marquee":{"ids":[871],"near":[2338]},"Tools > Tool > Rubato":{"ids":[875],"near":[2339]},"Tools > Tool > Zoom":{"ids":[862],"near":[2329]},"Tools > Tool > Velocity":{"ids":[866],"near":[2333]},"Tools > Tool > Tool Menu":{"ids":[40],"near":[]},"Tools > Edit Mode > Shuffle":{"ids":[1519],"near":[1518]},"Tools > Edit Mode > Slip, and Back":{"ids":[2504],"near":[]},"Tools > Grid > 1/1":{"ids":[2508],"near":[]},"Tools > Grid > 1/2":{"ids":[2509],"near":[]},"Tools > Grid > 1/4":{"ids":[2510],"near":[]},"Tools > Grid > 1/8":{"ids":[2511],"near":[]},"Tools > Grid > 1/16":{"ids":[2512],"near":[]},"Tools > Grid > 1/32":{"ids":[2513],"near":[]},"Tools > Grid > 1/3":{"ids":[2515],"near":[]},"Tools > Grid > 1/6":{"ids":[2516],"near":[]},"Tools > Grid > 1/12":{"ids":[2517],"near":[]},"Tools > Grid > 1/24":{"ids":[2518],"near":[]},"Tools > Nudge Value > Bar":{"ids":[337],"near":[]},"Tools > Nudge Value > Beat":{"ids":[336],"near":[]},"Tools > Nudge Value > 1/16":{"ids":[2284],"near":[335]},"Tools > Nudge Value > 10 ticks":{"ids":[2293],"near":[]},"Tools > Nudge Value > Tick":{"ids":[334],"near":[]},"Tools > Nudge Value > 10 ms":{"ids":[1578],"near":[]},"Tools > Nudge Value > 1 ms":{"ids":[1573],"near":[]},"Tools > Nudge Value > Sample":{"ids":[1526],"near":[]},"Tools > Quantize Value > 1/4":{"ids":[2752],"near":[]},"Tools > Quantize Value > 1/8":{"ids":[2753],"near":[]},"Tools > Quantize Value > 1/8 Triplet":{"ids":[2759],"near":[]},"Tools > Quantize Value > 1/16":{"ids":[2754],"near":[]},"Tools > Quantize Value > 1/16 Triplet":{"ids":[2760],"near":[]},"Tools > Quantize Value > 1/32":{"ids":[2755],"near":[]},"View > Patch":{"ids":[1296],"near":[]},"View > Mixer":{"ids":[735],"near":[]},"View > Notes":{"ids":[739],"near":[]},"View > Automation":{"ids":[116],"near":[]},"View > Next Automation Parameter":{"ids":[577],"near":[]},"View > Rubato View":{"ids":[1753],"near":[]},"View > Zoom In":{"ids":[42],"near":[]},"View > Zoom Out":{"ids":[41],"near":[]},"View > Zoom to Fit or Selection":{"ids":[2225],"near":[]},"View > Taller Rows":{"ids":[44],"near":[]},"View > Shorter Rows":{"ids":[43],"near":[]},"View > Taller Waveforms":{"ids":[1706],"near":[]},"View > Lower Waveforms":{"ids":[1705],"near":[]},"View > Page Left":{"ids":[48],"near":[]},"View > Page Right":{"ids":[49],"near":[]},"View > Page Up":{"ids":[46],"near":[]},"View > Page Down":{"ids":[47],"near":[]},"View > Show the Playhead":{"ids":[51],"near":[]},"View > Show the Selection":{"ids":[364],"near":[]},"View > Close Plug-in Windows":{"ids":[1366],"near":[1255]},"Window > Patch":{"ids":[1295],"near":[]},"Window > Mixer":{"ids":[690],"near":[]},"Window > Minimize":{"ids":[1252],"near":[]},"Window > Zoom":{"ids":[772],"near":[]},"Window > Enter Full Screen":{"ids":[1297],"near":[]}},"cubase":{"Slur Studio > Settings > General":{"category":"Edit","name":"Preferences","alt":null},"Slur Studio > Settings > Audio":{"category":"Devices","name":"Setup","alt":null},"Slur Studio > Settings > Plug-ins":{"category":"Devices","name":"Plug-in Manager","alt":null},"Slur Studio > Key Commands…":{"category":"Edit","name":"Key Commands","alt":null},"File > New":{"category":"File","name":"New","alt":null},"File > Open…":{"category":"File","name":"Open","alt":null},"File > Open Recent > More…":{"category":"Hub","name":"Steinberg Hub","alt":null},"File > Save":{"category":"File","name":"Save","alt":null},"File > Save As…":{"category":"File","name":"Save As","alt":null},"File > Revert To…":{"category":"File","name":"Revert","alt":null},"File > Find Missing Sounds…":{"category":"Media","name":"Check Files","alt":null},"File > Import Audio…":{"category":"File","name":"Import Audio File","alt":null},"File > Hand Off…":{"category":"File","name":"Export Audio Mixdown","alt":null},"File > Hand Off Stems…":{"category":"File","name":"Export Audio Mixdown","alt":null},"File > Bounce in Place":{"category":"Render in Place","name":"Render","alt":null},"Edit > Undo":{"category":"Edit","name":"Undo","alt":null},"Edit > Redo":{"category":"Edit","name":"Redo","alt":null},"Edit > Cut":{"category":"Edit","name":"Cut","alt":null},"Edit > Copy":{"category":"Edit","name":"Copy","alt":null},"Edit > Paste":{"category":"Edit","name":"Paste","alt":null},"Edit > Delete":{"category":"Edit","name":"Delete","alt":null},"Edit > Select All":{"category":"Edit","name":"Select All","alt":null},"Edit > Select > None":{"category":"Edit","name":"Select None","alt":null},"Edit > Select > Invert":{"category":"Edit","name":"Invert Selection","alt":null},"Edit > Select > All Following":{"category":"Edit","name":"Select from Cursor to End","alt":null},"Edit > Select > Inside the Cycle":{"category":"Edit","name":"Select in Loop","alt":null},"Edit > Select > Previous Region":{"category":"Navigate","name":"Left","alt":null},"Edit > Select > Next Region":{"category":"Navigate","name":"Right","alt":null},"Edit > Select > Add Previous Region":{"category":"Navigate","name":"Add Left","alt":null},"Edit > Select > Add Next Region":{"category":"Navigate","name":"Add Right","alt":null},"Edit > Select > Previous Track":{"category":"Navigate","name":"Up","alt":null},"Edit > Select > Next Track":{"category":"Navigate","name":"Down","alt":null},"Edit > Split at Playhead":{"category":"Edit","name":"Split at Cursor","alt":null},"Edit > Split at Cycle Ends":{"category":"Edit","name":"Split Loop","alt":null},"Edit > Join":{"category":"Edit","name":"Glue","alt":null},"Edit > Repeat":{"category":"Edit","name":"Repeat","alt":null},"Edit > Cut Section Between Locators":{"category":"Edit","name":"Cut Time","alt":null},"Edit > Insert Silence at Locators":{"category":"Edit","name":"Insert Silence","alt":null},"Edit > Insert Section at Playhead":{"category":"Edit","name":"Paste Time","alt":null},"Region > Mute":{"category":"Edit","name":"Mute/Unmute Objects","alt":null},"Region > Rename…":{"category":"Edit","name":"Rename Selected Events","alt":null},"Region > Move to Playhead":{"category":"Edit","name":"Move to Cursor","alt":null},"Region > Trim Start to Playhead":{"category":"Edit","name":"Cut Head","alt":null},"Region > Trim End to Playhead":{"category":"Edit","name":"Cut Tail","alt":null},"Region > Gain > Up 1 dB":{"category":"Audio","name":"Increment Event Volume","alt":null},"Region > Gain > Down 1 dB":{"category":"Audio","name":"Decrement Event Volume","alt":null},"Region > Reverse":{"category":"Process","name":"Reverse","alt":null},"Region > Fades > Fades for Selection":{"category":"Audio","name":"Adjust Fades to Range","alt":null},"Region > Fades > Fade In up to the Playhead":{"category":"Audio","name":"Fade In to Cursor","alt":null},"Region > Fades > Fade Out from the Playhead":{"category":"Audio","name":"Fade Out to Cursor","alt":null},"Region > Nudge > Earlier":{"category":"Nudge","name":"Left","alt":null},"Region > Nudge > Later":{"category":"Nudge","name":"Right","alt":null},"Region > Nudge > Shorter":{"category":"Nudge","name":"End Left","alt":null},"Region > Nudge > Longer":{"category":"Nudge","name":"End Right","alt":null},"Region > Tempo > Fit Region to Project Tempo":{"category":"Audio","name":"Stretch to Project Tempo","alt":null},"Region > Tempo > Set Project Tempo from Region":{"category":"Audio","name":"Set Tempo From Event","alt":null},"Region > Quantize":{"category":"Quantize Category","name":"Quantize","alt":[{"category":"MIDI","name":"Quantize"}]},"Region > Undo Quantize":{"category":"Quantize Category","name":"Undo Quantize","alt":[{"category":"MIDI","name":"Undo Quantize"}]},"Region > Strip Silence":{"category":"Audio","name":"Detect Silence","alt":null},"Region > Group":{"category":"Edit","name":"Group","alt":null},"Region > Ungroup":{"category":"Edit","name":"Ungroup","alt":null},"Region > Colour and Outline…":{"category":"Project","name":"Set Track/Event Color","alt":null},"Track > New Tracks…":{"category":"AddTrack","name":"OpenDialog","alt":null},"Track > New Audio Track":{"category":"AddTrack","name":"Audio","alt":null},"Track > New Instrument Track":{"category":"AddTrack","name":"Instrument","alt":null},"Track > New Bus":{"category":"AddTrack","name":"Group Channel","alt":null},"Track > Duplicate":{"category":"Project","name":"Duplicate Tracks","alt":null},"Track > Duplicate with Its Regions":{"category":"Project","name":"Duplicate Tracks","alt":null},"Track > Rename…":{"category":"Edit","name":"Rename First Selected Track","alt":null},"Track > Delete":{"category":"Project","name":"Remove Selected Tracks","alt":null},"Track > Delete Empty Tracks":{"category":"Project","name":"Remove Empty Tracks","alt":null},"Track > Mute":{"category":"Edit","name":"Mute","alt":null},"Track > Solo":{"category":"Edit","name":"Solo","alt":null},"Track > Record Enable":{"category":"Edit","name":"Record Enable","alt":null},"Track > Hear the Input":{"category":"Edit","name":"Monitor","alt":null},"Track > Stack > Make a Stack":{"category":"Project","name":"Folding: Tracks To Folder","alt":null},"Track > Stack > Open the Stack":{"category":"Project","name":"Folding: Toggle Selected Track","alt":null},"Track > Stack > Close the Stack":{"category":"Project","name":"Folding: Toggle Selected Track","alt":null},"Track > Group Tracks":{"category":"Mixer","name":"Link Channels","alt":null},"Track > Instruments > Typing Keyboard":{"category":"Devices","name":"Virtual Keyboard","alt":null},"Track > Instruments > Capture as Recording":{"category":"Transport","name":"Global Retrospective Record","alt":null},"Track > Instruments > All Notes Off":{"category":"MIDI","name":"Reset","alt":null},"Transport > Play or Stop":{"category":"Transport","name":"StartStop","alt":null},"Transport > Play from Selection":{"category":"Transport","name":"Play Selection Range","alt":null},"Transport > Record":{"category":"Transport","name":"Record","alt":null},"Transport > Go to Start":{"category":"Transport","name":"Return to Zero","alt":null},"Transport > Go to End of Sound":{"category":"Transport","name":"Goto End","alt":null},"Transport > Back a Bar":{"category":"Transport","name":"Rewind","alt":null},"Transport > Forward a Bar":{"category":"Transport","name":"Forward","alt":null},"Transport > Back Eight Bars":{"category":"Transport","name":"Fast Rewind","alt":null},"Transport > Forward Eight Bars":{"category":"Transport","name":"Fast Forward","alt":null},"Transport > Previous Transient":{"category":"Transport","name":"Locate Previous Hitpoint","alt":null},"Transport > Next Transient":{"category":"Transport","name":"Locate Next Hitpoint","alt":null},"Transport > Go to Bar…":{"category":"Transport","name":"Input Position","alt":null},"Transport > Cycle":{"category":"Transport","name":"Cycle","alt":null},"Transport > Cycle Area > Set to Selection":{"category":"Transport","name":"Locators to Selection","alt":null},"Transport > Cycle Area > Go to Its Start":{"category":"Transport","name":"To Left Locator","alt":null},"Transport > Cycle Area > Go to Its End":{"category":"Transport","name":"To Right Locator","alt":null},"Transport > Cycle Area > Zoom to the Cycle":{"category":"Zoom","name":"Zoom to Locators","alt":null},"Transport > Click":{"category":"Transport","name":"Metronome On","alt":null},"Transport > Count-In":{"category":"Transport","name":"Precount On","alt":null},"Markers > Add Marker Here":{"category":"Marker","name":"Insert Marker","alt":[{"category":"Transport","name":"Insert Marker"}]},"Markers > Add Marker for Selection":{"category":"Marker","name":"Insert Cycle Marker","alt":[{"category":"Transport","name":"Insert Cycle Marker"}]},"Markers > Previous Marker":{"category":"Transport","name":"Locate Previous Marker","alt":null},"Markers > Next Marker":{"category":"Transport","name":"Locate Next Marker","alt":null},"Markers > Go to Marker > Marker 1":{"category":"Transport","name":"To Marker 1","alt":null},"Markers > Go to Marker > Marker 2":{"category":"Transport","name":"To Marker 2","alt":null},"Markers > Go to Marker > Marker 3":{"category":"Transport","name":"To Marker 3","alt":null},"Markers > Go to Marker > Marker 4":{"category":"Transport","name":"To Marker 4","alt":null},"Markers > Go to Marker > Marker 5":{"category":"Transport","name":"To Marker 5","alt":null},"Markers > Go to Marker > Marker 6":{"category":"Transport","name":"To Marker 6","alt":null},"Markers > Go to Marker > Marker 7":{"category":"Transport","name":"To Marker 7","alt":null},"Markers > Go to Marker > Marker 8":{"category":"Transport","name":"To Marker 8","alt":null},"Markers > Go to Marker > Marker 9":{"category":"Transport","name":"To Marker 9","alt":null},"Tools > Tool > Pointer":{"category":"Tool","name":"Select Tool","alt":null},"Tools > Tool > Smart":{"category":"Tool","name":"Combine Selection Tools On/Off","alt":null},"Tools > Tool > Pencil":{"category":"Tool","name":"Draw Tool","alt":null},"Tools > Tool > Eraser":{"category":"Tool","name":"Delete Tool","alt":null},"Tools > Tool > Scissors":{"category":"Tool","name":"Split Tool","alt":null},"Tools > Tool > Join":{"category":"Tool","name":"Glue Tool","alt":null},"Tools > Tool > Mute":{"category":"Tool","name":"Mute Tool","alt":null},"Tools > Tool > Marquee":{"category":"Tool","name":"Range Tool","alt":null},"Tools > Tool > Zoom":{"category":"Tool","name":"Zoom Tool","alt":null},"Tools > Tool > Tool Menu":{"category":"Tool","name":"Popup Tools","alt":null},"Tools > Edit Mode > Grid":{"category":"Edit","name":"Snap Type: Grid","alt":null},"Tools > Edit Mode > Slip":{"category":"Edit","name":"Snap Off","alt":null},"Tools > Edit Mode > Shuffle":{"category":"Edit","name":"Snap Type: Shuffle","alt":null},"Tools > Edit Mode > Slip, and Back":{"category":"Edit","name":"Snap On/Off","alt":null},"Tools > Grid > 1/1":{"category":"Edit","name":"Grid Type: Bar","alt":null},"Tools > Grid > 1/2":{"category":"Quantize Category","name":"Set Quantize to 2th","alt":[{"category":"MIDI Quantize","name":"Set Quantize to 2th"}]},"Tools > Grid > 1/4":{"category":"Edit","name":"Grid Type: Beat","alt":null},"Tools > Grid > 1/8":{"category":"Quantize Category","name":"Set Quantize to 8th","alt":[{"category":"MIDI Quantize","name":"Set Quantize to 8th"}]},"Tools > Grid > 1/16":{"category":"Quantize Category","name":"Set Quantize to 16th","alt":[{"category":"MIDI Quantize","name":"Set Quantize to 16th"}]},"Tools > Grid > 1/32":{"category":"Quantize Category","name":"Set Quantize to 32th","alt":[{"category":"MIDI Quantize","name":"Set Quantize to 32th"}]},"Tools > Quantize Value > 1/4":{"category":"Quantize Category","name":"Set Quantize to 4th","alt":[{"category":"MIDI Quantize","name":"Set Quantize to 4th"}]},"Tools > Quantize Value > 1/8":{"category":"Quantize Category","name":"Set Quantize to 8th","alt":[{"category":"MIDI Quantize","name":"Set Quantize to 8th"}]},"Tools > Quantize Value > 1/16":{"category":"Quantize Category","name":"Set Quantize to 16th","alt":[{"category":"MIDI Quantize","name":"Set Quantize to 16th"}]},"Tools > Quantize Value > 1/32":{"category":"Quantize Category","name":"Set Quantize to 32th","alt":[{"category":"MIDI Quantize","name":"Set Quantize to 32th"}]},"View > Mixer":{"category":"Devices","name":"MixConsole Lower Zone","alt":null},"View > Notes":{"category":"Editors","name":"Open/Close Editor","alt":[{"category":"Edit","name":"Open/Close Editor"}]},"View > Automation":{"category":"Automation","name":"Show All Used Automation","alt":null},"View > Zoom In":{"category":"Zoom","name":"Zoom In","alt":null},"View > Zoom Out":{"category":"Zoom","name":"Zoom Out","alt":null},"View > Zoom to Fit or Selection":{"category":"Zoom","name":"Zoom to Selection","alt":null},"View > Taller Rows":{"category":"Zoom","name":"Zoom In Vertically","alt":null},"View > Shorter Rows":{"category":"Zoom","name":"Zoom Out Vertically","alt":null},"View > Taller Waveforms":{"category":"Zoom","name":"Zoom In On Waveform Vertically","alt":null},"View > Lower Waveforms":{"category":"Zoom","name":"Zoom Out Of Waveform Vertically","alt":null},"View > Page Up":{"category":"Window Zones","name":"Show Previous Page","alt":null},"View > Page Down":{"category":"Window Zones","name":"Show Next Page","alt":null},"View > Close Plug-in Windows":{"category":"Windows","name":"Close All Plug-in Windows","alt":null},"Window > Mixer":{"category":"Devices","name":"Mixer","alt":null},"Window > Minimize":{"category":"Windows","name":"Minimize","alt":null},"Window > Zoom":{"category":"Windows","name":"Maximize","alt":null},"Help > Key Commands":{"category":"Edit","name":"Key Commands","alt":null}},"protools":{"Slur Studio > Settings > General":{"ids":["AppPrefs"],"focusIds":[],"filter":""},"Slur Studio > Settings > Audio":{"ids":["PlaybackEngine"],"focusIds":[],"filter":""},"Slur Studio > Key Commands…":{"ids":["ShowKeyBindings"],"focusIds":[],"filter":""},"File > New":{"ids":["CreateNew"],"focusIds":[],"filter":""},"File > Open…":{"ids":["Open"],"focusIds":[],"filter":""},"File > Open Recent > More…":{"ids":["WelcomeDashboard"],"focusIds":[],"filter":""},"File > Save":{"ids":["SaveFrontDocument"],"focusIds":[],"filter":""},"File > Save As…":{"ids":["SaveFrontDocumentAs"],"focusIds":[],"filter":""},"File > Revert To…":{"ids":["Revert"],"focusIds":[],"filter":""},"File > Import Audio…":{"ids":["ImportAudio"],"focusIds":[],"filter":""},"File > Hand Off…":{"ids":["BounceToDisk"],"focusIds":[],"filter":""},"File > Hand Off Stems…":{"ids":["BounceTracks"],"focusIds":[],"filter":""},"File > Bounce in Place":{"ids":["CommitTracksToNewTracks"],"focusIds":[],"filter":""},"Edit > Undo":{"ids":["Undo"],"focusIds":[],"filter":""},"Edit > Redo":{"ids":["Redo"],"focusIds":[],"filter":""},"Edit > Cut":{"ids":["Cut"],"focusIds":[],"filter":""},"Edit > Copy":{"ids":["Copy"],"focusIds":[],"filter":""},"Edit > Paste":{"ids":["Paste"],"focusIds":[],"filter":""},"Edit > Delete":{"ids":["DeleteSelection"],"focusIds":[],"filter":""},"Edit > Select All":{"ids":["SelectAll"],"focusIds":[],"filter":""},"Edit > Select > All Following on the Same Track":{"ids":["MoveEditInsertionToSessionEnd"],"focusIds":[],"filter":"shift"},"Edit > Select > Inside the Cycle":{"ids":["TimelineSelectionToEditSelection"],"focusIds":[],"filter":""},"Edit > Select > Previous Region":{"ids":["MoveEditSelectionToPreviousRegion"],"focusIds":[],"filter":"noshift"},"Edit > Select > Next Region":{"ids":["MoveEditSelectionToNextRegion"],"focusIds":[],"filter":"noshift"},"Edit > Select > Add Previous Region":{"ids":["MoveEditSelectionToPreviousRegion"],"focusIds":[],"filter":"shift"},"Edit > Select > Add Next Region":{"ids":["MoveEditSelectionToNextRegion"],"focusIds":[],"filter":"shift"},"Edit > Select > Previous Track":{"ids":["MoveEditInsertionToPreviousTrack"],"focusIds":[],"filter":"noshift"},"Edit > Select > Next Track":{"ids":["MoveEditInsertionToNextTrack"],"focusIds":[],"filter":"noshift"},"Edit > Split at Playhead":{"ids":["SeparateRegion"],"focusIds":[],"filter":""},"Edit > Join":{"ids":["ConsolidateSelection"],"focusIds":[],"filter":""},"Edit > Repeat":{"ids":["DuplicateAndShiftSelection"],"focusIds":[],"filter":""},"Edit > Insert Silence at Locators":{"ids":["InsertSilence"],"focusIds":[],"filter":""},"Region > Mute":{"ids":["MuteUnmute"],"focusIds":[],"filter":""},"Region > Rename…":{"ids":["RenameSelectedTimeRegions"],"focusIds":[],"filter":""},"Region > Move to Playhead":{"ids":["MoveRegionStartToPlayPosition"],"focusIds":[],"filter":""},"Region > Loop to the Next Region":{"ids":["LoopRegions"],"focusIds":[],"filter":""},"Region > Trim Start to Playhead":{"ids":["TrimRegionStartToCursor"],"focusIds":[],"filter":""},"Region > Trim End to Playhead":{"ids":["TrimRegionEndToCursor"],"focusIds":[],"filter":""},"Region > Shuffle Left":{"ids":["SnapToPrevious"],"focusIds":[],"filter":""},"Region > Shuffle Right":{"ids":["SnapToNext"],"focusIds":[],"filter":""},"Region > Gain > Up 1 dB":{"ids":["NudgeClipGainUp"],"focusIds":[],"filter":""},"Region > Gain > Down 1 dB":{"ids":["NudgeClipGainDown"],"focusIds":[],"filter":""},"Region > Gain > Back to 0 dB":{"ids":["ClearSelectedClipGain"],"focusIds":[],"filter":""},"Region > Transpose > Up a Semitone":{"ids":["SplitCommand_MidiUp","EventMIDIUpOrLargerTrackOrPreviousPlaylistOrSelEnd"],"focusIds":[],"filter":"noshift"},"Region > Transpose > Down a Semitone":{"ids":["cSplitCommand_MidiDown","EventMIDIDownOrSmallerTrackOrNextPlaylistOrSelStart"],"focusIds":[],"filter":"noshift"},"Region > Transpose > Up an Octave":{"ids":["SplitCommand_MidiUp","EventMIDIUpOrLargerTrackOrPreviousPlaylistOrSelEnd"],"focusIds":[],"filter":"shift"},"Region > Transpose > Down an Octave":{"ids":["cSplitCommand_MidiDown","EventMIDIDownOrSmallerTrackOrNextPlaylistOrSelStart"],"focusIds":[],"filter":"shift"},"Region > Fades > Fades for Selection":{"ids":["CreateFades"],"focusIds":["CrossfadeWithNoDialog"],"filter":""},"Region > Fades > Fade In up to the Playhead":{"ids":["FadeInFromStartToCursor"],"focusIds":[],"filter":""},"Region > Fades > Fade Out from the Playhead":{"ids":["FadeOutFromCursorToEnd"],"focusIds":[],"filter":""},"Region > Nudge > Earlier":{"ids":["NudgeRegionEarlierByGrid"],"focusIds":["NudgePlayEarlierByGrid"],"filter":""},"Region > Nudge > Later":{"ids":["NudgeRegionLaterByGrid"],"focusIds":["NudgePlayLaterByGrid"],"filter":""},"Region > Nudge > Shorter":{"ids":["NudgeRegionEndEarlierByGrid"],"focusIds":[],"filter":""},"Region > Nudge > Longer":{"ids":["NudgeRegionEndLaterByGrid"],"focusIds":[],"filter":""},"Region > Tempo > Fit Region to Project Tempo":{"ids":["ConformElasticRegionToTempo"],"focusIds":[],"filter":""},"Region > Tempo > Set Project Tempo from Region":{"ids":["IdentifyBeat"],"focusIds":[],"filter":""},"Region > Quantize":{"ids":["MIDIQuantize"],"focusIds":[],"filter":""},"Region > Undo Quantize":{"ids":["MIDIDisplayRestorePanel"],"focusIds":[],"filter":""},"Region > Strip Silence":{"ids":["ShowStripSilenceWindow"],"focusIds":[],"filter":""},"Region > Group":{"ids":["GroupRegions"],"focusIds":[],"filter":""},"Region > Ungroup":{"ids":["UngroupRegions"],"focusIds":[],"filter":""},"Region > Colour and Outline…":{"ids":["ShowColorPaletteWindow"],"focusIds":[],"filter":""},"Track > New Tracks…":{"ids":["NewTrack"],"focusIds":[],"filter":""},"Track > Duplicate with Its Regions":{"ids":["DuplicateSelectedTracks"],"focusIds":[],"filter":""},"Track > Rename…":{"ids":["RenameTracks"],"focusIds":[],"filter":""},"Track > Delete":{"ids":["DeleteTracks"],"focusIds":[],"filter":""},"Track > Mute":{"ids":["MuteTracksWithSelection"],"focusIds":[],"filter":""},"Track > Solo":{"ids":["SoloTracksWithSelection"],"focusIds":[],"filter":""},"Track > Record Enable":{"ids":["RecordArmTracksWithSelection"],"focusIds":[],"filter":""},"Track > Hear the Input":{"ids":["InputMonitorTracksWithSelection"],"focusIds":[],"filter":""},"Track > Stack > Make a Stack":{"ids":["MoveTrackToNewFolder"],"focusIds":[],"filter":""},"Track > Stack > Open the Stack":{"ids":["CollapseExpandFoldersWithSelection"],"focusIds":[],"filter":""},"Track > Group Tracks":{"ids":["GroupTracks"],"focusIds":[],"filter":""},"Track > Suspend Groups":{"ids":["SuspendGroups"],"focusIds":[],"filter":""},"Track > Instruments > Typing Keyboard":{"ids":["UseKeyboardAsMIDIController"],"focusIds":[],"filter":""},"Track > Instruments > Capture as Recording":{"ids":["MIDIRecallRetrospectiveData"],"focusIds":[],"filter":""},"Track > Instruments > All Notes Off":{"ids":["AllNotesOff"],"focusIds":[],"filter":""},"Transport > Play or Stop":{"ids":["TogglePlayState"],"focusIds":[],"filter":""},"Transport > Play from Selection":{"ids":["PlayEditSelection"],"focusIds":[],"filter":""},"Transport > Record":{"ids":["RecordPunch"],"focusIds":[],"filter":""},"Transport > Discard Recording":{"ids":["Abort"],"focusIds":[],"filter":""},"Transport > Go to Start":{"ids":["ReturnToZero"],"focusIds":[],"filter":""},"Transport > Go to End of Sound":{"ids":["GoToEnd"],"focusIds":[],"filter":""},"Transport > Back a Bar":{"ids":["Rewind"],"focusIds":[],"filter":""},"Transport > Forward a Bar":{"ids":["FastForward"],"focusIds":[],"filter":""},"Transport > Previous Transient":{"ids":["MoveEditInsertionToPreviousEdit"],"focusIds":[],"filter":"noshift"},"Transport > Next Transient":{"ids":["MoveEditInsertionToNextEdit"],"focusIds":[],"filter":"noshift"},"Transport > Go to Bar…":{"ids":["EnterMainCounterField"],"focusIds":[],"filter":""},"Transport > Cycle":{"ids":["NormalLoopPlayback"],"focusIds":[],"filter":""},"Transport > Cycle Area > Set to Selection":{"ids":["EditSelectionToTimelineSelection"],"focusIds":[],"filter":""},"Transport > Cycle Area > Go to Its Start":{"ids":["DisplaySelStartOrSelectPrevMIDIEventOrTogglePlaylist","SplitCommand_DisplaySelStart"],"focusIds":[],"filter":"noshift"},"Transport > Cycle Area > Go to Its End":{"ids":["DisplaySelEndOrSelectNextMIDIEventOrShowPlaylist","SplitCommand_DisplaySelEnd"],"focusIds":[],"filter":"noshift"},"Transport > Cycle Area > Move Forward by Its Length":{"ids":["MoveSelectionForwardBySelection"],"focusIds":[],"filter":""},"Transport > Cycle Area > Move Back by Its Length":{"ids":["MoveSelectionBackwardBySelection"],"focusIds":[],"filter":""},"Transport > Cycle Area > Twice as Long":{"ids":["SelectDouble"],"focusIds":[],"filter":""},"Transport > Cycle Area > Half as Long":{"ids":["SelectHalf"],"focusIds":[],"filter":""},"Transport > Cycle Area > Zoom to the Cycle":{"ids":["ZoomToFitSelection"],"focusIds":[],"filter":""},"Transport > Click":{"ids":["MIDIClick"],"focusIds":[],"filter":""},"Transport > Count-In":{"ids":["CountoffToggle"],"focusIds":[],"filter":""},"Markers > Add Marker Here":{"ids":["CreateMemoryLocationRuler"],"focusIds":[],"filter":""},"Markers > Add Marker for Selection":{"ids":["CreateMemoryLocationSelected"],"focusIds":[],"filter":""},"Markers > Previous Marker":{"ids":["GoToPreviousMemoryLocation"],"focusIds":[],"filter":""},"Markers > Next Marker":{"ids":["GoToNextMemoryLocation"],"focusIds":[],"filter":""},"Tools > Tool > Pointer":{"ids":["GrabberTool"],"focusIds":[],"filter":""},"Tools > Tool > Smart":{"ids":["SmartTool"],"focusIds":[],"filter":""},"Tools > Tool > Pencil":{"ids":["PencilTool"],"focusIds":[],"filter":""},"Tools > Tool > Marquee":{"ids":["SelectorTool"],"focusIds":[],"filter":""},"Tools > Tool > Rubato":{"ids":["TrimTool"],"focusIds":[],"filter":""},"Tools > Tool > Zoom":{"ids":["ZoomTool"],"focusIds":[],"filter":""},"Tools > Tool > Tool Menu":{"ids":["NextTool"],"focusIds":[],"filter":""},"Tools > Edit Mode > Grid":{"ids":["GridMode"],"focusIds":[],"filter":""},"Tools > Edit Mode > Slip":{"ids":["SlipMode"],"focusIds":[],"filter":""},"Tools > Edit Mode > Shuffle":{"ids":["ShuffleMode"],"focusIds":[],"filter":""},"Tools > Edit Mode > Spot":{"ids":["SpotMode"],"focusIds":[],"filter":""},"View > Mixer":{"ids":["ShowMixWindow"],"focusIds":[],"filter":""},"View > Notes":{"ids":["ShowDockedMIDIEditor"],"focusIds":[],"filter":""},"View > Rubato Panel":{"ids":["ShowElasticPropertiesWindow"],"focusIds":[],"filter":""},"View > Automation":{"ids":["PlaylistViewToggle"],"focusIds":[],"filter":""},"View > Next Automation Parameter":{"ids":["NextTrackWhatToShow"],"focusIds":[],"filter":""},"View > Zoom In":{"ids":["ZoomInHorizontal"],"focusIds":[],"filter":""},"View > Zoom Out":{"ids":["ZoomOutHorizontal"],"focusIds":[],"filter":""},"View > Zoom to Fit or Selection":{"ids":["EZoom"],"focusIds":[],"filter":""},"View > Taller Rows":{"ids":["NextLargerTrackSize"],"focusIds":[],"filter":""},"View > Shorter Rows":{"ids":["NextSmallerTrackSize"],"focusIds":[],"filter":""},"View > Taller Waveforms":{"ids":["ZoomInAudioVertical"],"focusIds":[],"filter":""},"View > Lower Waveforms":{"ids":["ZoomOutAudioVertical"],"focusIds":[],"filter":""},"View > Page Left":{"ids":["ScrollTimeLeftAPageCmd"],"focusIds":[],"filter":""},"View > Page Right":{"ids":["ScrollTimeRightAPageCmd"],"focusIds":[],"filter":""},"View > Page Up":{"ids":["ScrollTimeUpAPageCmd"],"focusIds":[],"filter":""},"View > Page Down":{"ids":["ScrollTimeDownAPageCmd"],"focusIds":[],"filter":""},"View > Close Plug-in Windows":{"ids":["HideOrUnhideFloaters"],"focusIds":[],"filter":""},"View > Say It":{"ids":["ProToolsSearch2","ProToolsSearch"],"focusIds":[],"filter":""},"Window > Rubato Panel":{"ids":["ShowElasticPropertiesWindow"],"focusIds":[],"filter":""},"Help > Slur Studio Help":{"ids":["ShowPTHelp"],"focusIds":[],"filter":""},"Help > Key Commands":{"ids":["ShowKeyboardShortcutsGuide"],"focusIds":[],"filter":""},"Help > Say It":{"ids":["ProToolsSearch2","ProToolsSearch"],"focusIds":[],"filter":""}}}
+const KI_PT_DEFAULTS = {"Undo":["⌘KeyZ","focus:KeyZ"],"Paste":["⌘KeyV","focus:KeyV"],"NewTrack":["⇧⌘KeyN"],"SeparateRegion":["⌘KeyE","focus:KeyB"],"MuteUnmute":["⌘KeyM"],"IdentifyBeat":["⌘KeyI"],"TrimAutoToCurrentControl":["⇧⌘Slash"],"NudgeRegionEarlierByGrid":["NumpadSubtract"],"NudgeRegionLaterByGrid":["NumpadAdd"],"NudgePlayEarlierByNextBiggerGrid":["focus:KeyM"],"NudgeRegionEndEarlierByGrid":["⌘NumpadSubtract"],"NudgeRegionEndLaterByGrid":["⌘NumpadAdd"],"NudgeRegionContentsEarlierByGrid":["⌃NumpadSubtract"],"NudgeRegionContentsLaterByGrid":["⌃NumpadAdd"],"EditSelectionToTimelineSelection":["⌥⇧Numpad5","⌃⌥⇧KeyO","⌃⇧⌘KeyO","⌥⇧Digit5","focus:KeyO"],"PrePostRollPlayback":["⌘KeyK"],"ShowEditWindow":["⌘Equal"],"ShowMixWindow":["⌘Equal"],"ShowEventListWindow":["⌥Equal"],"VolumesWorkspace":["⌥Semicolon"],"PlaylistViewToggle":["⌃Minus","focus:Minus","focus:⌥Minus"],"SuspendGroups":["⇧⌘KeyG"],"MoveSelectionForwardBySelection":["⌃⌥⌘Quote"],"MoveSelectionBackwardBySelection":["⌃⌥⌘KeyL"],"TimeStampSelectedRegions":["⇧⌘KeyM"],"ClearFindRegions":["⇧⌘KeyD"],"ZoomOutHorizontal":["⌘BracketLeft","⌃KeyR","focus:KeyR"],"ZoomInHorizontal":["⌘BracketRight","⌃KeyT","focus:KeyT"],"ZoomOutAudioVertical":["⌥⌘BracketLeft"],"ZoomInAudioVertical":["⌥⌘BracketRight"],"ZoomToFitSelection":["⌥KeyF"],"ZoomToShowAll":["⌥KeyA"],"EZoom":["⌃KeyE","focus:KeyE"],"DisplayTimelineSelectionStart":["focus:KeyQ"],"DisplayTimelineSelectionEnd":["focus:KeyW"],"PlayHalfSpeed":["⇧Space"],"RecordPunch":["⌘Space","F12","Numpad3"],"FastForward":["Numpad2","⇧Period"],"Rewind":["Numpad1","⇧Comma"],"ToggleMasterMachine":["⌘Backslash"],"SynchronizerShuttleBackward":["⌥Comma"],"SynchronizerShuttleForward":["⌥Period"],"PlayThroughEditStart":["⌥⌘ArrowLeft"],"PlayThroughEditEnd":["⌥⌘ArrowRight"],"MoveEditInsertionToPreviousEdit":["⌥⇧Tab","⌥Tab","focus:KeyL","focus:⇧KeyL"],"MoveEditInsertionToPreviousTrack":["⌃KeyP","focus:KeyP"],"NudgeSelectionLaterByGrid":["⇧NumpadAdd","⌥⇧NumpadAdd"],"NudgeSelectionEarlierByGrid":["⇧NumpadSubtract","⌥⇧NumpadSubtract"],"FadeOutFromCursorToEnd":["⌃KeyG","focus:KeyG"],"CrossfadeWithNoDialog":["⌃⌘KeyF","focus:KeyF"],"MoveRegionEndToCurrentTC":["focus:KeyI"],"MoveRegionSyncPointToPlayPosition":["focus:KeyJ"],"MoveRegionEndToPlayPosition":["focus:KeyK"],"NextLargerTrackSize":["⌃ArrowUp","⌃⌥⌘ArrowUp"],"NextSmallerTrackSize":["⌃ArrowDown","⌃⌥⌘ArrowDown"],"PreviousTrackWhatToShow":["⌃⌘ArrowLeft"],"NextTrackWhatToShow":["⌃⌘ArrowRight"],"SoloTracksWithSelection":["⇧KeyS"],"MuteTracksWithSelection":["⇧KeyM"],"BypassInsertsFJ":["⇧Digit3"],"DisplaySelStartOrSelectPrevMIDIEventOrTogglePlaylist":["ArrowLeft","⇧ArrowLeft"],"DisplaySelEndOrSelectNextMIDIEventOrShowPlaylist":["ArrowRight","⇧ArrowRight"],"CreateMemoryLocationRuler":["NumpadEnter"],"Cut":["⌘KeyX","focus:KeyX"],"GroupTracks":["⌘KeyG"],"Repeat":["⌥KeyR"],"ShiftSelection":["⌥KeyH"],"HealSeparation":["⌘KeyH"],"EventMIDIDownOrSmallerTrackOrNextPlaylistOrSelStart":["ArrowDown","⇧ArrowDown"],"EventMIDIUpOrLargerTrackOrPreviousPlaylistOrSelEnd":["ArrowUp","⇧ArrowUp"],"EventMIDIDupDownOrCopyPlaylistOrSmallerTrackOrSelStart":["⌥ArrowDown"],"EventMIDIDupUpOrLargerTrackOrSelStart":["⌥ArrowUp"],"CreateFades":["⌘KeyF"],"NudgeRegionStartEarlierByGrid":["⌥NumpadSubtract"],"NudgeRegionStartLaterByGrid":["⌥NumpadAdd"],"RecordEnableMoveOrVelocityDown":["⌘ArrowDown","⇧⌘ArrowDown"],"RecordEnableMoveOrVelocityUp":["⌘ArrowUp"],"GroupRegions":["⌥⌘KeyG"],"NormalLoopPlayback":["⇧⌘KeyL"],"ShowMemoryLocationsWindow":["⌘Numpad5"],"MIDIDisplayQuantizePanel":["⌥Digit0"],"MIDIDisplayChangeDurationPanel":["⌥KeyP"],"RecallPresetMemory1":["focus:Digit1"],"RecallPresetMemory2":["focus:Digit2"],"RecallPresetMemory4":["focus:Digit4"],"PlayToEditStart":["focus:Digit6"],"PlayFromEditStart":["⌘ArrowLeft"],"PlayToEditEnd":["focus:Digit8"],"PlayFromEditEnd":["⌘ArrowRight"],"MoveEditInsertionToNextEdit":["Tab","⇧Tab","focus:Quote"],"MoveEditSelectionToPreviousRegion":["⌃⌥Tab","⌃⌥⇧Tab","⌃⌘KeyL","⌃⇧⌘KeyL"],"MoveEditSelectionToNextRegion":["⌃Tab","⌃⇧Tab","⌃⌘Quote","⌃⇧⌘Quote"],"MoveEditInsertionToNextTrack":["⌃Semicolon","focus:Semicolon"],"ExtendEditInsertionToNextTrack":["focus:⇧Semicolon"],"ExtendEditInsertionToPreviousTrack":["focus:⇧KeyP"],"TrimRegionStartToCursor":["⌥⇧Digit7","focus:KeyA"],"TrimRegionEndToCursor":["⌥⇧Digit8","⌃KeyS","focus:KeyS"],"TrimNoteEndEarlierByGridAmount":["⌥ArrowLeft"],"TrimNoteEndLaterByGridAmount":["⌥ArrowRight"],"TrimNoteEndEarlierByDoubleAmount":["⌥⇧ArrowLeft"],"TrimNoteEndLaterByDoubleAmount":["⌥⇧ArrowRight"],"FadeInFromStartToCursor":["⌃KeyD","focus:KeyD"],"MoveRegionStartToPlayPosition":["⌃KeyH","focus:KeyH"],"GridMode":["F4","⌥Digit4"],"ZoomTool":["F5","⌘Digit1"],"SelectorTool":["F7","⌘Digit3"],"GrabberTool":["F8","⌘Digit4"],"SmartTool":["⌘Digit7"],"ScrubTool":["F9","⌘Digit5"],"PencilTool":["F10","⌘Digit6"],"NextTool":["Escape"],"EnterMainCounterField":["NumpadMultiply"],"RecallPendingWindowConfig":["NumpadMultiply"],"CollapseExpandFoldersWithSelection":["⇧KeyF"],"ToggleInsertionFollowsPlayback":["focus:KeyN"],"RecordArmTracksWithSelection":["⇧KeyR"],"SplitCommand_SelectPrevMIDIEvent":["⇧ArrowLeft","ArrowLeft"],"SplitCommand_SelectNextMIDIEvent":["⇧ArrowRight","ArrowRight"],"ToggleMarkerCommentsInSelection":["⇧KeyN"],"Redo":["⇧⌘KeyZ","⌃⇧KeyZ","focus:⇧KeyZ"],"ImportAudio":["⇧⌘KeyI"],"BounceToDisk":["⌥⌘KeyB"],"DuplicateSelectedTracks":["⌥⇧KeyD"],"ImportTracks":["⌥⇧KeyI"],"DuplicateAndShiftSelection":["⌘KeyD"],"BringRegionToFront":["⌥⇧KeyF"],"EditLockRegion":["⌘KeyL"],"WriteAutoToCurrentControl":["⌘Slash"],"QuickPunch":["⇧⌘KeyP"],"TrimTool":["F6","⌘Digit2"],"PrintScore":["⌘KeyP"],"OpenRecentDocument1":["⇧⌘KeyO"],"BypassAllInserts":["⇧KeyA"],"MoveMarkerTargetPrev":["⇧BracketLeft"],"MoveMarkerTargetNext":["⇧BracketRight"],"Quit":["⌘KeyQ"],"Copy":["⌘KeyC","focus:KeyC"],"Clear":["⌘KeyB"],"ImportMIDI":["⌥⌘KeyI"],"DeleteSelection":["Backspace","Delete"],"CaptureRegion":["⌘KeyR"],"LoopRegions":["⌥⌘KeyL"],"QuantizeRegions":["⌘Digit0"],"MIDIQuantize":["⌥⌘Digit0","⌥⌘Numpad0"],"UngroupRegions":["⌥⌘KeyU"],"MIDIDisplayTransposePanel":["⌥KeyT"],"SelectHalf":["⌃⌥⇧⌘KeyL"],"SelectDouble":["⌃⌥⇧⌘Quote"],"TogglePlayState":["Space","Numpad0"],"STMStop":["Numpad0"],"ReturnToZero":["Enter"],"OneShotLoopPlayEditSelection":["Numpad0"],"MoveRegionStartToCurrentTC":["focus:KeyY"],"MuteAllSends":["⇧KeyQ"],"MuteSendsAE":["⇧Digit4"],"MuteSendsFJ":["⇧Digit5"],"CreateMemoryLocationTargeted":["⌘NumpadEnter"],"CommandID_UndoStep":["Numpad0"],"TimelineSelectionToEditSelection":["⌥⇧Numpad6","focus:Digit0"],"ScrollToTrack":["⌥⌘KeyF"],"ShowStripSilenceWindow":["⌘KeyU"],"SelectUnusedRegions":["⇧⌘KeyU"],"RenameSelectedBinRegions":["⇧⌘KeyR"],"TrimRegionToSelection":["⌘KeyT"],"NextLargerGridValue":["⇧Equal"],"NextSmallerGridValue":["⇧Minus"],"NudgePlayEarlierByGrid":["focus:Comma"],"NudgePlayLaterByGrid":["focus:Period"],"LinkTrackAndEditSelection":["⇧KeyT"],"TrimRegionToFileBoundaries":["⌃⌘KeyT"],"SplitCommand_SelectionStart":["ArrowDown"],"SplitCommand_SelectionEnd":["ArrowUp"],"OpenSketch":["⌃⌥⌘KeyO"],"RecallPresetMemory3":["focus:Digit3"],"NudgePlayLaterByNextBiggerGrid":["focus:Slash"],"RegroupRegions":["⌥⌘KeyR"],"PlayTimelineSelection":["⌥BracketRight","focus:BracketRight"],"PlayEditSelection":["⌥BracketLeft","focus:BracketLeft"],"SessionWorkspace":["⌥KeyO"],"RenameSelectedTimeRegions":["⌥⇧⌘KeyR"],"MoveRegionSyncPointToCurrentTC":["focus:KeyU"],"ShuffleMode":["F1","⌥Digit1"],"NextMode":["Backquote"],"CommitTracksToNewTracks":["⌥⇧KeyC"],"NudgeClipGainUp":["⌃⇧ArrowUp"],"NudgeClipGainDown":["⌃⇧ArrowDown"],"ShowVideoRegionsInBin":["⇧⌘Numpad3"],"RecallPresetMemory5":["focus:Digit5"],"MoveEditInsertionToSessionStart":["⇧Enter"],"MoveEditInsertionToSessionEnd":["⌥⇧Enter"],"SpotMode":["F3","⌥Digit3"],"InputMonitorTracksWithSelection":["⇧KeyI"],"ShowFirstPlaylist":["⇧Home"],"ShowLastPlaylist":["⇧End"],"BypassAllEQ":["⇧KeyE"],"BypassAllModulation":["⇧KeyW"],"ShowKeyBindings":["⌃⇧KeyK"],"CreateNew":["⌘KeyN"],"Open":["⌘KeyO"],"WelcomeDashboard":["⌥⌘KeyO"],"SaveFrontDocument":["⌘KeyS"],"SaveFrontDocumentAs":["⌃⌘KeyS"],"BounceTracks":["⌥⇧⌘KeyB"],"SelectAll":["⌘KeyA"],"ConsolidateSelection":["⌥⇧Digit3"],"InsertSilence":["⇧⌘KeyE"],"SnapToPrevious":["⌃⌥Comma"],"SnapToNext":["⌃⌥Period"],"ClearSelectedClipGain":["⌃⇧KeyB"],"RenameTracks":["⌥⇧KeyR"],"MoveTrackToNewFolder":["⌥⇧⌘KeyN"],"UseKeyboardAsMIDIController":["⇧KeyK"],"MIDIRecallRetrospectiveData":["⌥⇧KeyZ"],"AllNotesOff":["⇧⌘Period"],"Abort":["⌘Period"],"GoToEnd":["⌥Enter"],"MIDIClick":["Numpad7"],"CountoffToggle":["Numpad8"],"SlipMode":["F2","⌥Digit2"],"ShowDockedMIDIEditor":["⌃⌥⇧Equal"],"ShowElasticPropertiesWindow":["⌥Numpad5"],"ScrollTimeLeftAPageCmd":["⌥PageUp"],"ScrollTimeRightAPageCmd":["⌥PageDown"],"ScrollTimeUpAPageCmd":["PageUp"],"ScrollTimeDownAPageCmd":["PageDown"],"HideOrUnhideFloaters":["⌃⌥⌘KeyW"],"ProToolsSearch2":["⌃⇧KeyS"],"SplitCommand_MidiUp":["ArrowUp","⇧ArrowUp"],"cSplitCommand_MidiDown":["ArrowDown","⇧ArrowDown"],"SplitCommand_DisplaySelStart":["ArrowLeft"],"SplitCommand_DisplaySelEnd":["ArrowRight"],"GoToPreviousMemoryLocation":[],"GoToNextMemoryLocation":[]}
+if (typeof module !== 'undefined') module.exports = { KI_LOGIC, KI_CUBASE, KI_PROTOOLS, KI_IDS, KI_PT_DEFAULTS }

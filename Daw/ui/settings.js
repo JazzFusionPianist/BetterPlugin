@@ -1,18 +1,18 @@
 /* ── the settings window ──
    A window of the Mac's (Source/Settings.h) with this page in it: the parts of the settings named down the left, the
    chosen part on the right — a name on the left of each row, the thing itself against the right edge. A change is
-   taken at once; nothing is confirmed. General, display, audio and plug-ins are there: the others are named and cannot
+   taken at once; nothing is confirmed. General, display, audio, key commands and plug-ins are there: the others are named and cannot
    be picked yet. Drawn with the room's kit, at the sizes of the draft (design/settings draft 1); display and plug-ins
    are larger, and the window grows for them (display.js, design/display draft 2; plugpage.js, design/plugins draft 1). */
 let PAGE_W = 700, PAGE_H = 440
 const SIDE = 164, PX = 28, PR = 700 - SIDE - 28
-const PARTS = ['general', 'display', 'audio', 'recording', 'editing', 'notes', 'plug-ins', 'command line', 'slur', 'hand off', 'storage']
-const THERE = new Set(['general', 'display', 'audio', 'plug-ins'])        // the parts that are made
+const PARTS = ['general', 'display', 'audio', 'recording', 'editing', 'notes', 'key commands', 'plug-ins', 'command line', 'slur', 'hand off', 'storage']
+const THERE = new Set(['general', 'display', 'audio', 'key commands', 'plug-ins'])        // the parts that are made
 /* what a part reads as it is opened */
-function partOpened (p) { if (p === 'display') displayRead(); else if (p === 'plug-ins' && !PG.list) plugRead() }
+function partOpened (p) { if (p === 'display') displayRead(); else if (p === 'plug-ins' && !PG.list) plugRead(); else if (p === 'key commands') keyRead() }
 /* the page's size for a part: display has the room's every part in it, and is larger */
 function setPage () {
-  const [w, h] = V.part === 'display' || V.part === 'plug-ins' ? [DISP_W, DISP_H] : [700, 440]
+  const [w, h] = V.part === 'display' || V.part === 'plug-ins' || V.part === 'key commands' ? [DISP_W, DISP_H] : [700, 440]
   if (w === PAGE_W && h === PAGE_H) return
   PAGE_W = w; PAGE_H = h
   const svg = document.getElementById('svg')
@@ -118,6 +118,7 @@ function draw () {
   })
   if (V.part === 'display') { document.getElementById('svg').innerHTML = s + G(displayBody(), `translate(${SIDE} 0)`) + displayMenu(); return }
   if (V.part === 'plug-ins') { document.getElementById('svg').innerHTML = s + G(plugBody(), `translate(${SIDE} 0)`); return }
+  if (V.part === 'key commands') { document.getElementById('svg').innerHTML = s + G(keyBody(), `translate(${SIDE} 0)`) + keyMenu(); return }
   let b = T(PX, 34, V.part, { size: 13, w: 500, a: .94 }), y = 54
   V.at = {}
   if (d && BODY[V.part]) for (const [head, rows] of BODY[V.part](d)) {
@@ -158,6 +159,7 @@ document.getElementById('svg').addEventListener('pointerdown', async e => {
   const a = el.dataset.a, v = el.dataset.v, d = V.now
   if (a.startsWith('d-')) { e.preventDefault(); return displayPress(el, e) }      // (so the press does not take the focus from a field it opens)
   if (a.startsWith('p-')) { e.preventDefault(); return plugPress(el, e) }
+  if (a.startsWith('k-')) { e.preventDefault(); return keyPress(el, e) }
   if (a === 'part') { V.part = v; V.menu = null; V.said = ''; setPage(); partOpened(v); draw() }
   else if (a === 'open') { V.menu = V.menu && V.menu.id === v ? null : { id: v, y: V.at[v === 'out' ? 'output' : 'input'] + 26, items: (v === 'out' ? d.outs : d.ins).map(t => ({ t, on: t === (v === 'out' ? d.out : d.in) })) }; draw() }
   else if (a === 'close') { V.menu = null; draw() }
@@ -167,8 +169,11 @@ document.getElementById('svg').addEventListener('pointerdown', async e => {
 })
 addEventListener('pointermove', e => { displayMove(e); if (V.part === 'plug-ins') plugMove(e) })
 addEventListener('pointerup', () => { displayUp(); plugUp() })
-addEventListener('wheel', e => { if (V.part === 'plug-ins') plugWheel(e) }, { passive: true })
+addEventListener('wheel', e => { if (V.part === 'plug-ins') plugWheel(e); else if (V.part === 'key commands') keyWheel(e) }, { passive: true })
 addEventListener('keydown', e => {
+  if (V.part === 'key commands' && keyRecord(e)) return                // (a command waits for its key: every key is its)
+  if (V.part === 'key commands' && e.metaKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); kpUndo(); return }
+  if (e.key === 'Escape' && V.part === 'key commands' && KP.menu) { KP.menu = null; draw(); return }
   if (V.part === 'display' && e.metaKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); dUndo(); return }
   if (V.part === 'plug-ins' && e.metaKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); pgUndo(); return }
   if (e.key === 'Escape' && V.part === 'plug-ins' && (PG.menu || PG.drag)) { PG.menu = null; PG.drag = null; draw(); return }
@@ -179,11 +184,13 @@ addEventListener('keydown', e => {
 })
 LANG.heard.push(() => { V.key = ''; draw() })                 // another language: the page is written again
 
-Promise.all([400, 500, 600].map(w => document.fonts.load(`${w} 10px 'Instrument Sans'`))).then(async () => {
+/* (once every script of the page is in: a font already loaded answers at once, before the parts after this one are read) */
+addEventListener('DOMContentLoaded', () => Promise.all([400, 500, 600].map(w => document.fonts.load(`${w} 10px 'Instrument Sans'`))).then(async () => {
   setPage()
   if (V.part === 'display') await displayRead()
   draw()
   if (V.part === 'plug-ins') plugRead()
+  if (V.part === 'key commands') keyRead()
   await read()
   setInterval(() => { if (!document.hidden) read() }, 120)
-})
+}))

@@ -1897,6 +1897,6 @@ function onKey (e) {
   }
   if (e.repeat && !/^(Arrow|Comma|Period|Tab|Equal|Minus|NumpadAdd|NumpadSubtract)/.test(e.code)) { e.preventDefault(); return }  // a key held down acts once (arrows, the bar keys and tab go on)
   if (S.rec && (e.code === 'Space' || e.code === 'KeyR')) { e.preventDefault(); stopRecord(true); return }
-  const f = KEYS[combo(e)]
+  const f = typeof keyFor === 'function' ? keyFor(combo(e)) : KEYS[combo(e)]      // (the keys as settings > key commands has them: commands.js)
   if (f) { e.preventDefault(); f() }
 }

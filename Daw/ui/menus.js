@@ -19,8 +19,8 @@ const ALWAYS = new Set(['⌘KeyN', '⌘KeyO', '⌘KeyS', '⇧⌘KeyS', '⌘KeyI'
 const NUDGE_COMBO = { bar: '⌥⇧KeyM', beat: '⌥⇧KeyB', '1/16': '⌥⇧KeyS', '10 ticks': '⌥⇧KeyT', tick: '⌥⇧KeyQ', '10 ms': '⌃⌥Digit0', '1 ms': '⌃⌥Digit1', sample: '⌃⌥KeyS' }
 const MENU_BAR = () => [
   ['Slur Studio', [
-    ['Settings', null, { sub: [['General', null, { id: 'settings:general' }], ['Display', null, { id: 'settings:display' }], ['Audio', null, { id: 'settings:audio' }], ['Plug-ins', null, { id: 'settings:plug-ins' }]] }],
-    ['Key Commands', '⌥KeyK', { id: 'keys' }],
+    ['Settings', null, { sub: [['General', null, { id: 'settings:general' }], ['Display', null, { id: 'settings:display' }], ['Audio', null, { id: 'settings:audio' }], ['Plug-ins', null, { id: 'settings:plug-ins' }], ['Key Commands', null, { id: 'settings:key commands' }]] }],
+    ['Key Commands…', '⌥KeyK', { id: 'settings:key commands' }],
   ]],
   ['File', [
     ['New', '⌘KeyN', { id: 'new' }], ['Open…', '⌘KeyO', { id: 'open' }],
@@ -145,16 +145,17 @@ function menuKeyOf (k) {
 }
 /* a line's words in the language the program speaks */
 const menuWord = t => { if (LANG.now !== 'ko' || !LANG.menuKo) return t; const m = LANG.menuKo; if (m[t] != null) return m[t]; const n = /^Marker (\d)$/.exec(t); return n && m['Marker #'] ? m['Marker #'].replace('#', n[1]) : t }
-function menuTree (lines, path) {
+function menuTree (lines, path, names) {
   return lines.map((l, i) => {
     if (l === '-') return { sep: 1 }
-    const [t0, k0, o = {}] = l, t = o.given ? t0 : menuWord(t0), k = k0 || o.k || null, id = o.id || `m:${path}.${i}`
-    if (o.sub) return { t, sub: menuTree(o.sub, `${path}.${i}`) }
+    const [t0, k0, o = {}] = l, t = o.given ? t0 : menuWord(t0), id = o.id || `m:${path}.${i}`
+    const k = typeof kcShown === 'function' ? kcShown(`${names} > ${t0}`, k0, o.k) : k0 || o.k || null, own = !!k && k !== o.k      // (the key from settings > key commands: commands.js)
+    if (o.sub) return { t, sub: menuTree(o.sub, `${path}.${i}`, `${names} > ${t0}`) }
     const run = o.do || (k0 && KEYS[k0] ? () => KEYS[k0]() : null)                    // (else, an id the app or MENU_DO knows)
     if (run) MENUS.acts.set(id, run)
     if (o.on) MENUS.ons.set(id, o.on)
     const mk = menuKeyOf(k)
-    return Object.assign({ t, id }, mk ? { k: mk, answers: o.always || ALWAYS.has(k) ? 2 : (mk.cmd || mk.ctrl) && !o.k ? 1 : 0 } : {}, o.sys ? { sys: o.sys } : {}, o.dim ? { dim: 1 } : {}, o.on ? { check: 1 } : {})
+    return Object.assign({ t, id }, mk ? { k: mk, answers: o.always || ALWAYS.has(k0 || k) ? 2 : (mk.cmd || mk.ctrl) && own ? 1 : 0 } : {}, o.sys ? { sys: o.sys } : {}, o.dim ? { dim: 1 } : {}, o.on ? { check: 1 } : {})
   })
 }
 async function menusSend () {
@@ -164,7 +165,7 @@ async function menusSend () {
     MENUS.recent = ((await NAT.call('projList', { also })) || []).sort((a, b) => b.modified - a.modified).slice(0, 12)
   } catch (e) { MENUS.recent = [] }
   MENUS.acts.clear(); MENUS.ons.clear()
-  const bar = MENU_BAR().map(([t, lines], i) => ({ t: menuWord(t), en: t, sub: menuTree(lines, String(i)) })), json = JSON.stringify(bar)
+  const bar = MENU_BAR().map(([t, lines], i) => ({ t: menuWord(t), en: t, sub: menuTree(lines, String(i), t) })), json = JSON.stringify(bar)
   const words = Object.fromEntries(['About Slur Studio', 'Settings…', 'Services', 'Hide Slur Studio', 'Hide Others', 'Show All', 'Quit Slur Studio'].map(w => [w, menuWord(w)]))      // (the app's own menu, which the Mac makes)
   if (json !== MENUS.sent) { MENUS.sent = json; MENUS.state = ''; await NAT.call('menus', { bar, words }) }
   menusTick()

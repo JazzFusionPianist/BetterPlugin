@@ -1,0 +1,2583 @@
+{
+ "note": "ids: Logic command numbers that are this Slur command (first = main one; a user key on any of them maps here). near: related Logic commands that are NOT the same (other scope, other context, or a Tool-menu letter after T); do not take their keys automatically. Numbers are the record index in a .logikcs table (record 2195 + id) and the keys of KeyCommands in com.apple.logic10.plist.",
+ "rows": [
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "General",
+   "ids": [
+    1152
+   ],
+   "names": [
+    "Open General Settings…"
+   ],
+   "near": [
+    30
+   ],
+   "nearNames": [
+    "Open Settings…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Display",
+   "ids": [
+    1155
+   ],
+   "names": [
+    "Open View Settings…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Audio",
+   "ids": [
+    1153
+   ],
+   "names": [
+    "Open Audio Settings…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Plug-ins",
+   "ids": [
+    1315
+   ],
+   "names": [
+    "Plug-in Manager…"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Slur Studio",
+   "line": "Key Commands",
+   "ids": [
+    35
+   ],
+   "names": [
+    "Open Key Command Assignments…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "File",
+   "line": "New",
+   "ids": [
+    751
+   ],
+   "names": [
+    "New from Template…"
+   ],
+   "near": [
+    785
+   ],
+   "nearNames": [
+    "New Empty Project"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "File",
+   "line": "Open…",
+   "ids": [
+    752
+   ],
+   "names": [
+    "Open…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "No Projects Yet",
+   "ids": [],
+   "names": [],
+   "confidence": "high"
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "More…",
+   "ids": [],
+   "names": [],
+   "confidence": "high"
+  },
+  {
+   "menu": "File",
+   "line": "Save",
+   "ids": [
+    754
+   ],
+   "names": [
+    "Save"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "File",
+   "line": "Save As…",
+   "ids": [
+    32
+   ],
+   "names": [
+    "Save Project as…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "File",
+   "line": "Rename…",
+   "ids": [
+    1173
+   ],
+   "names": [
+    "Rename Project…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "File",
+   "line": "Revert To…",
+   "ids": [
+    755
+   ],
+   "names": [
+    "Revert to Saved…"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "File",
+   "line": "Find Missing Sounds…",
+   "ids": [],
+   "names": [],
+   "confidence": "medium"
+  },
+  {
+   "menu": "File",
+   "line": "Import Audio…",
+   "ids": [
+    1186
+   ],
+   "names": [
+    "Import Audio File…"
+   ],
+   "near": [
+    758
+   ],
+   "nearNames": [
+    "Import…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off…",
+   "ids": [
+    1151
+   ],
+   "names": [
+    "Bounce…"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off Stems…",
+   "ids": [
+    1179
+   ],
+   "names": [
+    "Export All Tracks as Audio Files…"
+   ],
+   "near": [
+    1178
+   ],
+   "nearNames": [
+    "Export Track as Audio File"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place",
+   "ids": [
+    1748
+   ],
+   "names": [
+    "Bounce Regions/Cells in Place…"
+   ],
+   "near": [
+    1749
+   ],
+   "nearNames": [
+    "Bounce Tracks in Place"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place in Realtime",
+   "ids": [],
+   "names": [],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Edit",
+   "line": "Undo",
+   "ids": [
+    761
+   ],
+   "names": [
+    "Undo"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit",
+   "line": "Redo",
+   "ids": [
+    796
+   ],
+   "names": [
+    "Redo"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut",
+   "ids": [
+    762
+   ],
+   "names": [
+    "Cut"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit",
+   "line": "Copy",
+   "ids": [
+    763
+   ],
+   "names": [
+    "Copy"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit",
+   "line": "Paste",
+   "ids": [
+    764
+   ],
+   "names": [
+    "Paste"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit",
+   "line": "Delete",
+   "ids": [
+    765
+   ],
+   "names": [
+    "Delete"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Edit",
+   "line": "Select All",
+   "ids": [
+    766
+   ],
+   "names": [
+    "Select All"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "None",
+   "ids": [
+    347
+   ],
+   "names": [
+    "Deselect All"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Invert",
+   "ids": [
+    340
+   ],
+   "names": [
+    "Invert Selection"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following",
+   "ids": [
+    346
+   ],
+   "names": [
+    "Select All Following"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following on the Same Track",
+   "ids": [
+    1506
+   ],
+   "names": [
+    "Select All Following of Same Track/Pitch"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Inside the Cycle",
+   "ids": [
+    341
+   ],
+   "names": [
+    "Select All Inside Locators"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Muted Regions",
+   "ids": [
+    587
+   ],
+   "names": [
+    "Select Muted Regions/Cells/Events"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Region",
+   "ids": [
+    354,
+    82
+   ],
+   "names": [
+    "Select Previous Region/Cell/Event or Move Marquee End (or Marquee Point) to Previous Transient",
+    "Select Previous Region/Cell on Focused Track"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Region",
+   "ids": [
+    355,
+    83
+   ],
+   "names": [
+    "Select Next Region/Cell/Event or Move Marquee End (or Marquee Point) to Next Transient",
+    "Select Next Region/Cell on Focused Track"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Previous Region",
+   "ids": [
+    356
+   ],
+   "names": [
+    "Toggle Previous Region/Cell/Event or Move Marquee Start (or Extend Marquee Selection) to Previous Transient"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Next Region",
+   "ids": [
+    357
+   ],
+   "names": [
+    "Toggle Next Region/Cell/Event or Move Marquee Start (or Extend Marquee Selection) to Next Transient"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "First Region",
+   "ids": [
+    348
+   ],
+   "names": [
+    "Select First, or Shift Marquee Selection Left"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Last Region",
+   "ids": [
+    349
+   ],
+   "names": [
+    "Select Last, or Shift Marquee Selection Right"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Track",
+   "ids": [
+    1272
+   ],
+   "names": [
+    "Select Previous Track"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Track",
+   "ids": [
+    1273
+   ],
+   "names": [
+    "Select Next Track"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Playhead",
+   "ids": [
+    574
+   ],
+   "names": [
+    "Split Regions/Events at Playhead Position"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Cycle Ends",
+   "ids": [
+    91
+   ],
+   "names": [
+    "Split Regions/Events at Locators or Marquee Selection"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit",
+   "line": "Join",
+   "ids": [
+    553
+   ],
+   "names": [
+    "Join Regions per Tracks / Fill Cell"
+   ],
+   "near": [
+    90
+   ],
+   "nearNames": [
+    "Join Regions/Notes"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat",
+   "ids": [
+    2276
+   ],
+   "names": [
+    "Repeat Regions/Cells/Events"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut Section Between Locators",
+   "ids": [
+    1733
+   ],
+   "names": [
+    "Cut Section Between Locators (Global)"
+   ],
+   "near": [
+    552
+   ],
+   "nearNames": [
+    "Cut Section Between Locators (Selection)"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Silence at Locators",
+   "ids": [
+    1734
+   ],
+   "names": [
+    "Insert Silence Between Locators (Global)"
+   ],
+   "near": [
+    551
+   ],
+   "nearNames": [
+    "Insert Silence Between Locators (Selection)"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Section at Playhead",
+   "ids": [
+    1735
+   ],
+   "names": [
+    "Insert Section at Playhead (Global)"
+   ],
+   "near": [
+    563
+   ],
+   "nearNames": [
+    "Insert Section at Playhead (Selection)"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat Section Between Locators",
+   "ids": [
+    1736
+   ],
+   "names": [
+    "Repeat Section Between Locators (Global)"
+   ],
+   "near": [
+    1726
+   ],
+   "nearNames": [
+    "Repeat Section Between Locators (Selection)"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Mute",
+   "ids": [
+    60
+   ],
+   "names": [
+    "Mute Notes/Regions/Cells/Folders On/Off"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Rename…",
+   "ids": [
+    1799
+   ],
+   "names": [
+    "Rename Regions/Cells/Scenes"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead",
+   "ids": [
+    358
+   ],
+   "names": [
+    "Move Region/Event to Playhead Position (Pickup Clock)"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead and Select Next",
+   "ids": [
+    359
+   ],
+   "names": [
+    "Move Region/Event to Playhead Position and Select Next Region/Event (Pickup Clock+)"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Loop to the Next Region",
+   "ids": [
+    111
+   ],
+   "names": [
+    "Loop Regions/Cells/Folders On/Off"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Trim Start to Playhead",
+   "ids": [
+    1500,
+    158
+   ],
+   "names": [
+    "Set Region/Event/Marquee Start to Playhead Position",
+    "Trim Region Start to Playhead Position"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Trim End to Playhead",
+   "ids": [
+    1501,
+    159
+   ],
+   "names": [
+    "Set Region/Event/Marquee End to Playhead Position",
+    "Trim Region End to Playhead Position"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Left",
+   "ids": [
+    119
+   ],
+   "names": [
+    "Shuffle Left"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Right",
+   "ids": [
+    1770
+   ],
+   "names": [
+    "Shuffle Right"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 1 dB",
+   "ids": [
+    1402
+   ],
+   "names": [
+    "Region Gain +1 dB"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 1 dB",
+   "ids": [
+    1403
+   ],
+   "names": [
+    "Region Gain -1 dB"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 0.1 dB",
+   "ids": [
+    1404
+   ],
+   "names": [
+    "Region Gain +0.1 dB"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 0.1 dB",
+   "ids": [
+    1405
+   ],
+   "names": [
+    "Region Gain -0.1 dB"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Back to 0 dB",
+   "ids": [],
+   "names": [],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up a Semitone",
+   "ids": [
+    391
+   ],
+   "names": [
+    "Transpose KeySignature/Chord/Region/Event +1 Semitone, Nudge Automation Up 1 Step or Move Marquee Top Up 1 Track"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down a Semitone",
+   "ids": [
+    392
+   ],
+   "names": [
+    "Transpose KeySignature/Chord/Region/Event -1 Semitone, Nudge Automation Down 1 Step or Move Marquee Top Down 1 Track"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up an Octave",
+   "ids": [
+    1520
+   ],
+   "names": [
+    "Transpose Region/Event +12 Semitone, Nudge Automation Up 10 Steps or Move Marquee Bottom Up 1 Track"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down an Octave",
+   "ids": [
+    1521
+   ],
+   "names": [
+    "Transpose Region/Event -12 Semitone, Nudge Automation Down 10 Steps or Move Marquee Bottom Down 1 Track"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Up 10 Cents",
+   "ids": [],
+   "names": [],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Down 10 Cents",
+   "ids": [],
+   "names": [],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Back to the Original Pitch",
+   "ids": [],
+   "names": [],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Region",
+   "line": "Reverse",
+   "ids": [
+    1333
+   ],
+   "names": [
+    "Reverse On/Off"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fades for Selection",
+   "ids": [
+    1349
+   ],
+   "names": [
+    "Apply Default Crossfade"
+   ],
+   "near": [
+    1345
+   ],
+   "nearNames": [
+    "Apply Last Edited Fade Again"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade In up to the Playhead",
+   "ids": [],
+   "names": [],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade Out from the Playhead",
+   "ids": [],
+   "names": [],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Earlier",
+   "ids": [
+    333
+   ],
+   "names": [
+    "Nudge Region/Event/Marquee Position Left by Nudge Value"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Later",
+   "ids": [
+    332
+   ],
+   "names": [
+    "Nudge Region/Event/Marquee Position Right by Nudge Value"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Shorter",
+   "ids": [
+    1528
+   ],
+   "names": [
+    "Nudge Region/Event/Marquee Length Left by Nudge Value"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Longer",
+   "ids": [
+    1527
+   ],
+   "names": [
+    "Nudge Region/Event/Marquee Length Right by Nudge Value"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Follow the Tempo",
+   "ids": [
+    2273
+   ],
+   "names": [
+    "Flex/Follow Tempo On/Off"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Fit Region to Project Tempo",
+   "ids": [],
+   "names": [],
+   "near": [
+    1382
+   ],
+   "nearNames": [
+    "Apply Project Tempo to Region and Downbeat"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Set Project Tempo from Region",
+   "ids": [
+    1368,
+    2684
+   ],
+   "names": [
+    "Apply Region Tempo to Project Tempo…",
+    "Apply Region Tempo to Project Tempo"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Region",
+   "line": "Quantize",
+   "ids": [
+    110
+   ],
+   "names": [
+    "Quantize Selected Regions/Cells/Events"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Undo Quantize",
+   "ids": [
+    381
+   ],
+   "names": [
+    "Dequantize"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Strip Silence",
+   "ids": [
+    412
+   ],
+   "names": [
+    "Remove Silence from Audio Region…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Group",
+   "ids": [],
+   "names": [],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Ungroup",
+   "ids": [],
+   "names": [],
+   "confidence": "high"
+  },
+  {
+   "menu": "Region",
+   "line": "Colour and Outline…",
+   "ids": [
+    483
+   ],
+   "names": [
+    "Show/Hide Colors"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Track",
+   "line": "New Tracks…",
+   "ids": [
+    1715
+   ],
+   "names": [
+    "New Tracks…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track",
+   "line": "New Audio Track",
+   "ids": [
+    1795
+   ],
+   "names": [
+    "New Audio Track"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track",
+   "line": "New Instrument Track",
+   "ids": [
+    1796
+   ],
+   "names": [
+    "New Software Instrument Track"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track",
+   "line": "New Bus",
+   "ids": [
+    2008
+   ],
+   "names": [
+    "Create New Auxiliary Channel Strip"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate",
+   "ids": [
+    1728
+   ],
+   "names": [
+    "New Track with Duplicate Settings"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate with Its Regions",
+   "ids": [
+    2351
+   ],
+   "names": [
+    "New Track with Duplicate Settings and Content"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track",
+   "line": "Rename…",
+   "ids": [
+    571
+   ],
+   "names": [
+    "Rename Track"
+   ],
+   "near": [
+    1831
+   ],
+   "nearNames": [
+    "Rename…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track",
+   "line": "Delete",
+   "ids": [
+    88
+   ],
+   "names": [
+    "Delete Track"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track",
+   "line": "Delete Empty Tracks",
+   "ids": [
+    89
+   ],
+   "names": [
+    "Delete unused Tracks"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Track",
+   "line": "Mute",
+   "ids": [
+    1231
+   ],
+   "names": [
+    "Toggle Channel Strip Mute"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track",
+   "line": "Solo",
+   "ids": [
+    1232,
+    1714
+   ],
+   "names": [
+    "Toggle Channel Strip Solo",
+    "Toggle Track Solo"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track",
+   "line": "Record Enable",
+   "ids": [
+    593,
+    1233
+   ],
+   "names": [
+    "Toggle Track Record Enable",
+    "Toggle Channel Strip Record Enable"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track",
+   "line": "Hear the Input",
+   "ids": [
+    1234
+   ],
+   "names": [
+    "Toggle Channel Strip Input Monitoring"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Make a Stack",
+   "ids": [
+    1791
+   ],
+   "names": [
+    "Create Track Stack…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Take the Stack Apart",
+   "ids": [
+    1794
+   ],
+   "names": [
+    "Flatten Stack"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Open the Stack",
+   "ids": [
+    2274
+   ],
+   "names": [
+    "Open Track Stack"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Close the Stack",
+   "ids": [
+    2275
+   ],
+   "names": [
+    "Close Track Stack"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track",
+   "line": "Group Tracks",
+   "ids": [
+    2370
+   ],
+   "names": [
+    "Create Group for Selected Channel Strips / Tracks"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track",
+   "line": "Suspend Groups",
+   "ids": [
+    1031
+   ],
+   "names": [
+    "Enable/Disable Groups"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Typing Keyboard",
+   "ids": [
+    1304
+   ],
+   "names": [
+    "Show/Hide Musical Typing…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Capture as Recording",
+   "ids": [
+    542
+   ],
+   "names": [
+    "Flashback Capture as Recording"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "All Notes Off",
+   "ids": [
+    29
+   ],
+   "names": [
+    "Send discrete Note Offs (Panic)"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Play or Stop",
+   "ids": [
+    535
+   ],
+   "names": [
+    "Play or Stop"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Play from Selection",
+   "ids": [
+    544
+   ],
+   "names": [
+    "Play from Selection"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Record",
+   "ids": [
+    7
+   ],
+   "names": [
+    "Record"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Discard Recording",
+   "ids": [
+    9
+   ],
+   "names": [
+    "Discard Recording and Return to Last Play Position"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Start",
+   "ids": [
+    1222
+   ],
+   "names": [
+    "Go to Beginning"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to End of Sound",
+   "ids": [
+    1240
+   ],
+   "names": [
+    "Go to End of Last Region"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Back a Bar",
+   "ids": [
+    10
+   ],
+   "names": [
+    "Rewind"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward a Bar",
+   "ids": [
+    11
+   ],
+   "names": [
+    "Forward"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Back Eight Bars",
+   "ids": [
+    12
+   ],
+   "names": [
+    "Fast Rewind"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward Eight Bars",
+   "ids": [
+    13
+   ],
+   "names": [
+    "Fast Forward"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Previous Transient",
+   "ids": [
+    1286
+   ],
+   "names": [
+    "Rewind by Transient"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Next Transient",
+   "ids": [
+    1285
+   ],
+   "names": [
+    "Forward by Transient"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Bar…",
+   "ids": [
+    21
+   ],
+   "names": [
+    "Go to Position…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Cycle",
+   "ids": [
+    15
+   ],
+   "names": [
+    "Toggle Cycle Mode"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Set to Selection",
+   "ids": [
+    123
+   ],
+   "names": [
+    "Set Rounded Locators/Loop by Regions/Events/Marquee and Enable Cycle/Loop"
+   ],
+   "near": [
+    100
+   ],
+   "nearNames": [
+    "Set Locators/Loop by Regions/Events/Marquee and Enable Cycle/Loop"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its Start",
+   "ids": [
+    480
+   ],
+   "names": [
+    "Go to Left Locator"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its End",
+   "ids": [
+    481
+   ],
+   "names": [
+    "Go to Right Locator"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Forward by Its Length",
+   "ids": [
+    699
+   ],
+   "names": [
+    "Move Locators Forward by Cycle Length / Loop Forward by Loop Length"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Back by Its Length",
+   "ids": [
+    700
+   ],
+   "names": [
+    "Move Locators Backwards by Cycle Length / Loop Backwards by Loop Length"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Twice as Long",
+   "ids": [
+    1388
+   ],
+   "names": [
+    "Double Cycle/Loop Length"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Half as Long",
+   "ids": [
+    1389
+   ],
+   "names": [
+    "Halve Cycle/Loop Length"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Zoom to the Cycle",
+   "ids": [
+    77
+   ],
+   "names": [
+    "Zoom to fit Locators, store Navigation Snapshot"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Click",
+   "ids": [
+    474
+   ],
+   "names": [
+    "Toggle Metronome Click"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Transport",
+   "line": "Count-In",
+   "ids": [
+    1291
+   ],
+   "names": [
+    "Toggle Count-in"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker Here",
+   "ids": [
+    513
+   ],
+   "names": [
+    "Create Marker"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker for Selection",
+   "ids": [
+    1191
+   ],
+   "names": [
+    "Create Marker for Region/Marquee Selection"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers",
+   "line": "Rename Marker…",
+   "ids": [
+    1192
+   ],
+   "names": [
+    "Rename Marker"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers",
+   "line": "Delete Marker Here",
+   "ids": [
+    514
+   ],
+   "names": [
+    "Delete Marker"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers",
+   "line": "Previous Marker",
+   "ids": [
+    516
+   ],
+   "names": [
+    "Go to Previous Marker And Set Locators"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers",
+   "line": "Next Marker",
+   "ids": [
+    515
+   ],
+   "names": [
+    "Go to Next Marker And Set Locators"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers",
+   "line": "Cycle the Marker",
+   "ids": [
+    695
+   ],
+   "names": [
+    "Set Locators by Marker and Enable Cycle"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 1",
+   "ids": [
+    521
+   ],
+   "names": [
+    "Go to Marker Number 1"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 2",
+   "ids": [
+    522
+   ],
+   "names": [
+    "Go to Marker Number 2"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 3",
+   "ids": [
+    523
+   ],
+   "names": [
+    "Go to Marker Number 3"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 4",
+   "ids": [
+    524
+   ],
+   "names": [
+    "Go to Marker Number 4"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 5",
+   "ids": [
+    525
+   ],
+   "names": [
+    "Go to Marker Number 5"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 6",
+   "ids": [
+    546
+   ],
+   "names": [
+    "Go to Marker Number 6"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 7",
+   "ids": [
+    547
+   ],
+   "names": [
+    "Go to Marker Number 7"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 8",
+   "ids": [
+    548
+   ],
+   "names": [
+    "Go to Marker Number 8"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 9",
+   "ids": [
+    549
+   ],
+   "names": [
+    "Go to Marker Number 9"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pointer",
+   "ids": [
+    850
+   ],
+   "names": [
+    "Set Pointer Tool"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Smart",
+   "ids": [],
+   "names": [],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pencil",
+   "ids": [
+    857
+   ],
+   "names": [
+    "Set Pencil Tool"
+   ],
+   "near": [
+    2324
+   ],
+   "nearNames": [
+    "Pencil Tool"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Eraser",
+   "ids": [
+    853
+   ],
+   "names": [
+    "Set Eraser Tool"
+   ],
+   "near": [
+    2320
+   ],
+   "nearNames": [
+    "Eraser Tool"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Scissors",
+   "ids": [
+    851
+   ],
+   "names": [
+    "Set Scissors Tool"
+   ],
+   "near": [
+    2318
+   ],
+   "nearNames": [
+    "Scissors Tool"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Join",
+   "ids": [
+    852
+   ],
+   "names": [
+    "Set Join Tool"
+   ],
+   "near": [
+    2319
+   ],
+   "nearNames": [
+    "Join Tool"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Mute",
+   "ids": [
+    859
+   ],
+   "names": [
+    "Set Mute Tool"
+   ],
+   "near": [
+    2326
+   ],
+   "nearNames": [
+    "Mute Tool"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Gain",
+   "ids": [
+    966
+   ],
+   "names": [
+    "Set Gain Tool"
+   ],
+   "near": [
+    2683
+   ],
+   "nearNames": [
+    "Gain Tool"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Fade",
+   "ids": [
+    868
+   ],
+   "names": [
+    "Set Fade Tool"
+   ],
+   "near": [
+    2335
+   ],
+   "nearNames": [
+    "Fade Tool"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Marquee",
+   "ids": [
+    871
+   ],
+   "names": [
+    "Set Marquee Tool"
+   ],
+   "near": [
+    2338
+   ],
+   "nearNames": [
+    "Marquee Tool"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Rubato",
+   "ids": [
+    875
+   ],
+   "names": [
+    "Set Flex Tool"
+   ],
+   "near": [
+    2339
+   ],
+   "nearNames": [
+    "Flex Tool"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Zoom",
+   "ids": [
+    862
+   ],
+   "names": [
+    "Set Zoom Tool"
+   ],
+   "near": [
+    2329
+   ],
+   "nearNames": [
+    "Zoom Tool"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Velocity",
+   "ids": [
+    866
+   ],
+   "names": [
+    "Set Velocity Tool"
+   ],
+   "near": [
+    2333
+   ],
+   "nearNames": [
+    "Velocity Tool"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Tool Menu",
+   "ids": [
+    40
+   ],
+   "names": [
+    "Show Tool Menu"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Smart",
+   "ids": [],
+   "names": [],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Grid",
+   "ids": [],
+   "names": [],
+   "near": [
+    2504
+   ],
+   "nearNames": [
+    "Toggle Snap to Grid"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip",
+   "ids": [],
+   "names": [],
+   "near": [
+    2504
+   ],
+   "nearNames": [
+    "Toggle Snap to Grid"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Shuffle",
+   "ids": [
+    1519
+   ],
+   "names": [
+    "Drag Mode: Shuffle R"
+   ],
+   "near": [
+    1518
+   ],
+   "nearNames": [
+    "Drag Mode: Shuffle L"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Spot",
+   "ids": [],
+   "names": [],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip, and Back",
+   "ids": [
+    2504
+   ],
+   "names": [
+    "Toggle Snap to Grid"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/1",
+   "ids": [
+    2508
+   ],
+   "names": [
+    "Snap Mode: 1/1 Note"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/2",
+   "ids": [
+    2509
+   ],
+   "names": [
+    "Snap Mode: 1/2 Note"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/4",
+   "ids": [
+    2510
+   ],
+   "names": [
+    "Snap Mode: 1/4 Note"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/8",
+   "ids": [
+    2511
+   ],
+   "names": [
+    "Snap Mode: 1/8 Note"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/16",
+   "ids": [
+    2512
+   ],
+   "names": [
+    "Snap Mode: 1/16 Note"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/32",
+   "ids": [
+    2513
+   ],
+   "names": [
+    "Snap Mode: 1/32 Note"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/3",
+   "ids": [
+    2515
+   ],
+   "names": [
+    "Snap Mode: 1/2 Triplet (1/3)"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/6",
+   "ids": [
+    2516
+   ],
+   "names": [
+    "Snap Mode: 1/4 Triplet (1/6)"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/12",
+   "ids": [
+    2517
+   ],
+   "names": [
+    "Snap Mode: 1/8 Triplet (1/12)"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/24",
+   "ids": [
+    2518
+   ],
+   "names": [
+    "Snap Mode: 1/16 Triplet (1/24)"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Bar",
+   "ids": [
+    337
+   ],
+   "names": [
+    "Set Nudge Value to Bar"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Beat",
+   "ids": [
+    336
+   ],
+   "names": [
+    "Set Nudge Value to Beat"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1/16",
+   "ids": [
+    2284
+   ],
+   "names": [
+    "Set Nudge Value to 1/16 Note"
+   ],
+   "near": [
+    335
+   ],
+   "nearNames": [
+    "Set Nudge Value to Division"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ticks",
+   "ids": [
+    2293
+   ],
+   "names": [
+    "Set Nudge Value to 10 Ticks"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Tick",
+   "ids": [
+    334
+   ],
+   "names": [
+    "Set Nudge Value to Tick"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ms",
+   "ids": [
+    1578
+   ],
+   "names": [
+    "Set Nudge Value to 10 ms"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1 ms",
+   "ids": [
+    1573
+   ],
+   "names": [
+    "Set Nudge Value to 1 ms"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Sample",
+   "ids": [
+    1526
+   ],
+   "names": [
+    "Set Nudge Value to Sample"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/4",
+   "ids": [
+    2752
+   ],
+   "names": [
+    "Quantize 1/4 Note"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8",
+   "ids": [
+    2753
+   ],
+   "names": [
+    "Quantize 1/8 Note"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8 Triplet",
+   "ids": [
+    2759
+   ],
+   "names": [
+    "Quantize 1/8 Triplet (1/12)"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16",
+   "ids": [
+    2754
+   ],
+   "names": [
+    "Quantize 1/16 Note"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16 Triplet",
+   "ids": [
+    2760
+   ],
+   "names": [
+    "Quantize 1/16 Triplet (1/24)"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/32",
+   "ids": [
+    2755
+   ],
+   "names": [
+    "Quantize 1/32 Note"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Patch",
+   "ids": [
+    1296
+   ],
+   "names": [
+    "Show/Hide Smart Controls"
+   ],
+   "confidence": "low"
+  },
+  {
+   "menu": "View",
+   "line": "Mixer",
+   "ids": [
+    735
+   ],
+   "names": [
+    "Show/Hide Mixer"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Notes",
+   "ids": [
+    739
+   ],
+   "names": [
+    "Show/Hide Piano Roll"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Prompt",
+   "ids": [],
+   "names": [],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Rubato Panel",
+   "ids": [],
+   "names": [],
+   "confidence": "medium"
+  },
+  {
+   "menu": "View",
+   "line": "Slur",
+   "ids": [],
+   "names": [],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Automation",
+   "ids": [
+    116
+   ],
+   "names": [
+    "Show/Hide Automation"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Next Automation Parameter",
+   "ids": [
+    577
+   ],
+   "names": [
+    "Automation: Cycle Through Used Parameters"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Rubato View",
+   "ids": [
+    1753
+   ],
+   "names": [
+    "Show/Hide Flex Pitch/Time"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom In",
+   "ids": [
+    42
+   ],
+   "names": [
+    "Zoom Horizontal In"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom Out",
+   "ids": [
+    41
+   ],
+   "names": [
+    "Zoom Horizontal Out"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom to Fit or Selection",
+   "ids": [
+    2225
+   ],
+   "names": [
+    "Toggle Zoom to fit Selection or All Contents"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Taller Rows",
+   "ids": [
+    44
+   ],
+   "names": [
+    "Zoom Vertical In"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Shorter Rows",
+   "ids": [
+    43
+   ],
+   "names": [
+    "Zoom Vertical Out"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Taller Waveforms",
+   "ids": [
+    1706
+   ],
+   "names": [
+    "Waveform Vertical Zoom In"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Lower Waveforms",
+   "ids": [
+    1705
+   ],
+   "names": [
+    "Waveform Vertical Zoom Out"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Page Left",
+   "ids": [
+    48
+   ],
+   "names": [
+    "Page Left"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Page Right",
+   "ids": [
+    49
+   ],
+   "names": [
+    "Page Right"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Page Up",
+   "ids": [
+    46
+   ],
+   "names": [
+    "Page Up"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Page Down",
+   "ids": [
+    47
+   ],
+   "names": [
+    "Page Down"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Playhead",
+   "ids": [
+    51
+   ],
+   "names": [
+    "Catch Playhead Position"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Selection",
+   "ids": [
+    364
+   ],
+   "names": [
+    "Scroll to Selection"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Close Plug-in Windows",
+   "ids": [
+    1366
+   ],
+   "names": [
+    "Close All Plug-in Windows"
+   ],
+   "near": [
+    1255
+   ],
+   "nearNames": [
+    "Show/Hide All Plug-in Windows"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "View",
+   "line": "Say It",
+   "ids": [],
+   "names": [],
+   "confidence": "high"
+  },
+  {
+   "menu": "Window",
+   "line": "Patch",
+   "ids": [
+    1295
+   ],
+   "names": [
+    "Open Smart Controls…"
+   ],
+   "confidence": "low"
+  },
+  {
+   "menu": "Window",
+   "line": "Mixer",
+   "ids": [
+    690
+   ],
+   "names": [
+    "Open Mixer…"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Window",
+   "line": "Slur",
+   "ids": [],
+   "names": [],
+   "confidence": "high"
+  },
+  {
+   "menu": "Window",
+   "line": "Rubato Panel",
+   "ids": [],
+   "names": [],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Window",
+   "line": "Minimize",
+   "ids": [
+    1252
+   ],
+   "names": [
+    "Minimize Window"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Window",
+   "line": "Zoom",
+   "ids": [
+    772
+   ],
+   "names": [
+    "Zoom Window"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Window",
+   "line": "Enter Full Screen",
+   "ids": [
+    1297
+   ],
+   "names": [
+    "Enter/Exit Full Screen"
+   ],
+   "confidence": "high"
+  },
+  {
+   "menu": "Help",
+   "line": "Slur Studio Help",
+   "ids": [],
+   "names": [],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Help",
+   "line": "Key Commands",
+   "ids": [],
+   "names": [],
+   "near": [
+    35
+   ],
+   "nearNames": [
+    "Open Key Command Assignments…"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "menu": "Help",
+   "line": "Say It",
+   "ids": [],
+   "names": [],
+   "confidence": "high"
+  }
+ ]
+}

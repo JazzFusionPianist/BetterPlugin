@@ -10,3 +10,15 @@ them).
 - ableton.json: Ableton Live 12.4, from Ableton's manual and help articles.
 - cubase.json: Cubase Pro 14.0.30, from Steinberg's Default Key Commands pages (15.0.30 compared).
 - protools.json: Pro Tools 2025.12, from Avid's Shortcuts Guide 2026.4 and the app's own help.
+
+Reading a person's own set (settings > key commands, "from my own set…", 2026-10-18):
+
+- logic-decode.mjs: Logic's set in use (~/Library/Preferences/com.apple.logic10.plist, KeyCommands) and .logikcs files;
+  logic-ids.json ties each command of Slur Studio to Logic's command numbers.
+- cubase-decode.mjs: Key Commands.xml (~/Library/Preferences/Cubase NN/, and Presets/KeyCommands); cubase-ids.json.
+- protools-decode.mjs: PTCustomHotkeys.txt (~/Library/Preferences/Avid/Pro Tools/) and .ptpreset files, which hold only
+  what differs from Pro Tools' own set (its defaults are in protools-ids.json).
+- Ableton Live's keys cannot be changed (Live 12.4): there is no set of one's own to read.
+
+build.mjs writes ui/keysets.js (the four DAWs' defaults); build-import.mjs writes ui/keyimport.js (the readers and the
+ties, for the settings window).

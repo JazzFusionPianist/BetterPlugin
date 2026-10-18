@@ -1,16 +1,16 @@
 {
  "daw": "Cubase Pro 14",
  "version_checked": "Cubase Pro 14.0.30 operation manual (Default Key Commands); Cubase Pro 15.0.30 list compared — identical keys except Navigate gains Page Up / Page Down",
- "mac_mapping": "Steinberg writes Ctrl/Cmd (= ⌘ on macOS), Alt/Opt (= ⌥), Shift (= ⇧); a bare Ctrl (Media category) = ⌃ on both systems. Cubase \"Return\" = Enter (main key), Cubase \"Enter\" = NumpadEnter, \"Num x\" = Numpad keys.",
+ "mac_mapping": "Steinberg writes Ctrl/Cmd (= ⌘ on macOS), Alt/Opt (= ⌥), Shift (= ⇧). The Media category's bare \"Ctrl-Alt/Opt-Num\" is ⌥⌘ + keypad on a Mac (seen in a real Mac Key Commands.xml). Cubase \"Return\" = Enter (main key), Cubase \"Enter\" = NumpadEnter, \"Num x\" = Numpad keys.",
  "rows": [
   {
    "menu": "Slur Studio > Settings",
    "line": "General",
    "equivalent": "Preferences… (Cubase Pro application menu on macOS; Edit > Preferences on Windows)",
    "key": "⌘Comma",
-   "note": "Not in Steinberg's default key list; ⌘, is the macOS application-menu convention and a Steinberg forum post says Cubase keeps ⌘, for Preferences. Verify in Key Commands.",
+   "note": "Not in Steinberg's default key list; ⌘, is the macOS application-menu convention and a Steinberg forum post says Cubase keeps ⌘, for Preferences. Verify in Key Commands. A real Cubase Key Commands.xml from a Mac has no key on Edit | Preferences, so ⌘, would only come from the macOS app menu.",
    "confidence": "low",
-   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/preferences/preferences_the_preferences_dialog_r.html ; https://forums.steinberg.net/t/cmd-w-close-window-on-mac-problem/825553"
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/preferences/preferences_the_preferences_dialog_r.html ; https://forums.steinberg.net/t/cmd-w-close-window-on-mac-problem/825553 ; https://github.com/ericksonc/cubase-key-commands/blob/main/public/Key%20Commands.xml"
   },
   {
    "menu": "Slur Studio > Settings",
@@ -251,9 +251,9 @@
    "line": "Invert",
    "equivalent": "Edit > Select > Invert (Edit: Invert Selection)",
    "key": "⌥⌘KeyI",
-   "note": "The Edit category also has a separate command named just \"Invert\" on ⌥F; Steinberg's table does not say which of the two is the Select-menu item.",
-   "confidence": "medium",
-   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_selecting_with_the_select_submenu_r.html"
+   "note": "Internal command Edit | Invert Selection (label \"Invert\"). The other Edit \"Invert\" on ⌥F is Edit | Flip/Invert, not the Select-menu item.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_selecting_with_the_select_submenu_r.html ; https://github.com/DavidCMeier/CubSMCP/blob/main/commands/cubase13-internal-names.json ; https://github.com/ericksonc/cubase-key-commands/blob/main/public/Key%20Commands.xml"
   },
   {
    "menu": "Edit > Select",
@@ -431,9 +431,9 @@
    "line": "Repeat Section Between Locators",
    "equivalent": "",
    "key": "",
-   "note": "no equivalent as one command (Cubase 14 documents no Global Copy; copy a range, then Paste Time).",
+   "note": "no equivalent as one command (Edit | Global Copy, then Paste Time).",
    "confidence": "medium",
-   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html ; https://github.com/DavidCMeier/CubSMCP/blob/main/commands/cubase13-internal-names.json"
   },
   {
    "menu": "Region",
@@ -701,18 +701,18 @@
    "line": "Follow the Tempo",
    "equivalent": "Musical Mode (Sample Editor / Pool)",
    "key": "",
-   "note": "no default key",
+   "note": "no default key, and Musical Mode has no key command at all (toggled in the Sample Editor / Pool).",
    "confidence": "medium",
    "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/sample_editor_tempo_matching_audio/sample_editor_tempo_matching_audio_musical_mode_c.html"
   },
   {
    "menu": "Region > Tempo",
    "line": "Fit Region to Project Tempo",
-   "equivalent": "",
+   "equivalent": "Audio > Stretch to Project Tempo",
    "key": "",
-   "note": "no equivalent as one command (tempo-match through Musical Mode once the audio's tempo is set).",
-   "confidence": "low",
-   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/sample_editor_tempo_matching_audio/sample_editor_tempo_matching_audio_musical_mode_c.html"
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "https://github.com/DavidCMeier/CubSMCP/blob/main/commands/cubase13-internal-names.json"
   },
   {
    "menu": "Region > Tempo",
@@ -944,7 +944,7 @@
    "line": "Suspend Groups",
    "equivalent": "MixConsole > Suspend All Channel Linking",
    "key": "",
-   "note": "no default key",
+   "note": "no default key; a MixConsole toolbar function with no key command in Steinberg's command list.",
    "confidence": "medium",
    "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/mixconsole/mixconsole_mixconsole_toolbar_r.html"
   },
@@ -1034,18 +1034,18 @@
    "line": "Back a Bar",
    "equivalent": "Transport > Rewind",
    "key": "NumpadSubtract",
-   "note": "Cubase rewinds while held instead of one bar per press; ⌘Num− (Nudge Cursor Left) steps by the grid.",
+   "note": "Cubase rewinds while held instead of one bar per press; ⌘Num− (Nudge Cursor Left) steps by the grid. Transport | Step Back Bar (\"Nudge -1 Bar\", no default key) is the one-bar step.",
    "confidence": "medium",
-   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html ; https://github.com/DavidCMeier/CubSMCP/blob/main/commands/cubase13-internal-names.json"
   },
   {
    "menu": "Transport",
    "line": "Forward a Bar",
    "equivalent": "Transport > Forward",
    "key": "NumpadAdd",
-   "note": "Cubase winds while held instead of one bar per press; ⌘Num+ (Nudge Cursor Right) steps by the grid.",
+   "note": "Cubase winds while held instead of one bar per press; ⌘Num+ (Nudge Cursor Right) steps by the grid. Transport | Step Bar (\"Nudge +1 Bar\", no default key) is the one-bar step.",
    "confidence": "medium",
-   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html ; https://github.com/DavidCMeier/CubSMCP/blob/main/commands/cubase13-internal-names.json"
   },
   {
    "menu": "Transport",
@@ -1195,10 +1195,10 @@
    "menu": "Markers",
    "line": "Add Marker Here",
    "equivalent": "Marker: Add Position Marker on Active Track",
-   "key": "Insert",
-   "note": "Steinberg lists the Insert key; the Cubase 9–12 tables called it \"Windows only\". Most Mac keyboards have no Insert key (older Apple extended keyboards send it from Help), so on a Mac it is effectively unassigned.",
-   "confidence": "low",
-   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_marker_category_c.html ; https://archive.steinberg.help/cubase_pro/v12/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+   "key": "",
+   "note": "no Mac default. Windows default is Insert; Steinberg's Cubase 9–12 tables call it \"Windows only\", and a real Mac Key Commands.xml has no key on it.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_marker_category_c.html ; https://archive.steinberg.help/cubase_pro/v12/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html ; https://github.com/ericksonc/cubase-key-commands/blob/main/public/Key%20Commands.xml"
   },
   {
    "menu": "Markers",
@@ -1455,11 +1455,11 @@
   {
    "menu": "Tools > Tool",
    "line": "Tool Menu",
-   "equivalent": "",
+   "equivalent": "Tool: Pop-up Toolbox",
    "key": "",
-   "note": "no equivalent. T in Cubase = Add Track; F9 / F10 = Previous / Next Tool.",
+   "note": "no default key. T in Cubase = Add Track; F9 / F10 = Previous / Next Tool.",
    "confidence": "medium",
-   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_add_track_category_c.html"
+   "source": "https://github.com/DavidCMeier/CubSMCP/blob/main/commands/cubase13-internal-names.json"
   },
   {
    "menu": "Tools > Edit Mode",
@@ -1482,11 +1482,11 @@
   {
    "menu": "Tools > Edit Mode",
    "line": "Slip",
-   "equivalent": "Snap On/Off (snap switched off)",
+   "equivalent": "Edit: Snap Off",
    "key": "",
-   "note": "no key that only switches snap off; J toggles it.",
+   "note": "no default key; J (Snap On/Off) toggles.",
    "confidence": "medium",
-   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+   "source": "https://github.com/DavidCMeier/CubSMCP/blob/main/commands/cubase13-internal-names.json"
   },
   {
    "menu": "Tools > Edit Mode",
@@ -1986,20 +1986,20 @@
   {
    "menu": "Window",
    "line": "Minimize",
-   "equivalent": "",
+   "equivalent": "Window > Minimize (Windows: Minimize)",
    "key": "",
-   "note": "no equivalent confirmed; ⌘M in Cubase = Open Markers.",
-   "confidence": "low",
-   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_project_category_c.html"
+   "note": "no default key (a real Mac file has none); ⌘M = Open Markers in Cubase.",
+   "confidence": "medium",
+   "source": "https://github.com/DavidCMeier/CubSMCP/blob/main/commands/cubase13-internal-names.json ; https://github.com/ericksonc/cubase-key-commands/blob/main/public/Key%20Commands.xml"
   },
   {
    "menu": "Window",
    "line": "Zoom",
-   "equivalent": "",
+   "equivalent": "Window > Zoom (Windows: Maximize)",
    "key": "",
-   "note": "no equivalent confirmed",
-   "confidence": "low",
-   "source": ""
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "https://github.com/DavidCMeier/CubSMCP/blob/main/commands/cubase13-internal-names.json ; https://github.com/ericksonc/cubase-key-commands/blob/main/public/Key%20Commands.xml"
   },
   {
    "menu": "Window",
@@ -2365,31 +2365,31 @@
   },
   {
    "key": "Insert",
-   "command": "Marker: Add Position Marker on Active Track (Windows; Cubase 9–12 called it \"Windows only\")"
+   "command": "Marker: Add Position Marker on Active Track — Windows default only (Cubase 9–12 \"Windows only\"; absent from a real Mac file)"
   },
   {
    "key": "F5",
    "command": "Media: Open MediaBay"
   },
   {
-   "key": "⌃⌥Numpad6",
-   "command": "Media: Open/Close Attribute Inspector"
+   "key": "⌥⌘Numpad6",
+   "command": "Media: Open/Close Attribute Inspector (Steinberg prints Ctrl-Alt/Opt-Num; a real Mac file has Command+Option+Pad)"
   },
   {
-   "key": "⌃⌥Numpad8",
-   "command": "Media: Open/Close Favorites"
+   "key": "⌥⌘Numpad8",
+   "command": "Media: Open/Close Favorites (Steinberg prints Ctrl-Alt/Opt-Num; a real Mac file has Command+Option+Pad)"
   },
   {
-   "key": "⌃⌥Numpad4",
-   "command": "Media: Open/Close File Browser"
+   "key": "⌥⌘Numpad4",
+   "command": "Media: Open/Close File Browser (Steinberg prints Ctrl-Alt/Opt-Num; a real Mac file has Command+Option+Pad)"
   },
   {
-   "key": "⌃⌥Numpad5",
-   "command": "Media: Open/Close Filters"
+   "key": "⌥⌘Numpad5",
+   "command": "Media: Open/Close Filters (Steinberg prints Ctrl-Alt/Opt-Num; a real Mac file has Command+Option+Pad)"
   },
   {
-   "key": "⌃⌥Numpad2",
-   "command": "Media: Open/Close Previewer"
+   "key": "⌥⌘Numpad2",
+   "command": "Media: Open/Close Previewer (Steinberg prints Ctrl-Alt/Opt-Num; a real Mac file has Command+Option+Pad)"
   },
   {
    "key": "⇧NumpadDivide",
@@ -3211,6 +3211,8 @@
   "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_duplicating_tracks_t.html",
   "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_removing_empty_tracks_t.html",
   "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_renaming_tracks_t.html",
-  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_track_folding_r.html"
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_track_folding_r.html",
+  "https://github.com/DavidCMeier/CubSMCP/blob/main/commands/cubase13-internal-names.json",
+  "https://github.com/ericksonc/cubase-key-commands/blob/main/public/Key%20Commands.xml"
  ]
 }

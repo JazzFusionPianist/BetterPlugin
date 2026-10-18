@@ -137,3 +137,55 @@ THEMES.keys = () => {
   b += swT(28, 655, 'kept as .sska files in Slur Studio / Key Commands; save as default makes them the keys of every new song and of every start', { z: 9.5, a: .45 })
   return swWindow('key commands', b)
 }
+
+/* ── the key commands, as logic pro (11.2, its U.S. set, read from the app itself) ── */
+const KB_LOGIC = { Space: ['play, stop', 't'], KeyR: ['record', 't'], KeyK: ['click', 't'], KeyC: ['cycle', 't'], KeyU: ['cycle it', 't'], Enter: ['to start', 't'], Comma: ['rewind', 't'], Period: ['forward', 't'], Slash: ['go to bar', 't'],
+  KeyQ: ['quantize', 'e'], KeyJ: ['join', 'e'], KeyL: ['loop', 'e'], Semicolon: ['to playhead', 'e'], Backspace: ['delete', 'e'],
+  KeyM: ['mute', 'k'], KeyS: ['solo', 'k'], ArrowLeft: ['earlier', 'k'], ArrowRight: ['later', 'k'], ArrowUp: ['track', 'k'],
+  KeyA: ['automation', 'v'], KeyB: ['patch', 'v'], KeyP: ['notes', 'v'], KeyX: ['mixer', 'v'], KeyZ: ['zoom', 'v'], KeyV: ['plug-ins', 'v'], Backquote: ['find playhead', 'v'],
+  KeyT: ['tools', 'o'], F1: ['shuffle', 'o'], F2: ['slip', 'o'], F3: ['spot', 'o'], F4: ['grid', 'o'], Escape: ['close', 'o'] }
+/* what logic does with a key that slur studio has nothing for: kept empty */
+const KB_LOGIC_ONLY = { Tab: 'window views', KeyD: 'list editors', KeyE: 'editor', KeyF: 'browsers', KeyG: 'global tracks', KeyH: 'hide view', KeyI: 'inspector', KeyN: 'score', KeyO: 'loop browser', KeyW: 'audio editor', KeyY: 'library', BracketLeft: 'patch', BracketRight: 'patch', Quote: 'marker track', Backslash: 'overlaps', Minus: 'param −', Equal: 'param +', Digit1: 'screenset', Digit2: 'screenset', Digit3: 'screenset', Digit4: 'screenset', Digit5: 'screenset', Digit6: 'screenset', Digit7: 'screenset', Digit8: 'screenset', Digit9: 'screenset' }
+const KB_MOVED = new Set(['KeyN', 'Tab', 'BracketLeft', 'BracketRight', 'KeyD', 'KeyF', 'KeyG', 'KeyW', 'KeyO', 'Slash'])
+
+THEMES.keysLogic = () => {
+  const PR = 1100 - 164 - 28
+  let b = swT(28, 34, 'key commands', { z: 13, w: 500 }) + swT(28 + tw2('key commands', swF, 13, 500) + 12, 34, 'as logic pro 11: 154 of its keys, the same', { z: 10, a: .45 })
+  let kx = PR
+  for (const t of ['export .sska…', 'import…', 'save as default']) { const w = swKey(0, 0, t)[1]; kx -= w; b += swKey(kx, 20, t)[0]; kx -= 8 }
+  b += rc(28, 54, PR - 28, 1, { fill: SW.ink, fa: .1 })
+  b += swT(28, 82, 'keys like', { a: .7 }) + swCells(100, 67, ['slur studio', 'logic pro', 'ableton live', 'cubase', 'pro tools'], 'logic pro')[0]
+  b += swKey(PR - swKey(0, 0, 'from my own logic set…')[1], 67, 'from my own logic set…')[0]
+  const u = 52, kh = 40, ky0 = 106, kx0 = 28
+  b += swT(kx0, ky0 + 4, 'with', { z: 9.5, a: .45 }) + swCells(kx0 + 32, ky0 - 11, ['no key', '⇧', '⌥', '⌃', '⌘', '⇧⌘', '⌥⌘'], 'no key', 9.5)[0]
+  b += rc(PR - 330, ky0 - 6, 10, 10, { rx: 2, stroke: SW.amber, sw: 1.4 }) + swT(PR - 314, ky0 + 3, 'not where slur studio had it', { z: 9, a: .6 }) + rc(PR - 146, ky0 - 6, 10, 10, { rx: 2, fill: '#2A2A27', stroke: SW.ink, sa: .12, more: ' stroke-dasharray="2 2"' }) + swT(PR - 130, ky0 + 3, 'logic’s, kept empty', { z: 9, a: .6 })
+  let y = ky0 + 22
+  KB_ROWS.forEach((row, ri) => {
+    let x = kx0
+    const h = ri === 0 ? 26 : kh
+    for (const [cap, code, wu = 1] of row) {
+      const w = u * wu - 4, says = KB_LOGIC[code], only = KB_LOGIC_ONLY[code], fam = says ? KB_FAM[says[1]][0] : null, mod = /Shift|Control|Alt|Meta|Fn|Caps/.test(code), moved = KB_MOVED.has(code)
+      b += rc(x, y, w, h, { rx: 4, fill: fam || '#22221F', fa: fam ? .26 : 1, stroke: moved ? SW.amber : fam || SW.ink, sw: moved ? 1.4 : 1, sa: moved ? 1 : fam ? .75 : .12, more: only && !moved ? ' stroke-dasharray="2 2"' : '' })
+      b += swT(x + 6, y + 13, cap, { z: ri === 0 ? 8.5 : 10, w: 500, a: mod ? .45 : .9 })
+      const word = says ? says[0] : only ? only : null
+      if (word) {
+        const room = ri === 0 ? w - 12 - tw2(cap, swF, 8.5, 500) - 5 : w - 10, sx = ri === 0 ? x + 6 + tw2(cap, swF, 8.5, 500) + 5 : x + 6, sy = ri === 0 ? y + 13 : y + h - 7
+        let t = word, z = 8
+        if (tw2(t, swF, z) > room) z = 7
+        while (t.length > 3 && tw2(t, swF, z, 400, !!only) > room) t = t.slice(0, -2) + '…'
+        b += swT(sx, sy, t, { z, a: only ? .4 : .85, it: !!only })
+      }
+      x += u * wu
+    }
+    y += h + 4
+  })
+  const ly = y + 12
+  b += rc(28, ly - 6, PR - 28, 1, { fill: SW.ink, fa: .1 })
+  const colA = [['import audio', '⌘I', '⇧⌘I'], ['hand off stems', '⌘E', '⇧⌘E'], ['mute a region', 'N', '⌃M'], ['rename a region', '', '⇧N'], ['trim to the playhead', '[  ]', '⌘[  ⌘]'], ['transients', 'tab', '⌃,  ⌃.'], ['group tracks', '⌘G', '⌃⌘G'], ['nudge by a bar, a beat', '⌥⇧M ⌥⇧B', '⌃⌥M ⌃⌥B']]
+  const colB = [['fades for what is chosen', 'F', '⌥⇧F'], ['fade in up to the playhead', 'D', '⌃⇧D'], ['fade out from the playhead', 'G', '⌃⇧G'], ['rubato panel', 'W', '⌃⇧W'], ['slur', 'O', '⌥⇧O'], ['say it', '/', '⌃⇧/'], ['fit a region to the tempo', '⌃⌥F', '⌃⌥E']]
+  const half = (PR - 28) / 2 - 20
+  const col = (x, head, rows) => { let o = swT(x, ly + 18, head, { z: 9.5, a: .45 }); rows.forEach(([w2, from, to], i) => { const yy = ly + 40 + i * 22; o += swT(x, yy, w2, { a: .8 }) + swT(x + half - 92, yy, from || 'none', { z: 10, a: .4, anchor: 'end', more: ' xml:space="preserve"' }) + swT(x + half - 78, yy, '→', { z: 10, a: .4, anchor: 'middle' }) + swT(x + half - 64, yy, to, { z: 10, w: 500, c: SW.amber, more: ' xml:space="preserve"' }) }); return o }
+  b += col(28, 'now where logic has them', colA) + col(28 + half + 40, 'only in slur studio: moved off logic’s keys (the same letter with ⌃⇧, or ⌥⇧)', colB)
+  b += swT(28, 655, 'a key logic gives to something slur studio does not have (F browsers, I inspector, Y library…) is left empty, so a hand from logic presses nothing by mistake', { z: 9.5, a: .45 })
+  return swWindow('key commands', b)
+}

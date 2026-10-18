@@ -1,0 +1,4425 @@
+{
+ "daw": "Pro Tools",
+ "version": "Pro Tools 2025.12 (installed) / Avid Shortcuts Guide 2026.4; macOS, US keyboard, default shortcuts; numeric keypad in Transport mode",
+ "conventions": {
+  "key": "default shortcut with Commands Keyboard Focus off",
+  "keyFocus": "single key with Commands Keyboard Focus on (Edit window a–z button, or ⌥⌘1). Avid: with focus off, the same key held with Control does the same command",
+  "numpad": "Numpad0–9 transport keys need Setup > Preferences > Operation > Numeric Keypad = Transport"
+ },
+ "rows": [
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "General",
+   "equivalent": "Setup > Preferences",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key (⌘Comma is Clip > Identify Sync Point in Pro Tools)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Display",
+   "equivalent": "Setup > Preferences > Display page",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key (inside the Preferences dialog ⌘1 goes to the Display page)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Audio",
+   "equivalent": "Setup > Playback Engine…",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Plug-ins",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Pro Tools has no plug-in manager window",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Slur Studio",
+   "line": "Key Commands",
+   "equivalent": "Setup > Keyboard Shortcuts…",
+   "key": "⌃⇧KeyK",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "File",
+   "line": "New",
+   "equivalent": "File > Create New… (New Session)",
+   "key": "⌘KeyN",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "File",
+   "line": "Open…",
+   "equivalent": "File > Open Session / Open Project…",
+   "key": "⌘KeyO",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "No Projects Yet",
+   "equivalent": "File > Open Recent (placeholder row, not a command)",
+   "key": "",
+   "keyFocus": "",
+   "note": "placeholder only; Pro Tools' File > Open Most Recent (the newest item) is ⇧⌘O",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "More…",
+   "equivalent": "File > Open Dashboard (its Recent list)",
+   "key": "⌥⌘KeyO",
+   "keyFocus": "",
+   "note": "approximate match: the Dashboard lists recent sessions/projects",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "File",
+   "line": "Save",
+   "equivalent": "File > Save",
+   "key": "⌘KeyS",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "File",
+   "line": "Save As…",
+   "equivalent": "File > Save As… (sessions) / Save As New Version (projects)",
+   "key": "⌃⌘KeyS",
+   "keyFocus": "",
+   "note": "Avid gives ⌃⌘S in both the Shortcuts Guide and the Reference Guide (some third-party lists say ⇧⌘S; that is not what Avid documents)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Saving Sessions and Projects)"
+  },
+  {
+   "menu": "File",
+   "line": "Rename…",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Pro Tools renames a session through File > Save As",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "File",
+   "line": "Revert To…",
+   "equivalent": "File > Revert to Saved",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key; for cloud projects the Revision History window is ⌃⌘O",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Saving Sessions and Projects); Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "File",
+   "line": "Find Missing Sounds…",
+   "equivalent": "Relink window (Relink Offline)",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key; Pro Tools also offers to relink when a session with missing files is opened",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Linking and Relinking Files)"
+  },
+  {
+   "menu": "File",
+   "line": "Import Audio…",
+   "equivalent": "File > Import > Audio…",
+   "key": "⇧⌘KeyI",
+   "keyFocus": "",
+   "note": "⌘I in Pro Tools is Event > Identify Beat",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off…",
+   "equivalent": "File > Bounce Mix…",
+   "key": "⌥⌘KeyB",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off Stems…",
+   "equivalent": "Track > Bounce… (Track Bounce of the selected tracks)",
+   "key": "⌥⇧⌘KeyB",
+   "keyFocus": "",
+   "note": "closest match for stems; ⌘E in Pro Tools is Separate Clip at Selection",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place",
+   "equivalent": "Track > Commit…",
+   "key": "⌥⇧KeyC",
+   "keyFocus": "",
+   "note": "renders the tracks with their plug-ins to new tracks; ⌃B in Pro Tools is Separate (Commands Focus B held with Control)",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place in Realtime",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Commit always renders offline; a realtime render in place is done by bussing to a new track and recording",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Edit",
+   "line": "Undo",
+   "equivalent": "Edit > Undo",
+   "key": "⌘KeyZ",
+   "keyFocus": "KeyZ",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit",
+   "line": "Redo",
+   "equivalent": "Edit > Redo",
+   "key": "⇧⌘KeyZ",
+   "keyFocus": "⇧KeyZ",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut",
+   "equivalent": "Edit > Cut",
+   "key": "⌘KeyX",
+   "keyFocus": "KeyX",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit",
+   "line": "Copy",
+   "equivalent": "Edit > Copy",
+   "key": "⌘KeyC",
+   "keyFocus": "KeyC",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit",
+   "line": "Paste",
+   "equivalent": "Edit > Paste",
+   "key": "⌘KeyV",
+   "keyFocus": "KeyV",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit",
+   "line": "Delete",
+   "equivalent": "Delete selection (same as Edit > Clear)",
+   "key": "Backspace",
+   "keyFocus": "",
+   "note": "forward Delete also works; Edit > Clear is ⌘B",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit",
+   "line": "Select All",
+   "equivalent": "Edit > Select All",
+   "key": "⌘KeyA",
+   "keyFocus": "",
+   "note": "selects the whole of the tracks holding the edit cursor; Return then ⌘A selects all clips on all tracks",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "None",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. there is no deselect command; ⇧D in Pro Tools bypasses Delay plug-ins on selected tracks",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Invert",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. ⇧I in Pro Tools TrackInput-monitors the tracks holding the edit selection",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following",
+   "equivalent": "Extend selection to end of session",
+   "key": "",
+   "keyFocus": "",
+   "note": "no all-tracks variant: Pro Tools extends only on the tracks that hold the edit cursor, which is the next row (⌥⇧Return); ⇧F in Pro Tools opens/closes folder tracks",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following on the Same Track",
+   "equivalent": "Extend selection to end of session",
+   "key": "⌥⇧Enter",
+   "keyFocus": "",
+   "note": "extends from the edit cursor to the session end on the tracks holding the cursor",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Inside the Cycle",
+   "equivalent": "Edit > Selection > Change Edit to Match Timeline",
+   "key": "⌥⇧Numpad6",
+   "keyFocus": "Digit0",
+   "note": "the cycle range is the Timeline selection; with Options > Link Timeline and Edit Selection on (the default) the two already match",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Muted Regions",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. ⇧M in Pro Tools mutes the tracks holding the edit selection",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Region",
+   "equivalent": "Go to and select previous clip",
+   "key": "⌃⌥Tab",
+   "keyFocus": "",
+   "note": "also ⌃⌘L; ← in Pro Tools locates to the selection start (and selects the previous note when MIDI notes are selected)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Region",
+   "equivalent": "Go to and select next clip",
+   "key": "⌃Tab",
+   "keyFocus": "",
+   "note": "also ⌃⌘Quote ('); → locates to the selection end",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Previous Region",
+   "equivalent": "Extend selection to include previous clip",
+   "key": "⌃⌥⇧Tab",
+   "keyFocus": "",
+   "note": "also ⌃⇧⌘L",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Next Region",
+   "equivalent": "Extend selection to include next clip",
+   "key": "⌃⇧Tab",
+   "keyFocus": "",
+   "note": "also ⌃⇧⌘Quote",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "First Region",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Return (go to session start) then ⌃Tab selects the first clip; ⇧Home in Pro Tools focuses the first playlist lane",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Last Region",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. ⌥Return (go to end) then ⌃⌥Tab selects the last clip; ⇧End focuses the last playlist lane",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Track",
+   "equivalent": "Edit > Selection > Move Edit Up",
+   "key": "⌃KeyP",
+   "keyFocus": "KeyP",
+   "note": "↑ in Pro Tools moves the insertion to the end of the selection",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Track",
+   "equivalent": "Edit > Selection > Move Edit Down",
+   "key": "⌃Semicolon",
+   "keyFocus": "Semicolon",
+   "note": "↓ in Pro Tools moves the insertion to the start of the selection",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Playhead",
+   "equivalent": "Edit > Separate Clip > At Selection",
+   "key": "⌘KeyE",
+   "keyFocus": "KeyB",
+   "note": "separates at the edit insertion, which follows the playhead when Insertion Follows Playback is on; ⌘T in Pro Tools is Trim Clip to Selection",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Cycle Ends",
+   "equivalent": "Edit > Separate Clip > At Selection",
+   "key": "",
+   "keyFocus": "",
+   "note": "same Pro Tools command as Split at Playhead (⌘E / Focus B): with a range selected it separates at both ends; no second key",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit",
+   "line": "Join",
+   "equivalent": "Edit > Consolidate Clip",
+   "key": "⌥⇧Digit3",
+   "keyFocus": "",
+   "note": "renders the selection into one new clip, like Slur's Join; Edit > Heal Separation (⌘H) rejoins pieces of one clip without rendering",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat",
+   "equivalent": "Edit > Duplicate",
+   "key": "⌘KeyD",
+   "keyFocus": "",
+   "note": "places one copy right after the selection; Edit > Repeat… (⌥R) asks for a count; ⌘R in Pro Tools is Clip > Capture",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut Section Between Locators",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. done with a range on all tracks in Shuffle mode; ⌃⌘X in Pro Tools is Cut including all automation playlists",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Silence at Locators",
+   "equivalent": "Edit > Insert Silence",
+   "key": "⇧⌘KeyE",
+   "keyFocus": "",
+   "note": "inserts on the tracks in the selection; ⌃⇧⌘E also inserts in all automation playlists",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Section at Playhead",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Paste in Shuffle mode; ⌃⌘V in Pro Tools is Paste Special > to Current Automation Type",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat Section Between Locators",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Duplicate (⌘D) with the range selected on all tracks; ⌃⌘R in Pro Tools is Trim Clip to File Start",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Region",
+   "line": "Mute",
+   "equivalent": "Edit > Mute/Unmute Clips",
+   "key": "⌘KeyM",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region",
+   "line": "Rename…",
+   "equivalent": "Clip > Rename…",
+   "key": "⌥⇧⌘KeyR",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead",
+   "equivalent": "Snap Clip Start to Play Position",
+   "key": "⌃KeyH",
+   "keyFocus": "KeyH",
+   "note": "Commands Focus H; with focus off the same key with Control (Avid: every Commands Focus key works with Control). ; in Commands Focus is Move Edit Insertion to Next Track",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Reference Guide > Keyboard Focus: with Commands Keyboard Focus off, any Commands Focus key works with Control (Mac)"
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead and Select Next",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Region",
+   "line": "Loop to the Next Region",
+   "equivalent": "Clip > Loop… (option \"Loop Until End of Session or Next Clip\")",
+   "key": "⌥⌘KeyL",
+   "keyFocus": "",
+   "note": "opens the Clip Looping dialog; L in Commands Focus is Move Edit Insertion to Previous Edit",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Creating Looped Clips)"
+  },
+  {
+   "menu": "Region",
+   "line": "Trim Start to Playhead",
+   "equivalent": "Edit > Trim Clip > Start to Insertion",
+   "key": "⌥⇧Digit7",
+   "keyFocus": "KeyA",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region",
+   "line": "Trim End to Playhead",
+   "equivalent": "Edit > Trim Clip > End to Insertion",
+   "key": "⌥⇧Digit8",
+   "keyFocus": "KeyS",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Left",
+   "equivalent": "Edit > Snap to Previous",
+   "key": "⌃⌥Comma",
+   "keyFocus": "",
+   "note": "moves the selected clip back until it butts against the previous clip",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Right",
+   "equivalent": "Edit > Snap to Next",
+   "key": "⌃⌥Period",
+   "keyFocus": "",
+   "note": "moves the selected clip on until it butts against the next clip",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 1 dB",
+   "equivalent": "Nudge clip gain up",
+   "key": "⌃⇧ArrowUp",
+   "keyFocus": "",
+   "note": "the step is the Clip Gain Nudge Value in Preferences > Editing, not fixed at 1 dB",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 1 dB",
+   "equivalent": "Nudge clip gain down",
+   "key": "⌃⇧ArrowDown",
+   "keyFocus": "",
+   "note": "step set in Preferences > Editing",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 0.1 dB",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Pro Tools has a single clip-gain nudge step",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 0.1 dB",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Pro Tools has a single clip-gain nudge step",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Back to 0 dB",
+   "equivalent": "Edit > Clear Special > Clip Gain",
+   "key": "⌃⇧KeyB",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up a Semitone",
+   "equivalent": "Transpose selected MIDI notes up a semitone",
+   "key": "ArrowUp",
+   "keyFocus": "",
+   "note": "MIDI notes only (notes selected); audio clips have no transpose key (Elastic pitch in Clip > Elastic Properties); ⌥↑ copies and transposes",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down a Semitone",
+   "equivalent": "Transpose selected MIDI notes down a semitone",
+   "key": "ArrowDown",
+   "keyFocus": "",
+   "note": "MIDI notes only",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up an Octave",
+   "equivalent": "Transpose selected MIDI notes up an octave",
+   "key": "⇧ArrowUp",
+   "keyFocus": "",
+   "note": "MIDI notes only; ⌥⇧↑ copies and transposes",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down an Octave",
+   "equivalent": "Transpose selected MIDI notes down an octave",
+   "key": "⇧ArrowDown",
+   "keyFocus": "",
+   "note": "MIDI notes only",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Up 10 Cents",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Elastic pitch is typed into Clip > Elastic Properties; no key",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Down 10 Cents",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Elastic pitch is typed into Clip > Elastic Properties; no key",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Back to the Original Pitch",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. reset in Clip > Elastic Properties; no key",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Region",
+   "line": "Reverse",
+   "equivalent": "AudioSuite > Other > Reverse",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fades for Selection",
+   "equivalent": "Edit > Fades > Create…",
+   "key": "⌘KeyF",
+   "keyFocus": "KeyF",
+   "note": "⌘F opens the Fades dialog; ⌃⌘F (and Commands Focus F) apply the fade/crossfade without the dialog",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade In up to the Playhead",
+   "equivalent": "Edit > Fades > Fade to Start",
+   "key": "⌃KeyD",
+   "keyFocus": "KeyD",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade Out from the Playhead",
+   "equivalent": "Edit > Fades > Fade to End",
+   "key": "⌃KeyG",
+   "keyFocus": "KeyG",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Earlier",
+   "equivalent": "Nudge back by the Nudge value",
+   "key": "NumpadSubtract",
+   "keyFocus": "Comma",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Later",
+   "equivalent": "Nudge forward by the Nudge value",
+   "key": "NumpadAdd",
+   "keyFocus": "Period",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Shorter",
+   "equivalent": "Trim clip end left by the Nudge value",
+   "key": "⌘NumpadSubtract",
+   "keyFocus": "",
+   "note": "⌥Numpad−/+ trims the clip start",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Longer",
+   "equivalent": "Trim clip end right by the Nudge value",
+   "key": "⌘NumpadAdd",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Follow the Tempo",
+   "equivalent": "Track timebase set to Ticks (with Elastic Audio on)",
+   "key": "",
+   "keyFocus": "",
+   "note": "a track setting with no menu command or default key; ⌃F in Pro Tools is Crossfade without dialog (Commands Focus F with Control)",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Tempo)"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Fit Region to Project Tempo",
+   "equivalent": "Clip > Conform to Tempo",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Tempo > Conform to Tempo)"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Set Project Tempo from Region",
+   "equivalent": "Event > Identify Beat…",
+   "key": "⌘KeyI",
+   "keyFocus": "",
+   "note": "closest: sets bar/beat positions (tempo) from the selection",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region",
+   "line": "Quantize",
+   "equivalent": "Clip > MIDI Quantize",
+   "key": "⌥⌘Digit0",
+   "keyFocus": "",
+   "note": "quantizes the selected notes with the current Quantize settings; ⌘0 is Clip > Quantize to Grid (moves clip starts); ⌥0 opens Event > MIDI Operations > Quantize",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Quantize MIDI)"
+  },
+  {
+   "menu": "Region",
+   "line": "Undo Quantize",
+   "equivalent": "Event > MIDI Operations > Restore Performance",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Restore Performance)"
+  },
+  {
+   "menu": "Region",
+   "line": "Strip Silence",
+   "equivalent": "Edit > Strip Silence",
+   "key": "⌘KeyU",
+   "keyFocus": "",
+   "note": "opens the Strip Silence window; ⌃X in Pro Tools is Cut (including automation)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region",
+   "line": "Group",
+   "equivalent": "Clip > Group",
+   "key": "⌥⌘KeyG",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region",
+   "line": "Ungroup",
+   "equivalent": "Clip > Ungroup",
+   "key": "⌥⌘KeyU",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Region",
+   "line": "Colour and Outline…",
+   "equivalent": "Window > Color Palette",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key (double-clicking a track colour strip also opens it)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Color Palette)"
+  },
+  {
+   "menu": "Track",
+   "line": "New Tracks…",
+   "equivalent": "Track > New…",
+   "key": "⇧⌘KeyN",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track",
+   "line": "New Audio Track",
+   "equivalent": "Track > New… with Audio Track",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for one type: ⇧⌘N opens New Tracks (Audio Track is the first type; ⌘↑/↓ cycles types); ⌘-double-click in the empty track area adds an Audio track",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track",
+   "line": "New Instrument Track",
+   "equivalent": "Track > New… with Instrument Track",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key; ⌥-double-click in the empty track area adds a stereo Instrument track",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track",
+   "line": "New Bus",
+   "equivalent": "Track > New… with Aux Input",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key; ⌃-double-click in the empty track area adds an Aux Input; ⌃N in Pro Tools toggles Insertion Follows Playback",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate",
+   "equivalent": "Track > Duplicate… (with Active Playlist unticked)",
+   "key": "",
+   "keyFocus": "",
+   "note": "Pro Tools has one Track > Duplicate dialog (⌥⇧D, next row), whose default copies the clips; ⌘D in Pro Tools is Edit > Duplicate",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate with Its Regions",
+   "equivalent": "Track > Duplicate…",
+   "key": "⌥⇧KeyD",
+   "keyFocus": "",
+   "note": "default dialog settings copy the active playlist (the regions)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track",
+   "line": "Rename…",
+   "equivalent": "Batch Track Rename… (right-click track name > Batch Rename)",
+   "key": "⌥⇧KeyR",
+   "keyFocus": "",
+   "note": "given in the Reference Guide, not in the Shortcuts Guide; a single track is renamed by double-clicking its name",
+   "confidence": "high",
+   "source": "Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Creating Tracks > Batch Track Rename)"
+  },
+  {
+   "menu": "Track",
+   "line": "Delete",
+   "equivalent": "Track > Delete",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key; ⌘Delete in Pro Tools clears all track data in the selection (layered editing)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Creating Tracks; Layered Editing)"
+  },
+  {
+   "menu": "Track",
+   "line": "Delete Empty Tracks",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Track",
+   "line": "Mute",
+   "equivalent": "Mute tracks holding the edit cursor/selection",
+   "key": "⇧KeyM",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track",
+   "line": "Solo",
+   "equivalent": "Solo tracks holding the edit cursor/selection",
+   "key": "⇧KeyS",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track",
+   "line": "Record Enable",
+   "equivalent": "Record-enable tracks holding the edit cursor/selection",
+   "key": "⇧KeyR",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track",
+   "line": "Hear the Input",
+   "equivalent": "TrackInput-monitor tracks holding the edit cursor/selection",
+   "key": "⇧KeyI",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Make a Stack",
+   "equivalent": "Track > Move to New Folder…",
+   "key": "⌥⇧⌘KeyN",
+   "keyFocus": "",
+   "note": "Pro Tools folder tracks (Basic or Routing Folder) stand in for stacks",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Take the Stack Apart",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. no command to dissolve a folder; tracks are dragged out",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Open the Stack",
+   "equivalent": "Open/Close folder tracks holding the edit cursor/selection (toggle)",
+   "key": "⇧KeyF",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Close the Stack",
+   "equivalent": "Open/Close folder tracks holding the edit cursor/selection (toggle)",
+   "key": "",
+   "keyFocus": "",
+   "note": "same ⇧F toggle as Open the Stack; no separate key",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track",
+   "line": "Group Tracks",
+   "equivalent": "Track > Group…",
+   "key": "⌘KeyG",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track",
+   "line": "Suspend Groups",
+   "equivalent": "Suspend All Groups",
+   "key": "⇧⌘KeyG",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Typing Keyboard",
+   "equivalent": "Window > MIDI Keyboard",
+   "key": "⇧KeyK",
+   "keyFocus": "",
+   "note": "plays notes from the computer keyboard; ⌘K in Pro Tools toggles Pre/Post-Roll",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (MIDI Keyboard Window)"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Capture as Recording",
+   "equivalent": "Event > Retrospective MIDI Record",
+   "key": "⌥⇧KeyZ",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "All Notes Off",
+   "equivalent": "Event > All MIDI Notes Off",
+   "key": "⇧⌘Period",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Play or Stop",
+   "equivalent": "Start/stop playback",
+   "key": "Space",
+   "keyFocus": "",
+   "note": "Numpad0 also, in the Transport numeric-keypad mode",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Play from Selection",
+   "equivalent": "Edit > Selection > Play Edit Selection",
+   "key": "⌥BracketLeft",
+   "keyFocus": "BracketLeft",
+   "note": "⇧Space in Pro Tools is half-speed playback; Space already starts at the selection start",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Record",
+   "equivalent": "Record",
+   "key": "⌘Space",
+   "keyFocus": "",
+   "note": "also F12, and Numpad3 in Transport keypad mode; macOS Spotlight must be moved off ⌘Space for it to work",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Discard Recording",
+   "equivalent": "Stop recording and discard the take",
+   "key": "⌘Period",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Start",
+   "equivalent": "Return to Zero (start of session)",
+   "key": "Enter",
+   "keyFocus": "",
+   "note": "main Return key; ⌃Return goes to the Song Start marker; keypad Enter adds a marker",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to End of Sound",
+   "equivalent": "Go to End of session",
+   "key": "⌥Enter",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Back a Bar",
+   "equivalent": "Rewind (each press steps back one bar when the Main Time Scale is Bars|Beats)",
+   "key": "Numpad1",
+   "keyFocus": "",
+   "note": "needs the Transport numeric-keypad mode (Operation preference; generally the factory setting); Avid's bundled presets also record ⇧Comma as Rewind's factory key; Comma in Commands Focus nudges back",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Setting the Playback Location; Transport Window); Avid's factory alternate keyboard presets bundled with Pro Tools 2025.12 (each records the factory key it replaces)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward a Bar",
+   "equivalent": "Fast Forward (steps one bar in Bars|Beats)",
+   "key": "Numpad2",
+   "keyFocus": "",
+   "note": "Transport keypad mode; Avid's bundled presets also record ⇧Period as Fast Forward's factory key",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Setting the Playback Location); Avid's factory alternate keyboard presets bundled with Pro Tools 2025.12 (each records the factory key it replaces)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Back Eight Bars",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. ⇧Comma is Rewind in Pro Tools (factory key recorded in Avid's bundled presets)",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid's factory alternate keyboard presets bundled with Pro Tools 2025.12 (each records the factory key it replaces)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward Eight Bars",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. ⇧Period is Fast Forward in Pro Tools (factory key recorded in Avid's bundled presets)",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid's factory alternate keyboard presets bundled with Pro Tools 2025.12 (each records the factory key it replaces)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Previous Transient",
+   "equivalent": "Locate to previous transient (Tab to Transients on)",
+   "key": "⌥Tab",
+   "keyFocus": "",
+   "note": "⌥⌘Tab toggles Tab to Transients; with it off ⌥Tab goes to the previous clip boundary",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Next Transient",
+   "equivalent": "Locate to next transient (Tab to Transients on)",
+   "key": "Tab",
+   "keyFocus": "",
+   "note": "with Tab to Transients off, Tab goes to the next clip boundary",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Bar…",
+   "equivalent": "Type a location into the Main Counter, then Enter",
+   "key": "NumpadMultiply",
+   "keyFocus": "",
+   "note": "Slash in Commands Focus nudges later by the next nudge value; ⇧Slash toggles Link Timeline and Edit Selection",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Setting the Playback Location)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Cycle",
+   "equivalent": "Options > Loop Playback",
+   "key": "⇧⌘KeyL",
+   "keyFocus": "",
+   "note": "Numpad4 also, in Transport keypad mode",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Set to Selection",
+   "equivalent": "Edit > Selection > Change Timeline to Match Edit",
+   "key": "⌥⇧Numpad5",
+   "keyFocus": "KeyO",
+   "note": "Avid's guide puts it on the numeric keypad; Avid's bundled presets also record ⌥⇧5 on the number row; with Link Timeline and Edit Selection on (the default) the two already match",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid's factory alternate keyboard presets bundled with Pro Tools 2025.12 (each records the factory key it replaces)"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its Start",
+   "equivalent": "Locate to the start of the selection (= the loop range)",
+   "key": "ArrowLeft",
+   "keyFocus": "",
+   "note": "Reference Guide: after stopping, Left Arrow locates to the selection start; ↓ moves the insertion there and collapses the selection; Commands Focus Q only scrolls to it",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Navigating a Pro Tools Session with Keyboard Shortcuts)"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its End",
+   "equivalent": "Locate to the end of the selection",
+   "key": "ArrowRight",
+   "keyFocus": "",
+   "note": "↑ moves the insertion to the end and collapses the selection; Commands Focus W only scrolls to it",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Navigating a Pro Tools Session with Keyboard Shortcuts)"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Forward by Its Length",
+   "equivalent": "Edit > Selection > Move Edit Right",
+   "key": "⌃⌥⌘Quote",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Back by Its Length",
+   "equivalent": "Edit > Selection > Move Edit Left",
+   "key": "⌃⌥⌘KeyL",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Twice as Long",
+   "equivalent": "Edit > Selection > Double Selection",
+   "key": "⌃⌥⇧⌘Quote",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Half as Long",
+   "equivalent": "Edit > Selection > Halve Selection",
+   "key": "⌃⌥⇧⌘KeyL",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Zoom to the Cycle",
+   "equivalent": "Zoom to the selection (fill window with selection)",
+   "key": "⌥KeyF",
+   "keyFocus": "",
+   "note": "⌃⌥F also takes MIDI notes into account; ⌃⌘] zooms in on the selection without vertical change",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Click",
+   "equivalent": "Click (metronome) on/off",
+   "key": "Numpad7",
+   "keyFocus": "",
+   "note": "Transport keypad mode; the Options > Click menu item has no default key",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Count-In",
+   "equivalent": "Countoff on/off",
+   "key": "Numpad8",
+   "keyFocus": "",
+   "note": "Transport keypad mode; ⇧K in Pro Tools opens the MIDI Keyboard window",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker Here",
+   "equivalent": "Create Memory Location (marker)",
+   "key": "NumpadEnter",
+   "keyFocus": "",
+   "note": "⌘NumpadEnter also adds one (Avid's guide: to the Marker ruler without the dialog)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker for Selection",
+   "equivalent": "Create Memory Location with Time Properties = Selection",
+   "key": "",
+   "keyFocus": "",
+   "note": "same keypad Enter; the selection is stored when Selection is chosen in the New Memory Location dialog; no separate key",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Markers",
+   "line": "Rename Marker…",
+   "equivalent": "Edit Memory Location",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key (⌘-click the marker)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Markers",
+   "line": "Delete Marker Here",
+   "equivalent": "Delete Memory Location",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key (⌥-click the marker, or Delete in the Memory Locations window)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Markers",
+   "line": "Previous Marker",
+   "equivalent": "Go to Previous Memory Location",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key in the Transport keypad mode; in Shuttle keypad mode (Ultimate) it is . number −; in the Memory Locations window ↑ recalls the previous one",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Markers",
+   "line": "Next Marker",
+   "equivalent": "Go to Next Memory Location",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key in the Transport keypad mode; Shuttle mode: . number +; Memory Locations window: ↓",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Markers",
+   "line": "Cycle the Marker",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. recalling a Selection memory location sets the range, but there is no key that makes a marker the loop",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 1",
+   "equivalent": "Recall Memory Location 1",
+   "key": "",
+   "keyFocus": "",
+   "note": "a keypad sequence, not one key: . 1 . (Transport/Shuttle keypad mode; Classic mode: 1 then .); Numpad1 alone is Rewind",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Recalling Memory Locations)"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 2",
+   "equivalent": "Recall Memory Location 2",
+   "key": "",
+   "keyFocus": "",
+   "note": "a keypad sequence, not one key: . 2 . (Transport/Shuttle keypad mode; Classic mode: 2 then .); Numpad2 alone is Fast Forward",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Recalling Memory Locations)"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 3",
+   "equivalent": "Recall Memory Location 3",
+   "key": "",
+   "keyFocus": "",
+   "note": "a keypad sequence, not one key: . 3 . (Transport/Shuttle keypad mode; Classic mode: 3 then .); Numpad3 alone is Record",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Recalling Memory Locations)"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 4",
+   "equivalent": "Recall Memory Location 4",
+   "key": "",
+   "keyFocus": "",
+   "note": "a keypad sequence, not one key: . 4 . (Transport/Shuttle keypad mode; Classic mode: 4 then .); Numpad4 alone is Loop Playback",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Recalling Memory Locations)"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 5",
+   "equivalent": "Recall Memory Location 5",
+   "key": "",
+   "keyFocus": "",
+   "note": "a keypad sequence, not one key: . 5 . (Transport/Shuttle keypad mode; Classic mode: 5 then .); Numpad5 alone is Loop Record",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Recalling Memory Locations)"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 6",
+   "equivalent": "Recall Memory Location 6",
+   "key": "",
+   "keyFocus": "",
+   "note": "a keypad sequence, not one key: . 6 . (Transport/Shuttle keypad mode; Classic mode: 6 then .); Numpad6 alone is QuickPunch",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Recalling Memory Locations)"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 7",
+   "equivalent": "Recall Memory Location 7",
+   "key": "",
+   "keyFocus": "",
+   "note": "a keypad sequence, not one key: . 7 . (Transport/Shuttle keypad mode; Classic mode: 7 then .); Numpad7 alone is Click",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Recalling Memory Locations)"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 8",
+   "equivalent": "Recall Memory Location 8",
+   "key": "",
+   "keyFocus": "",
+   "note": "a keypad sequence, not one key: . 8 . (Transport/Shuttle keypad mode; Classic mode: 8 then .); Numpad8 alone is Countoff",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Recalling Memory Locations)"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 9",
+   "equivalent": "Recall Memory Location 9",
+   "key": "",
+   "keyFocus": "",
+   "note": "a keypad sequence, not one key: . 9 . (Transport/Shuttle keypad mode; Classic mode: 9 then .); Numpad9 alone is MIDI Merge",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Recalling Memory Locations)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pointer",
+   "equivalent": "Grabber tool",
+   "key": "F8",
+   "keyFocus": "",
+   "note": "⌘4 also",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Smart",
+   "equivalent": "Smart Tool",
+   "key": "⌘Digit7",
+   "keyFocus": "",
+   "note": "or F6+F7 / F7+F8 pressed together",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pencil",
+   "equivalent": "Pencil tool",
+   "key": "F10",
+   "keyFocus": "",
+   "note": "⌘6 also",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Eraser",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. the Pencil with ⌥ erases MIDI notes",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Scissors",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. clips are split with Separate (⌘E / Focus B)",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Join",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Mute",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Gain",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. clip gain is dragged on the clip gain line",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Fade",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. fades are drawn with the Smart Tool corners",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Marquee",
+   "equivalent": "Selector tool",
+   "key": "F7",
+   "keyFocus": "",
+   "note": "⌘3 also",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Rubato",
+   "equivalent": "Trimmer tool in TCE (time-stretch) mode",
+   "key": "F6",
+   "keyFocus": "",
+   "note": "closest only: F6 selects the Trimmer and pressing it again cycles its modes; Elastic Audio warp markers are edited with the Grabber/Pencil in Warp view",
+   "confidence": "low",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Zoom",
+   "equivalent": "Zoomer tool",
+   "key": "F5",
+   "keyFocus": "",
+   "note": "⌘1 also",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Velocity",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. velocities are edited with the Pencil/Grabber in the velocity lane",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Tool Menu",
+   "equivalent": "Cycle through Edit tools",
+   "key": "Escape",
+   "keyFocus": "",
+   "note": "there is no tool pop-up key; T in Commands Focus is Zoom In",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Smart",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Grid",
+   "equivalent": "Grid mode",
+   "key": "F4",
+   "keyFocus": "",
+   "note": "⌥4 also; ⇧F4 adds Snap to Grid to another mode",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip",
+   "equivalent": "Slip mode",
+   "key": "F2",
+   "keyFocus": "",
+   "note": "⌥2 also",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Shuffle",
+   "equivalent": "Shuffle mode",
+   "key": "F1",
+   "keyFocus": "",
+   "note": "⌥1 also",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Spot",
+   "equivalent": "Spot mode",
+   "key": "F3",
+   "keyFocus": "",
+   "note": "⌥3 also",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip, and Back",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Backquote (`) cycles the Edit modes; ⌘G in Pro Tools is Track > Group",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/1",
+   "equivalent": "Grid value: 1 bar",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌃⌥Numpad+/− steps the Grid value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/2",
+   "equivalent": "Grid value: 1/2 note",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌃⌥Numpad+/− steps the Grid value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/4",
+   "equivalent": "Grid value: 1/4 note",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌃⌥Numpad+/− steps the Grid value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/8",
+   "equivalent": "Grid value: 1/8 note",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌃⌥Numpad+/− steps the Grid value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/16",
+   "equivalent": "Grid value: 1/16 note",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌃⌥Numpad+/− steps the Grid value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/32",
+   "equivalent": "Grid value: 1/32 note",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌃⌥Numpad+/− steps the Grid value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/3",
+   "equivalent": "Grid value: 1/2 note, Triplet",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌃⌥Numpad+/− steps the Grid value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/6",
+   "equivalent": "Grid value: 1/4 note, Triplet",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌃⌥Numpad+/− steps the Grid value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/12",
+   "equivalent": "Grid value: 1/8 note, Triplet",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌃⌥Numpad+/− steps the Grid value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/24",
+   "equivalent": "Grid value: 1/16 note, Triplet",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌃⌥Numpad+/− steps the Grid value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Bar",
+   "equivalent": "Nudge value: 1 bar",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌥⌘Numpad+/− steps the Nudge value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Beat",
+   "equivalent": "Nudge value: 1/4 note (one beat)",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌥⌘Numpad+/− steps the Nudge value (⌥⇧B in Pro Tools is Clip > Send to Back)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1/16",
+   "equivalent": "Nudge value: 1/16 note",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌥⌘Numpad+/− steps the Nudge value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ticks",
+   "equivalent": "Nudge value: 10 ticks (typed)",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌥⌘Numpad+/− steps the Nudge value (⌥⇧T in Pro Tools is Move Selection to Target Playlist)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Tick",
+   "equivalent": "Nudge value: 1 tick (typed)",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌥⌘Numpad+/− steps the Nudge value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ms",
+   "equivalent": "Nudge value: 10 msec",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌥⌘Numpad+/− steps the Nudge value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1 ms",
+   "equivalent": "Nudge value: 1 msec",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌥⌘Numpad+/− steps the Nudge value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Sample",
+   "equivalent": "Nudge value: 1 sample",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key for a given value; ⌥⌘Numpad+/− steps the Nudge value",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/4",
+   "equivalent": "MIDI Operations > Quantize grid: 1/4 note",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key (set in the Quantize page or the toolbar Quantize grid)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8",
+   "equivalent": "MIDI Operations > Quantize grid: 1/8 note",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key (set in the Quantize page or the toolbar Quantize grid)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8 Triplet",
+   "equivalent": "MIDI Operations > Quantize grid: 1/8 note, Triplet",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key (set in the Quantize page or the toolbar Quantize grid)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16",
+   "equivalent": "MIDI Operations > Quantize grid: 1/16 note",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key (set in the Quantize page or the toolbar Quantize grid)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16 Triplet",
+   "equivalent": "MIDI Operations > Quantize grid: 1/16 note, Triplet",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key (set in the Quantize page or the toolbar Quantize grid)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/32",
+   "equivalent": "MIDI Operations > Quantize grid: 1/32 note",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key (set in the Quantize page or the toolbar Quantize grid)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "View",
+   "line": "Patch",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Slur-only panel; B in Commands Focus is Separate (⌃B with focus off)",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "View",
+   "line": "Mixer",
+   "equivalent": "Window > Mix (toggles Mix and Edit windows)",
+   "key": "⌘Equal",
+   "keyFocus": "",
+   "note": "X in Commands Focus is Cut",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "View",
+   "line": "Notes",
+   "equivalent": "Docked MIDI Editor show/hide",
+   "key": "⌃⌥⇧Equal",
+   "keyFocus": "",
+   "note": "⌃= opens/closes a separate MIDI Editor window; P in Commands Focus is Move Edit Up",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "View",
+   "line": "Prompt",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Slur-only; Pro Tools Search (⌃⇧S) is the nearest and is given to Say It",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "View",
+   "line": "Rubato Panel",
+   "equivalent": "Clip > Elastic Properties",
+   "key": "⌥Numpad5",
+   "keyFocus": "",
+   "note": "nearest Pro Tools window for a clip's Elastic Audio settings; W in Commands Focus shows the Timeline selection end",
+   "confidence": "low",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "View",
+   "line": "Slur",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Slur-only panel; O in Commands Focus is Change Timeline to Match Edit",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "View",
+   "line": "Automation",
+   "equivalent": "Toggle Track View (waveform / volume) on tracks holding the selection",
+   "key": "⌃Minus",
+   "keyFocus": "Minus",
+   "note": "⌥⌃Minus does it for all tracks; A in Commands Focus is Trim Clip Start to Cursor",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Setting Track Views in the Edit Window)"
+  },
+  {
+   "menu": "View",
+   "line": "Next Automation Parameter",
+   "equivalent": "Next Track View on tracks holding the selection",
+   "key": "⌃⌘ArrowRight",
+   "keyFocus": "",
+   "note": "⌃⌘ArrowLeft is the previous; ⌃⌥⌘ arrows do it for all tracks",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "View",
+   "line": "Rubato View",
+   "equivalent": "Track View: Warp",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key (reached by stepping Track Views with ⌃⌘←/→); ⌘F in Pro Tools is Fades",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom In",
+   "equivalent": "Horizontal zoom in",
+   "key": "⌘BracketRight",
+   "keyFocus": "KeyT",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom Out",
+   "equivalent": "Horizontal zoom out",
+   "key": "⌘BracketLeft",
+   "keyFocus": "KeyR",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom to Fit or Selection",
+   "equivalent": "Zoom Toggle",
+   "key": "⌃KeyE",
+   "keyFocus": "KeyE",
+   "note": "zooms to the selection and back; ⌥F zooms to the selection, ⌥A shows the whole session; Z in Commands Focus is Undo",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Zoom Toggle)"
+  },
+  {
+   "menu": "View",
+   "line": "Taller Rows",
+   "equivalent": "Increase height of tracks holding the selection",
+   "key": "⌃ArrowUp",
+   "keyFocus": "",
+   "note": "⌥⌃↑ fits all tracks to the window; ⌘↓ in Pro Tools moves MIDI record-enable down (or lowers note velocity)",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Navigating a Pro Tools Session with Keyboard Shortcuts)"
+  },
+  {
+   "menu": "View",
+   "line": "Shorter Rows",
+   "equivalent": "Decrease height of tracks holding the selection",
+   "key": "⌃ArrowDown",
+   "keyFocus": "",
+   "note": "⌘↑ in Pro Tools moves MIDI record-enable up (or raises note velocity)",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "View",
+   "line": "Taller Waveforms",
+   "equivalent": "Audio vertical zoom in (all audio tracks)",
+   "key": "⌥⌘BracketRight",
+   "keyFocus": "",
+   "note": "⌘= in Pro Tools toggles Mix/Edit",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "View",
+   "line": "Lower Waveforms",
+   "equivalent": "Audio vertical zoom out (all audio tracks)",
+   "key": "⌥⌘BracketLeft",
+   "keyFocus": "",
+   "note": "",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "View",
+   "line": "Page Left",
+   "equivalent": "Scroll Edit window left a page",
+   "key": "⌥PageUp",
+   "keyFocus": "",
+   "note": "the page-scroll commands exist in Pro Tools but Avid documents their keys only for I/O Setup (⌥Page Up/Down = left/right); not confirmed for the Edit window",
+   "confidence": "low",
+   "source": "Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (I/O Setup)"
+  },
+  {
+   "menu": "View",
+   "line": "Page Right",
+   "equivalent": "Scroll Edit window right a page",
+   "key": "⌥PageDown",
+   "keyFocus": "",
+   "note": "not confirmed for the Edit window (documented for I/O Setup)",
+   "confidence": "low",
+   "source": "Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (I/O Setup)"
+  },
+  {
+   "menu": "View",
+   "line": "Page Up",
+   "equivalent": "Scroll Edit window up a page",
+   "key": "PageUp",
+   "keyFocus": "",
+   "note": "not confirmed for the Edit window (documented for I/O Setup, Memory Locations and Workspace lists); ⇧PageUp in Pro Tools moves back five playlists",
+   "confidence": "low",
+   "source": "Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (I/O Setup)"
+  },
+  {
+   "menu": "View",
+   "line": "Page Down",
+   "equivalent": "Scroll Edit window down a page",
+   "key": "PageDown",
+   "keyFocus": "",
+   "note": "not confirmed for the Edit window; ⇧PageDown moves ahead five playlists",
+   "confidence": "low",
+   "source": "Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (I/O Setup)"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Playhead",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. ← locates to the selection start, which is where playback starts; Backquote (`) in Pro Tools cycles the Edit modes",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Selection",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. ←/→ locate to the selection start/end; ⌥F zooms to it; ⇧` has no Pro Tools use",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "View",
+   "line": "Close Plug-in Windows",
+   "equivalent": "Window > Hide All Floating Windows",
+   "key": "⌃⌥⌘KeyW",
+   "keyFocus": "",
+   "note": "toggles all floating windows, plug-ins included; V in Commands Focus is Paste",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "View",
+   "line": "Say It",
+   "equivalent": "Window > Pro Tools Search",
+   "key": "⌃⇧KeyS",
+   "keyFocus": "",
+   "note": "searches commands, tracks, clips and markers by name and runs/selects them",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Pro Tools Search)"
+  },
+  {
+   "menu": "Window",
+   "line": "Patch",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Slur-only",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Window",
+   "line": "Mixer",
+   "equivalent": "Window > Mix",
+   "key": "",
+   "keyFocus": "",
+   "note": "Pro Tools uses the same ⌘= toggle given to View > Mixer; no second key",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Window",
+   "line": "Slur",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. Slur-only",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Window",
+   "line": "Rubato Panel",
+   "equivalent": "Clip > Elastic Properties",
+   "key": "⌥Numpad5",
+   "keyFocus": "",
+   "note": "same command as View > Rubato Panel",
+   "confidence": "low",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Window",
+   "line": "Minimize",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. ⌘M in Pro Tools is Edit > Mute/Unmute Clips",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Window",
+   "line": "Zoom",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Window",
+   "line": "Enter Full Screen",
+   "equivalent": "",
+   "key": "",
+   "keyFocus": "",
+   "note": "no equivalent. ⌃⌘F in Pro Tools applies a fade/crossfade without the Fades dialog",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12"
+  },
+  {
+   "menu": "Help",
+   "line": "Slur Studio Help",
+   "equivalent": "Help > Pro Tools Help",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key (⇧⌘/ in Pro Tools is Trim Automation to Current)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Help",
+   "line": "Key Commands",
+   "equivalent": "Help > Pro Tools Shortcuts",
+   "key": "",
+   "keyFocus": "",
+   "note": "no default key; ⇧/ toggles Link Timeline and Edit Selection; the shortcut editor is Setup > Keyboard Shortcuts (⌃⇧K)",
+   "confidence": "high",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts)"
+  },
+  {
+   "menu": "Help",
+   "line": "Say It",
+   "equivalent": "Window > Pro Tools Search",
+   "key": "⌃⇧KeyS",
+   "keyFocus": "",
+   "note": "same command as View > Say It",
+   "confidence": "medium",
+   "source": "Avid Pro Tools Shortcuts Guide 2026.4 (same entries in 2025.10 and in the Pro Tools 2025.12 in-app Help > Pro Tools Shortcuts); Avid Pro Tools Reference Guide, in-app Help of Pro Tools 2025.12 (Pro Tools Search)"
+  }
+ ],
+ "taken": [
+  {
+   "key": "⌘KeyN",
+   "command": "File > Create New… (New Session)"
+  },
+  {
+   "key": "⌘KeyO",
+   "command": "File > Open Session"
+  },
+  {
+   "key": "⌃⌥⌘KeyO",
+   "command": "File > Open Sketch"
+  },
+  {
+   "key": "⌥⌘KeyO",
+   "command": "File > Open Dashboard"
+  },
+  {
+   "key": "⇧⌘KeyO",
+   "command": "File > Open Most Recent"
+  },
+  {
+   "key": "⇧⌘KeyW",
+   "command": "File > Close Session"
+  },
+  {
+   "key": "⌘KeyS",
+   "command": "File > Save"
+  },
+  {
+   "key": "⌃⌘KeyS",
+   "command": "File > Save As / Save As New Version"
+  },
+  {
+   "key": "⌃⌘KeyO",
+   "command": "File > Revision History (projects)"
+  },
+  {
+   "key": "⌥⌘KeyB",
+   "command": "File > Bounce Mix"
+  },
+  {
+   "key": "⌥⇧KeyI",
+   "command": "File > Import > Session Data"
+  },
+  {
+   "key": "⇧⌘KeyI",
+   "command": "File > Import > Audio"
+  },
+  {
+   "key": "⌥⌘KeyI",
+   "command": "File > Import > MIDI"
+  },
+  {
+   "key": "⌥⇧⌘KeyI",
+   "command": "File > Import > Video"
+  },
+  {
+   "key": "⌘KeyP",
+   "command": "File > Print Score (Score Editor) / Options > Auto-Spot Clips"
+  },
+  {
+   "key": "⌘KeyQ",
+   "command": "Quit Pro Tools"
+  },
+  {
+   "key": "⌘KeyW",
+   "command": "Close frontmost window"
+  },
+  {
+   "key": "⌘KeyZ",
+   "command": "Edit > Undo"
+  },
+  {
+   "key": "⇧⌘KeyZ",
+   "command": "Edit > Redo"
+  },
+  {
+   "key": "⌥⌘KeyZ",
+   "command": "Edit > Restore Last Selection"
+  },
+  {
+   "key": "⌘KeyX",
+   "command": "Edit > Cut"
+  },
+  {
+   "key": "⌘KeyC",
+   "command": "Edit > Copy"
+  },
+  {
+   "key": "⌘KeyV",
+   "command": "Edit > Paste (also Paste Clip Gain / Clip Effects)"
+  },
+  {
+   "key": "⌘KeyB",
+   "command": "Edit > Clear"
+  },
+  {
+   "key": "⌘KeyA",
+   "command": "Edit > Select All"
+  },
+  {
+   "key": "⌥⇧Numpad5",
+   "command": "Edit > Selection > Change Timeline to Match Edit"
+  },
+  {
+   "key": "⌥⇧Digit5",
+   "command": "Change Timeline to Match Edit (number-row 5, per Avid's bundled presets)"
+  },
+  {
+   "key": "⌥⇧Numpad6",
+   "command": "Edit > Selection > Change Edit to Match Timeline"
+  },
+  {
+   "key": "⌥BracketLeft",
+   "command": "Edit > Selection > Play Edit Selection"
+  },
+  {
+   "key": "⌥BracketRight",
+   "command": "Edit > Selection > Play Timeline Selection"
+  },
+  {
+   "key": "⌃⌥⌘KeyL",
+   "command": "Edit > Selection > Move Edit Left (by selection length)"
+  },
+  {
+   "key": "⌃⌥⌘Quote",
+   "command": "Edit > Selection > Move Edit Right (by selection length)"
+  },
+  {
+   "key": "⌃⌥⇧⌘KeyL",
+   "command": "Edit > Selection > Halve Selection"
+  },
+  {
+   "key": "⌃⌥⇧⌘Quote",
+   "command": "Edit > Selection > Double Selection"
+  },
+  {
+   "key": "⌃⌥⇧⌘KeyD",
+   "command": "Edit > Selection > Duplicate and Extend (incl. all automation)"
+  },
+  {
+   "key": "⌃KeyP",
+   "command": "Edit > Selection > Move Edit Up (Control + Focus P)"
+  },
+  {
+   "key": "⌃Semicolon",
+   "command": "Edit > Selection > Move Edit Down (Control + Focus ;)"
+  },
+  {
+   "key": "⌃⇧KeyP",
+   "command": "Edit > Selection > Extend Edit Up"
+  },
+  {
+   "key": "⌃⇧Semicolon",
+   "command": "Edit > Selection > Extend Edit Down"
+  },
+  {
+   "key": "⌃⌥KeyP",
+   "command": "Edit > Selection > Remove Edit from Top"
+  },
+  {
+   "key": "⌃⌥Semicolon",
+   "command": "Edit > Selection > Remove Edit from Bottom"
+  },
+  {
+   "key": "⌃⌥⌘KeyP",
+   "command": "Edit > Selection > Move Edit Selection to Previous Marker Zone (Reference Guide; the Shortcuts Guide prints ⌥⌘P)"
+  },
+  {
+   "key": "⌃⌥⌘Semicolon",
+   "command": "Edit > Selection > Move Edit Selection to Next Marker Zone (Reference Guide; the Shortcuts Guide prints ⌥⌘;)"
+  },
+  {
+   "key": "⌃⌥⇧⌘KeyP",
+   "command": "Edit > Selection > Extend Edit Selection to Previous Marker Zone"
+  },
+  {
+   "key": "⌃⌥⇧⌘Semicolon",
+   "command": "Edit > Selection > Extend Edit Selection to Next Marker Zone"
+  },
+  {
+   "key": "⌥⌘KeyP",
+   "command": "Move Edit Selection to Previous Marker Zone as printed in the Shortcuts Guide (unconfirmed)"
+  },
+  {
+   "key": "⌥⌘Semicolon",
+   "command": "Move Edit Selection to Next Marker Zone as printed in the Shortcuts Guide (unconfirmed)"
+  },
+  {
+   "key": "⌃⇧KeyX",
+   "command": "Edit > Cut Special > Clip Gain"
+  },
+  {
+   "key": "⌃⌥⌘KeyX",
+   "command": "Edit > Cut Special > Clip Effects"
+  },
+  {
+   "key": "⌥⇧KeyX",
+   "command": "Edit > Cut Special > All Automation"
+  },
+  {
+   "key": "⌃⇧KeyC",
+   "command": "Edit > Copy Special > Clip Gain"
+  },
+  {
+   "key": "⌃⌥⌘KeyC",
+   "command": "Edit > Copy Special > Clip Effects"
+  },
+  {
+   "key": "⌥KeyM",
+   "command": "Edit > Paste Special > Merge (MIDI)"
+  },
+  {
+   "key": "⌥KeyV",
+   "command": "Edit > Paste Special > Merge Markers"
+  },
+  {
+   "key": "⌥⌘KeyV",
+   "command": "Edit > Paste Special > Repeat to Fill Selection"
+  },
+  {
+   "key": "⌃⌘KeyV",
+   "command": "Edit > Paste Special > to Current Automation Type"
+  },
+  {
+   "key": "⌃⇧KeyB",
+   "command": "Edit > Clear Special > Clip Gain"
+  },
+  {
+   "key": "⌃⌥⌘KeyB",
+   "command": "Edit > Clear Special > Clip Effects"
+  },
+  {
+   "key": "⌘KeyD",
+   "command": "Edit > Duplicate"
+  },
+  {
+   "key": "⌥KeyR",
+   "command": "Edit > Repeat…"
+  },
+  {
+   "key": "⌥KeyH",
+   "command": "Edit > Shift…"
+  },
+  {
+   "key": "⌥⇧KeyH",
+   "command": "Edit > Space Clips"
+  },
+  {
+   "key": "⇧⌘KeyE",
+   "command": "Edit > Insert Silence"
+  },
+  {
+   "key": "⌃⌥Period",
+   "command": "Edit > Snap to Next"
+  },
+  {
+   "key": "⌃⌥Comma",
+   "command": "Edit > Snap to Previous"
+  },
+  {
+   "key": "⌘KeyT",
+   "command": "Edit > Trim Clip > To Selection"
+  },
+  {
+   "key": "⌥⇧Digit7",
+   "command": "Edit > Trim Clip > Start to Insertion"
+  },
+  {
+   "key": "⌥⇧Digit8",
+   "command": "Edit > Trim Clip > End to Insertion"
+  },
+  {
+   "key": "⌃⌘KeyR",
+   "command": "Edit > Trim Clip > To File Start"
+  },
+  {
+   "key": "⌃⌘KeyY",
+   "command": "Edit > Trim Clip > To File End"
+  },
+  {
+   "key": "⌃⌘KeyT",
+   "command": "Edit > Trim Clip > To File Boundaries"
+  },
+  {
+   "key": "⌘KeyE",
+   "command": "Edit > Separate Clip > At Selection"
+  },
+  {
+   "key": "⌘KeyH",
+   "command": "Edit > Heal Separation"
+  },
+  {
+   "key": "⌥⇧Digit3",
+   "command": "Edit > Consolidate Clip"
+  },
+  {
+   "key": "⌘KeyM",
+   "command": "Edit > Mute/Unmute Clips"
+  },
+  {
+   "key": "⌥⇧ArrowUp",
+   "command": "Edit > Copy Selection to > Target Playlist (also copy-and-transpose MIDI notes up an octave)"
+  },
+  {
+   "key": "⌥⇧ArrowDown",
+   "command": "Edit > Copy Selection to > New Playlist (also copy-and-transpose MIDI notes down an octave)"
+  },
+  {
+   "key": "⌥⇧KeyT",
+   "command": "Edit > Move Selection to > Target Playlist"
+  },
+  {
+   "key": "⌥⇧KeyN",
+   "command": "Edit > Move Selection to > New Playlist"
+  },
+  {
+   "key": "⌘KeyU",
+   "command": "Edit > Strip Silence"
+  },
+  {
+   "key": "⌥⇧KeyU",
+   "command": "Edit > TCE Edit to Timeline Selection (Ultimate)"
+  },
+  {
+   "key": "⌘KeyF",
+   "command": "Edit > Fades > Create…"
+  },
+  {
+   "key": "⌃⌘KeyF",
+   "command": "Apply fade/crossfade without the Fades dialog"
+  },
+  {
+   "key": "⌃KeyD",
+   "command": "Edit > Fades > Fade to Start (Control + Focus D)"
+  },
+  {
+   "key": "⌃KeyG",
+   "command": "Edit > Fades > Fade to End (Control + Focus G)"
+  },
+  {
+   "key": "⌃⌘KeyB",
+   "command": "Clear including all automation playlists"
+  },
+  {
+   "key": "⌃⌘KeyC",
+   "command": "Copy including all automation playlists"
+  },
+  {
+   "key": "⌃⌘KeyX",
+   "command": "Cut including all automation playlists"
+  },
+  {
+   "key": "⌃⌘KeyD",
+   "command": "Duplicate including all automation playlists"
+  },
+  {
+   "key": "⌃⇧⌘KeyE",
+   "command": "Insert Silence including all automation playlists"
+  },
+  {
+   "key": "Backspace",
+   "command": "Delete the selection"
+  },
+  {
+   "key": "Delete",
+   "command": "Delete the selection"
+  },
+  {
+   "key": "⌘Backspace",
+   "command": "Clear all track data in the selection (layered editing)"
+  },
+  {
+   "key": "⌃Backspace",
+   "command": "Delete all automation in the selection"
+  },
+  {
+   "key": "⌥⌘KeyM",
+   "command": "View > Narrow Mix"
+  },
+  {
+   "key": "⌥Digit7",
+   "command": "View > Universe show/hide"
+  },
+  {
+   "key": "⌃⌥⇧Equal",
+   "command": "Docked MIDI Editor show/hide"
+  },
+  {
+   "key": "⌥Digit8",
+   "command": "Docked Melodyne show/hide"
+  },
+  {
+   "key": "⌃⌥Digit8",
+   "command": "Melodyne editor full height"
+  },
+  {
+   "key": "⌥Digit6",
+   "command": "Docked Clip Effects show/hide"
+  },
+  {
+   "key": "⌃⇧KeyU",
+   "command": "Track Transcription lane show/hide"
+  },
+  {
+   "key": "⇧⌘KeyN",
+   "command": "Track > New…"
+  },
+  {
+   "key": "⌘KeyG",
+   "command": "Track > Group… / New Group"
+  },
+  {
+   "key": "⌥⇧KeyD",
+   "command": "Track > Duplicate…"
+  },
+  {
+   "key": "⌥⇧⌘KeyN",
+   "command": "Track > Move to New Folder…"
+  },
+  {
+   "key": "⌥⇧KeyC",
+   "command": "Track > Commit…"
+  },
+  {
+   "key": "⌥⇧⌘KeyB",
+   "command": "Track > Bounce…"
+  },
+  {
+   "key": "⌥⇧KeyP",
+   "command": "Track > Save Track Preset…"
+  },
+  {
+   "key": "⌥KeyK",
+   "command": "Track > Input Monitoring: Auto Input / Input Only"
+  },
+  {
+   "key": "⌥⌘KeyF",
+   "command": "Track > Scroll to Track…"
+  },
+  {
+   "key": "⌥KeyC",
+   "command": "Track > Clear All Clip Indicators"
+  },
+  {
+   "key": "⇧⌘ArrowRight",
+   "command": "Track > Designate as Target Playlist"
+  },
+  {
+   "key": "⌥⇧⌘ArrowRight",
+   "command": "Designate Target Playlist for all tracks"
+  },
+  {
+   "key": "⇧ArrowRight",
+   "command": "Track > Show Target Playlist (also add next MIDI note to selection)"
+  },
+  {
+   "key": "⇧ArrowLeft",
+   "command": "Track > Toggle Recent Playlist (also add previous MIDI note to selection)"
+  },
+  {
+   "key": "⌥⇧KeyR",
+   "command": "Batch Track Rename… (Reference Guide)"
+  },
+  {
+   "key": "⌘KeyL",
+   "command": "Clip > Lock/Unlock"
+  },
+  {
+   "key": "⌃⌥KeyL",
+   "command": "Clip > Time Lock/Unlock"
+  },
+  {
+   "key": "⌥⇧KeyF",
+   "command": "Clip > Bring to Front"
+  },
+  {
+   "key": "⌥⇧KeyB",
+   "command": "Clip > Send to Back"
+  },
+  {
+   "key": "⌥⌘KeyG",
+   "command": "Clip > Group"
+  },
+  {
+   "key": "⌥⌘KeyU",
+   "command": "Clip > Ungroup"
+  },
+  {
+   "key": "⌥⌘KeyR",
+   "command": "Clip > Regroup"
+  },
+  {
+   "key": "⌥⌘KeyL",
+   "command": "Clip > Loop…"
+  },
+  {
+   "key": "⌘KeyR",
+   "command": "Clip > Capture…"
+  },
+  {
+   "key": "⌥⇧⌘KeyR",
+   "command": "Clip > Rename…"
+  },
+  {
+   "key": "⌘Comma",
+   "command": "Clip > Identify Sync Point"
+  },
+  {
+   "key": "⌘Digit0",
+   "command": "Clip > Quantize to Grid"
+  },
+  {
+   "key": "⌥⌘Digit0",
+   "command": "Clip > MIDI Quantize"
+  },
+  {
+   "key": "⌥⌘Numpad0",
+   "command": "Clip > MIDI Quantize (keypad 0, per Avid's bundled presets)"
+  },
+  {
+   "key": "⌃⇧KeyA",
+   "command": "Clip > Edit with Melodyne"
+  },
+  {
+   "key": "⌥Numpad5",
+   "command": "Clip > Elastic Properties"
+  },
+  {
+   "key": "⌥Numpad1",
+   "command": "Event > Time Operations"
+  },
+  {
+   "key": "⌥Numpad2",
+   "command": "Event > Tempo Operations"
+  },
+  {
+   "key": "⌥Numpad3",
+   "command": "Event > MIDI Operations"
+  },
+  {
+   "key": "⌥Digit0",
+   "command": "MIDI Operations > Quantize page"
+  },
+  {
+   "key": "⌥KeyP",
+   "command": "MIDI Operations > Change Duration page"
+  },
+  {
+   "key": "⌥KeyT",
+   "command": "MIDI Operations > Transpose page"
+  },
+  {
+   "key": "⌥KeyY",
+   "command": "MIDI Operations > Select/Split Notes page"
+  },
+  {
+   "key": "⌥Numpad4",
+   "command": "Event > MIDI Real-Time Properties"
+  },
+  {
+   "key": "⌘Numpad8",
+   "command": "Event > Beat Detective"
+  },
+  {
+   "key": "⌘KeyI",
+   "command": "Event > Identify Beat…"
+  },
+  {
+   "key": "⇧⌘Period",
+   "command": "Event > All MIDI Notes Off"
+  },
+  {
+   "key": "⌥⇧KeyZ",
+   "command": "Event > Retrospective MIDI Record"
+  },
+  {
+   "key": "⇧Slash",
+   "command": "Options > Link Timeline and Edit Selection"
+  },
+  {
+   "key": "⌥KeyL",
+   "command": "Options > Loop Record"
+  },
+  {
+   "key": "⇧⌘KeyP",
+   "command": "Options > QuickPunch"
+  },
+  {
+   "key": "⇧⌘KeyT",
+   "command": "Options > TrackPunch (Ultimate)"
+  },
+  {
+   "key": "⌘KeyJ",
+   "command": "Options > Transport Online"
+  },
+  {
+   "key": "⇧⌘KeyJ",
+   "command": "Options > Video Track Online"
+  },
+  {
+   "key": "⌘KeyK",
+   "command": "Options > Pre/Post-Roll"
+  },
+  {
+   "key": "⇧⌘KeyL",
+   "command": "Options > Loop Playback"
+  },
+  {
+   "key": "⌃⌘KeyP",
+   "command": "Options > Dynamic Transport"
+  },
+  {
+   "key": "⇧KeyT",
+   "command": "Options > Link Track and Edit Selection"
+  },
+  {
+   "key": "⌥⌘Tab",
+   "command": "Options > Tab to Transients"
+  },
+  {
+   "key": "⇧KeyJ",
+   "command": "Cycle Video Track Online through shown video tracks (Ultimate)"
+  },
+  {
+   "key": "⌃⇧KeyT",
+   "command": "Options > Edit Tool Mode Keyboard Lock"
+  },
+  {
+   "key": "⌘Numpad2",
+   "command": "Setup > Session"
+  },
+  {
+   "key": "⌃⇧KeyK",
+   "command": "Setup > Keyboard Shortcuts"
+  },
+  {
+   "key": "⌘Equal",
+   "command": "Window > Mix / Edit toggle"
+  },
+  {
+   "key": "⌃⌥⌘Equal",
+   "command": "Window > Sketch to front"
+  },
+  {
+   "key": "⌃⌥⌘KeyW",
+   "command": "Window > Hide All Floating Windows"
+  },
+  {
+   "key": "⌥⌘KeyJ",
+   "command": "Window > Configurations > Window Configuration List"
+  },
+  {
+   "key": "⌥Quote",
+   "command": "Window > Task Manager"
+  },
+  {
+   "key": "⌥KeyI",
+   "command": "Window > New Workspace (default)"
+  },
+  {
+   "key": "⌃⌥KeyI",
+   "command": "Window > New Workspace (Soundbase)"
+  },
+  {
+   "key": "⌥Semicolon",
+   "command": "Window > Workspace (Volumes)"
+  },
+  {
+   "key": "⌥KeyO",
+   "command": "Window > Project browser"
+  },
+  {
+   "key": "⌥KeyJ",
+   "command": "Workspace browsers to front"
+  },
+  {
+   "key": "⌥⇧KeyJ",
+   "command": "Workspace browsers to back"
+  },
+  {
+   "key": "⌘Numpad1",
+   "command": "Window > Transport"
+  },
+  {
+   "key": "⌘Numpad3",
+   "command": "Window > Big Counter"
+  },
+  {
+   "key": "⌘Numpad4",
+   "command": "Window > Automation"
+  },
+  {
+   "key": "⌘Numpad5",
+   "command": "Window > Memory Locations"
+  },
+  {
+   "key": "⌘Numpad6",
+   "command": "Window > Machine Track Arming"
+  },
+  {
+   "key": "⌘Numpad7",
+   "command": "Window > Video Universe"
+  },
+  {
+   "key": "⌘Numpad9",
+   "command": "Window > Video"
+  },
+  {
+   "key": "⌃Equal",
+   "command": "Window > MIDI Editor (repeat to cycle editors)"
+  },
+  {
+   "key": "⌃⌥Equal",
+   "command": "Window > Score Editor"
+  },
+  {
+   "key": "⌥Equal",
+   "command": "Window > MIDI Event List"
+  },
+  {
+   "key": "⇧KeyK",
+   "command": "Window > MIDI Keyboard"
+  },
+  {
+   "key": "⇧⌘Equal",
+   "command": "Window > Artist Chat / Avid profile"
+  },
+  {
+   "key": "⌃⇧KeyS",
+   "command": "Window > Pro Tools Search"
+  },
+  {
+   "key": "⌃⌘Equal",
+   "command": "Window > Dolby Atmos / 360RA Renderer"
+  },
+  {
+   "key": "⌥⌘Digit1",
+   "command": "Commands Keyboard Focus on/off"
+  },
+  {
+   "key": "⌥⌘Digit2",
+   "command": "Clip List keyboard focus"
+  },
+  {
+   "key": "⌥⌘Digit3",
+   "command": "Groups List keyboard focus"
+  },
+  {
+   "key": "⌥⌘Digit4",
+   "command": "Toolbar focus: Tracks pane"
+  },
+  {
+   "key": "⌥⌘Digit5",
+   "command": "Toolbar focus: MIDI Editor pane"
+  },
+  {
+   "key": "Space",
+   "command": "Play / Stop (also stops recording)"
+  },
+  {
+   "key": "⇧Space",
+   "command": "Half-speed playback"
+  },
+  {
+   "key": "⌃Space",
+   "command": "Pause (prime for playback)"
+  },
+  {
+   "key": "⌥Space",
+   "command": "Transport online"
+  },
+  {
+   "key": "⌘Backslash",
+   "command": "Transport master (Pro Tools / Machine / MMC)"
+  },
+  {
+   "key": "⌘Space",
+   "command": "Record"
+  },
+  {
+   "key": "F12",
+   "command": "Record"
+  },
+  {
+   "key": "⌘Period",
+   "command": "Stop recording and discard the take"
+  },
+  {
+   "key": "⇧⌘Space",
+   "command": "Half-speed record"
+  },
+  {
+   "key": "⇧F12",
+   "command": "Half-speed record"
+  },
+  {
+   "key": "⌥⌘Space",
+   "command": "Online record"
+  },
+  {
+   "key": "⌃⌥⌘KeyK",
+   "command": "Set pre/post-roll from the edit insertion"
+  },
+  {
+   "key": "⇧Comma",
+   "command": "Rewind (factory key per Avid's bundled presets)"
+  },
+  {
+   "key": "⇧Period",
+   "command": "Fast Forward (factory key per Avid's bundled presets)"
+  },
+  {
+   "key": "⌥Comma",
+   "command": "Synchronizer shuttle backward (per Avid's bundled presets)"
+  },
+  {
+   "key": "⌥Period",
+   "command": "Synchronizer shuttle forward (per Avid's bundled presets)"
+  },
+  {
+   "key": "⌃⌘KeyJ",
+   "command": "Generate timecode on/off (sync hardware)"
+  },
+  {
+   "key": "⌃⌥⌘KeyJ",
+   "command": "Remote (machine) track arming on/off"
+  },
+  {
+   "key": "Numpad0",
+   "command": "Keypad (Transport mode): Play/Stop"
+  },
+  {
+   "key": "Numpad1",
+   "command": "Keypad (Transport mode): Rewind"
+  },
+  {
+   "key": "Numpad2",
+   "command": "Keypad (Transport mode): Fast Forward"
+  },
+  {
+   "key": "Numpad3",
+   "command": "Keypad (Transport mode): Record"
+  },
+  {
+   "key": "Numpad4",
+   "command": "Keypad (Transport mode): Loop Playback on/off"
+  },
+  {
+   "key": "Numpad5",
+   "command": "Keypad (Transport mode): Loop Record on/off"
+  },
+  {
+   "key": "Numpad6",
+   "command": "Keypad (Transport mode): QuickPunch on/off"
+  },
+  {
+   "key": "Numpad7",
+   "command": "Keypad (Transport mode): Click on/off"
+  },
+  {
+   "key": "Numpad8",
+   "command": "Keypad (Transport mode): Countoff on/off"
+  },
+  {
+   "key": "Numpad9",
+   "command": "Keypad (Transport mode): MIDI Merge/Replace"
+  },
+  {
+   "key": "NumpadDecimal",
+   "command": "Keypad: starts a Memory Location recall (. n .) or Window Configuration (. n * / . n /)"
+  },
+  {
+   "key": "NumpadMultiply",
+   "command": "Keypad: Main Counter entry; recall Window Configuration (. n *)"
+  },
+  {
+   "key": "NumpadDivide",
+   "command": "Keypad: store Window Configuration (. n /)"
+  },
+  {
+   "key": "NumpadEnter",
+   "command": "Keypad: Create Memory Location (marker)"
+  },
+  {
+   "key": "⌘NumpadEnter",
+   "command": "Add marker without the dialog / on the targeted track"
+  },
+  {
+   "key": "⌥NumpadDivide",
+   "command": "Transport window Start/End field entry"
+  },
+  {
+   "key": "⌃Numpad1",
+   "command": "Shuttle Lock speed 1"
+  },
+  {
+   "key": "⌃Numpad2",
+   "command": "Shuttle Lock speed 2"
+  },
+  {
+   "key": "⌃Numpad3",
+   "command": "Shuttle Lock speed 3"
+  },
+  {
+   "key": "⌃Numpad4",
+   "command": "Shuttle Lock speed 4"
+  },
+  {
+   "key": "⌃Numpad5",
+   "command": "Shuttle Lock speed 5"
+  },
+  {
+   "key": "⌃Numpad6",
+   "command": "Shuttle Lock speed 6"
+  },
+  {
+   "key": "⌃Numpad7",
+   "command": "Shuttle Lock speed 7"
+  },
+  {
+   "key": "⌃Numpad8",
+   "command": "Shuttle Lock speed 8"
+  },
+  {
+   "key": "⌃Numpad9",
+   "command": "Shuttle Lock speed 9"
+  },
+  {
+   "key": "Enter",
+   "command": "Return to Zero (start of session)"
+  },
+  {
+   "key": "⌥Enter",
+   "command": "Go to End of session"
+  },
+  {
+   "key": "⇧Enter",
+   "command": "Extend selection to start of session"
+  },
+  {
+   "key": "⌥⇧Enter",
+   "command": "Extend selection to end of session"
+  },
+  {
+   "key": "⌃Enter",
+   "command": "Go to Song Start"
+  },
+  {
+   "key": "⌃⇧Enter",
+   "command": "Extend selection to Song Start"
+  },
+  {
+   "key": "F1",
+   "command": "Shuffle mode"
+  },
+  {
+   "key": "F2",
+   "command": "Slip mode"
+  },
+  {
+   "key": "F3",
+   "command": "Spot mode"
+  },
+  {
+   "key": "F4",
+   "command": "Grid mode"
+  },
+  {
+   "key": "⇧F4",
+   "command": "Snap to Grid in the current mode"
+  },
+  {
+   "key": "⌥Digit1",
+   "command": "Shuffle mode"
+  },
+  {
+   "key": "⌥Digit2",
+   "command": "Slip mode"
+  },
+  {
+   "key": "⌥Digit3",
+   "command": "Spot mode"
+  },
+  {
+   "key": "⌥Digit4",
+   "command": "Grid mode"
+  },
+  {
+   "key": "F5",
+   "command": "Zoomer tool"
+  },
+  {
+   "key": "F6",
+   "command": "Trimmer tool (repeat: Trimmer modes)"
+  },
+  {
+   "key": "F7",
+   "command": "Selector tool"
+  },
+  {
+   "key": "F8",
+   "command": "Grabber tool (repeat: Grabber modes)"
+  },
+  {
+   "key": "F9",
+   "command": "Scrubber tool"
+  },
+  {
+   "key": "F10",
+   "command": "Pencil tool (repeat: Pencil shapes)"
+  },
+  {
+   "key": "⌘Digit1",
+   "command": "Zoomer tool"
+  },
+  {
+   "key": "⌘Digit2",
+   "command": "Trimmer tool"
+  },
+  {
+   "key": "⌘Digit3",
+   "command": "Selector tool"
+  },
+  {
+   "key": "⌘Digit4",
+   "command": "Grabber tool"
+  },
+  {
+   "key": "⌘Digit5",
+   "command": "Scrubber tool"
+  },
+  {
+   "key": "⌘Digit6",
+   "command": "Pencil tool"
+  },
+  {
+   "key": "⌘Digit7",
+   "command": "Smart Tool"
+  },
+  {
+   "key": "Backquote",
+   "command": "Cycle Edit modes"
+  },
+  {
+   "key": "Escape",
+   "command": "Cycle Edit tools"
+  },
+  {
+   "key": "Tab",
+   "command": "Next transient / next clip boundary"
+  },
+  {
+   "key": "⌥Tab",
+   "command": "Previous transient / previous clip boundary"
+  },
+  {
+   "key": "⇧Tab",
+   "command": "Extend selection to next transient/boundary"
+  },
+  {
+   "key": "⌥⇧Tab",
+   "command": "Extend selection to previous transient/boundary"
+  },
+  {
+   "key": "⌃Tab",
+   "command": "Go to and select next clip"
+  },
+  {
+   "key": "⌃⌘Quote",
+   "command": "Go to and select next clip"
+  },
+  {
+   "key": "⌃⌥Tab",
+   "command": "Go to and select previous clip"
+  },
+  {
+   "key": "⌃⌘KeyL",
+   "command": "Go to and select previous clip"
+  },
+  {
+   "key": "⌃⇧Tab",
+   "command": "Extend selection to include next clip"
+  },
+  {
+   "key": "⌃⇧⌘Quote",
+   "command": "Extend selection to include next clip"
+  },
+  {
+   "key": "⌃⌥⇧Tab",
+   "command": "Extend selection to include previous clip"
+  },
+  {
+   "key": "⌃⇧⌘KeyL",
+   "command": "Extend selection to include previous clip"
+  },
+  {
+   "key": "⌥⇧⌘KeyL",
+   "command": "Shrink selection start, insertion to next edit"
+  },
+  {
+   "key": "⌥⇧⌘Quote",
+   "command": "Shrink selection end, insertion to previous edit"
+  },
+  {
+   "key": "⌃⌥⇧Digit0",
+   "command": "Change Edit selection to match Timeline selection start"
+  },
+  {
+   "key": "⌃⇧⌘Digit0",
+   "command": "Change Edit selection to match Timeline selection end"
+  },
+  {
+   "key": "⌃⌥⇧KeyO",
+   "command": "Change Timeline selection to match Edit selection start"
+  },
+  {
+   "key": "⌃⇧⌘KeyO",
+   "command": "Change Timeline selection to match Edit selection end"
+  },
+  {
+   "key": "ArrowDown",
+   "command": "Set selection start in playback / insertion to selection start (stopped) / MIDI note down"
+  },
+  {
+   "key": "ArrowUp",
+   "command": "Set selection end in playback / insertion to selection end (stopped) / MIDI note up"
+  },
+  {
+   "key": "ArrowLeft",
+   "command": "Locate to selection start / previous MIDI note"
+  },
+  {
+   "key": "ArrowRight",
+   "command": "Locate to selection end / next MIDI note"
+  },
+  {
+   "key": "⌥⇧KeyE",
+   "command": "Cancel Zoom Toggle, keep the zoom"
+  },
+  {
+   "key": "⌃⌥⌘ArrowUp",
+   "command": "Fit all shown tracks / larger track height for all"
+  },
+  {
+   "key": "⌃⌥⌘ArrowDown",
+   "command": "Fit all shown tracks / smaller track height for all"
+  },
+  {
+   "key": "⌃⌥ArrowUp",
+   "command": "Fit all tracks to the window height (Reference Guide); MIDI copy-and-transpose up in key"
+  },
+  {
+   "key": "⌃⌥ArrowDown",
+   "command": "All tracks smaller (Reference Guide); MIDI copy-and-transpose down in key"
+  },
+  {
+   "key": "⌃⌘ArrowUp",
+   "command": "Fit tracks holding the selection to the window height"
+  },
+  {
+   "key": "⇧KeyF",
+   "command": "Open/close folder tracks holding the selection"
+  },
+  {
+   "key": "⇧KeyR",
+   "command": "Record-enable tracks holding the selection"
+  },
+  {
+   "key": "⇧KeyI",
+   "command": "TrackInput tracks holding the selection"
+  },
+  {
+   "key": "⇧KeyS",
+   "command": "Solo tracks holding the selection (also solo playlist lane)"
+  },
+  {
+   "key": "⇧KeyM",
+   "command": "Mute tracks holding the selection"
+  },
+  {
+   "key": "⌘ArrowUp",
+   "command": "Move MIDI record-enable up / note velocity +5"
+  },
+  {
+   "key": "⌘ArrowDown",
+   "command": "Move MIDI record-enable down / note velocity −5"
+  },
+  {
+   "key": "⌃ArrowUp",
+   "command": "Taller tracks holding the selection / MIDI transpose up in key"
+  },
+  {
+   "key": "⌃ArrowDown",
+   "command": "Shorter tracks holding the selection / MIDI transpose down in key"
+  },
+  {
+   "key": "NumpadSubtract",
+   "command": "Nudge back by Nudge value"
+  },
+  {
+   "key": "NumpadAdd",
+   "command": "Nudge forward by Nudge value"
+  },
+  {
+   "key": "⇧NumpadSubtract",
+   "command": "Nudge start/end data back (keeps audio)"
+  },
+  {
+   "key": "⇧NumpadAdd",
+   "command": "Nudge start/end data forward"
+  },
+  {
+   "key": "⌃NumpadSubtract",
+   "command": "Nudge clip contents (−)"
+  },
+  {
+   "key": "⌃NumpadAdd",
+   "command": "Nudge clip contents (+)"
+  },
+  {
+   "key": "⌥⇧NumpadSubtract",
+   "command": "Nudge selection start back"
+  },
+  {
+   "key": "⌥⇧NumpadAdd",
+   "command": "Nudge selection start forward"
+  },
+  {
+   "key": "⇧⌘NumpadSubtract",
+   "command": "Nudge selection end back"
+  },
+  {
+   "key": "⇧⌘NumpadAdd",
+   "command": "Nudge selection end forward"
+  },
+  {
+   "key": "⌥NumpadSubtract",
+   "command": "Trim clip start back"
+  },
+  {
+   "key": "⌥NumpadAdd",
+   "command": "Trim clip start forward"
+  },
+  {
+   "key": "⌘NumpadSubtract",
+   "command": "Trim clip end back"
+  },
+  {
+   "key": "⌘NumpadAdd",
+   "command": "Trim clip end forward"
+  },
+  {
+   "key": "⌃⌥NumpadSubtract",
+   "command": "Previous Grid value"
+  },
+  {
+   "key": "⌃⌥NumpadAdd",
+   "command": "Next Grid value"
+  },
+  {
+   "key": "⌥⌘NumpadSubtract",
+   "command": "Previous Nudge value"
+  },
+  {
+   "key": "⌥⌘NumpadAdd",
+   "command": "Next Nudge value"
+  },
+  {
+   "key": "⌥⇧Equal",
+   "command": "Next larger Nudge value (Reference Guide)"
+  },
+  {
+   "key": "⌥⇧Minus",
+   "command": "Next smaller Nudge value (Reference Guide)"
+  },
+  {
+   "key": "⇧Equal",
+   "command": "Next larger Grid value (per Avid's bundled presets)"
+  },
+  {
+   "key": "⇧Minus",
+   "command": "Next smaller Grid value (per Avid's bundled presets)"
+  },
+  {
+   "key": "⌥ArrowUp",
+   "command": "MIDI: copy and transpose up a semitone"
+  },
+  {
+   "key": "⌥ArrowDown",
+   "command": "MIDI: copy and transpose down a semitone"
+  },
+  {
+   "key": "⇧ArrowUp",
+   "command": "MIDI: transpose up an octave / previous playlist in main playlist"
+  },
+  {
+   "key": "⇧ArrowDown",
+   "command": "MIDI: transpose down an octave / next playlist in main playlist"
+  },
+  {
+   "key": "⇧⌘ArrowUp",
+   "command": "MIDI: velocity +15 / cycle in material from previous playlist"
+  },
+  {
+   "key": "⇧⌘ArrowDown",
+   "command": "MIDI: velocity −15 / cycle in material from next playlist"
+  },
+  {
+   "key": "⌃ArrowLeft",
+   "command": "MIDI: trim note start left"
+  },
+  {
+   "key": "⌃ArrowRight",
+   "command": "MIDI: trim note start right"
+  },
+  {
+   "key": "⌥ArrowLeft",
+   "command": "MIDI: trim note end left / play pre-roll to selection start"
+  },
+  {
+   "key": "⌥ArrowRight",
+   "command": "MIDI: trim note end right / play pre-roll to selection end"
+  },
+  {
+   "key": "⌃⇧ArrowLeft",
+   "command": "MIDI: trim note start left by next value | Copy selection to new playlist (Playlists view)"
+  },
+  {
+   "key": "⌃⇧ArrowRight",
+   "command": "MIDI: trim note start right by next value"
+  },
+  {
+   "key": "⌥⇧ArrowLeft",
+   "command": "MIDI: trim note end left by next value"
+  },
+  {
+   "key": "⌥⇧ArrowRight",
+   "command": "MIDI: trim note end right by next value"
+  },
+  {
+   "key": "⌃⌥ArrowLeft",
+   "command": "Change fade shape / MIDI trim note on by grid"
+  },
+  {
+   "key": "⌃⌥ArrowRight",
+   "command": "Change fade shape / MIDI trim note on by grid"
+  },
+  {
+   "key": "⌃⌥⇧ArrowLeft",
+   "command": "MIDI trim by next larger grid"
+  },
+  {
+   "key": "⌃⌥⇧ArrowRight",
+   "command": "MIDI trim by next larger grid"
+  },
+  {
+   "key": "⌘ArrowLeft",
+   "command": "Play post-roll from selection start"
+  },
+  {
+   "key": "⌘ArrowRight",
+   "command": "Play post-roll from selection end"
+  },
+  {
+   "key": "⌥⌘ArrowLeft",
+   "command": "Play through selection start with pre/post-roll; Marker ruler selection"
+  },
+  {
+   "key": "⌥⌘ArrowRight",
+   "command": "Play through selection end with pre/post-roll; Marker ruler selection"
+  },
+  {
+   "key": "⌃⇧Minus",
+   "command": "Clip Gain line show/hide"
+  },
+  {
+   "key": "⌃⇧Equal",
+   "command": "Clip Gain info show/hide"
+  },
+  {
+   "key": "⌃⇧KeyE",
+   "command": "Add clip gain breakpoint"
+  },
+  {
+   "key": "⌃⇧ArrowUp",
+   "command": "Nudge clip gain up"
+  },
+  {
+   "key": "⌃⇧ArrowDown",
+   "command": "Nudge clip gain down"
+  },
+  {
+   "key": "⌃⇧NumpadSubtract",
+   "command": "Nudge clip gain back"
+  },
+  {
+   "key": "⌃⇧KeyM",
+   "command": "Nudge clip gain back"
+  },
+  {
+   "key": "⌃⇧Comma",
+   "command": "Nudge clip gain back"
+  },
+  {
+   "key": "⌃⇧NumpadAdd",
+   "command": "Nudge clip gain forward"
+  },
+  {
+   "key": "⌃⇧Period",
+   "command": "Nudge clip gain forward"
+  },
+  {
+   "key": "⌃⇧Slash",
+   "command": "Nudge clip gain forward"
+  },
+  {
+   "key": "⌃⌥⌘KeyS",
+   "command": "Save Clip Effects preset"
+  },
+  {
+   "key": "⌃Backslash",
+   "command": "New playlist for the first selected track"
+  },
+  {
+   "key": "⌃⌥Backslash",
+   "command": "New playlist for every track"
+  },
+  {
+   "key": "⌃⌥⇧Backslash",
+   "command": "New playlist for each selected track"
+  },
+  {
+   "key": "⌃⌘Backslash",
+   "command": "Duplicate main playlist (first selected track)"
+  },
+  {
+   "key": "⌃⌥⌘Backslash",
+   "command": "Duplicate main playlist (every track)"
+  },
+  {
+   "key": "⌃⌥⇧⌘Backslash",
+   "command": "Duplicate main playlist (each selected track)"
+  },
+  {
+   "key": "⇧Home",
+   "command": "Focus first playlist"
+  },
+  {
+   "key": "⇧End",
+   "command": "Focus last playlist"
+  },
+  {
+   "key": "⇧PageDown",
+   "command": "Move ahead five playlists"
+  },
+  {
+   "key": "⇧PageUp",
+   "command": "Move back five playlists"
+  },
+  {
+   "key": "⌃⌥KeyV",
+   "command": "Copy selection to Target playlist"
+  },
+  {
+   "key": "⌃⌥KeyM",
+   "command": "Move selection to Target playlist (Playlists view)"
+  },
+  {
+   "key": "⌃⇧KeyN",
+   "command": "Move selection to new playlist (Playlists view)"
+  },
+  {
+   "key": "⌘BracketRight",
+   "command": "Horizontal zoom in"
+  },
+  {
+   "key": "⌘BracketLeft",
+   "command": "Horizontal zoom out"
+  },
+  {
+   "key": "⌃⌘BracketLeft",
+   "command": "Zoom to whole session horizontally"
+  },
+  {
+   "key": "⌃⌘BracketRight",
+   "command": "Zoom in horizontally on the selection"
+  },
+  {
+   "key": "⌃⌥⌘BracketLeft",
+   "command": "Default waveform height"
+  },
+  {
+   "key": "⌥⌘BracketRight",
+   "command": "Audio vertical zoom in"
+  },
+  {
+   "key": "⌥⌘BracketLeft",
+   "command": "Audio vertical zoom out"
+  },
+  {
+   "key": "⇧⌘BracketRight",
+   "command": "MIDI vertical zoom in"
+  },
+  {
+   "key": "⇧⌘BracketLeft",
+   "command": "MIDI vertical zoom out"
+  },
+  {
+   "key": "⌃⇧⌘BracketLeft",
+   "command": "MIDI zoom to all notes"
+  },
+  {
+   "key": "⌥KeyA",
+   "command": "Zoom to whole session, reset waveform height"
+  },
+  {
+   "key": "⌃⌥KeyA",
+   "command": "Zoom to whole session horizontally"
+  },
+  {
+   "key": "⌥KeyF",
+   "command": "Zoom to the selection"
+  },
+  {
+   "key": "⌃⌥KeyF",
+   "command": "Zoom to the selection incl. MIDI"
+  },
+  {
+   "key": "⌃⌥KeyE",
+   "command": "Zoom Toggle without changing track views"
+  },
+  {
+   "key": "⌥⌘KeyE",
+   "command": "Previous zoom level"
+  },
+  {
+   "key": "⌃KeyE",
+   "command": "Zoom Toggle (Control + Focus E)"
+  },
+  {
+   "key": "⌃⌘Digit1",
+   "command": "Recall Zoom preset 1 (when 1-5 keys are set to Clip Effects)"
+  },
+  {
+   "key": "⌃⌘Digit2",
+   "command": "Recall Zoom preset 2 (when 1-5 keys are set to Clip Effects)"
+  },
+  {
+   "key": "⌃⌘Digit3",
+   "command": "Recall Zoom preset 3 (when 1-5 keys are set to Clip Effects)"
+  },
+  {
+   "key": "⌃⌘Digit4",
+   "command": "Recall Zoom preset 4 (when 1-5 keys are set to Clip Effects)"
+  },
+  {
+   "key": "⌃⌘Digit5",
+   "command": "Recall Zoom preset 5 (when 1-5 keys are set to Clip Effects)"
+  },
+  {
+   "key": "⌃KeyN",
+   "command": "Toggle Insertion Follows Playback (Control + Focus N)"
+  },
+  {
+   "key": "⇧KeyX",
+   "command": "Target first track / toggle track-ruler target"
+  },
+  {
+   "key": "⇧BracketLeft",
+   "command": "Move target to previous track"
+  },
+  {
+   "key": "⇧BracketRight",
+   "command": "Move target to next track"
+  },
+  {
+   "key": "⇧KeyN",
+   "command": "Toggle marker names/comments"
+  },
+  {
+   "key": "⇧KeyY",
+   "command": "Marker Follows Edit on/off"
+  },
+  {
+   "key": "⇧KeyU",
+   "command": "Marker track lane show/hide"
+  },
+  {
+   "key": "⌃⌥⌘KeyR",
+   "command": "Marker ruler lines show/hide"
+  },
+  {
+   "key": "⌃⌥⌘KeyF",
+   "command": "Marker folder lines show/hide"
+  },
+  {
+   "key": "⌥Minus",
+   "command": "Toggle Track View on all tracks (Focus on)"
+  },
+  {
+   "key": "⌃⌥Minus",
+   "command": "Toggle Track View on all tracks"
+  },
+  {
+   "key": "⌃⌘ArrowLeft",
+   "command": "Previous Track View (tracks with selection)"
+  },
+  {
+   "key": "⌃⌘ArrowRight",
+   "command": "Next Track View (tracks with selection)"
+  },
+  {
+   "key": "⌃⌥⌘ArrowLeft",
+   "command": "Previous Track View (all tracks)"
+  },
+  {
+   "key": "⌃⌥⌘ArrowRight",
+   "command": "Next Track View (all tracks)"
+  },
+  {
+   "key": "⌥⌘KeyH",
+   "command": "Copy automation to send"
+  },
+  {
+   "key": "⌥⌘KeyT",
+   "command": "Thin automation"
+  },
+  {
+   "key": "⌘Slash",
+   "command": "Write automation to current parameter"
+  },
+  {
+   "key": "⌥⌘Slash",
+   "command": "Write automation to all enabled"
+  },
+  {
+   "key": "⇧⌘Slash",
+   "command": "Trim automation to current"
+  },
+  {
+   "key": "⌥⇧⌘Slash",
+   "command": "Trim automation to all enabled"
+  },
+  {
+   "key": "⌥Slash",
+   "command": "Glide automation to current"
+  },
+  {
+   "key": "⌥⇧Slash",
+   "command": "Glide automation to all enabled"
+  },
+  {
+   "key": "⇧⌘KeyF",
+   "command": "Clip List: Find"
+  },
+  {
+   "key": "⇧⌘KeyD",
+   "command": "Clip List: Clear Find"
+  },
+  {
+   "key": "⇧⌘Numpad1",
+   "command": "Clip List: audio clips show/hide"
+  },
+  {
+   "key": "⇧⌘Numpad2",
+   "command": "Clip List: MIDI clips"
+  },
+  {
+   "key": "⇧⌘Numpad3",
+   "command": "Clip List: video clips"
+  },
+  {
+   "key": "⇧⌘Numpad4",
+   "command": "Clip List: clip groups"
+  },
+  {
+   "key": "⇧⌘Numpad5",
+   "command": "Clip List: whole-file clips (2026.4 guide)"
+  },
+  {
+   "key": "⇧⌘Numpad6",
+   "command": "Clip List: subclips (2026.4 guide)"
+  },
+  {
+   "key": "⌥⌘KeyK",
+   "command": "Clip List: auto-created clips"
+  },
+  {
+   "key": "⇧⌘KeyA",
+   "command": "Clip List: select all"
+  },
+  {
+   "key": "⇧⌘KeyU",
+   "command": "Clip List: select unused"
+  },
+  {
+   "key": "⇧⌘KeyB",
+   "command": "Clip List: clear selected"
+  },
+  {
+   "key": "⇧⌘KeyR",
+   "command": "Clip List: rename selected"
+  },
+  {
+   "key": "⌃⇧KeyR",
+   "command": "Clip List: batch rename"
+  },
+  {
+   "key": "⇧⌘KeyM",
+   "command": "Clip List: time stamp"
+  },
+  {
+   "key": "⇧⌘KeyY",
+   "command": "Clip List: export clip definitions"
+  },
+  {
+   "key": "⇧⌘KeyK",
+   "command": "Clip List: export clips as files"
+  },
+  {
+   "key": "⇧⌘KeyG",
+   "command": "Suspend all groups"
+  },
+  {
+   "key": "⇧KeyA",
+   "command": "Bypass all inserts (selected tracks)"
+  },
+  {
+   "key": "⇧Digit2",
+   "command": "Bypass inserts A–E"
+  },
+  {
+   "key": "⇧Digit3",
+   "command": "Bypass inserts F–J"
+  },
+  {
+   "key": "⇧KeyE",
+   "command": "Bypass EQ plug-ins"
+  },
+  {
+   "key": "⇧KeyC",
+   "command": "Bypass dynamics plug-ins"
+  },
+  {
+   "key": "⇧KeyV",
+   "command": "Bypass reverb plug-ins"
+  },
+  {
+   "key": "⇧KeyD",
+   "command": "Bypass delay plug-ins"
+  },
+  {
+   "key": "⇧KeyW",
+   "command": "Bypass modulation plug-ins"
+  },
+  {
+   "key": "⇧Digit4",
+   "command": "Mute sends A–E"
+  },
+  {
+   "key": "⇧Digit5",
+   "command": "Mute sends F–J"
+  },
+  {
+   "key": "⇧KeyQ",
+   "command": "Mute all sends"
+  },
+  {
+   "key": "⇧⌘KeyC",
+   "command": "Plug-in window: copy settings"
+  },
+  {
+   "key": "⇧⌘KeyV",
+   "command": "Plug-in window: paste settings"
+  },
+  {
+   "key": "Digit1",
+   "command": "Commands Focus: Recall Zoom preset 1"
+  },
+  {
+   "key": "Digit2",
+   "command": "Commands Focus: Recall Zoom preset 2"
+  },
+  {
+   "key": "Digit3",
+   "command": "Commands Focus: Recall Zoom preset 3"
+  },
+  {
+   "key": "Digit4",
+   "command": "Commands Focus: Recall Zoom preset 4"
+  },
+  {
+   "key": "Digit5",
+   "command": "Commands Focus: Recall Zoom preset 5"
+  },
+  {
+   "key": "Digit6",
+   "command": "Commands Focus: Play to Edit Start"
+  },
+  {
+   "key": "Digit7",
+   "command": "Commands Focus: Play from Edit Start"
+  },
+  {
+   "key": "Digit8",
+   "command": "Commands Focus: Play to Edit End"
+  },
+  {
+   "key": "Digit9",
+   "command": "Commands Focus: Play from Edit End"
+  },
+  {
+   "key": "Digit0",
+   "command": "Commands Focus: Change Edit to Match Timeline"
+  },
+  {
+   "key": "Minus",
+   "command": "Commands Focus: Toggle Track View (waveform/volume, notes/clips)"
+  },
+  {
+   "key": "KeyQ",
+   "command": "Commands Focus: Display Timeline selection start"
+  },
+  {
+   "key": "KeyW",
+   "command": "Commands Focus: Display Timeline selection end"
+  },
+  {
+   "key": "KeyE",
+   "command": "Commands Focus: Zoom Toggle"
+  },
+  {
+   "key": "KeyR",
+   "command": "Commands Focus: Zoom out horizontal"
+  },
+  {
+   "key": "KeyT",
+   "command": "Commands Focus: Zoom in horizontal"
+  },
+  {
+   "key": "KeyY",
+   "command": "Commands Focus: Move clip start to current timecode"
+  },
+  {
+   "key": "KeyU",
+   "command": "Commands Focus: Move clip sync point to current timecode"
+  },
+  {
+   "key": "KeyI",
+   "command": "Commands Focus: Move clip end to current timecode"
+  },
+  {
+   "key": "KeyO",
+   "command": "Commands Focus: Change Timeline to Match Edit"
+  },
+  {
+   "key": "KeyP",
+   "command": "Commands Focus: Move edit insertion to previous track"
+  },
+  {
+   "key": "BracketLeft",
+   "command": "Commands Focus: Play Edit selection"
+  },
+  {
+   "key": "BracketRight",
+   "command": "Commands Focus: Play Timeline selection"
+  },
+  {
+   "key": "Backslash",
+   "command": "Commands Focus: (listed by Avid as \"Nudge Play Earlier By Grid\"; likely a documentation slip)"
+  },
+  {
+   "key": "KeyA",
+   "command": "Commands Focus: Trim clip start to cursor"
+  },
+  {
+   "key": "KeyS",
+   "command": "Commands Focus: Trim clip end to cursor"
+  },
+  {
+   "key": "KeyD",
+   "command": "Commands Focus: Fade from start"
+  },
+  {
+   "key": "KeyF",
+   "command": "Commands Focus: Fade/crossfade without dialog"
+  },
+  {
+   "key": "KeyG",
+   "command": "Commands Focus: Fade to end"
+  },
+  {
+   "key": "KeyH",
+   "command": "Commands Focus: Snap clip start to play position"
+  },
+  {
+   "key": "KeyJ",
+   "command": "Commands Focus: Snap clip sync point to play position"
+  },
+  {
+   "key": "KeyK",
+   "command": "Commands Focus: Snap clip end to play position"
+  },
+  {
+   "key": "KeyL",
+   "command": "Commands Focus: Move edit insertion to previous edit"
+  },
+  {
+   "key": "Semicolon",
+   "command": "Commands Focus: Move edit insertion to next track"
+  },
+  {
+   "key": "Quote",
+   "command": "Commands Focus: Move edit insertion to next edit"
+  },
+  {
+   "key": "KeyZ",
+   "command": "Commands Focus: Undo"
+  },
+  {
+   "key": "⇧KeyZ",
+   "command": "Commands Focus: Redo"
+  },
+  {
+   "key": "KeyX",
+   "command": "Commands Focus: Cut"
+  },
+  {
+   "key": "KeyC",
+   "command": "Commands Focus: Copy"
+  },
+  {
+   "key": "KeyV",
+   "command": "Commands Focus: Paste"
+  },
+  {
+   "key": "KeyB",
+   "command": "Commands Focus: Separate"
+  },
+  {
+   "key": "KeyN",
+   "command": "Commands Focus: Toggle Insertion Follows Playback"
+  },
+  {
+   "key": "KeyM",
+   "command": "Commands Focus: Nudge back by next Nudge value"
+  },
+  {
+   "key": "Comma",
+   "command": "Commands Focus: Nudge back by Nudge value"
+  },
+  {
+   "key": "Period",
+   "command": "Commands Focus: Nudge forward by Nudge value"
+  },
+  {
+   "key": "Slash",
+   "command": "Commands Focus: Nudge forward by next Nudge value"
+  },
+  {
+   "key": "⌃Digit1",
+   "command": "Recall Zoom preset 1"
+  },
+  {
+   "key": "⌃Digit2",
+   "command": "Recall Zoom preset 2"
+  },
+  {
+   "key": "⌃Digit3",
+   "command": "Recall Zoom preset 3"
+  },
+  {
+   "key": "⌃Digit4",
+   "command": "Recall Zoom preset 4"
+  },
+  {
+   "key": "⌃Digit5",
+   "command": "Recall Zoom preset 5"
+  },
+  {
+   "key": "⌃Digit6",
+   "command": "Play to Edit Start (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃Digit7",
+   "command": "Play from Edit Start (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃Digit8",
+   "command": "Play to Edit End (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃Digit9",
+   "command": "Play from Edit End (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃Digit0",
+   "command": "Change Edit to Match Timeline (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃Minus",
+   "command": "Toggle Track View (waveform/volume, notes/clips) (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyQ",
+   "command": "Display Timeline selection start (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyW",
+   "command": "Display Timeline selection end (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyR",
+   "command": "Zoom out horizontal (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyT",
+   "command": "Zoom in horizontal (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyY",
+   "command": "Move clip start to current timecode (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyU",
+   "command": "Move clip sync point to current timecode (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyI",
+   "command": "Move clip end to current timecode (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyO",
+   "command": "Change Timeline to Match Edit (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃BracketLeft",
+   "command": "Play Edit selection (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃BracketRight",
+   "command": "Play Timeline selection (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyA",
+   "command": "Trim clip start to cursor (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyS",
+   "command": "Trim clip end to cursor (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyF",
+   "command": "Fade/crossfade without dialog (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyH",
+   "command": "Snap clip start to play position (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyJ",
+   "command": "Snap clip sync point to play position (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyK",
+   "command": "Snap clip end to play position (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyL",
+   "command": "Move edit insertion to previous edit (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃Quote",
+   "command": "Move edit insertion to next edit (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyZ",
+   "command": "Undo (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃⇧KeyZ",
+   "command": "Redo (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyX",
+   "command": "Cut including all automation playlists (Focus X with Control)"
+  },
+  {
+   "key": "⌃KeyC",
+   "command": "Copy including all automation playlists (Focus C with Control)"
+  },
+  {
+   "key": "⌃KeyV",
+   "command": "Paste (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyB",
+   "command": "Separate (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃KeyM",
+   "command": "Nudge back by next Nudge value (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃Comma",
+   "command": "Nudge back by Nudge value (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃Period",
+   "command": "Nudge forward by Nudge value (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌃Slash",
+   "command": "Nudge forward by next Nudge value (Commands Focus key with Control, focus off)"
+  },
+  {
+   "key": "⌥KeyE",
+   "command": "Commands Focus: Zoom Toggle without changing track views"
+  },
+  {
+   "key": "PageUp",
+   "command": "Scroll up a page (documented for I/O Setup, Memory Locations window, Workspace; assumed for the Edit window, unconfirmed)"
+  },
+  {
+   "key": "PageDown",
+   "command": "Scroll down a page (documented for I/O Setup, Memory Locations window, Workspace; assumed for the Edit window, unconfirmed)"
+  },
+  {
+   "key": "⌥PageUp",
+   "command": "Scroll left a page (documented for I/O Setup; assumed for the Edit window, unconfirmed)"
+  },
+  {
+   "key": "⌥PageDown",
+   "command": "Scroll right a page (documented for I/O Setup; assumed for the Edit window, unconfirmed)"
+  },
+  {
+   "key": "Home",
+   "command": "Scroll to top (Memory Locations window, Workspace browser)"
+  },
+  {
+   "key": "End",
+   "command": "Scroll to bottom (Memory Locations window, Workspace browser)"
+  }
+ ],
+ "sources": [
+  "https://resources.avid.com/SupportFiles/PT/Pro_Tools_Shortcuts_2026.4.pdf",
+  "https://resources.avid.com/SupportFiles/PT/Pro_Tools_Shortcuts_2025.10.pdf",
+  "https://resources.avid.com/SupportFiles/PT/Pro_Tools_Shortcuts_2024.10.pdf",
+  "https://resources.avid.com/SupportFiles/PT/Pro_Tools_Shortcuts_2022.12.pdf",
+  "Pro Tools 2025.12 in-app Help: /Applications/Pro Tools.app/Contents/PTHelp/Content/Pro Tools Shortcuts/*.htm and .../Pro Tools Reference Guide/*.htm (Avid)",
+  "Avid factory alternate keyboard presets in Pro Tools 2025.12: /Applications/Pro Tools.app/Contents/SharedSupport/Factory Content/Pro Tools Presets/Keyboard Shortcuts/Application/*.ptpreset ('Original Key' / 'Original Modifiers' fields)"
+ ]
+}

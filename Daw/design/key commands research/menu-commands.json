@@ -1,0 +1,1161 @@
+{
+ "rows": [
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "General",
+   "key": ""
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Display",
+   "key": ""
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Audio",
+   "key": ""
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Plug-ins",
+   "key": ""
+  },
+  {
+   "menu": "Slur Studio",
+   "line": "Key Commands",
+   "key": "⌥KeyK"
+  },
+  {
+   "menu": "File",
+   "line": "New",
+   "key": "⌘KeyN"
+  },
+  {
+   "menu": "File",
+   "line": "Open…",
+   "key": "⌘KeyO"
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "No Projects Yet",
+   "key": ""
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "More…",
+   "key": ""
+  },
+  {
+   "menu": "File",
+   "line": "Save",
+   "key": "⌘KeyS"
+  },
+  {
+   "menu": "File",
+   "line": "Save As…",
+   "key": "⇧⌘KeyS"
+  },
+  {
+   "menu": "File",
+   "line": "Rename…",
+   "key": ""
+  },
+  {
+   "menu": "File",
+   "line": "Revert To…",
+   "key": ""
+  },
+  {
+   "menu": "File",
+   "line": "Find Missing Sounds…",
+   "key": ""
+  },
+  {
+   "menu": "File",
+   "line": "Import Audio…",
+   "key": "⌘KeyI"
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off…",
+   "key": "⌘KeyB"
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off Stems…",
+   "key": "⌘KeyE"
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place",
+   "key": "⌃KeyB"
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place in Realtime",
+   "key": ""
+  },
+  {
+   "menu": "Edit",
+   "line": "Undo",
+   "key": "⌘KeyZ"
+  },
+  {
+   "menu": "Edit",
+   "line": "Redo",
+   "key": "⇧⌘KeyZ"
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut",
+   "key": "⌘KeyX"
+  },
+  {
+   "menu": "Edit",
+   "line": "Copy",
+   "key": "⌘KeyC"
+  },
+  {
+   "menu": "Edit",
+   "line": "Paste",
+   "key": "⌘KeyV"
+  },
+  {
+   "menu": "Edit",
+   "line": "Delete",
+   "key": "Backspace"
+  },
+  {
+   "menu": "Edit",
+   "line": "Select All",
+   "key": "⌘KeyA"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "None",
+   "key": "⇧KeyD"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Invert",
+   "key": "⇧KeyI"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following",
+   "key": "⇧KeyF"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following on the Same Track",
+   "key": "⌃⇧KeyF"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Inside the Cycle",
+   "key": "⇧KeyL"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Muted Regions",
+   "key": "⇧KeyM"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Region",
+   "key": "ArrowLeft"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Region",
+   "key": "ArrowRight"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Previous Region",
+   "key": "⇧ArrowLeft"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Next Region",
+   "key": "⇧ArrowRight"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "First Region",
+   "key": "⇧Home"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Last Region",
+   "key": "⇧End"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Track",
+   "key": "ArrowUp"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Track",
+   "key": "ArrowDown"
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Playhead",
+   "key": "⌘KeyT"
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Cycle Ends",
+   "key": "⌥⌘KeyT"
+  },
+  {
+   "menu": "Edit",
+   "line": "Join",
+   "key": "KeyJ"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat",
+   "key": "⌘KeyR"
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut Section Between Locators",
+   "key": "⌃⌘KeyX"
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Silence at Locators",
+   "key": "⌃⌘KeyZ"
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Section at Playhead",
+   "key": "⌃⌘KeyV"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat Section Between Locators",
+   "key": "⌃⌘KeyR"
+  },
+  {
+   "menu": "Region",
+   "line": "Mute",
+   "key": "KeyN"
+  },
+  {
+   "menu": "Region",
+   "line": "Rename…",
+   "key": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead",
+   "key": "Semicolon"
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead and Select Next",
+   "key": "⇧Semicolon"
+  },
+  {
+   "menu": "Region",
+   "line": "Loop to the Next Region",
+   "key": "KeyL"
+  },
+  {
+   "menu": "Region",
+   "line": "Trim Start to Playhead",
+   "key": "BracketLeft"
+  },
+  {
+   "menu": "Region",
+   "line": "Trim End to Playhead",
+   "key": "BracketRight"
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Left",
+   "key": "⌥BracketLeft"
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Right",
+   "key": "⌥BracketRight"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 1 dB",
+   "key": "⌃⇧ArrowUp"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 1 dB",
+   "key": "⌃⇧ArrowDown"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 0.1 dB",
+   "key": "⌃⌥⇧ArrowUp"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 0.1 dB",
+   "key": "⌃⌥⇧ArrowDown"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Back to 0 dB",
+   "key": ""
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up a Semitone",
+   "key": "⌥ArrowUp"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down a Semitone",
+   "key": "⌥ArrowDown"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up an Octave",
+   "key": "⌥⇧ArrowUp"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down an Octave",
+   "key": "⌥⇧ArrowDown"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Up 10 Cents",
+   "key": ""
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Down 10 Cents",
+   "key": ""
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Back to the Original Pitch",
+   "key": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Reverse",
+   "key": "⌃⇧KeyR"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fades for Selection",
+   "key": "KeyF"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade In up to the Playhead",
+   "key": "KeyD"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade Out from the Playhead",
+   "key": "KeyG"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Earlier",
+   "key": "⌥ArrowLeft"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Later",
+   "key": "⌥ArrowRight"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Shorter",
+   "key": "⌥⇧ArrowLeft"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Longer",
+   "key": "⌥⇧ArrowRight"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Follow the Tempo",
+   "key": "⌃KeyF"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Fit Region to Project Tempo",
+   "key": "⌃⌥KeyF"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Set Project Tempo from Region",
+   "key": "⌃⌥KeyT"
+  },
+  {
+   "menu": "Region",
+   "line": "Quantize",
+   "key": "KeyQ"
+  },
+  {
+   "menu": "Region",
+   "line": "Undo Quantize",
+   "key": "⌥⌘KeyQ"
+  },
+  {
+   "menu": "Region",
+   "line": "Strip Silence",
+   "key": "⌃KeyX"
+  },
+  {
+   "menu": "Region",
+   "line": "Group",
+   "key": "⌥⌘KeyG"
+  },
+  {
+   "menu": "Region",
+   "line": "Ungroup",
+   "key": "⌥⌘KeyU"
+  },
+  {
+   "menu": "Region",
+   "line": "Colour and Outline…",
+   "key": ""
+  },
+  {
+   "menu": "Track",
+   "line": "New Tracks…",
+   "key": "⌥⌘KeyN"
+  },
+  {
+   "menu": "Track",
+   "line": "New Audio Track",
+   "key": "⌥⌘KeyA"
+  },
+  {
+   "menu": "Track",
+   "line": "New Instrument Track",
+   "key": "⌥⌘KeyS"
+  },
+  {
+   "menu": "Track",
+   "line": "New Bus",
+   "key": "⌃KeyN"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate",
+   "key": "⌘KeyD"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate with Its Regions",
+   "key": "⌥⇧⌘KeyD"
+  },
+  {
+   "menu": "Track",
+   "line": "Rename…",
+   "key": ""
+  },
+  {
+   "menu": "Track",
+   "line": "Delete",
+   "key": "⌘Backspace"
+  },
+  {
+   "menu": "Track",
+   "line": "Delete Empty Tracks",
+   "key": "⇧⌘Backspace"
+  },
+  {
+   "menu": "Track",
+   "line": "Mute",
+   "key": "KeyM"
+  },
+  {
+   "menu": "Track",
+   "line": "Solo",
+   "key": "KeyS"
+  },
+  {
+   "menu": "Track",
+   "line": "Record Enable",
+   "key": ""
+  },
+  {
+   "menu": "Track",
+   "line": "Hear the Input",
+   "key": "⌃KeyI"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Make a Stack",
+   "key": "⇧⌘KeyD"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Take the Stack Apart",
+   "key": "⇧⌘KeyU"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Open the Stack",
+   "key": "⌃⌘ArrowRight"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Close the Stack",
+   "key": "⌃⌘ArrowLeft"
+  },
+  {
+   "menu": "Track",
+   "line": "Group Tracks",
+   "key": "⌘KeyG"
+  },
+  {
+   "menu": "Track",
+   "line": "Suspend Groups",
+   "key": "⇧KeyG"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Typing Keyboard",
+   "key": "⌘KeyK"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Capture as Recording",
+   "key": "⇧KeyR"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "All Notes Off",
+   "key": "⌃⌘Period"
+  },
+  {
+   "menu": "Transport",
+   "line": "Play or Stop",
+   "key": "Space"
+  },
+  {
+   "menu": "Transport",
+   "line": "Play from Selection",
+   "key": "⇧Space"
+  },
+  {
+   "menu": "Transport",
+   "line": "Record",
+   "key": "KeyR"
+  },
+  {
+   "menu": "Transport",
+   "line": "Discard Recording",
+   "key": "⌘Period"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Start",
+   "key": "Enter"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to End of Sound",
+   "key": "⌥Enter"
+  },
+  {
+   "menu": "Transport",
+   "line": "Back a Bar",
+   "key": "Comma"
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward a Bar",
+   "key": "Period"
+  },
+  {
+   "menu": "Transport",
+   "line": "Back Eight Bars",
+   "key": "⇧Comma"
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward Eight Bars",
+   "key": "⇧Period"
+  },
+  {
+   "menu": "Transport",
+   "line": "Previous Transient",
+   "key": "⌥Tab"
+  },
+  {
+   "menu": "Transport",
+   "line": "Next Transient",
+   "key": "Tab"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Bar…",
+   "key": "Slash"
+  },
+  {
+   "menu": "Transport",
+   "line": "Cycle",
+   "key": "KeyC"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Set to Selection",
+   "key": "KeyU"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its Start",
+   "key": "⌃⇧Comma"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its End",
+   "key": "⌃⇧Period"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Forward by Its Length",
+   "key": "⇧⌘Period"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Back by Its Length",
+   "key": "⇧⌘Comma"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Twice as Long",
+   "key": "⌥⇧⌘Period"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Half as Long",
+   "key": "⌥⇧⌘Comma"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Zoom to the Cycle",
+   "key": "⌃⇧KeyZ"
+  },
+  {
+   "menu": "Transport",
+   "line": "Click",
+   "key": "KeyK"
+  },
+  {
+   "menu": "Transport",
+   "line": "Count-In",
+   "key": "⇧KeyK"
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker Here",
+   "key": "⌥Quote"
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker for Selection",
+   "key": "⌥⇧Quote"
+  },
+  {
+   "menu": "Markers",
+   "line": "Rename Marker…",
+   "key": "⇧Quote"
+  },
+  {
+   "menu": "Markers",
+   "line": "Delete Marker Here",
+   "key": "⌥Backspace"
+  },
+  {
+   "menu": "Markers",
+   "line": "Previous Marker",
+   "key": "⌥Comma"
+  },
+  {
+   "menu": "Markers",
+   "line": "Next Marker",
+   "key": "⌥Period"
+  },
+  {
+   "menu": "Markers",
+   "line": "Cycle the Marker",
+   "key": "⌃⌥KeyC"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 1",
+   "key": "Numpad1"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 2",
+   "key": "Numpad2"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 3",
+   "key": "Numpad3"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 4",
+   "key": "Numpad4"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 5",
+   "key": "Numpad5"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 6",
+   "key": "Numpad6"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 7",
+   "key": "Numpad7"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 8",
+   "key": "Numpad8"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 9",
+   "key": "Numpad9"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pointer",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Smart",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pencil",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Eraser",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Scissors",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Join",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Mute",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Gain",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Fade",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Marquee",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Rubato",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Zoom",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Velocity",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Tool Menu",
+   "key": "KeyT"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Smart",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Grid",
+   "key": "F4"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip",
+   "key": "F2"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Shuffle",
+   "key": "F1"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Spot",
+   "key": "F3"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip, and Back",
+   "key": "⌘KeyG"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/1",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/2",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/4",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/8",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/16",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/32",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/3",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/6",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/12",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/24",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Bar",
+   "key": "⌥⇧KeyM"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Beat",
+   "key": "⌥⇧KeyB"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1/16",
+   "key": "⌥⇧KeyS"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ticks",
+   "key": "⌥⇧KeyT"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Tick",
+   "key": "⌥⇧KeyQ"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ms",
+   "key": "⌃⌥Digit0"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1 ms",
+   "key": "⌃⌥Digit1"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Sample",
+   "key": "⌃⌥KeyS"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/4",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8 Triplet",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16 Triplet",
+   "key": ""
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/32",
+   "key": ""
+  },
+  {
+   "menu": "View",
+   "line": "Patch",
+   "key": "KeyB"
+  },
+  {
+   "menu": "View",
+   "line": "Mixer",
+   "key": "KeyX"
+  },
+  {
+   "menu": "View",
+   "line": "Notes",
+   "key": "KeyP"
+  },
+  {
+   "menu": "View",
+   "line": "Prompt",
+   "key": ""
+  },
+  {
+   "menu": "View",
+   "line": "Rubato Panel",
+   "key": "KeyW"
+  },
+  {
+   "menu": "View",
+   "line": "Slur",
+   "key": "KeyO"
+  },
+  {
+   "menu": "View",
+   "line": "Automation",
+   "key": "KeyA"
+  },
+  {
+   "menu": "View",
+   "line": "Next Automation Parameter",
+   "key": "⌘KeyY"
+  },
+  {
+   "menu": "View",
+   "line": "Rubato View",
+   "key": "⌘KeyF"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom In",
+   "key": "⌘ArrowRight"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom Out",
+   "key": "⌘ArrowLeft"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom to Fit or Selection",
+   "key": "KeyZ"
+  },
+  {
+   "menu": "View",
+   "line": "Taller Rows",
+   "key": "⌘ArrowDown"
+  },
+  {
+   "menu": "View",
+   "line": "Shorter Rows",
+   "key": "⌘ArrowUp"
+  },
+  {
+   "menu": "View",
+   "line": "Taller Waveforms",
+   "key": "⌘Equal"
+  },
+  {
+   "menu": "View",
+   "line": "Lower Waveforms",
+   "key": "⌘Minus"
+  },
+  {
+   "menu": "View",
+   "line": "Page Left",
+   "key": "Home"
+  },
+  {
+   "menu": "View",
+   "line": "Page Right",
+   "key": "End"
+  },
+  {
+   "menu": "View",
+   "line": "Page Up",
+   "key": "PageUp"
+  },
+  {
+   "menu": "View",
+   "line": "Page Down",
+   "key": "PageDown"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Playhead",
+   "key": "Backquote"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Selection",
+   "key": "⇧Backquote"
+  },
+  {
+   "menu": "View",
+   "line": "Close Plug-in Windows",
+   "key": "KeyV"
+  },
+  {
+   "menu": "View",
+   "line": "Say It",
+   "key": "Slash"
+  },
+  {
+   "menu": "Window",
+   "line": "Patch",
+   "key": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Mixer",
+   "key": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Slur",
+   "key": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Rubato Panel",
+   "key": "KeyW"
+  },
+  {
+   "menu": "Window",
+   "line": "Minimize",
+   "key": "⌘KeyM"
+  },
+  {
+   "menu": "Window",
+   "line": "Zoom",
+   "key": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Enter Full Screen",
+   "key": "⌃⌘KeyF"
+  },
+  {
+   "menu": "Help",
+   "line": "Slur Studio Help",
+   "key": ""
+  },
+  {
+   "menu": "Help",
+   "line": "Key Commands",
+   "key": "⇧Slash"
+  },
+  {
+   "menu": "Help",
+   "line": "Say It",
+   "key": "Slash"
+  }
+ ],
+ "loose": [
+  "NumpadEnter",
+  "Numpad0",
+  "NumpadDecimal",
+  "NumpadMultiply",
+  "⌃Home",
+  "⌃End",
+  "⌘KeyU",
+  "⌃⌘KeyG",
+  "⇧⌘Equal",
+  "⌘NumpadAdd",
+  "⌘NumpadSubtract",
+  "⌘KeyJ",
+  "Delete",
+  "⇧Tab",
+  "⌥⇧Tab",
+  "⌃Period",
+  "⌃Comma",
+  "⌘BracketLeft",
+  "⌘BracketRight",
+  "⇧ArrowUp",
+  "⇧ArrowDown",
+  "⇧Enter",
+  "⇧⌘KeyI",
+  "⌘Comma",
+  "Escape"
+ ]
+}

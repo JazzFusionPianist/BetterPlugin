@@ -1,0 +1,2935 @@
+{
+ "daw": "Ableton Live 12",
+ "version_checked": "Live 12.4.x (manual and release notes as of 2026-10-18); Mac, US keyboard, default settings (Use Tab to Move Focus off, Move Clips with Arrow Keys on)",
+ "rows": [
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "General",
+   "equivalent": "Settings… (Live menu)",
+   "key": "⌘Comma",
+   "note": "Opens Live's Settings window (at its last page); Live has no \"General\" page — its pages are Display & Input, Theme & Colors, Audio, Link/Tempo/MIDI, File & Folder, Library, Plug-Ins, Record/Warp/Launch, Licenses & Maintenance. Only one key opens Settings, so give it to this row.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/first-steps/"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Display",
+   "equivalent": "Settings > Display & Input",
+   "key": "",
+   "note": "no default key; ⌘, opens Settings, then pick the page.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Audio",
+   "equivalent": "Settings > Audio",
+   "key": "",
+   "note": "no default key; ⌘, opens Settings, then pick the page.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Plug-ins",
+   "equivalent": "Settings > Plug-Ins",
+   "key": "",
+   "note": "no default key; ⌘, opens Settings, then pick the page.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/live-manual/12/using-plug-ins/"
+  },
+  {
+   "menu": "Slur Studio",
+   "line": "Key Commands",
+   "equivalent": "Key Map Mode (Options > Edit Key Map)",
+   "key": "⌘KeyK",
+   "note": "Closest only: Live has no key-command list/editor; Key Map Mode assigns computer keys to on-screen controls.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/midi-and-key-remote-control/"
+  },
+  {
+   "menu": "File",
+   "line": "New",
+   "equivalent": "New Live Set",
+   "key": "⌘KeyN",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "File",
+   "line": "Open…",
+   "equivalent": "Open Live Set…",
+   "key": "⌘KeyO",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "No Projects Yet",
+   "equivalent": "Open Recent Set (submenu)",
+   "key": "",
+   "note": "no default key (submenu of File).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/live-manual/12/managing-files-and-sets/"
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "More…",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Open Recent Set has no \"More…\" entry).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/managing-files-and-sets/"
+  },
+  {
+   "menu": "File",
+   "line": "Save",
+   "equivalent": "Save Live Set",
+   "key": "⌘KeyS",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "File",
+   "line": "Save As…",
+   "equivalent": "Save Live Set As…",
+   "key": "⇧⌘KeyS",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "File",
+   "line": "Rename…",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no rename-Set command; Save Live Set As… / Save a Copy… are the closest).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/managing-files-and-sets/"
+  },
+  {
+   "menu": "File",
+   "line": "Revert To…",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no revert-to-saved/backup command; backups are opened from the Project's Backup folder. In-session, View > Undo History is ⌥⌘Z).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/managing-files-and-sets/"
+  },
+  {
+   "menu": "File",
+   "line": "Find Missing Sounds…",
+   "equivalent": "Manage Files… (File Manager > Locate missing files)",
+   "key": "",
+   "note": "no default key.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/live-manual/12/managing-files-and-sets/"
+  },
+  {
+   "menu": "File",
+   "line": "Import Audio…",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent for audio (audio is added from the browser or by dragging from Finder). Create > Import MIDI File… exists for MIDI only, no default key.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/managing-files-and-sets/"
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off…",
+   "equivalent": "Export Audio/Video…",
+   "key": "⇧⌘KeyR",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/live-concepts/ ; https://www.ableton.com/en/live-manual/12/managing-files-and-sets/"
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off Stems…",
+   "equivalent": "Export Audio/Video… with Rendered Track: All Individual Tracks",
+   "key": "",
+   "note": "Same dialog as Export Audio/Video (⇧⌘R, on the Hand Off row); Live has no separate stems command or key.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/live-manual/12/managing-files-and-sets/"
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place",
+   "equivalent": "Bounce to New Track",
+   "key": "⌘KeyB",
+   "note": "Renders the selected clips/time selection to a new audio track and mutes the source (like Logic's default Bounce in Place). Live's \"Bounce Track in Place\" (renders the whole track, replaces it) is context-menu only, no default key.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/bounce-to-audio/ ; https://www.ableton.com/en/release-notes/live-12/ ; https://help.ableton.com/hc/en-us/articles/22999165562396"
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place in Realtime",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live bounces offline; no realtime option).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/bounce-to-audio/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Undo",
+   "equivalent": "Undo",
+   "key": "⌘KeyZ",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Redo",
+   "equivalent": "Redo",
+   "key": "⇧⌘KeyZ",
+   "note": "Mac key (Ctrl+Y is the Windows key).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut",
+   "equivalent": "Cut",
+   "key": "⌘KeyX",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Copy",
+   "equivalent": "Copy",
+   "key": "⌘KeyC",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Paste",
+   "equivalent": "Paste",
+   "key": "⌘KeyV",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Delete",
+   "equivalent": "Delete",
+   "key": "Backspace",
+   "note": "The Mac delete key. Same key deletes a selected track, locator or breakpoint.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Select All",
+   "equivalent": "Select All",
+   "key": "⌘KeyA",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "None",
+   "equivalent": "Deselect (Esc)",
+   "key": "Escape",
+   "note": "Documented for the MIDI Note Editor (Esc deselects all notes / collapses the selection). No Deselect-All menu command; in the Arrangement, Esc with nothing selected moves focus to the track headers.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/release-notes/live-12/"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Invert",
+   "equivalent": "Invert Selection (Edit menu)",
+   "key": "⇧⌘KeyA",
+   "note": "MIDI Note Editor only (inverts the note selection); Live cannot invert a clip selection.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://help.ableton.com/hc/en-us/articles/12840878679452-New-Keyboard-Shortcuts-in-Live-12"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following on the Same Track",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Inside the Cycle",
+   "equivalent": "Select Loop (Select Loop Brace Contents)",
+   "key": "⇧⌘KeyL",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Muted Regions",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Region",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no select-previous-clip command). In Live ← nudges the selection; ⌥← jumps the insert marker to the previous clip edge or locator (given on the Previous Marker row).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Region",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no select-next-clip command). In Live → nudges the selection; ⌥→ jumps the insert marker to the next clip edge or locator (given on the Next Marker row).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Previous Region",
+   "equivalent": "Extend/shorten the time selection (left)",
+   "key": "⇧ArrowLeft",
+   "note": "Not by clip: ⇧← changes the time selection by the grid. Same key shortens selected notes in the MIDI Note Editor (Nudge > Shorter row).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Next Region",
+   "equivalent": "Extend/shorten the time selection (right)",
+   "key": "⇧ArrowRight",
+   "note": "Not by clip: ⇧→ changes the time selection by the grid. Same key lengthens selected notes in the MIDI Note Editor (Nudge > Longer row).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "First Region",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Last Region",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Track",
+   "equivalent": "Move selection/insert marker to the track above",
+   "key": "ArrowUp",
+   "note": "Arrangement View. Same key transposes selected notes in the MIDI Note Editor and moves a selected loop brace.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Track",
+   "equivalent": "Move selection/insert marker to the track below",
+   "key": "ArrowDown",
+   "note": "Arrangement View. Same key transposes selected notes down in the MIDI Note Editor and moves a selected loop brace.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Playhead",
+   "equivalent": "Split",
+   "key": "⌘KeyE",
+   "note": "Splits at the insert marker (or at the time-selection edges), not at the playhead; ⇧⌘Space first moves the insert marker to the playhead. In the MIDI Note Editor ⌘E splits/chops notes.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://help.ableton.com/hc/en-us/articles/12840878679452-New-Keyboard-Shortcuts-in-Live-12"
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Cycle Ends",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent as one command: Select Loop (⇧⌘L) then Split (⌘E) splits at the loop edges.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Join",
+   "equivalent": "Consolidate",
+   "key": "⌘KeyJ",
+   "note": "Joins the selected clips/time into one clip. In the MIDI Note Editor ⌘J joins notes.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat",
+   "equivalent": "Duplicate",
+   "key": "⌘KeyD",
+   "note": "With clips or a time selection selected, places a copy right after it. Same key duplicates a selected track (Duplicate with Its Regions row). NB: ⌘R is Rename in Live.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut Section Between Locators",
+   "equivalent": "Cut Time",
+   "key": "⇧⌘KeyX",
+   "note": "Acts on the time selection, not the loop: Select Loop (⇧⌘L) first. Delete Time (⇧⌘⌫) removes without copying.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Silence at Locators",
+   "equivalent": "Insert Silence",
+   "key": "⌘KeyI",
+   "note": "Inserts silence of the time-selection length at its start (select the loop with ⇧⌘L first). In Session View ⌘I is Insert Scene.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Section at Playhead",
+   "equivalent": "Paste Time",
+   "key": "⇧⌘KeyV",
+   "note": "Inserts the copied/cut time at the insert marker, pushing material later.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat Section Between Locators",
+   "equivalent": "Duplicate Time",
+   "key": "⇧⌘KeyD",
+   "note": "Acts on the time selection (select the loop with ⇧⌘L first).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Region",
+   "line": "Mute",
+   "equivalent": "Deactivate Clip(s) (Clip Activator)",
+   "key": "Digit0",
+   "note": "Toggles selected clips/time off and on. Same key deactivates a selected track (Track > Mute row) and selected notes.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://www.ableton.com/en/live-manual/12/clip-view/"
+  },
+  {
+   "menu": "Region",
+   "line": "Rename…",
+   "equivalent": "Rename",
+   "key": "⌘KeyR",
+   "note": "Same key renames tracks, locators, take lanes.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead and Select Next",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Loop to the Next Region",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (clip Loop switch in Clip View has no key; extend by dragging the clip edge).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/clip-view/"
+  },
+  {
+   "menu": "Region",
+   "line": "Trim Start to Playhead",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no trim-to-playhead). Closest: Crop (⇧⌘J) crops to the time selection; or put the insert marker on the clip edge, Enter, then ←/→.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Region",
+   "line": "Trim End to Playhead",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no trim-to-playhead). Closest: Crop (⇧⌘J) crops to the time selection; or put the insert marker on the clip edge, Enter, then ←/→.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Left",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Right",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 1 dB",
+   "equivalent": "Clip Gain (Clip View control)",
+   "key": "",
+   "note": "no default key. No command or key: Clip Gain is a Clip View control; once it has focus ↑/↓ change it in 1 dB steps and ⇧↑/⇧↓ in 0.1 dB steps (12.0.x+).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/clip-view/ ; https://www.ableton.com/en/release-notes/live-12/"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 1 dB",
+   "equivalent": "Clip Gain (Clip View control)",
+   "key": "",
+   "note": "no default key. No command or key: Clip Gain is a Clip View control; once it has focus ↑/↓ change it in 1 dB steps and ⇧↑/⇧↓ in 0.1 dB steps (12.0.x+).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/clip-view/ ; https://www.ableton.com/en/release-notes/live-12/"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 0.1 dB",
+   "equivalent": "Clip Gain (Clip View control)",
+   "key": "",
+   "note": "no default key. No command or key: Clip Gain is a Clip View control; once it has focus ↑/↓ change it in 1 dB steps and ⇧↑/⇧↓ in 0.1 dB steps (12.0.x+).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/clip-view/ ; https://www.ableton.com/en/release-notes/live-12/"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 0.1 dB",
+   "equivalent": "Clip Gain (Clip View control)",
+   "key": "",
+   "note": "no default key. No command or key: Clip Gain is a Clip View control; once it has focus ↑/↓ change it in 1 dB steps and ⇧↑/⇧↓ in 0.1 dB steps (12.0.x+).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/clip-view/ ; https://www.ableton.com/en/release-notes/live-12/"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Back to 0 dB",
+   "equivalent": "Clip Gain → default (Delete on the focused control)",
+   "key": "",
+   "note": "no default key as a command; with the Gain control focused, Delete (Backspace) returns it to its default.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up a Semitone",
+   "equivalent": "Transpose selected notes up a semitone",
+   "key": "ArrowUp",
+   "note": "MIDI Note Editor only (moves the selected notes). Live has no key to transpose a whole clip — audio clips use the Clip View Transpose control. In the Arrangement the same key moves to another track.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down a Semitone",
+   "equivalent": "Transpose selected notes down a semitone",
+   "key": "ArrowDown",
+   "note": "MIDI Note Editor only (moves the selected notes). Live has no key to transpose a whole clip — audio clips use the Clip View Transpose control. In the Arrangement the same key moves to another track.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up an Octave",
+   "equivalent": "Transpose selected notes up an octave",
+   "key": "⇧ArrowUp",
+   "note": "MIDI Note Editor only (moves the selected notes). Live has no key to transpose a whole clip — audio clips use the Clip View Transpose control. In the Arrangement the same key moves to another track.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down an Octave",
+   "equivalent": "Transpose selected notes down an octave",
+   "key": "⇧ArrowDown",
+   "note": "MIDI Note Editor only (moves the selected notes). Live has no key to transpose a whole clip — audio clips use the Clip View Transpose control. In the Arrangement the same key moves to another track.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Up 10 Cents",
+   "equivalent": "Detune (Clip View control, audio clips)",
+   "key": "",
+   "note": "no default key (control only).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/clip-view/"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Down 10 Cents",
+   "equivalent": "Detune (Clip View control, audio clips)",
+   "key": "",
+   "note": "no default key (control only).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/clip-view/"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Back to the Original Pitch",
+   "equivalent": "Transpose/Detune → default (Delete on the focused control)",
+   "key": "",
+   "note": "no default key as a command.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Region",
+   "line": "Reverse",
+   "equivalent": "Reverse Clip(s)",
+   "key": "KeyR",
+   "note": "Reverses the selected audio clips / time selection. The 12.0 release notes add MIDI clips, but the current manual says a selection containing MIDI clips cannot be reversed.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://www.ableton.com/en/release-notes/live-12/"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fades for Selection",
+   "equivalent": "Create Fade/Crossfade (Create Fade In/Out)",
+   "key": "⌥⌘KeyF",
+   "note": "Acts on a time selection touching a clip edge, or on adjacent selected clips. ⌥⌘⌫ deletes fades.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://www.ableton.com/en/live-manual/12/comping/"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade In up to the Playhead",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (fades come from the time selection: select from clip start, then ⌥⌘F).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade Out from the Playhead",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (fades come from the time selection: select to clip end, then ⌥⌘F).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Earlier",
+   "equivalent": "Nudge Selection Left",
+   "key": "ArrowLeft",
+   "note": "By the grid (\"Move Clips with Arrow Keys\", on by default). With nothing selected the same key moves the insert marker back by the grid.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Later",
+   "equivalent": "Nudge Selection Right",
+   "key": "ArrowRight",
+   "note": "By the grid (\"Move Clips with Arrow Keys\", on by default). With nothing selected the same key moves the insert marker forward by the grid.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Shorter",
+   "equivalent": "Shorten selected notes (MIDI Note Editor)",
+   "key": "⇧ArrowLeft",
+   "note": "Notes only. Arrangement clips: put the insert marker on the clip edge, Enter, ←/→, Enter. In the Arrangement ⇧← changes the time selection.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Longer",
+   "equivalent": "Lengthen selected notes (MIDI Note Editor)",
+   "key": "⇧ArrowRight",
+   "note": "Notes only. Arrangement clips: put the insert marker on the clip edge, Enter, ←/→, Enter. In the Arrangement ⇧→ changes the time selection.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Follow the Tempo",
+   "equivalent": "Warp switch (Clip View)",
+   "key": "",
+   "note": "no default key (control only).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/clip-view/ ; https://www.ableton.com/en/live-manual/12/audio-clips-tempo-and-warping/"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Fit Region to Project Tempo",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent as a separate command: a warped clip already follows the Set tempo (Warp switch).",
+   "confidence": "low",
+   "source": "https://www.ableton.com/en/live-manual/12/audio-clips-tempo-and-warping/"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Set Project Tempo from Region",
+   "equivalent": "Lead/Follow toggle → Lead (Clip View Audio Utilities)",
+   "key": "",
+   "note": "no default key. Makes the Set play at the clip's tempo (Arrangement clips).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/audio-clips-tempo-and-warping/"
+  },
+  {
+   "menu": "Region",
+   "line": "Quantize",
+   "equivalent": "Quantize",
+   "key": "⌘KeyU",
+   "note": "⇧⌘U opens the quantize settings. NB: Q in Live is Hot-Swap.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/live-manual/12/audio-clips-tempo-and-warping/"
+  },
+  {
+   "menu": "Region",
+   "line": "Undo Quantize",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (use Undo).",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Strip Silence",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Group",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent for clips (Live cannot group clips). ⌘G groups tracks, devices, or notes (note probability groups).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/editing-midi/"
+  },
+  {
+   "menu": "Region",
+   "line": "Ungroup",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent for clips. ⇧⌘G ungroups tracks/devices/notes.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/editing-midi/"
+  },
+  {
+   "menu": "Region",
+   "line": "Colour and Outline…",
+   "equivalent": "Clip color (context-menu color palette)",
+   "key": "",
+   "note": "no default key.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Track",
+   "line": "New Tracks…",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no new-tracks dialog; Insert Audio/MIDI/Return Track are separate commands).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Track",
+   "line": "New Audio Track",
+   "equivalent": "Insert Audio Track",
+   "key": "⌘KeyT",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Track",
+   "line": "New Instrument Track",
+   "equivalent": "Insert MIDI Track",
+   "key": "⇧⌘KeyT",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Track",
+   "line": "New Bus",
+   "equivalent": "Insert Return Track",
+   "key": "⌥⌘KeyT",
+   "note": "A Logic aux/bus maps to a Live return track.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live's Duplicate on a track always copies its clips too; see the next row).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate with Its Regions",
+   "equivalent": "Duplicate (track selected)",
+   "key": "⌘KeyD",
+   "note": "Duplicates the selected track with its clips and devices. Same key as Duplicate for clips (Edit > Repeat row) — Live decides by what is selected.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Track",
+   "line": "Rename…",
+   "equivalent": "Rename (Rename Selected Track)",
+   "key": "⌘KeyR",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Track",
+   "line": "Delete",
+   "equivalent": "Delete (track title bar selected)",
+   "key": "Backspace",
+   "note": "Same key as Edit > Delete; Live deletes the track when its title bar is selected. NB: ⌘⌫ in Live deletes automation.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Track",
+   "line": "Delete Empty Tracks",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Track",
+   "line": "Mute",
+   "equivalent": "Track Activator (Deactivate Selected Track)",
+   "key": "Digit0",
+   "note": "Live's track mute is the Track Activator. 0 toggles it for the selected track(s); F1–F8 toggle tracks 1–8. Same key deactivates clips.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Track",
+   "line": "Solo",
+   "equivalent": "Solo Selected Tracks",
+   "key": "KeyS",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Track",
+   "line": "Record Enable",
+   "equivalent": "Arm Selected Tracks",
+   "key": "KeyC",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Track",
+   "line": "Hear the Input",
+   "equivalent": "Monitor: In (track In/Out section)",
+   "key": "",
+   "note": "no default key (control only).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/recording-new-clips/"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Make a Stack",
+   "equivalent": "Group Tracks",
+   "key": "⌘KeyG",
+   "note": "Live's Group Track is the counterpart of a Logic track stack.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Take the Stack Apart",
+   "equivalent": "Ungroup Tracks",
+   "key": "⇧⌘KeyG",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Open the Stack",
+   "equivalent": "Unfold (show) the group's tracks",
+   "key": "ArrowRight",
+   "note": "With the group track's title bar selected (Fold/Unfold Selected Tracks: U toggles, ←/→ fold/unfold; + / − also show/hide grouped tracks).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Close the Stack",
+   "equivalent": "Fold (hide) the group's tracks",
+   "key": "ArrowLeft",
+   "note": "With the group track's title bar selected (U toggles; − also hides grouped tracks).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Track",
+   "line": "Group Tracks",
+   "equivalent": "Link Tracks (track header context menu)",
+   "key": "",
+   "note": "no default key. Closest to an edit group: linked tracks are edited together (Live 12).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Track",
+   "line": "Suspend Groups",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Typing Keyboard",
+   "equivalent": "Computer MIDI Keyboard",
+   "key": "KeyM",
+   "note": "While it is on, single-letter shortcuts need ⇧ (e.g. ⇧S to solo).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://help.ableton.com/hc/en-us/articles/360000093570"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Capture as Recording",
+   "equivalent": "Capture MIDI",
+   "key": "",
+   "note": "no default key in Live 12.4 (12.4 gave ⇧⌘C to Copy Time and removed the Capture key; in 12.0–12.3 Capture MIDI was ⇧⌘C). Control Bar button.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/release-notes/live-12/ ; https://help.ableton.com/hc/en-us/articles/26963870210076 ; https://www.ableton.com/en/live-manual/12/recording-new-clips/"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "All Notes Off",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no MIDI panic command).",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Play or Stop",
+   "equivalent": "Play / Stop (Play from Start Marker / Stop)",
+   "key": "Space",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Transport",
+   "line": "Play from Selection",
+   "equivalent": "Play Arrangement View Selection",
+   "key": "Space",
+   "note": "Same key as Play/Stop: Space starts at the time selection / insert marker. NB: ⇧Space in Live is Continue Play from Stop Point; ⌥Space plays from the insert marker in the selected clip.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Transport",
+   "line": "Record",
+   "equivalent": "Arrangement Record",
+   "key": "F9",
+   "note": "NB: R in Live is Reverse.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Transport",
+   "line": "Discard Recording",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (use Undo).",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Start",
+   "equivalent": "Move Insert Marker to Beginning",
+   "key": "Home",
+   "note": "fn+← on a Mac laptop. Double-clicking Stop does the same.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to End of Sound",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent. End is documented only in the MIDI Note Editor (clip end) and Session View (last track).",
+   "confidence": "low",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Transport",
+   "line": "Back a Bar",
+   "equivalent": "Move insert marker back by the grid",
+   "key": "ArrowLeft",
+   "note": "By the current grid, not by a bar, and only with no clips selected (otherwise it nudges them — same key as Nudge > Earlier). Live has no rewind key.",
+   "confidence": "low",
+   "source": "https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward a Bar",
+   "equivalent": "Move insert marker forward by the grid",
+   "key": "ArrowRight",
+   "note": "By the current grid, not by a bar, and only with no clips selected (otherwise it nudges them — same key as Nudge > Later). Live has no fast-forward key.",
+   "confidence": "low",
+   "source": "https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Transport",
+   "line": "Back Eight Bars",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward Eight Bars",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Previous Transient",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent in the Arrangement. NB: Tab in Live switches Session/Arrangement View.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Next Transient",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent in the Arrangement. NB: Tab in Live switches Session/Arrangement View.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Bar…",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (the Arrangement Position field takes typed values but has no key to reach it besides ⌥0 + Tab).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Transport",
+   "line": "Cycle",
+   "equivalent": "Loop Selection (Arrangement Loop on/off)",
+   "key": "⌘KeyL",
+   "note": "Turns the Arrangement loop on and sets it to the selection; pressing again with the same selection turns it off. Same key as Set to Selection.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Set to Selection",
+   "equivalent": "Loop Selection",
+   "key": "⌘KeyL",
+   "note": "Sets the loop brace to the time selection and turns the loop on. Same key as the Cycle row.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its Start",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its End",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Forward by Its Length",
+   "equivalent": "Move Loop by Loop Length (later)",
+   "key": "ArrowDown",
+   "note": "Loop brace must be selected first (click it). The manual pairs \"up and down\" with \"left/right\" and does not say which arrow is forward; ↓ = later is the reading of its word order — check in Live.",
+   "confidence": "low",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://www.ableton.com/en/live-manual/12/clip-view/"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Back by Its Length",
+   "equivalent": "Move Loop by Loop Length (earlier)",
+   "key": "ArrowUp",
+   "note": "Loop brace must be selected first (click it). The manual pairs \"up and down\" with \"left/right\" and does not say which arrow is forward; ↓ = later is the reading of its word order — check in Live.",
+   "confidence": "low",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://www.ableton.com/en/live-manual/12/clip-view/"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Twice as Long",
+   "equivalent": "Double Loop Length",
+   "key": "⌘ArrowUp",
+   "note": "Loop brace selected. Manual: \"up and down arrow keys doubles or halves the loop length\" (⌘↑ double, ⌘↓ halve).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://www.ableton.com/en/live-manual/12/clip-view/"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Half as Long",
+   "equivalent": "Halve Loop Length",
+   "key": "⌘ArrowDown",
+   "note": "Loop brace selected. Manual: \"up and down arrow keys doubles or halves the loop length\" (⌘↑ double, ⌘↓ halve).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://www.ableton.com/en/live-manual/12/clip-view/"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Zoom to the Cycle",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent as one command: Select Loop (⇧⌘L) then Z (Zoom to Arrangement Time Selection).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Transport",
+   "line": "Click",
+   "equivalent": "Metronome",
+   "key": "KeyO",
+   "note": "O since Live 12.0.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/release-notes/live-12/ ; https://help.ableton.com/hc/en-us/articles/12840878679452-New-Keyboard-Shortcuts-in-Live-12"
+  },
+  {
+   "menu": "Transport",
+   "line": "Count-In",
+   "equivalent": "Count-In (Metronome Settings menu)",
+   "key": "",
+   "note": "no default key.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/live-manual/12/recording-new-clips/"
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker Here",
+   "equivalent": "Add Locator (Create menu) / Set Locator button",
+   "key": "",
+   "note": "no default key (key-mappable only).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://forum.ableton.com/viewtopic.php?p=1633466"
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker for Selection",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live locators are points, not ranges).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Markers",
+   "line": "Rename Marker…",
+   "equivalent": "Rename (locator selected)",
+   "key": "⌘KeyR",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Markers",
+   "line": "Delete Marker Here",
+   "equivalent": "Delete (locator selected) / Delete Locator",
+   "key": "Backspace",
+   "note": "Select the locator, then delete.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Markers",
+   "line": "Previous Marker",
+   "equivalent": "Move insert marker to previous locator or clip edge",
+   "key": "⌥ArrowLeft",
+   "note": "The Previous Locator button has no default key; ⌥← snaps the insert marker to the previous locator or clip edge on the selected track(s).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Markers",
+   "line": "Next Marker",
+   "equivalent": "Move insert marker to next locator or clip edge",
+   "key": "⌥ArrowRight",
+   "note": "The Next Locator button has no default key; ⌥→ snaps the insert marker to the next locator or clip edge on the selected track(s).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/"
+  },
+  {
+   "menu": "Markers",
+   "line": "Cycle the Marker",
+   "equivalent": "Loop to Next Locator (locator context menu)",
+   "key": "",
+   "note": "no default key.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 1",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no go-to-locator-N command; a locator can be key-mapped in Key Map Mode, ⌘K).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 2",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no go-to-locator-N command; a locator can be key-mapped in Key Map Mode, ⌘K).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 3",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no go-to-locator-N command; a locator can be key-mapped in Key Map Mode, ⌘K).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 4",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no go-to-locator-N command; a locator can be key-mapped in Key Map Mode, ⌘K).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 5",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no go-to-locator-N command; a locator can be key-mapped in Key Map Mode, ⌘K).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 6",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no go-to-locator-N command; a locator can be key-mapped in Key Map Mode, ⌘K).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 7",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no go-to-locator-N command; a locator can be key-mapped in Key Map Mode, ⌘K).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 8",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no go-to-locator-N command; a locator can be key-mapped in Key Map Mode, ⌘K).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 9",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no go-to-locator-N command; a locator can be key-mapped in Key Map Mode, ⌘K).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pointer",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no tool palette; Draw Mode off is the normal state — B toggles).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Smart",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pencil",
+   "equivalent": "Draw Mode",
+   "key": "KeyB",
+   "note": "Toggle; hold B to latch it momentarily.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Eraser",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (in Draw Mode, clicking a note deletes it).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Scissors",
+   "equivalent": "Split notes (hold E and click)",
+   "key": "KeyE",
+   "note": "Hold E — MIDI Note Editor only. Clips are split with ⌘E.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/editing-midi/"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Join",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Mute",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Gain",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Fade",
+   "equivalent": "Momentarily Toggle Fade Handles",
+   "key": "KeyF",
+   "note": "Hold F to show fade handles.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Marquee",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (the Arrangement selection is a time selection by default; no tool).",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Rubato",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (warp markers are edited in the Clip View Sample Editor).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/audio-clips-tempo-and-warping/"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Zoom",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Velocity",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (⌘-drag on a note changes velocity).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Tool Menu",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent. NB: T in Live auditions the selected take lane.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Smart",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no edit modes).",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Grid",
+   "equivalent": "Snap to Grid (on)",
+   "key": "",
+   "note": "Snap to Grid is one toggle, ⌘4, given on the \"Slip, and Back\" row.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip",
+   "equivalent": "Snap to Grid (off)",
+   "key": "",
+   "note": "Snap to Grid is one toggle, ⌘4, given on the \"Slip, and Back\" row. Holding ⌘ while dragging bypasses snapping.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Shuffle",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent. NB: F1–F8 in Live toggle the activators of tracks 1–8.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Spot",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent. NB: F1–F8 in Live toggle the activators of tracks 1–8.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip, and Back",
+   "equivalent": "Snap to Grid (toggle)",
+   "key": "⌘Digit4",
+   "note": "Grid snapping on/off. NB: ⌘G in Live groups tracks.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/1",
+   "equivalent": "Fixed Grid: 1 Bar",
+   "key": "",
+   "note": "Fixed Grid value from the grid context menu, no default key. Keys only step the grid: ⌘1 narrow, ⌘2 widen, ⌘3 triplet, ⌘5 fixed/adaptive.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/2",
+   "equivalent": "Fixed Grid: 1/2",
+   "key": "",
+   "note": "Fixed Grid value from the grid context menu, no default key. Keys only step the grid: ⌘1 narrow, ⌘2 widen, ⌘3 triplet, ⌘5 fixed/adaptive.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/4",
+   "equivalent": "Fixed Grid: 1/4",
+   "key": "",
+   "note": "Fixed Grid value from the grid context menu, no default key. Keys only step the grid: ⌘1 narrow, ⌘2 widen, ⌘3 triplet, ⌘5 fixed/adaptive.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/8",
+   "equivalent": "Fixed Grid: 1/8",
+   "key": "",
+   "note": "Fixed Grid value from the grid context menu, no default key. Keys only step the grid: ⌘1 narrow, ⌘2 widen, ⌘3 triplet, ⌘5 fixed/adaptive.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/16",
+   "equivalent": "Fixed Grid: 1/16",
+   "key": "",
+   "note": "Fixed Grid value from the grid context menu, no default key. Keys only step the grid: ⌘1 narrow, ⌘2 widen, ⌘3 triplet, ⌘5 fixed/adaptive.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/32",
+   "equivalent": "Fixed Grid: 1/32",
+   "key": "",
+   "note": "Fixed Grid value from the grid context menu, no default key. Keys only step the grid: ⌘1 narrow, ⌘2 widen, ⌘3 triplet, ⌘5 fixed/adaptive.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/3",
+   "equivalent": "Fixed Grid: 1/2 + Triplet Grid",
+   "key": "",
+   "note": "Fixed Grid value from the grid context menu, no default key. Keys only step the grid: ⌘1 narrow, ⌘2 widen, ⌘3 triplet, ⌘5 fixed/adaptive.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/6",
+   "equivalent": "Fixed Grid: 1/4 + Triplet Grid",
+   "key": "",
+   "note": "Fixed Grid value from the grid context menu, no default key. Keys only step the grid: ⌘1 narrow, ⌘2 widen, ⌘3 triplet, ⌘5 fixed/adaptive.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/12",
+   "equivalent": "Fixed Grid: 1/8 + Triplet Grid",
+   "key": "",
+   "note": "Fixed Grid value from the grid context menu, no default key. Keys only step the grid: ⌘1 narrow, ⌘2 widen, ⌘3 triplet, ⌘5 fixed/adaptive.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/24",
+   "equivalent": "Fixed Grid: 1/16 + Triplet Grid",
+   "key": "",
+   "note": "Fixed Grid value from the grid context menu, no default key. Keys only step the grid: ⌘1 narrow, ⌘2 widen, ⌘3 triplet, ⌘5 fixed/adaptive.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Bar",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live nudges by the grid; no separate nudge value).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Beat",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live nudges by the grid; no separate nudge value).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1/16",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live nudges by the grid; no separate nudge value).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ticks",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live nudges by the grid; no separate nudge value).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Tick",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live nudges by the grid; no separate nudge value).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ms",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live nudges by the grid; no separate nudge value).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1 ms",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live nudges by the grid; no separate nudge value).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Sample",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live nudges by the grid; no separate nudge value).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/4",
+   "equivalent": "Quantize To: 1/4",
+   "key": "",
+   "note": "Set in the Quantize panel / Quantize MIDI Tool (⇧⌘U opens it), no default key per value. Do not confuse with ⌘6–⌘9/⌘0, which set Global (launch) Quantization.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8",
+   "equivalent": "Quantize To: 1/8",
+   "key": "",
+   "note": "Set in the Quantize panel / Quantize MIDI Tool (⇧⌘U opens it), no default key per value. Do not confuse with ⌘6–⌘9/⌘0, which set Global (launch) Quantization.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8 Triplet",
+   "equivalent": "Quantize To: 1/8T",
+   "key": "",
+   "note": "Set in the Quantize panel / Quantize MIDI Tool (⇧⌘U opens it), no default key per value. Do not confuse with ⌘6–⌘9/⌘0, which set Global (launch) Quantization.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16",
+   "equivalent": "Quantize To: 1/16",
+   "key": "",
+   "note": "Set in the Quantize panel / Quantize MIDI Tool (⇧⌘U opens it), no default key per value. Do not confuse with ⌘6–⌘9/⌘0, which set Global (launch) Quantization.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16 Triplet",
+   "equivalent": "Quantize To: 1/16T",
+   "key": "",
+   "note": "Set in the Quantize panel / Quantize MIDI Tool (⇧⌘U opens it), no default key per value. Do not confuse with ⌘6–⌘9/⌘0, which set Global (launch) Quantization.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/32",
+   "equivalent": "Quantize To: 1/32",
+   "key": "",
+   "note": "Set in the Quantize panel / Quantize MIDI Tool (⇧⌘U opens it), no default key per value. Do not confuse with ⌘6–⌘9/⌘0, which set Global (launch) Quantization.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "View",
+   "line": "Patch",
+   "equivalent": "Hide/Show Device View",
+   "key": "⌥⌘Digit4",
+   "note": "Device View holds the track's instrument and effects (Slur's Patch panel). ⇧Tab toggles Device/Clip View.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/live-concepts/"
+  },
+  {
+   "menu": "View",
+   "line": "Mixer",
+   "equivalent": "Mixer (Hide/Show Mixer)",
+   "key": "⌥⌘KeyM",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://help.ableton.com/hc/en-us/articles/12243771208092"
+  },
+  {
+   "menu": "View",
+   "line": "Notes",
+   "equivalent": "Hide/Show Clip View (MIDI Note Editor)",
+   "key": "⌥⌘Digit3",
+   "note": "⌥⌘E expands Clip View to full height.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/editing-midi/"
+  },
+  {
+   "menu": "View",
+   "line": "Prompt",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "View",
+   "line": "Rubato Panel",
+   "equivalent": "Clip View Sample Editor (warp markers)",
+   "key": "",
+   "note": "no default key of its own; it is the Clip View (⌥⌘3, on the Notes row).",
+   "confidence": "low",
+   "source": "https://www.ableton.com/en/live-manual/12/audio-clips-tempo-and-warping/"
+  },
+  {
+   "menu": "View",
+   "line": "Slur",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent. NB: O in Live is the metronome.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "View",
+   "line": "Automation",
+   "equivalent": "Automation Mode",
+   "key": "KeyA",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/automation/"
+  },
+  {
+   "menu": "View",
+   "line": "Next Automation Parameter",
+   "equivalent": "Cycle to next automated parameter (track selected)",
+   "key": "⌥ArrowDown",
+   "note": "⌥↑/⌥↓ cycle through the track's automated parameters (⇧⌥ for all parameters). Which arrow is \"next\" is not stated; ↓ assumed.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/ ; https://www.ableton.com/en/release-notes/live-12/"
+  },
+  {
+   "menu": "View",
+   "line": "Rubato View",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (warp markers show in the Clip View Sample Editor when Warp is on). NB: ⌘F in Live is browser search.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/audio-clips-tempo-and-warping/"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom In",
+   "equivalent": "Zoom In (time ruler)",
+   "key": "Equal",
+   "note": "The \"+\" key; since Live 10 it works without Shift (forum, lower confidence). NB: ⌘+ zooms the whole UI.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/ ; https://forum.ableton.com/viewtopic.php?t=228465"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom Out",
+   "equivalent": "Zoom Out (time ruler)",
+   "key": "Minus",
+   "note": "NB: ⌘− zooms the whole UI out.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom to Fit or Selection",
+   "equivalent": "Zoom to Arrangement Time Selection",
+   "key": "KeyZ",
+   "note": "X zooms back. W = Optimize Arrangement Width (fit all).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "View",
+   "line": "Taller Rows",
+   "equivalent": "Adjust Height of Selected Tracks (taller)",
+   "key": "⌥Equal",
+   "note": "Option + \"+\"; H = Optimize Arrangement Height.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "View",
+   "line": "Shorter Rows",
+   "equivalent": "Adjust Height of Selected Tracks (shorter)",
+   "key": "⌥Minus",
+   "note": "Option + \"−\".",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/arrangement-view/"
+  },
+  {
+   "menu": "View",
+   "line": "Taller Waveforms",
+   "equivalent": "Vertical waveform zoom (slider next to the time ruler)",
+   "key": "",
+   "note": "no default key (control only). NB: ⌘+ zooms the whole UI in Live.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/release-notes/live-12/"
+  },
+  {
+   "menu": "View",
+   "line": "Lower Waveforms",
+   "equivalent": "Vertical waveform zoom (slider next to the time ruler)",
+   "key": "",
+   "note": "no default key (control only). NB: ⌘− zooms the whole UI in Live.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/release-notes/live-12/"
+  },
+  {
+   "menu": "View",
+   "line": "Page Left",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent. NB: Home in Live moves the insert marker to the start.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "View",
+   "line": "Page Right",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "View",
+   "line": "Page Up",
+   "equivalent": "Scroll up (MIDI Note Editor: one octave)",
+   "key": "PageUp",
+   "note": "Documented for the MIDI Note Editor (octave) and Session View (8 scenes); Arrangement behaviour not documented.",
+   "confidence": "low",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "View",
+   "line": "Page Down",
+   "equivalent": "Scroll down (MIDI Note Editor: one octave)",
+   "key": "PageDown",
+   "note": "Documented for the MIDI Note Editor (octave) and Session View (8 scenes); Arrangement behaviour not documented.",
+   "confidence": "low",
+   "source": "https://www.ableton.com/en/live-manual/12/editing-midi/ ; https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Playhead",
+   "equivalent": "Follow (Scroll Display to Follow Playback)",
+   "key": "⌥⇧KeyF",
+   "note": "A toggle that keeps scrolling with the playhead, not a one-shot jump. ⌥⇧F since 12.0 (was ⌘⇧F).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/release-notes/live-12/"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Selection",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Z zooms to the selection instead).",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "View",
+   "line": "Close Plug-in Windows",
+   "equivalent": "Hide/Show Plug-In Windows",
+   "key": "⌥⌘KeyP",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/using-plug-ins/"
+  },
+  {
+   "menu": "View",
+   "line": "Say It",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent. NB: ⇧⌘/ is the macOS menu search in Live.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Window",
+   "line": "Patch",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live has no Window menu; Device View is ⌥⌘4 on View > Patch).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/release-notes/live-12/"
+  },
+  {
+   "menu": "Window",
+   "line": "Mixer",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live has no Window menu; the Mixer is ⌥⌘M on View > Mixer. ⇧⌘W opens a second window).",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/release-notes/live-12/ ; https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Window",
+   "line": "Slur",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Rubato Panel",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Minimize",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Live has no Window menu). NB: ⌘M in Live is MIDI Map Mode.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/"
+  },
+  {
+   "menu": "Window",
+   "line": "Zoom",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Enter Full Screen",
+   "equivalent": "Full Screen (View menu)",
+   "key": "⌃⌘KeyF",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://help.ableton.com/hc/en-us/articles/20210918971036"
+  },
+  {
+   "menu": "Help",
+   "line": "Slur Studio Help",
+   "equivalent": "Learn View (Help menu)",
+   "key": "⌥⌘Digit7",
+   "note": "In-app lessons (Help View before 12.4). The manual itself (Help > Read the Live Manual) has no default key.",
+   "confidence": "medium",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/first-steps/ ; https://help.ableton.com/hc/en-us/articles/26963870210076"
+  },
+  {
+   "menu": "Help",
+   "line": "Key Commands",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no shortcut list window). NB: ? (⇧/) in Live shows/hides the Info View.",
+   "confidence": "high",
+   "source": "https://www.ableton.com/en/manual/live-keyboard-shortcuts/ ; https://www.ableton.com/en/live-manual/12/first-steps/"
+  },
+  {
+   "menu": "Help",
+   "line": "Say It",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent.",
+   "confidence": "high",
+   "source": ""
+  }
+ ],
+ "taken": [
+  {
+   "key": "⌘Comma",
+   "command": "Settings…"
+  },
+  {
+   "key": "⌘KeyN",
+   "command": "New Live Set"
+  },
+  {
+   "key": "⌘KeyO",
+   "command": "Open Live Set…"
+  },
+  {
+   "key": "⌘KeyS",
+   "command": "Save Live Set"
+  },
+  {
+   "key": "⇧⌘KeyS",
+   "command": "Save Live Set As…"
+  },
+  {
+   "key": "⌘KeyQ",
+   "command": "Quit Live"
+  },
+  {
+   "key": "⌘KeyH",
+   "command": "Hide Live"
+  },
+  {
+   "key": "⇧⌘KeyR",
+   "command": "Export Audio/Video…"
+  },
+  {
+   "key": "⇧⌘KeyE",
+   "command": "Export MIDI File/Clip… / Split Arrangement Clip from Clip View / Hide/Show Tag Editor (browser focused)"
+  },
+  {
+   "key": "⇧⌘Slash",
+   "command": "Menu search (macOS Help menu, \"Cmd ?\")"
+  },
+  {
+   "key": "Escape",
+   "command": "Close window/dialog; cancel value entry; jump to highlighted track title bar; deselect notes (MIDI Note Editor); clear browser search"
+  },
+  {
+   "key": "⌃⌘KeyF",
+   "command": "Toggle Full Screen"
+  },
+  {
+   "key": "⇧⌘KeyW",
+   "command": "Toggle Second Window"
+  },
+  {
+   "key": "Tab",
+   "command": "Toggle Session/Arrangement View (next control when \"Use Tab to Move Focus\" is on); next track/scene while renaming; next breakpoint"
+  },
+  {
+   "key": "⇧Tab",
+   "command": "Toggle Device/Clip View (previous control when \"Use Tab to Move Focus\" is on)"
+  },
+  {
+   "key": "F12",
+   "command": "Toggle Device/Clip View; move Clip View to the other window"
+  },
+  {
+   "key": "KeyQ",
+   "command": "Hot-Swap Mode"
+  },
+  {
+   "key": "KeyD",
+   "command": "Toggle Drum Rack / Last Selected Pad"
+  },
+  {
+   "key": "⇧Slash",
+   "command": "Hide/Show Info View (? key)"
+  },
+  {
+   "key": "⌥⌘KeyV",
+   "command": "Hide/Show Video Window / Paste Bounced Audio"
+  },
+  {
+   "key": "⌥⌘KeyB",
+   "command": "Hide/Show Browser"
+  },
+  {
+   "key": "⌥⌘Digit5",
+   "command": "Hide/Show Browser"
+  },
+  {
+   "key": "⌥⌘KeyO",
+   "command": "Hide/Show Overview"
+  },
+  {
+   "key": "⌥⌘KeyI",
+   "command": "Hide/Show In/Out"
+  },
+  {
+   "key": "⌥⌘KeyS",
+   "command": "Hide/Show Sends"
+  },
+  {
+   "key": "⌥⌘KeyM",
+   "command": "Hide/Show Mixer"
+  },
+  {
+   "key": "⌥⌘KeyR",
+   "command": "Hide/Show Return Tracks"
+  },
+  {
+   "key": "⌥⌘Digit3",
+   "command": "Hide/Show Clip View"
+  },
+  {
+   "key": "⌥⌘Digit4",
+   "command": "Hide/Show Device View"
+  },
+  {
+   "key": "⌥⌘Digit6",
+   "command": "Hide/Show Groove Pool"
+  },
+  {
+   "key": "⌥⌘Digit7",
+   "command": "Hide/Show Learn View"
+  },
+  {
+   "key": "⌥⌘KeyL",
+   "command": "Hide/Show Clip View and Device View (detail view)"
+  },
+  {
+   "key": "⌥⌘KeyE",
+   "command": "Expand (full-size) Clip View"
+  },
+  {
+   "key": "⌥⌘KeyP",
+   "command": "Hide/Show Plug-In Windows"
+  },
+  {
+   "key": "⌥⌘KeyU",
+   "command": "Show Take Lanes"
+  },
+  {
+   "key": "⌥⌘KeyZ",
+   "command": "Undo History"
+  },
+  {
+   "key": "⌥⇧⌘KeyM",
+   "command": "Max for Live window"
+  },
+  {
+   "key": "⌥⌘KeyG",
+   "command": "Hide/Show browser Filter View (browser focused)"
+  },
+  {
+   "key": "⌥Digit0",
+   "command": "Move focus to Control Bar"
+  },
+  {
+   "key": "⌥Digit1",
+   "command": "Move focus to Session View"
+  },
+  {
+   "key": "⌥Digit2",
+   "command": "Move focus to Arrangement View"
+  },
+  {
+   "key": "⌥Digit3",
+   "command": "Move focus to Clip View"
+  },
+  {
+   "key": "⌥Digit4",
+   "command": "Move focus to Device View"
+  },
+  {
+   "key": "⌥Digit5",
+   "command": "Move focus to Browser"
+  },
+  {
+   "key": "⌥Digit6",
+   "command": "Move focus to Groove Pool"
+  },
+  {
+   "key": "⌥Digit7",
+   "command": "Move focus to Learn View"
+  },
+  {
+   "key": "⌥Digit8",
+   "command": "Move focus to Selected Clip Panel"
+  },
+  {
+   "key": "⌥⇧KeyP",
+   "command": "Move focus to the Clip panels"
+  },
+  {
+   "key": "⌥⇧KeyM",
+   "command": "Move focus to the Mixer (Arrangement)"
+  },
+  {
+   "key": "⌥Tab",
+   "command": "Next neighbour control; switch Clip View editor tabs; next Settings page"
+  },
+  {
+   "key": "⌥⇧Tab",
+   "command": "Previous neighbour control; previous Settings page"
+  },
+  {
+   "key": "⌥⇧Digit1",
+   "command": "Clip View: Sample/Notes tab"
+  },
+  {
+   "key": "⌥⇧Digit2",
+   "command": "Clip View: Envelopes tab"
+  },
+  {
+   "key": "⌥⇧Digit3",
+   "command": "Clip View: MPE tab"
+  },
+  {
+   "key": "⌘Equal",
+   "command": "Zoom the whole UI in (Cmd +)"
+  },
+  {
+   "key": "⌘Minus",
+   "command": "Zoom the whole UI out"
+  },
+  {
+   "key": "Equal",
+   "command": "Zoom in (time ruler, \"+\"); Show Grouped Tracks"
+  },
+  {
+   "key": "Minus",
+   "command": "Zoom out (time ruler); Hide Grouped Tracks"
+  },
+  {
+   "key": "⌥Equal",
+   "command": "Taller selected tracks/clips/take lanes; zoom in MIDI Note Editor (Clip View focused)"
+  },
+  {
+   "key": "⌥Minus",
+   "command": "Shorter selected tracks/clips/take lanes; zoom out MIDI Note Editor (Clip View focused)"
+  },
+  {
+   "key": "⌥⇧KeyF",
+   "command": "Follow (scroll display to follow playback)"
+  },
+  {
+   "key": "KeyZ",
+   "command": "Zoom to Arrangement/Clip time selection (momentary when held); Computer MIDI Keyboard octave down"
+  },
+  {
+   "key": "KeyX",
+   "command": "Zoom back from selection; Computer MIDI Keyboard octave up"
+  },
+  {
+   "key": "KeyH",
+   "command": "Optimize Arrangement Height / fit content height"
+  },
+  {
+   "key": "KeyW",
+   "command": "Optimize Arrangement Width / fit content width"
+  },
+  {
+   "key": "KeyU",
+   "command": "Fold/Unfold selected tracks; collapse/expand group tracks"
+  },
+  {
+   "key": "⌥KeyU",
+   "command": "Unfold All Tracks"
+  },
+  {
+   "key": "ArrowLeft",
+   "command": "Nudge selection left by grid; move insert marker left; fold track (title bar selected); nudge loop brace; move notes/warp markers/locators"
+  },
+  {
+   "key": "ArrowRight",
+   "command": "Nudge selection right by grid; move insert marker right; unfold track (title bar selected); nudge loop brace; move notes/warp markers/locators"
+  },
+  {
+   "key": "ArrowUp",
+   "command": "Track above (Arrangement); transpose notes up; move loop brace by its length; previous scene (Session); increment value"
+  },
+  {
+   "key": "ArrowDown",
+   "command": "Track below (Arrangement); transpose notes down; move loop brace by its length; next scene (Session); decrement value"
+  },
+  {
+   "key": "⇧ArrowLeft",
+   "command": "Shrink/extend time selection; shorten notes; move clip region with start marker"
+  },
+  {
+   "key": "⇧ArrowRight",
+   "command": "Extend/shrink time selection; lengthen notes; move clip region with start marker"
+  },
+  {
+   "key": "⇧ArrowUp",
+   "command": "Transpose notes up an octave; extend selection; fine value step"
+  },
+  {
+   "key": "⇧ArrowDown",
+   "command": "Transpose notes down an octave; extend selection; fine value step"
+  },
+  {
+   "key": "⌥ArrowLeft",
+   "command": "Insert marker to previous clip edge or locator; previous breakpoint; previous note in same key track"
+  },
+  {
+   "key": "⌥ArrowRight",
+   "command": "Insert marker to next clip edge or locator; next breakpoint; next note in same key track"
+  },
+  {
+   "key": "⌥ArrowUp",
+   "command": "Cycle automated parameters (Arrangement); select previous note (MIDI Note Editor)"
+  },
+  {
+   "key": "⌥ArrowDown",
+   "command": "Cycle automated parameters (Arrangement); select next note (MIDI Note Editor)"
+  },
+  {
+   "key": "⌥⇧ArrowUp",
+   "command": "Cycle all device parameters; extend note selection"
+  },
+  {
+   "key": "⌥⇧ArrowDown",
+   "command": "Cycle all device parameters; extend note selection"
+  },
+  {
+   "key": "⌘ArrowLeft",
+   "command": "Shorten loop brace by grid; move selected track left (Session); select previous warp marker; swap to previous similar sample"
+  },
+  {
+   "key": "⌘ArrowRight",
+   "command": "Lengthen loop brace by grid; move selected track right (Session); select next warp marker; swap to next similar sample"
+  },
+  {
+   "key": "⌘ArrowUp",
+   "command": "Double loop length; move tracks/scenes; note velocity up; replace take with previous; save similarity reference"
+  },
+  {
+   "key": "⌘ArrowDown",
+   "command": "Halve loop length; move tracks/scenes; note velocity down; replace take with next; return to similarity reference"
+  },
+  {
+   "key": "⇧⌘ArrowUp",
+   "command": "Note velocity deviation up (MIDI Note Editor)"
+  },
+  {
+   "key": "⇧⌘ArrowDown",
+   "command": "Note velocity deviation down (MIDI Note Editor)"
+  },
+  {
+   "key": "⌥⌘ArrowUp",
+   "command": "Note chance up (MIDI Note Editor)"
+  },
+  {
+   "key": "⌥⌘ArrowDown",
+   "command": "Note chance down (MIDI Note Editor)"
+  },
+  {
+   "key": "PageUp",
+   "command": "Scroll MIDI Note Editor up an octave; Session: up 8 scenes"
+  },
+  {
+   "key": "PageDown",
+   "command": "Scroll MIDI Note Editor down an octave; Session: down 8 scenes"
+  },
+  {
+   "key": "⇧PageUp",
+   "command": "Scroll MIDI Note Editor up one key track"
+  },
+  {
+   "key": "⇧PageDown",
+   "command": "Scroll MIDI Note Editor down one key track"
+  },
+  {
+   "key": "⌘PageUp",
+   "command": "Scroll MIDI Note Editor horizontally"
+  },
+  {
+   "key": "⌘PageDown",
+   "command": "Scroll MIDI Note Editor horizontally"
+  },
+  {
+   "key": "Home",
+   "command": "Move insert marker to the beginning; first track of scene (Session); clip start (MIDI Note Editor)"
+  },
+  {
+   "key": "End",
+   "command": "Clip end (MIDI Note Editor); last track of scene (Session)"
+  },
+  {
+   "key": "⌘KeyX",
+   "command": "Cut"
+  },
+  {
+   "key": "⌘KeyC",
+   "command": "Copy"
+  },
+  {
+   "key": "⌘KeyV",
+   "command": "Paste"
+  },
+  {
+   "key": "⌘KeyD",
+   "command": "Duplicate (clips, time, tracks, take lanes, loop)"
+  },
+  {
+   "key": "Backspace",
+   "command": "Delete (clips, tracks, locators, breakpoints, warp markers); reset focused parameter to default"
+  },
+  {
+   "key": "⌘KeyZ",
+   "command": "Undo"
+  },
+  {
+   "key": "⇧⌘KeyZ",
+   "command": "Redo"
+  },
+  {
+   "key": "⌘KeyR",
+   "command": "Rename (track, clip, locator, take lane, time signature)"
+  },
+  {
+   "key": "⌘KeyA",
+   "command": "Select All"
+  },
+  {
+   "key": "⌘KeyE",
+   "command": "Split clip (Arrangement); split/chop notes; add/remove stop button (Session); Quick Tags add (browser focused)"
+  },
+  {
+   "key": "⌘KeyJ",
+   "command": "Consolidate; join notes"
+  },
+  {
+   "key": "⇧⌘KeyJ",
+   "command": "Crop clip(s) / crop to time selection"
+  },
+  {
+   "key": "⌥⌘KeyJ",
+   "command": "Fit notes to time range"
+  },
+  {
+   "key": "⌥⌘KeyF",
+   "command": "Create Fade/Crossfade"
+  },
+  {
+   "key": "⌥⌘Backspace",
+   "command": "Delete fades/crossfades in selected clip(s)"
+  },
+  {
+   "key": "⌘Backspace",
+   "command": "Delete automation / clip envelope of the selected parameter"
+  },
+  {
+   "key": "KeyF",
+   "command": "Hold: show fade handles; Fold to Notes (MIDI Note Editor focused)"
+  },
+  {
+   "key": "KeyG",
+   "command": "Fold to Scale (MIDI Note Editor focused)"
+  },
+  {
+   "key": "KeyK",
+   "command": "Highlight Scale (MIDI Note Editor)"
+  },
+  {
+   "key": "KeyN",
+   "command": "Focus Mode (multi-clip editing)"
+  },
+  {
+   "key": "KeyE",
+   "command": "Hold + click: split notes (MIDI Note Editor)"
+  },
+  {
+   "key": "KeyR",
+   "command": "Reverse clip(s)"
+  },
+  {
+   "key": "Digit0",
+   "command": "Deactivate/activate selected clips, tracks, notes; reset browser colour label"
+  },
+  {
+   "key": "⌘KeyL",
+   "command": "Loop Selection (Arrangement loop on/off)"
+  },
+  {
+   "key": "⇧⌘KeyL",
+   "command": "Select Loop (select material in loop)"
+  },
+  {
+   "key": "⌘KeyI",
+   "command": "Insert Silence (Arrangement); insert Warp Marker(s) (Sample Editor); Insert Scene (Session)"
+  },
+  {
+   "key": "⇧⌘KeyI",
+   "command": "Insert transient (Sample Editor); Insert Captured Scene (Session)"
+  },
+  {
+   "key": "⇧⌘Backspace",
+   "command": "Delete Time; delete transient"
+  },
+  {
+   "key": "⇧⌘KeyX",
+   "command": "Cut Time"
+  },
+  {
+   "key": "⇧⌘KeyC",
+   "command": "Copy Time (12.4; was Capture MIDI before 12.4)"
+  },
+  {
+   "key": "⇧⌘KeyV",
+   "command": "Paste Time"
+  },
+  {
+   "key": "⇧⌘KeyD",
+   "command": "Duplicate Time"
+  },
+  {
+   "key": "⇧⌘KeyM",
+   "command": "Insert Empty MIDI Clip(s)"
+  },
+  {
+   "key": "⌘KeyU",
+   "command": "Quantize"
+  },
+  {
+   "key": "⇧⌘KeyU",
+   "command": "Quantize settings"
+  },
+  {
+   "key": "⌘KeyG",
+   "command": "Group tracks / devices / notes"
+  },
+  {
+   "key": "⇧⌘KeyG",
+   "command": "Ungroup tracks / devices / notes"
+  },
+  {
+   "key": "⇧⌘KeyA",
+   "command": "Invert note selection"
+  },
+  {
+   "key": "⇧⌘KeyF",
+   "command": "Show similar files (browser) / Show-hide MIDI note filters"
+  },
+  {
+   "key": "⌘Enter",
+   "command": "Apply current MIDI Tool; stop clips in track (Session)"
+  },
+  {
+   "key": "Enter",
+   "command": "Launch clip/scene; load browser item; resize clip edge; copy take to main lane; create/select breakpoint; confirm value"
+  },
+  {
+   "key": "⇧Enter",
+   "command": "Toggle Follow Actions (Session); preview browser file"
+  },
+  {
+   "key": "⇧⌘Enter",
+   "command": "Create Follow Action Chain (Session)"
+  },
+  {
+   "key": "⌘KeyB",
+   "command": "Bounce to New Track"
+  },
+  {
+   "key": "KeyT",
+   "command": "Audition selected take lane"
+  },
+  {
+   "key": "⌥⇧KeyT",
+   "command": "Insert Take Lane"
+  },
+  {
+   "key": "KeyP",
+   "command": "Compare A/B: switch device state"
+  },
+  {
+   "key": "⌥Space",
+   "command": "Stop playback at end of selection / play from insert marker in selected clip"
+  },
+  {
+   "key": "⇧⌘Space",
+   "command": "Move Insert Marker to Playhead"
+  },
+  {
+   "key": "KeyB",
+   "command": "Draw Mode (hold to latch)"
+  },
+  {
+   "key": "⌘Digit1",
+   "command": "Narrow Grid"
+  },
+  {
+   "key": "⌘Digit2",
+   "command": "Widen Grid"
+  },
+  {
+   "key": "⌘Digit3",
+   "command": "Triplet Grid"
+  },
+  {
+   "key": "⌘Digit4",
+   "command": "Snap to Grid"
+  },
+  {
+   "key": "⌘Digit5",
+   "command": "Fixed/Zoom-Adaptive Grid"
+  },
+  {
+   "key": "⌘Digit6",
+   "command": "Global Quantization: 1/16"
+  },
+  {
+   "key": "⌘Digit7",
+   "command": "Global Quantization: 1/8"
+  },
+  {
+   "key": "⌘Digit8",
+   "command": "Global Quantization: 1/4"
+  },
+  {
+   "key": "⌘Digit9",
+   "command": "Global Quantization: 1 Bar"
+  },
+  {
+   "key": "⌘Digit0",
+   "command": "Global Quantization: None"
+  },
+  {
+   "key": "⌘KeyT",
+   "command": "Insert Audio Track"
+  },
+  {
+   "key": "⇧⌘KeyT",
+   "command": "Insert MIDI Track"
+  },
+  {
+   "key": "⌥⌘KeyT",
+   "command": "Insert Return Track"
+  },
+  {
+   "key": "KeyC",
+   "command": "Arm selected tracks; Computer MIDI Keyboard velocity down"
+  },
+  {
+   "key": "KeyS",
+   "command": "Solo selected tracks/chains"
+  },
+  {
+   "key": "⌥⇧⌘KeyF",
+   "command": "Freeze/Unfreeze tracks"
+  },
+  {
+   "key": "Space",
+   "command": "Play/Stop; play Arrangement selection"
+  },
+  {
+   "key": "⇧Space",
+   "command": "Continue play from stop point"
+  },
+  {
+   "key": "F9",
+   "command": "Record (Arrangement)"
+  },
+  {
+   "key": "⇧F9",
+   "command": "Arm recording in Arrangement View"
+  },
+  {
+   "key": "⇧⌘F9",
+   "command": "Record to Session View"
+  },
+  {
+   "key": "F10",
+   "command": "Back to Arrangement"
+  },
+  {
+   "key": "F1",
+   "command": "Toggle Track Activator of track 1"
+  },
+  {
+   "key": "F2",
+   "command": "Toggle Track Activator of track 2"
+  },
+  {
+   "key": "F3",
+   "command": "Toggle Track Activator of track 3"
+  },
+  {
+   "key": "F4",
+   "command": "Toggle Track Activator of track 4"
+  },
+  {
+   "key": "F5",
+   "command": "Toggle Track Activator of track 5"
+  },
+  {
+   "key": "F6",
+   "command": "Toggle Track Activator of track 6"
+  },
+  {
+   "key": "F7",
+   "command": "Toggle Track Activator of track 7"
+  },
+  {
+   "key": "F8",
+   "command": "Toggle Track Activator of track 8"
+  },
+  {
+   "key": "KeyO",
+   "command": "Metronome"
+  },
+  {
+   "key": "⌘F9",
+   "command": "Set clip start marker (Clip View)"
+  },
+  {
+   "key": "⌘F10",
+   "command": "Set clip loop start (Clip View)"
+  },
+  {
+   "key": "⌘F11",
+   "command": "Set clip loop end (Clip View)"
+  },
+  {
+   "key": "⌘F12",
+   "command": "Set clip end marker (Clip View)"
+  },
+  {
+   "key": "⌥⇧⌘KeyE",
+   "command": "Audio engine on/off"
+  },
+  {
+   "key": "⌘KeyF",
+   "command": "Search in browser"
+  },
+  {
+   "key": "⌘BracketLeft",
+   "command": "Browser history back"
+  },
+  {
+   "key": "⌘BracketRight",
+   "command": "Browser history forward"
+  },
+  {
+   "key": "Digit1",
+   "command": "Browser: colour label 1 (browser item selected); typed value entry"
+  },
+  {
+   "key": "Digit2",
+   "command": "Browser: colour label 2 (browser item selected); typed value entry"
+  },
+  {
+   "key": "Digit3",
+   "command": "Browser: colour label 3 (browser item selected); typed value entry"
+  },
+  {
+   "key": "Digit4",
+   "command": "Browser: colour label 4 (browser item selected); typed value entry"
+  },
+  {
+   "key": "Digit5",
+   "command": "Browser: colour label 5 (browser item selected); typed value entry"
+  },
+  {
+   "key": "Digit6",
+   "command": "Browser: colour label 6 (browser item selected); typed value entry"
+  },
+  {
+   "key": "Digit7",
+   "command": "Browser: colour label 7 (browser item selected); typed value entry"
+  },
+  {
+   "key": "⌘KeyM",
+   "command": "MIDI Map Mode"
+  },
+  {
+   "key": "⌘KeyK",
+   "command": "Key Map Mode"
+  },
+  {
+   "key": "KeyM",
+   "command": "Computer MIDI Keyboard"
+  },
+  {
+   "key": "KeyV",
+   "command": "Computer MIDI Keyboard velocity up"
+  },
+  {
+   "key": "⇧KeyA",
+   "command": "Same as A (Automation Mode) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyB",
+   "command": "Same as B (Draw Mode) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyC",
+   "command": "Same as C (Arm) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyD",
+   "command": "Same as D (Drum Rack/Last Pad) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyF",
+   "command": "Same as F (fade handles / Fold to Notes) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyG",
+   "command": "Same as G (Fold to Scale) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyH",
+   "command": "Same as H (Optimize Height) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyK",
+   "command": "Same as K (Highlight Scale) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyN",
+   "command": "Same as N (Focus Mode) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyO",
+   "command": "Same as O (Metronome) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyP",
+   "command": "Same as P (Compare A/B) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyQ",
+   "command": "Same as Q (Hot-Swap) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyR",
+   "command": "Same as R (Reverse) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyS",
+   "command": "Same as S (Solo) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyT",
+   "command": "Same as T (Audition take lane) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyU",
+   "command": "Same as U (Fold/Unfold tracks) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyW",
+   "command": "Same as W (Optimize Width) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyX",
+   "command": "Same as X (Zoom back) while the Computer MIDI Keyboard is on"
+  },
+  {
+   "key": "⇧KeyZ",
+   "command": "Same as Z (Zoom to selection) while the Computer MIDI Keyboard is on"
+  }
+ ],
+ "sources": [
+  "https://www.ableton.com/en/manual/live-keyboard-shortcuts/",
+  "https://www.ableton.com/en/live-manual/12/arrangement-view/",
+  "https://www.ableton.com/en/live-manual/12/accessibility-and-keyboard-navigation/",
+  "https://www.ableton.com/en/live-manual/12/editing-midi/",
+  "https://www.ableton.com/en/live-manual/12/clip-view/",
+  "https://www.ableton.com/en/live-manual/12/audio-clips-tempo-and-warping/",
+  "https://www.ableton.com/en/live-manual/12/automation/",
+  "https://www.ableton.com/en/live-manual/12/bounce-to-audio/",
+  "https://www.ableton.com/en/live-manual/12/comping/",
+  "https://www.ableton.com/en/live-manual/12/recording-new-clips/",
+  "https://www.ableton.com/en/live-manual/12/live-concepts/",
+  "https://www.ableton.com/en/live-manual/12/first-steps/",
+  "https://www.ableton.com/en/live-manual/12/managing-files-and-sets/",
+  "https://www.ableton.com/en/live-manual/12/midi-and-key-remote-control/",
+  "https://www.ableton.com/en/live-manual/12/using-plug-ins/",
+  "https://www.ableton.com/en/live-manual/12/launching-clips/",
+  "https://www.ableton.com/en/live-manual/12/working-with-the-browser/",
+  "https://www.ableton.com/en/release-notes/live-12/",
+  "https://help.ableton.com/hc/en-us/articles/12840878679452-New-Keyboard-Shortcuts-in-Live-12",
+  "https://help.ableton.com/hc/en-us/articles/26963870210076",
+  "https://help.ableton.com/hc/en-us/articles/22999165562396",
+  "https://help.ableton.com/hc/en-us/articles/20210918971036",
+  "https://help.ableton.com/hc/en-us/articles/12243771208092",
+  "https://help.ableton.com/hc/en-us/articles/360000093570",
+  "https://help.ableton.com/hc/en-us/articles/360000776450",
+  "https://forum.ableton.com/viewtopic.php?p=1633466",
+  "https://forum.ableton.com/viewtopic.php?t=228465"
+ ]
+}

@@ -1,0 +1,3216 @@
+{
+ "daw": "Cubase Pro 14",
+ "version_checked": "Cubase Pro 14.0.30 operation manual (Default Key Commands); Cubase Pro 15.0.30 list compared — identical keys except Navigate gains Page Up / Page Down",
+ "mac_mapping": "Steinberg writes Ctrl/Cmd (= ⌘ on macOS), Alt/Opt (= ⌥), Shift (= ⇧); a bare Ctrl (Media category) = ⌃ on both systems. Cubase \"Return\" = Enter (main key), Cubase \"Enter\" = NumpadEnter, \"Num x\" = Numpad keys.",
+ "rows": [
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "General",
+   "equivalent": "Preferences… (Cubase Pro application menu on macOS; Edit > Preferences on Windows)",
+   "key": "⌘Comma",
+   "note": "Not in Steinberg's default key list; ⌘, is the macOS application-menu convention and a Steinberg forum post says Cubase keeps ⌘, for Preferences. Verify in Key Commands.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/preferences/preferences_the_preferences_dialog_r.html ; https://forums.steinberg.net/t/cmd-w-close-window-on-mac-problem/825553"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Display",
+   "equivalent": "Preferences > User Interface / Event Display pages (same Preferences dialog)",
+   "key": "",
+   "note": "no default key; no separate command — opened through Preferences.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/preferences/preferences_the_preferences_dialog_r.html"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Audio",
+   "equivalent": "Studio > Studio Setup (Audio System)",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/setting_up/setting_up_studio_setup_dialog_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_devices_category_c.html"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Plug-ins",
+   "equivalent": "Studio > VST Plug-in Manager",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_devices_category_c.html"
+  },
+  {
+   "menu": "Slur Studio",
+   "line": "Key Commands",
+   "equivalent": "Edit > Key Commands… (key command category: Edit)",
+   "key": "",
+   "note": "no default key. ⌥K in Cubase is On-Screen Keyboard.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_dialog_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "File",
+   "line": "New",
+   "equivalent": "File > New Project (File: New)",
+   "key": "⌘KeyN",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_file_category_c.html"
+  },
+  {
+   "menu": "File",
+   "line": "Open…",
+   "equivalent": "File > Open (File: Open)",
+   "key": "⌘KeyO",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_file_category_c.html"
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "No Projects Yet",
+   "equivalent": "File > Recent Projects (submenu)",
+   "key": "",
+   "note": "no default key; this line is only the empty-list placeholder.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_file_category_c.html"
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "More…",
+   "equivalent": "Hub > Open Hub (recent projects list)",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_handling/project_handling_steinberg_hub_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_file_category_c.html"
+  },
+  {
+   "menu": "File",
+   "line": "Save",
+   "equivalent": "File > Save (File: Save)",
+   "key": "⌘KeyS",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_file_category_c.html"
+  },
+  {
+   "menu": "File",
+   "line": "Save As…",
+   "equivalent": "File > Save As (File: Save As)",
+   "key": "⇧⌘KeyS",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_file_category_c.html"
+  },
+  {
+   "menu": "File",
+   "line": "Rename…",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Cubase renames a project only through File > Save As; ⌥⌘S = Save New Version).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_file_category_c.html"
+  },
+  {
+   "menu": "File",
+   "line": "Revert To…",
+   "equivalent": "File > Revert",
+   "key": "",
+   "note": "no default key. Cubase's Revert only returns to the last saved state; it has no list of versions.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_handling/project_handling_reverting_to_the_last_saved_version_t.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_file_category_c.html"
+  },
+  {
+   "menu": "File",
+   "line": "Find Missing Sounds…",
+   "equivalent": "Media > Find Missing Files",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/pool/pool_resolve_missing_files_dialog_r.html"
+  },
+  {
+   "menu": "File",
+   "line": "Import Audio…",
+   "equivalent": "File > Import > Audio File",
+   "key": "",
+   "note": "no default key. ⌘I in Cubase = Show/Hide Info Line.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/importing_audio_and_midi/importing_audio_and_midi_importing_audio_files_t.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_file_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_window_zones_category_c.html"
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off…",
+   "equivalent": "File > Export > Audio Mixdown",
+   "key": "",
+   "note": "no default key. ⌘B is unassigned in Cubase's list.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/export_audio_mixdown/export_audio_mixdown_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_file_category_c.html"
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off Stems…",
+   "equivalent": "File > Export > Audio Mixdown (with several channels ticked — channel batch export)",
+   "key": "",
+   "note": "no separate command and no default key. ⌘E in Cubase = Open (editor).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/export_audio_mixdown/export_audio_mixdown_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place",
+   "equivalent": "Edit > Render in Place > Render (with Current Settings)",
+   "key": "",
+   "note": "no default key; Render Settings… opens the dialog.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/rendering_to_audio/rendering_to_audio_render_selection_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place in Realtime",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Render in Place is offline only; real-time rendering exists only as the Realtime Export option of Export Audio Mixdown).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/rendering_to_audio/rendering_to_audio_render_selection_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/export_audio_mixdown/export_audio_mixdown_r.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Undo",
+   "equivalent": "Edit > Undo",
+   "key": "⌘KeyZ",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Redo",
+   "equivalent": "Edit > Redo",
+   "key": "⇧⌘KeyZ",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut",
+   "equivalent": "Edit > Cut",
+   "key": "⌘KeyX",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Copy",
+   "equivalent": "Edit > Copy",
+   "key": "⌘KeyC",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Paste",
+   "equivalent": "Edit > Paste",
+   "key": "⌘KeyV",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Delete",
+   "equivalent": "Edit > Delete",
+   "key": "Backspace",
+   "note": "Forward Delete (Delete) is assigned too (\"Delete or Backspace\").",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Select All",
+   "equivalent": "Edit > Select > All (Edit: Select All)",
+   "key": "⌘KeyA",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_selecting_with_the_select_submenu_r.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "None",
+   "equivalent": "Edit > Select > None (Edit: Select None)",
+   "key": "⇧⌘KeyA",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_selecting_with_the_select_submenu_r.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Invert",
+   "equivalent": "Edit > Select > Invert (Edit: Invert Selection)",
+   "key": "⌥⌘KeyI",
+   "note": "The Edit category also has a separate command named just \"Invert\" on ⌥F; Steinberg's table does not say which of the two is the Select-menu item.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_selecting_with_the_select_submenu_r.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following",
+   "equivalent": "Edit > Select > From Cursor to End",
+   "key": "",
+   "note": "no default key. Selects events starting right of the cursor on all tracks.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_selecting_with_the_select_submenu_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following on the Same Track",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (From Cursor to End works on all tracks; Select > All on Selected Tracks takes the whole track).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_selecting_with_the_select_submenu_r.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Inside the Cycle",
+   "equivalent": "Edit > Select > In Loop",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_selecting_with_the_select_submenu_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Muted Regions",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent in the Select submenu (only through a Project Logical Editor preset).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_selecting_with_the_select_submenu_r.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Region",
+   "equivalent": "Navigate > Left (select previous)",
+   "key": "ArrowLeft",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Region",
+   "equivalent": "Navigate > Right (select next)",
+   "key": "ArrowRight",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Previous Region",
+   "equivalent": "Navigate > Add Left",
+   "key": "⇧ArrowLeft",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Next Region",
+   "equivalent": "Navigate > Add Right",
+   "key": "⇧ArrowRight",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "First Region",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent. Home in Cubase = Navigate > Top (select top track).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Last Region",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent. End in Cubase = Navigate > Bottom (select bottom track).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Track",
+   "equivalent": "Navigate > Up (select previous track)",
+   "key": "ArrowUp",
+   "note": "In the Key Editor the same key moves selected notes up a semitone.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Track",
+   "equivalent": "Navigate > Down (select next track)",
+   "key": "ArrowDown",
+   "note": "In the Key Editor the same key moves selected notes down a semitone.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Playhead",
+   "equivalent": "Edit > Functions > Split at Cursor (Edit: Split At Cursor)",
+   "key": "⌥KeyX",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_splitting_t.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Cycle Ends",
+   "equivalent": "Edit > Functions > Split Loop",
+   "key": "",
+   "note": "no default key. ⇧X = Split Range (splits at the selection-range edges).",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_splitting_t.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Join",
+   "equivalent": "Edit > Glue",
+   "key": "",
+   "note": "no default key; the Glue tool is 4.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_gluing_t.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat",
+   "equivalent": "Edit > Functions > Repeat (Repeat Events dialog; Edit: Repeat)",
+   "key": "⌘KeyK",
+   "note": "⌘R in Cubase = Open Score Editor; ⌘D = Duplicate (one copy).",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_editors_category_c.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut Section Between Locators",
+   "equivalent": "Edit > Range > Cut Time",
+   "key": "⇧⌘KeyX",
+   "note": "Cubase cuts the selection range, not the locator range.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Silence at Locators",
+   "equivalent": "Edit > Range > Insert Silence",
+   "key": "⇧⌘KeyE",
+   "note": "Acts on the selection range, not the locators.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Section at Playhead",
+   "equivalent": "Edit > Range > Paste Time",
+   "key": "⇧⌘KeyV",
+   "note": "Pastes the clipboard and pushes later events right.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat Section Between Locators",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent as one command (Cubase 14 documents no Global Copy; copy a range, then Paste Time).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Mute",
+   "equivalent": "Edit > Mute/Unmute Objects",
+   "key": "⌥KeyM",
+   "note": "Toggle. ⇧M = Mute Events, ⇧U = Unmute Events, M = Mute (tracks).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Rename…",
+   "equivalent": "Edit > Rename > Rename Selected Events",
+   "key": "F2",
+   "note": "Default since Cubase 13; up to Cubase 12 F2 opened the Transport panel.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_renaming_t.html ; https://forums.steinberg.net/t/transport-panel-f2/957317"
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead",
+   "equivalent": "Edit > Move > Event Start/Range Start to Cursor",
+   "key": "⌘KeyL",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_move_to_submenu_r.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead and Select Next",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_move_to_submenu_r.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Loop to the Next Region",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Edit > Functions > Fill Loop fills the locator range instead).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Trim Start to Playhead",
+   "equivalent": "Edit > Range > Cut Head",
+   "key": "",
+   "note": "no default key. E (Left Selection Side to Cursor) only moves a range-selection edge.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_cut_head_and_cut_tail_using_t.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_selecting_with_the_select_submenu_r.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Trim End to Playhead",
+   "equivalent": "Edit > Range > Cut Tail",
+   "key": "",
+   "note": "no default key. D (Right Selection Side to Cursor) only moves a range-selection edge.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_cut_head_and_cut_tail_using_t.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_selecting_with_the_select_submenu_r.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Left",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Cubase offers Shuffle as a snap type, not a command).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Right",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Cubase offers Shuffle as a snap type, not a command).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 1 dB",
+   "equivalent": "Audio: Increment Event Volume",
+   "key": "",
+   "note": "no default key; reported to step 1 dB. ⇧⌘↑ is Primary Parameter: Increase (the focused control), not event gain.",
+   "confidence": "low",
+   "source": "https://forums.steinberg.net/t/key-command-for-volume/618568 ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 1 dB",
+   "equivalent": "Audio: Decrement Event Volume",
+   "key": "",
+   "note": "no default key; reported to step 1 dB. ⇧⌘↓ is Primary Parameter: Decrease.",
+   "confidence": "low",
+   "source": "https://forums.steinberg.net/t/key-command-for-volume/618568 ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 0.1 dB",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no 0.1 dB step command found).",
+   "confidence": "low",
+   "source": ""
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 0.1 dB",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no 0.1 dB step command found).",
+   "confidence": "low",
+   "source": ""
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Back to 0 dB",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Audio > Remove Volume Curve resets the curve, not the event volume).",
+   "confidence": "low",
+   "source": ""
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up a Semitone",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent in the Project window (transpose parts on the info line or with MIDI > Transpose Setup). ⌥↑ in Cubase = Nudge Top Up.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_nudge_category_c.html"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down a Semitone",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent in the Project window. ⌥↓ in Cubase = Nudge Bottom Down.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_nudge_category_c.html"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up an Octave",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent in the Project window. ⌥⇧↑ in Cubase = Nudge Bottom Up (⇧↑ moves notes an octave in the Key Editor).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_nudge_category_c.html"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down an Octave",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent in the Project window. ⌥⇧↓ in Cubase = Nudge Top Down (⇧↓ moves notes an octave in the Key Editor).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_nudge_category_c.html"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Up 10 Cents",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Down 10 Cents",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Back to the Original Pitch",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Reverse",
+   "equivalent": "Audio > Process > Reverse (Direct Offline Processing)",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/direct_offline_processing/direct_offline_processing_reverse_r.html"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fades for Selection",
+   "equivalent": "Audio > Fades > Adjust Fades to Range",
+   "key": "KeyA",
+   "note": "Works from a range selection. X = Crossfade.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_audio_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/fades_crossfades_and_envelopes/fades_event_based_creating_and_editing_with_range_selection_tool_t.html"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade In up to the Playhead",
+   "equivalent": "Audio > Fades > Fade In to Cursor",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "https://pcaudiolabs.com/fade-in-to-cursor-in-cubase/"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade Out from the Playhead",
+   "equivalent": "Audio > Fades > Fade Out from Cursor",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "https://pcaudiolabs.com/fade-in-to-cursor-in-cubase/"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Earlier",
+   "equivalent": "Nudge > Left (move event)",
+   "key": "⌘ArrowLeft",
+   "note": "Steps by the nudge grid (Link to Grid by default).",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_nudge_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_nudge_buttons_t.html"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Later",
+   "equivalent": "Nudge > Right (move event)",
+   "key": "⌘ArrowRight",
+   "note": "Steps by the nudge grid (Link to Grid by default).",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_nudge_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_nudge_buttons_t.html"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Shorter",
+   "equivalent": "Nudge > Nudge End Left",
+   "key": "⌥⇧ArrowLeft",
+   "note": "Start edits: ⌥← Nudge Start Left, ⌥⇧→ Nudge Start Right.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_nudge_category_c.html"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Longer",
+   "equivalent": "Nudge > Nudge End Right",
+   "key": "⌥ArrowRight",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_nudge_category_c.html"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Follow the Tempo",
+   "equivalent": "Musical Mode (Sample Editor / Pool)",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/sample_editor_tempo_matching_audio/sample_editor_tempo_matching_audio_musical_mode_c.html"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Fit Region to Project Tempo",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent as one command (tempo-match through Musical Mode once the audio's tempo is set).",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/sample_editor_tempo_matching_audio/sample_editor_tempo_matching_audio_musical_mode_c.html"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Set Project Tempo from Region",
+   "equivalent": "Audio > Advanced > Set Tempo from Event",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_audio_category_c.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Quantize",
+   "equivalent": "Edit > Quantize (Quantize: Quantize)",
+   "key": "KeyQ",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_quantize_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/quantizing_midi_audio/quantizing_quantize_functions_r.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Undo Quantize",
+   "equivalent": "Edit > Reset Quantize",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/quantizing_midi_audio/quantizing_quantize_functions_r.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Strip Silence",
+   "equivalent": "Audio > Detect Silence",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/audio_functions/audio_functions_silence_detect_r.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Group",
+   "equivalent": "Edit > Group",
+   "key": "⌘KeyG",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Ungroup",
+   "equivalent": "Edit > Ungroup",
+   "key": "⌘KeyU",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Region",
+   "line": "Colour and Outline…",
+   "equivalent": "Project > Set Track/Event Color",
+   "key": "⌥⇧KeyC",
+   "note": "⌥⇧S = Colors (project colour setup).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_project_category_c.html"
+  },
+  {
+   "menu": "Track",
+   "line": "New Tracks…",
+   "equivalent": "Project > Add Track (Add Track dialog)",
+   "key": "KeyT",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_add_track_category_c.html"
+  },
+  {
+   "menu": "Track",
+   "line": "New Audio Track",
+   "equivalent": "Project > Add Track > Audio",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_add_track_category_c.html"
+  },
+  {
+   "menu": "Track",
+   "line": "New Instrument Track",
+   "equivalent": "Project > Add Track > Instrument",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_add_track_category_c.html"
+  },
+  {
+   "menu": "Track",
+   "line": "New Bus",
+   "equivalent": "Project > Add Track > Group Channel (or FX Channel)",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_add_track_category_c.html"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate",
+   "equivalent": "Project > Duplicate Tracks",
+   "key": "",
+   "note": "no default key. Cubase always copies the events too (no settings-only variant). ⌘D in Cubase = Duplicate (events).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_duplicating_tracks_t.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate with Its Regions",
+   "equivalent": "Project > Duplicate Tracks",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_duplicating_tracks_t.html"
+  },
+  {
+   "menu": "Track",
+   "line": "Rename…",
+   "equivalent": "Edit > Rename > Rename First Selected Track",
+   "key": "⌥F2",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_renaming_tracks_t.html"
+  },
+  {
+   "menu": "Track",
+   "line": "Delete",
+   "equivalent": "Project > Remove Selected Tracks",
+   "key": "⇧Delete",
+   "note": "Shift + forward Delete (fn-⇧-⌫ on a laptop); ⇧⌫ is Delete Time.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_project_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Track",
+   "line": "Delete Empty Tracks",
+   "equivalent": "Project > Remove Empty Tracks",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_removing_empty_tracks_t.html"
+  },
+  {
+   "menu": "Track",
+   "line": "Mute",
+   "equivalent": "Edit: Mute (selected tracks)",
+   "key": "KeyM",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Track",
+   "line": "Solo",
+   "equivalent": "Edit: Solo (selected tracks)",
+   "key": "KeyS",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Track",
+   "line": "Record Enable",
+   "equivalent": "Edit: Record Enable (selected tracks)",
+   "key": "KeyR",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Track",
+   "line": "Hear the Input",
+   "equivalent": "Monitor (input monitoring of the selected tracks)",
+   "key": "",
+   "note": "no default key",
+   "confidence": "low",
+   "source": ""
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Make a Stack",
+   "equivalent": "Project > Track Folding > Move Selected Tracks to New Folder",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_track_folding_r.html"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Take the Stack Apart",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_track_folding_r.html"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Open the Stack",
+   "equivalent": "Project > Track Folding > Toggle Selected Track",
+   "key": "",
+   "note": "no default key (Unfold Tracks opens every folder).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_track_folding_r.html"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Close the Stack",
+   "equivalent": "Project > Track Folding > Toggle Selected Track",
+   "key": "",
+   "note": "no default key (Fold Tracks closes every folder).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_track_folding_r.html"
+  },
+  {
+   "menu": "Track",
+   "line": "Group Tracks",
+   "equivalent": "MixConsole > Link/Unlink Selected Channels",
+   "key": "",
+   "note": "no default key. K = Group Editing on Selected Tracks On/Off; ⌘G = Group (events).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/mixconsole/mixconsole_mixconsole_toolbar_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Track",
+   "line": "Suspend Groups",
+   "equivalent": "MixConsole > Suspend All Channel Linking",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/mixconsole/mixconsole_mixconsole_toolbar_r.html"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Typing Keyboard",
+   "equivalent": "Studio > On-Screen Keyboard",
+   "key": "⌥KeyK",
+   "note": "While it is shown, most other key commands are blocked.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_devices_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_default_c.html"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Capture as Recording",
+   "equivalent": "Transport > MIDI Retrospective Recording > Insert from All MIDI Inputs",
+   "key": "⇧NumpadMultiply",
+   "note": "The Cubase 14 table misprints it as \"Shift-Num --*\"; the Cubase 9 table reads \"Shift-Num *\".",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html ; https://archive.steinberg.help/cubase_pro_artist/v9/en/cubase_nuendo/topics/key_commands/key_commands_default_c.html"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "All Notes Off",
+   "equivalent": "MIDI > Reset",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Transport",
+   "line": "Play or Stop",
+   "equivalent": "Transport > Start/Stop",
+   "key": "Space",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Play from Selection",
+   "equivalent": "Transport > Play Selection",
+   "key": "⌥Space",
+   "note": "Cubase stops at the selection end; \"Play from Selection Start\" (no default key) keeps playing.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/playback/playback_transport_menu_functions_r.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Record",
+   "equivalent": "Transport > Record",
+   "key": "NumpadMultiply",
+   "note": "R in Cubase = Record Enable (tracks).",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Discard Recording",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent; Edit > Undo (⌘Z) right after recording removes the take.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/recording/recording_audio_undoing_recording_t.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Start",
+   "equivalent": "Transport > Go to Project Start",
+   "key": "NumpadDecimal",
+   "note": "Return in Cubase = Open/Close Editor; Numpad Enter = Start (play).",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_editors_category_c.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to End of Sound",
+   "equivalent": "Transport > Go to Project End",
+   "key": "",
+   "note": "no default key; goes to the project length, not the last event.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/playback/playback_transport_menu_functions_r.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Back a Bar",
+   "equivalent": "Transport > Rewind",
+   "key": "NumpadSubtract",
+   "note": "Cubase rewinds while held instead of one bar per press; ⌘Num− (Nudge Cursor Left) steps by the grid.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward a Bar",
+   "equivalent": "Transport > Forward",
+   "key": "NumpadAdd",
+   "note": "Cubase winds while held instead of one bar per press; ⌘Num+ (Nudge Cursor Right) steps by the grid.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Back Eight Bars",
+   "equivalent": "Transport > Fast Rewind",
+   "key": "⇧NumpadSubtract",
+   "note": "Nearest match only (fast wind, not eight bars).",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward Eight Bars",
+   "equivalent": "Transport > Fast Forward",
+   "key": "⇧NumpadAdd",
+   "note": "Nearest match only (fast wind, not eight bars).",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Previous Transient",
+   "equivalent": "Transport > Locate Previous Hitpoint",
+   "key": "⌥KeyB",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Next Transient",
+   "equivalent": "Transport > Locate Next Hitpoint",
+   "key": "⌥KeyN",
+   "note": "Tab in Cubase = Focus: Next (zone).",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Bar…",
+   "equivalent": "Transport > Enter Project Cursor Position",
+   "key": "⇧KeyP",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Cycle",
+   "equivalent": "Transport > Cycle",
+   "key": "NumpadDivide",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Set to Selection",
+   "equivalent": "Transport > Locators > Set Locators to Selection Range (Locators to Selection)",
+   "key": "KeyP",
+   "note": "Does not switch cycle on; ⌥P = Loop Selection also starts looped playback.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its Start",
+   "equivalent": "Transport > Go to Left Locator",
+   "key": "Numpad1",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its End",
+   "equivalent": "Transport > Go to Right Locator",
+   "key": "Numpad2",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Forward by Its Length",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no command shifts both locators by the range length).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/playback/playback_transport_menu_functions_r.html"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Back by Its Length",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no command shifts both locators by the range length).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/playback/playback_transport_menu_functions_r.html"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Twice as Long",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/playback/playback_transport_menu_functions_r.html"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Half as Long",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/playback/playback_transport_menu_functions_r.html"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Zoom to the Cycle",
+   "equivalent": "Zoom > Zoom to Locators",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "https://daftdogmusic.com/wp-content/uploads/2026/06/Cubase-Key-Commands-Guide-John-Walden.pdf"
+  },
+  {
+   "menu": "Transport",
+   "line": "Click",
+   "equivalent": "Transport > Activate Metronome",
+   "key": "KeyC",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Transport",
+   "line": "Count-In",
+   "equivalent": "Transport > Activate Count-in",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/playback/playback_metronome_c.html"
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker Here",
+   "equivalent": "Marker: Add Position Marker on Active Track",
+   "key": "Insert",
+   "note": "Steinberg lists the Insert key; the Cubase 9–12 tables called it \"Windows only\". Most Mac keyboards have no Insert key (older Apple extended keyboards send it from Help), so on a Mac it is effectively unassigned.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_marker_category_c.html ; https://archive.steinberg.help/cubase_pro/v12/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker for Selection",
+   "equivalent": "Add Cycle Marker (marker track; at the locator range)",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/markers/markers_editing_markers_on_the_marker_track_c.html"
+  },
+  {
+   "menu": "Markers",
+   "line": "Rename Marker…",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent as a command (rename in the Markers window, ⌘M, or on the info line).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/markers/markers_marker_window_r.html"
+  },
+  {
+   "menu": "Markers",
+   "line": "Delete Marker Here",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent for \"the marker here\" (Markers window > Remove Marker, or select a marker and press Delete).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/markers/markers_marker_window_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/markers/markers_editing_markers_on_the_marker_track_c.html"
+  },
+  {
+   "menu": "Markers",
+   "line": "Previous Marker",
+   "equivalent": "Transport > Locate Previous Marker",
+   "key": "⇧KeyB",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Markers",
+   "line": "Next Marker",
+   "equivalent": "Transport > Locate Next Marker",
+   "key": "⇧KeyN",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Markers",
+   "line": "Cycle the Marker",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent for the marker at the playhead; Recall Cycle Marker 1–9 = ⇧Num1–⇧Num9.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 1",
+   "equivalent": "Transport > To Marker 1",
+   "key": "⇧Digit1",
+   "note": "Num 1 in Cubase = Go to Left Locator.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 2",
+   "equivalent": "Transport > To Marker 2",
+   "key": "⇧Digit2",
+   "note": "Num 2 in Cubase = Go to Right Locator.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 3",
+   "equivalent": "Transport > To Marker 3",
+   "key": "Numpad3",
+   "note": "Also ⇧3 on the main row; ⌘Num3 / ⌘3 = Set Marker 3.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 4",
+   "equivalent": "Transport > To Marker 4",
+   "key": "Numpad4",
+   "note": "Also ⇧4 on the main row; ⌘Num4 / ⌘4 = Set Marker 4.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 5",
+   "equivalent": "Transport > To Marker 5",
+   "key": "Numpad5",
+   "note": "Also ⇧5 on the main row; ⌘Num5 / ⌘5 = Set Marker 5.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 6",
+   "equivalent": "Transport > To Marker 6",
+   "key": "Numpad6",
+   "note": "Also ⇧6 on the main row; ⌘Num6 / ⌘6 = Set Marker 6.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 7",
+   "equivalent": "Transport > To Marker 7",
+   "key": "Numpad7",
+   "note": "Also ⇧7 on the main row; ⌘Num7 / ⌘7 = Set Marker 7.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 8",
+   "equivalent": "Transport > To Marker 8",
+   "key": "Numpad8",
+   "note": "Also ⇧8 on the main row; ⌘Num8 / ⌘8 = Set Marker 8.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 9",
+   "equivalent": "Transport > To Marker 9",
+   "key": "Numpad9",
+   "note": "Also ⇧9 on the main row; ⌘Num9 / ⌘9 = Set Marker 9.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pointer",
+   "equivalent": "Tool: Object Selection Tool",
+   "key": "Digit1",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Smart",
+   "equivalent": "Tool: Combine Selection Tools On/Off",
+   "key": "⌥⇧Digit1",
+   "note": "Nearest Cubase counterpart of a smart tool.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pencil",
+   "equivalent": "Tool: Draw Tool",
+   "key": "Digit8",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Eraser",
+   "equivalent": "Tool: Erase Tool",
+   "key": "Digit5",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Scissors",
+   "equivalent": "Tool: Split Tool",
+   "key": "Digit3",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Join",
+   "equivalent": "Tool: Glue Tool",
+   "key": "Digit4",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Mute",
+   "equivalent": "Tool: Mute Tool",
+   "key": "Digit7",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Gain",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no gain tool).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Fade",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (fades are drawn with the event handles).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Marquee",
+   "equivalent": "Tool: Range Selection Tool",
+   "key": "Digit2",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Rubato",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent in the Project window (AudioWarp / Free Warp lives in the Sample Editor).",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Zoom",
+   "equivalent": "Tool: Zoom Tool",
+   "key": "Digit6",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Velocity",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no velocity tool).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Tool Menu",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent. T in Cubase = Add Track; F9 / F10 = Previous / Next Tool.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_add_track_category_c.html"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Smart",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Grid",
+   "equivalent": "Snap Type: Grid (with Snap on)",
+   "key": "",
+   "note": "no default key; J = Snap On/Off.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip",
+   "equivalent": "Snap On/Off (snap switched off)",
+   "key": "",
+   "note": "no key that only switches snap off; J toggles it.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Shuffle",
+   "equivalent": "Snap Type: Shuffle",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Spot",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (no spot mode).",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip, and Back",
+   "equivalent": "Edit: Snap On/Off",
+   "key": "KeyJ",
+   "note": "Toggles snapping.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/1",
+   "equivalent": "Grid Type: Bar",
+   "key": "",
+   "note": "no default key. ⌥1–⌥8 in Cubase set the Insert Length (drawn-note length), not the grid.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_set_insert_length_category_c.html"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/2",
+   "equivalent": "Grid Type: Use Quantize + Quantize Preset 1/2",
+   "key": "",
+   "note": "no default key. ⌥1–⌥8 in Cubase set the Insert Length (drawn-note length), not the grid.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_set_insert_length_category_c.html"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/4",
+   "equivalent": "Grid Type: Beat (equals 1/4 in 4/4)",
+   "key": "",
+   "note": "no default key. ⌥1–⌥8 in Cubase set the Insert Length (drawn-note length), not the grid.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_set_insert_length_category_c.html"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/8",
+   "equivalent": "Grid Type: Use Quantize + Quantize Preset 1/8",
+   "key": "",
+   "note": "no default key. ⌥1–⌥8 in Cubase set the Insert Length (drawn-note length), not the grid.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_set_insert_length_category_c.html"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/16",
+   "equivalent": "Grid Type: Use Quantize + Quantize Preset 1/16",
+   "key": "",
+   "note": "no default key. ⌥1–⌥8 in Cubase set the Insert Length (drawn-note length), not the grid.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_set_insert_length_category_c.html"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/32",
+   "equivalent": "Grid Type: Use Quantize + Quantize Preset 1/32",
+   "key": "",
+   "note": "no default key. ⌥1–⌥8 in Cubase set the Insert Length (drawn-note length), not the grid.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_set_insert_length_category_c.html"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/3",
+   "equivalent": "Grid Type: Use Quantize + Quantize Preset 1/2 Triplet",
+   "key": "",
+   "note": "no default key. ⌥1–⌥8 in Cubase set the Insert Length (drawn-note length), not the grid.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_set_insert_length_category_c.html"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/6",
+   "equivalent": "Grid Type: Use Quantize + Quantize Preset 1/4 Triplet",
+   "key": "",
+   "note": "no default key. ⌥1–⌥8 in Cubase set the Insert Length (drawn-note length), not the grid.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_set_insert_length_category_c.html"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/12",
+   "equivalent": "Grid Type: Use Quantize + Quantize Preset 1/8 Triplet",
+   "key": "",
+   "note": "no default key. ⌥1–⌥8 in Cubase set the Insert Length (drawn-note length), not the grid.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_set_insert_length_category_c.html"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/24",
+   "equivalent": "Grid Type: Use Quantize + Quantize Preset 1/16 Triplet",
+   "key": "",
+   "note": "no default key. ⌥1–⌥8 in Cubase set the Insert Length (drawn-note length), not the grid.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_set_insert_length_category_c.html"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Bar",
+   "equivalent": "Nudge Settings (toolbar; Link to Grid by default)",
+   "key": "",
+   "note": "no default key; no key commands for the nudge step are documented.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_nudge_buttons_t.html"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Beat",
+   "equivalent": "Nudge Settings (toolbar; Link to Grid by default)",
+   "key": "",
+   "note": "no default key; no key commands for the nudge step are documented.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_nudge_buttons_t.html"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1/16",
+   "equivalent": "Nudge Settings (toolbar; Link to Grid by default)",
+   "key": "",
+   "note": "no default key; no key commands for the nudge step are documented.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_nudge_buttons_t.html"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ticks",
+   "equivalent": "Nudge Settings (toolbar; Link to Grid by default)",
+   "key": "",
+   "note": "no default key; no key commands for the nudge step are documented.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_nudge_buttons_t.html"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Tick",
+   "equivalent": "Nudge Settings (toolbar; Link to Grid by default)",
+   "key": "",
+   "note": "no default key; no key commands for the nudge step are documented.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_nudge_buttons_t.html"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ms",
+   "equivalent": "Nudge Settings (toolbar; Link to Grid by default)",
+   "key": "",
+   "note": "no default key; no key commands for the nudge step are documented.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_nudge_buttons_t.html"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1 ms",
+   "equivalent": "Nudge Settings (toolbar; Link to Grid by default)",
+   "key": "",
+   "note": "no default key; no key commands for the nudge step are documented.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_nudge_buttons_t.html"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Sample",
+   "equivalent": "Nudge Settings (toolbar; Link to Grid by default)",
+   "key": "",
+   "note": "no default key; no key commands for the nudge step are documented.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_nudge_buttons_t.html"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/4",
+   "equivalent": "Quantize Presets: 1/4",
+   "key": "",
+   "note": "no default key",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/quantizing_midi_audio/quantizing_quantize_functions_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_quantize_category_c.html"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8",
+   "equivalent": "Quantize Presets: 1/8",
+   "key": "",
+   "note": "no default key",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/quantizing_midi_audio/quantizing_quantize_functions_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_quantize_category_c.html"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8 Triplet",
+   "equivalent": "Quantize Presets: 1/8 Triplet",
+   "key": "",
+   "note": "no default key",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/quantizing_midi_audio/quantizing_quantize_functions_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_quantize_category_c.html"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16",
+   "equivalent": "Quantize Presets: 1/16",
+   "key": "",
+   "note": "no default key",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/quantizing_midi_audio/quantizing_quantize_functions_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_quantize_category_c.html"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16 Triplet",
+   "equivalent": "Quantize Presets: 1/16 Triplet",
+   "key": "",
+   "note": "no default key",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/quantizing_midi_audio/quantizing_quantize_functions_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_quantize_category_c.html"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/32",
+   "equivalent": "Quantize Presets: 1/32",
+   "key": "",
+   "note": "no default key",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/quantizing_midi_audio/quantizing_quantize_functions_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_quantize_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Patch",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Slur's own panel).",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "View",
+   "line": "Mixer",
+   "equivalent": "Studio > MixConsole in Project Window",
+   "key": "⌥F3",
+   "note": "F3 opens the separate MixConsole window.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_devices_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Notes",
+   "equivalent": "Editors: Open/Close Editor (lower zone)",
+   "key": "Enter",
+   "note": "The Return key; ⌘E opens the editor in its own window.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_editors_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Prompt",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Slur-only).",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "View",
+   "line": "Rubato Panel",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Slur-only). W in Cubase = Write automation.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Slur",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Slur-only). O in Cubase = Activate Punch Out.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Automation",
+   "equivalent": "Project > Track Folding > Show All Used Automation",
+   "key": "",
+   "note": "no default key. A in Cubase = Adjust Fades to Range; F6 = Automation panel.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_track_folding_r.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_audio_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Next Automation Parameter",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "low",
+   "source": ""
+  },
+  {
+   "menu": "View",
+   "line": "Rubato View",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent. ⌘F in Cubase = Find Track/Channel.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom In",
+   "equivalent": "Zoom > Zoom In",
+   "key": "KeyH",
+   "note": "⌘→ in Cubase = Nudge Right.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_zoom_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_zoom_submenu_r.html"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom Out",
+   "equivalent": "Zoom > Zoom Out",
+   "key": "KeyG",
+   "note": "⌘← in Cubase = Nudge Left.",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_zoom_category_c.html ; https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_zoom_submenu_r.html"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom to Fit or Selection",
+   "equivalent": "Zoom > Zoom to Selection",
+   "key": "⌥KeyS",
+   "note": "⇧F = Zoom Full; Z = Zoom Tracks Exclusive.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_zoom_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Taller Rows",
+   "equivalent": "Zoom > Zoom In Vertically",
+   "key": "⇧KeyH",
+   "note": "⌘↓ in Cubase = Zoom In Tracks (selected tracks only).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_zoom_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Shorter Rows",
+   "equivalent": "Zoom > Zoom Out Vertically",
+   "key": "⇧KeyG",
+   "note": "⌘↑ in Cubase = Zoom Out Tracks (selected tracks only).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_zoom_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Taller Waveforms",
+   "equivalent": "Zoom > Zoom In On Waveform Vertically",
+   "key": "⌥KeyH",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_zoom_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Lower Waveforms",
+   "equivalent": "Zoom > Zoom Out Of Waveform Vertically",
+   "key": "⌥KeyG",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_zoom_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Page Left",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent. Home in Cubase = Navigate > Top.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Page Right",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent. End in Cubase = Navigate > Bottom.",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Page Up",
+   "equivalent": "Window Zones: Show Previous Page",
+   "key": "PageUp",
+   "note": "Also ⌥⌘↑. The manual does not describe what is paged.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_window_zones_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Page Down",
+   "equivalent": "Window Zones: Show Next Page",
+   "key": "PageDown",
+   "note": "Also ⌥⌘↓. The manual does not describe what is paged.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_window_zones_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Playhead",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent as a one-shot; F = Auto-Scroll On/Off.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Selection",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent as a scroll; ⌥S Zoom to Selection zooms instead.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_zoom_category_c.html"
+  },
+  {
+   "menu": "View",
+   "line": "Close Plug-in Windows",
+   "equivalent": "Window > Close All Plug-in Windows",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/audio_effects/audio_effects_control_panels_closing_all_t.html"
+  },
+  {
+   "menu": "View",
+   "line": "Say It",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Slur-only).",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Patch",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Slur-only).",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Mixer",
+   "equivalent": "Studio > MixConsole",
+   "key": "F3",
+   "note": "",
+   "confidence": "high",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_devices_category_c.html"
+  },
+  {
+   "menu": "Window",
+   "line": "Slur",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Slur-only).",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Rubato Panel",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Slur-only).",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Minimize",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent confirmed; ⌘M in Cubase = Open Markers.",
+   "confidence": "low",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_project_category_c.html"
+  },
+  {
+   "menu": "Window",
+   "line": "Zoom",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent confirmed",
+   "confidence": "low",
+   "source": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Enter Full Screen",
+   "equivalent": "",
+   "key": "",
+   "note": "no default key in Steinberg's list; not confirmed whether Cubase's macOS menus offer ⌃⌘F.",
+   "confidence": "low",
+   "source": ""
+  },
+  {
+   "menu": "Help",
+   "line": "Slur Studio Help",
+   "equivalent": "Help > Cubase Help",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Help",
+   "line": "Key Commands",
+   "equivalent": "Edit > Key Commands…",
+   "key": "",
+   "note": "no default key (Cubase has no key sheet; File > Export > Key Command Assignments writes one).",
+   "confidence": "medium",
+   "source": "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_dialog_r.html"
+  },
+  {
+   "menu": "Help",
+   "line": "Say It",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Slur-only).",
+   "confidence": "high",
+   "source": ""
+  }
+ ],
+ "taken": [
+  {
+   "key": "KeyT",
+   "command": "Add Track: Add Track"
+  },
+  {
+   "key": "KeyA",
+   "command": "Audio: Adjust Fades to Range"
+  },
+  {
+   "key": "⇧KeyQ",
+   "command": "Audio: Auto-Grid"
+  },
+  {
+   "key": "KeyX",
+   "command": "Audio: Crossfade"
+  },
+  {
+   "key": "F6",
+   "command": "Automation: Open Panel"
+  },
+  {
+   "key": "⌥KeyR",
+   "command": "Automation: Read Automation for All Tracks On/Off"
+  },
+  {
+   "key": "⌥KeyW",
+   "command": "Automation: Write Automation for All Tracks On/Off"
+  },
+  {
+   "key": "⇧⌘KeyC",
+   "command": "Chords: Show/Hide Chord Pads"
+  },
+  {
+   "key": "F4",
+   "command": "Devices (Studio): Audio Connections"
+  },
+  {
+   "key": "F12",
+   "command": "Devices (Studio): Audio Performance Monitor"
+  },
+  {
+   "key": "F3",
+   "command": "Devices (Studio): MixConsole"
+  },
+  {
+   "key": "⌥F3",
+   "command": "Devices (Studio): MixConsole in Project Window"
+  },
+  {
+   "key": "⌥KeyK",
+   "command": "Devices (Studio): On-Screen Keyboard"
+  },
+  {
+   "key": "F8",
+   "command": "Devices (Studio): Video Player"
+  },
+  {
+   "key": "F11",
+   "command": "Devices (Studio): VST Instruments (macOS Show Desktop takes F11 by default)"
+  },
+  {
+   "key": "F7",
+   "command": "Direct Offline Processing: Direct Offline Processing"
+  },
+  {
+   "key": "⌥KeyA",
+   "command": "Edit: Activate/Deactivate Focused Object"
+  },
+  {
+   "key": "KeyF",
+   "command": "Edit: Auto-Scroll On/Off"
+  },
+  {
+   "key": "⌘KeyC",
+   "command": "Edit: Copy"
+  },
+  {
+   "key": "⌘KeyX",
+   "command": "Edit: Cut"
+  },
+  {
+   "key": "⇧⌘KeyX",
+   "command": "Edit: Cut Time"
+  },
+  {
+   "key": "Backspace",
+   "command": "Edit: Delete"
+  },
+  {
+   "key": "Delete",
+   "command": "Edit: Delete"
+  },
+  {
+   "key": "⇧Backspace",
+   "command": "Edit: Delete Time"
+  },
+  {
+   "key": "⌘KeyD",
+   "command": "Edit: Duplicate"
+  },
+  {
+   "key": "⌥KeyE",
+   "command": "Edit: Expand/Reduce"
+  },
+  {
+   "key": "⌘KeyF",
+   "command": "Edit: Find Track/Channel"
+  },
+  {
+   "key": "⌘KeyG",
+   "command": "Edit: Group"
+  },
+  {
+   "key": "KeyK",
+   "command": "Edit: Group Editing on Selected Tracks On/Off"
+  },
+  {
+   "key": "⇧⌘KeyE",
+   "command": "Edit: Insert Silence"
+  },
+  {
+   "key": "⌥KeyF",
+   "command": "Edit: Invert"
+  },
+  {
+   "key": "⌥⌘KeyI",
+   "command": "Edit: Invert Selection"
+  },
+  {
+   "key": "KeyE",
+   "command": "Edit: Left Selection Side to Cursor (several users also report E opening Channel Settings — unconfirmed)"
+  },
+  {
+   "key": "⇧⌘KeyL",
+   "command": "Edit: Lock"
+  },
+  {
+   "key": "⌘KeyL",
+   "command": "Edit: Move Event Start/Range Start to Cursor"
+  },
+  {
+   "key": "KeyU",
+   "command": "Edit: Move Events to Front"
+  },
+  {
+   "key": "KeyM",
+   "command": "Edit: Mute"
+  },
+  {
+   "key": "⇧KeyM",
+   "command": "Edit: Mute Events"
+  },
+  {
+   "key": "⌥KeyM",
+   "command": "Edit: Mute/Unmute Objects"
+  },
+  {
+   "key": "⌘KeyE",
+   "command": "Edit: Open"
+  },
+  {
+   "key": "⌘KeyV",
+   "command": "Edit: Paste"
+  },
+  {
+   "key": "⌥KeyV",
+   "command": "Edit: Paste at Origin"
+  },
+  {
+   "key": "⇧KeyV",
+   "command": "Edit: Paste Relative to Cursor"
+  },
+  {
+   "key": "⇧⌘KeyV",
+   "command": "Edit: Paste Time"
+  },
+  {
+   "key": "⇧⌘ArrowDown",
+   "command": "Edit: Primary Parameter: Decrease"
+  },
+  {
+   "key": "⇧⌘ArrowUp",
+   "command": "Edit: Primary Parameter: Increase"
+  },
+  {
+   "key": "KeyR",
+   "command": "Edit: Record Enable"
+  },
+  {
+   "key": "⇧⌘KeyZ",
+   "command": "Edit: Redo"
+  },
+  {
+   "key": "⌥F2",
+   "command": "Edit: Rename First Selected Track"
+  },
+  {
+   "key": "F2",
+   "command": "Edit: Rename Selected Events"
+  },
+  {
+   "key": "⌘KeyK",
+   "command": "Edit: Repeat"
+  },
+  {
+   "key": "KeyD",
+   "command": "Edit: Right Selection Side to Cursor"
+  },
+  {
+   "key": "⇧⌘ArrowLeft",
+   "command": "Edit: Secondary Parameter: Decrease"
+  },
+  {
+   "key": "⇧⌘ArrowRight",
+   "command": "Edit: Secondary Parameter: Increase"
+  },
+  {
+   "key": "⌘KeyA",
+   "command": "Edit: Select All"
+  },
+  {
+   "key": "⇧⌘KeyA",
+   "command": "Edit: Select None"
+  },
+  {
+   "key": "KeyJ",
+   "command": "Edit: Snap On/Off"
+  },
+  {
+   "key": "KeyS",
+   "command": "Edit: Solo"
+  },
+  {
+   "key": "⌥KeyX",
+   "command": "Edit: Split At Cursor"
+  },
+  {
+   "key": "⇧KeyX",
+   "command": "Edit: Split Range"
+  },
+  {
+   "key": "⌥KeyC",
+   "command": "Edit: Stationary Cursor"
+  },
+  {
+   "key": "⌘KeyZ",
+   "command": "Edit: Undo"
+  },
+  {
+   "key": "⌘KeyU",
+   "command": "Edit: Ungroup"
+  },
+  {
+   "key": "⇧⌘KeyU",
+   "command": "Edit: Unlock"
+  },
+  {
+   "key": "⇧KeyU",
+   "command": "Edit: Unmute Events"
+  },
+  {
+   "key": "KeyW",
+   "command": "Edit: Write"
+  },
+  {
+   "key": "⇧⌘KeyI",
+   "command": "Editors: Edit In-Place"
+  },
+  {
+   "key": "⌘KeyR",
+   "command": "Editors: Open Score Editor"
+  },
+  {
+   "key": "Enter",
+   "command": "Editors: Open/Close Editor"
+  },
+  {
+   "key": "⌘KeyW",
+   "command": "File: Close"
+  },
+  {
+   "key": "⌘KeyN",
+   "command": "File: New"
+  },
+  {
+   "key": "⌘KeyO",
+   "command": "File: Open"
+  },
+  {
+   "key": "⌘KeyQ",
+   "command": "File: Quit"
+  },
+  {
+   "key": "⌘KeyS",
+   "command": "File: Save"
+  },
+  {
+   "key": "⇧⌘KeyS",
+   "command": "File: Save As"
+  },
+  {
+   "key": "⌥⌘KeyS",
+   "command": "File: Save New Version"
+  },
+  {
+   "key": "⌥⇧Space",
+   "command": "Focus: Confirm"
+  },
+  {
+   "key": "⌥⌘Enter",
+   "command": "Focus: Edit"
+  },
+  {
+   "key": "Tab",
+   "command": "Focus: Next"
+  },
+  {
+   "key": "⇧Tab",
+   "command": "Focus: Previous"
+  },
+  {
+   "key": "⌥KeyL",
+   "command": "MIDI: Show/Hide Controller Lanes"
+  },
+  {
+   "key": "Insert",
+   "command": "Marker: Add Position Marker on Active Track (Windows; Cubase 9–12 called it \"Windows only\")"
+  },
+  {
+   "key": "F5",
+   "command": "Media: Open MediaBay"
+  },
+  {
+   "key": "⌃⌥Numpad6",
+   "command": "Media: Open/Close Attribute Inspector"
+  },
+  {
+   "key": "⌃⌥Numpad8",
+   "command": "Media: Open/Close Favorites"
+  },
+  {
+   "key": "⌃⌥Numpad4",
+   "command": "Media: Open/Close File Browser"
+  },
+  {
+   "key": "⌃⌥Numpad5",
+   "command": "Media: Open/Close Filters"
+  },
+  {
+   "key": "⌃⌥Numpad2",
+   "command": "Media: Open/Close Previewer"
+  },
+  {
+   "key": "⇧NumpadDivide",
+   "command": "Media: Preview Cycle On/Off"
+  },
+  {
+   "key": "⇧NumpadEnter",
+   "command": "Media: Preview Start"
+  },
+  {
+   "key": "⇧Numpad0",
+   "command": "Media: Preview Stop"
+  },
+  {
+   "key": "⇧F5",
+   "command": "Media: Search MediaBay"
+  },
+  {
+   "key": "⌥KeyZ",
+   "command": "MixConsole History: Undo MixConsole Step"
+  },
+  {
+   "key": "⌥⇧KeyZ",
+   "command": "MixConsole History: Redo MixConsole Step"
+  },
+  {
+   "key": "⇧ArrowDown",
+   "command": "Navigate: Add Down: Expand/Undo selection in the Project window to the bottom/Move selected event in the Key Editor down 1 octave"
+  },
+  {
+   "key": "⇧ArrowLeft",
+   "command": "Navigate: Add Left: Expand/Undo selection in the Project window/Key Editor to the left"
+  },
+  {
+   "key": "⇧ArrowRight",
+   "command": "Navigate: Add Right: Expand/Undo selection in the Project window/Key Editor to the right"
+  },
+  {
+   "key": "⇧ArrowUp",
+   "command": "Navigate: Add Up: Expand/Undo selection in the Project window to the top/Move selected event in the Key Editor up one octave"
+  },
+  {
+   "key": "End",
+   "command": "Navigate: Bottom: Select bottom track in the track list"
+  },
+  {
+   "key": "ArrowDown",
+   "command": "Navigate: Down: Select next in the Project window/Move selected event in the Key Editor one semitone down"
+  },
+  {
+   "key": "ArrowLeft",
+   "command": "Navigate: Left: Select previous in the Project window/Key Editor"
+  },
+  {
+   "key": "ArrowRight",
+   "command": "Navigate: Right: Select next in the Project window/Key Editor"
+  },
+  {
+   "key": "⌘Space",
+   "command": "Navigate: Toggle Selection (macOS Spotlight takes ⌘Space by default)"
+  },
+  {
+   "key": "Home",
+   "command": "Navigate: Top: Select top track in the track list"
+  },
+  {
+   "key": "ArrowUp",
+   "command": "Navigate: Up: Select next in the Project window/ Move selected event in the Key Editor one semitone up"
+  },
+  {
+   "key": "⌘ArrowLeft",
+   "command": "Nudge: Left"
+  },
+  {
+   "key": "⌘ArrowRight",
+   "command": "Nudge: Right"
+  },
+  {
+   "key": "⌥ArrowDown",
+   "command": "Nudge: Nudge Bottom Down"
+  },
+  {
+   "key": "⌥⇧ArrowUp",
+   "command": "Nudge: Nudge Bottom Up"
+  },
+  {
+   "key": "⌥⇧ArrowLeft",
+   "command": "Nudge: Nudge End Left"
+  },
+  {
+   "key": "⌥ArrowRight",
+   "command": "Nudge: Nudge End Right"
+  },
+  {
+   "key": "⌥ArrowLeft",
+   "command": "Nudge: Nudge Start Left"
+  },
+  {
+   "key": "⌥⇧ArrowRight",
+   "command": "Nudge: Nudge Start Right"
+  },
+  {
+   "key": "⌥⇧ArrowDown",
+   "command": "Nudge: Nudge Top Down"
+  },
+  {
+   "key": "⌥ArrowUp",
+   "command": "Nudge: Nudge Top Up"
+  },
+  {
+   "key": "⌥⇧KeyS",
+   "command": "Project: Colors"
+  },
+  {
+   "key": "⌘KeyM",
+   "command": "Project: Open Markers"
+  },
+  {
+   "key": "⌘KeyP",
+   "command": "Project: Open Pool"
+  },
+  {
+   "key": "⌘KeyT",
+   "command": "Project: Open Tempo Track"
+  },
+  {
+   "key": "⇧Delete",
+   "command": "Project: Remove Selected Tracks"
+  },
+  {
+   "key": "⌥⇧KeyC",
+   "command": "Project: Set Track/Event Color"
+  },
+  {
+   "key": "⇧KeyS",
+   "command": "Project: Setup"
+  },
+  {
+   "key": "⇧Space",
+   "command": "Project: Tap Tempo"
+  },
+  {
+   "key": "KeyQ",
+   "command": "Quantize: Quantize"
+  },
+  {
+   "key": "⌥Digit1",
+   "command": "Set Insert Length: 1/1"
+  },
+  {
+   "key": "⌥Digit2",
+   "command": "Set Insert Length: 1/2"
+  },
+  {
+   "key": "⌥Digit3",
+   "command": "Set Insert Length: 1/4"
+  },
+  {
+   "key": "⌥Digit4",
+   "command": "Set Insert Length: 1/8"
+  },
+  {
+   "key": "⌥Digit5",
+   "command": "Set Insert Length: 1/16"
+  },
+  {
+   "key": "⌥Digit6",
+   "command": "Set Insert Length: 1/32"
+  },
+  {
+   "key": "⌥Digit7",
+   "command": "Set Insert Length: 1/64"
+  },
+  {
+   "key": "⌥Digit8",
+   "command": "Set Insert Length: 1/128"
+  },
+  {
+   "key": "⌥Period",
+   "command": "Set Insert Length: Toggle Dotted"
+  },
+  {
+   "key": "⌥Comma",
+   "command": "Set Insert Length: Toggle Triplet"
+  },
+  {
+   "key": "⌥⇧Digit1",
+   "command": "Tool: Combine Selection Tools On/Off"
+  },
+  {
+   "key": "Digit8",
+   "command": "Tool: Draw Tool"
+  },
+  {
+   "key": "Digit0",
+   "command": "Tool: Drumstick Tool"
+  },
+  {
+   "key": "Digit5",
+   "command": "Tool: Erase Tool"
+  },
+  {
+   "key": "Digit4",
+   "command": "Tool: Glue Tool"
+  },
+  {
+   "key": "Digit7",
+   "command": "Tool: Mute Tool"
+  },
+  {
+   "key": "F10",
+   "command": "Tool: Next Tool"
+  },
+  {
+   "key": "Digit1",
+   "command": "Tool: Object Selection Tool"
+  },
+  {
+   "key": "Digit9",
+   "command": "Tool: Play Tool"
+  },
+  {
+   "key": "F9",
+   "command": "Tool: Previous Tool"
+  },
+  {
+   "key": "Digit2",
+   "command": "Tool: Range Selection Tool"
+  },
+  {
+   "key": "Digit3",
+   "command": "Tool: Split Tool"
+  },
+  {
+   "key": "Digit6",
+   "command": "Tool: Zoom Tool"
+  },
+  {
+   "key": "⇧⌘KeyD",
+   "command": "Track Versions: Duplicate Version"
+  },
+  {
+   "key": "⇧⌘KeyN",
+   "command": "Track Versions: New Version"
+  },
+  {
+   "key": "⇧⌘KeyH",
+   "command": "Track Versions: Next Version"
+  },
+  {
+   "key": "⇧⌘KeyG",
+   "command": "Track Versions: Previous Version"
+  },
+  {
+   "key": "⌥⇧KeyT",
+   "command": "Transport: Activate External Sync"
+  },
+  {
+   "key": "KeyC",
+   "command": "Transport: Activate Metronome"
+  },
+  {
+   "key": "KeyI",
+   "command": "Transport: Activate Punch In"
+  },
+  {
+   "key": "KeyO",
+   "command": "Transport: Activate Punch Out"
+  },
+  {
+   "key": "NumpadDivide",
+   "command": "Transport: Cycle"
+  },
+  {
+   "key": "⇧KeyL",
+   "command": "Transport: Enter Left Locator"
+  },
+  {
+   "key": "⇧KeyD",
+   "command": "Transport: Enter Locator Range Duration"
+  },
+  {
+   "key": "⇧KeyP",
+   "command": "Transport: Enter Project Cursor Position"
+  },
+  {
+   "key": "⇧KeyI",
+   "command": "Transport: Enter Punch In Position"
+  },
+  {
+   "key": "⇧KeyO",
+   "command": "Transport: Enter Punch Out Position"
+  },
+  {
+   "key": "⇧KeyR",
+   "command": "Transport: Enter Right Locator"
+  },
+  {
+   "key": "⇧KeyT",
+   "command": "Transport: Enter Tempo"
+  },
+  {
+   "key": "⇧KeyC",
+   "command": "Transport: Enter Time Signature"
+  },
+  {
+   "key": "Period",
+   "command": "Transport: Exchange Time Formats"
+  },
+  {
+   "key": "⇧NumpadAdd",
+   "command": "Transport: Fast Forward"
+  },
+  {
+   "key": "⇧NumpadSubtract",
+   "command": "Transport: Fast Rewind"
+  },
+  {
+   "key": "NumpadAdd",
+   "command": "Transport: Forward"
+  },
+  {
+   "key": "Numpad1",
+   "command": "Transport: Go to Left Locator"
+  },
+  {
+   "key": "NumpadDecimal",
+   "command": "Transport: Go to Project Start"
+  },
+  {
+   "key": "Numpad2",
+   "command": "Transport: Go to Right Locator"
+  },
+  {
+   "key": "KeyN",
+   "command": "Transport: Locate Next Event"
+  },
+  {
+   "key": "⌥KeyN",
+   "command": "Transport: Locate Next Hitpoint"
+  },
+  {
+   "key": "⇧KeyN",
+   "command": "Transport: Locate Next Marker"
+  },
+  {
+   "key": "KeyB",
+   "command": "Transport: Locate Previous Event"
+  },
+  {
+   "key": "⌥KeyB",
+   "command": "Transport: Locate Previous Hitpoint"
+  },
+  {
+   "key": "⇧KeyB",
+   "command": "Transport: Locate Previous Marker"
+  },
+  {
+   "key": "KeyL",
+   "command": "Transport: Locate Selection Start"
+  },
+  {
+   "key": "KeyP",
+   "command": "Transport: Locators to Selection"
+  },
+  {
+   "key": "⌥KeyP",
+   "command": "Transport: Loop Selection"
+  },
+  {
+   "key": "⌥⇧KeyP",
+   "command": "Transport: Loop Selection Solo"
+  },
+  {
+   "key": "⇧NumpadMultiply",
+   "command": "Transport: MIDI Retrospective Record: Insert from All MIDI Inputs  [Steinberg prints: Shift-Num --*]"
+  },
+  {
+   "key": "⌘NumpadSubtract",
+   "command": "Transport: Nudge Cursor Left"
+  },
+  {
+   "key": "⌘NumpadAdd",
+   "command": "Transport: Nudge Cursor Right"
+  },
+  {
+   "key": "⌥Space",
+   "command": "Transport: Play Selection"
+  },
+  {
+   "key": "⌥⌘Space",
+   "command": "Transport: Play Selection Solo"
+  },
+  {
+   "key": "⇧Numpad1",
+   "command": "Transport: Recall Cycle Marker 1 to 9"
+  },
+  {
+   "key": "⇧Numpad2",
+   "command": "Transport: Recall Cycle Marker 1 to 9"
+  },
+  {
+   "key": "⇧Numpad3",
+   "command": "Transport: Recall Cycle Marker 1 to 9"
+  },
+  {
+   "key": "⇧Numpad4",
+   "command": "Transport: Recall Cycle Marker 1 to 9"
+  },
+  {
+   "key": "⇧Numpad5",
+   "command": "Transport: Recall Cycle Marker 1 to 9"
+  },
+  {
+   "key": "⇧Numpad6",
+   "command": "Transport: Recall Cycle Marker 1 to 9"
+  },
+  {
+   "key": "⇧Numpad7",
+   "command": "Transport: Recall Cycle Marker 1 to 9"
+  },
+  {
+   "key": "⇧Numpad8",
+   "command": "Transport: Recall Cycle Marker 1 to 9"
+  },
+  {
+   "key": "⇧Numpad9",
+   "command": "Transport: Recall Cycle Marker 1 to 9"
+  },
+  {
+   "key": "NumpadMultiply",
+   "command": "Transport: Record"
+  },
+  {
+   "key": "NumpadSubtract",
+   "command": "Transport: Rewind"
+  },
+  {
+   "key": "⌘Numpad1",
+   "command": "Transport: Set Left Locator to Project Cursor Position"
+  },
+  {
+   "key": "⌘Digit1",
+   "command": "Transport: Set Marker 1"
+  },
+  {
+   "key": "⌘Digit2",
+   "command": "Transport: Set Marker 2"
+  },
+  {
+   "key": "⌘Numpad3",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Numpad4",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Numpad5",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Numpad6",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Numpad7",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Numpad8",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Numpad9",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Digit3",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Digit4",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Digit5",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Digit6",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Digit7",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Digit8",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Digit9",
+   "command": "Transport: Set Marker 3 to 9"
+  },
+  {
+   "key": "⌘Numpad2",
+   "command": "Transport: Set Right Locator to Project Cursor Position"
+  },
+  {
+   "key": "NumpadEnter",
+   "command": "Transport: Start"
+  },
+  {
+   "key": "Space",
+   "command": "Transport: Start/Stop"
+  },
+  {
+   "key": "Numpad0",
+   "command": "Transport: Stop"
+  },
+  {
+   "key": "⇧Digit1",
+   "command": "Transport: To Marker 1"
+  },
+  {
+   "key": "⇧Digit2",
+   "command": "Transport: To Marker 2"
+  },
+  {
+   "key": "Numpad3",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "Numpad4",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "Numpad5",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "Numpad6",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "Numpad7",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "Numpad8",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "Numpad9",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "⇧Digit3",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "⇧Digit4",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "⇧Digit5",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "⇧Digit6",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "⇧Digit7",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "⇧Digit8",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "⇧Digit9",
+   "command": "Transport: To Marker 3 to 9"
+  },
+  {
+   "key": "⌥⌘KeyL",
+   "command": "Window Zones: Show/Hide Left Zone"
+  },
+  {
+   "key": "⌥KeyI",
+   "command": "Window Zones: Show/Hide Left Zone"
+  },
+  {
+   "key": "⌥⌘KeyC",
+   "command": "Window Zones: Show/Hide Channel"
+  },
+  {
+   "key": "⌥⌘KeyR",
+   "command": "Window Zones: Show/Hide Right Zone"
+  },
+  {
+   "key": "⌥⌘KeyE",
+   "command": "Window Zones: Show/Hide Lower Zone"
+  },
+  {
+   "key": "⌥⌘KeyB",
+   "command": "Window Zones: Show/Hide Lower Zone"
+  },
+  {
+   "key": "⌥⌘KeyT",
+   "command": "Window Zones: Show/Hide Transport Zone"
+  },
+  {
+   "key": "⌥⌘ArrowLeft",
+   "command": "Window Zones: Show Previous Tab"
+  },
+  {
+   "key": "⌥⌘ArrowRight",
+   "command": "Window Zones: Show Next Tab"
+  },
+  {
+   "key": "⌥⌘ArrowUp",
+   "command": "Window Zones: Show Previous Page"
+  },
+  {
+   "key": "PageUp",
+   "command": "Window Zones: Show Previous Page"
+  },
+  {
+   "key": "⌥⌘ArrowDown",
+   "command": "Window Zones: Show Next Page"
+  },
+  {
+   "key": "PageDown",
+   "command": "Window Zones: Show Next Page"
+  },
+  {
+   "key": "⌘KeyI",
+   "command": "Window Zones: Show/Hide Info Line"
+  },
+  {
+   "key": "⌥KeyO",
+   "command": "Window Zones: Show/Hide Overview"
+  },
+  {
+   "key": "⌘Numpad0",
+   "command": "Workspaces: New"
+  },
+  {
+   "key": "⌥Numpad0",
+   "command": "Workspaces: No Workspace"
+  },
+  {
+   "key": "⌥KeyU",
+   "command": "Workspaces: Update Workspace"
+  },
+  {
+   "key": "⌥Numpad1",
+   "command": "Workspaces: Workspace 1-9"
+  },
+  {
+   "key": "⌥Numpad2",
+   "command": "Workspaces: Workspace 1-9"
+  },
+  {
+   "key": "⌥Numpad3",
+   "command": "Workspaces: Workspace 1-9"
+  },
+  {
+   "key": "⌥Numpad4",
+   "command": "Workspaces: Workspace 1-9"
+  },
+  {
+   "key": "⌥Numpad5",
+   "command": "Workspaces: Workspace 1-9"
+  },
+  {
+   "key": "⌥Numpad6",
+   "command": "Workspaces: Workspace 1-9"
+  },
+  {
+   "key": "⌥Numpad7",
+   "command": "Workspaces: Workspace 1-9"
+  },
+  {
+   "key": "⌥Numpad8",
+   "command": "Workspaces: Workspace 1-9"
+  },
+  {
+   "key": "⌥Numpad9",
+   "command": "Workspaces: Workspace 1-9"
+  },
+  {
+   "key": "⌥⌘Numpad0",
+   "command": "Workspaces: Workspace X"
+  },
+  {
+   "key": "⇧KeyF",
+   "command": "Zoom: Zoom Full"
+  },
+  {
+   "key": "KeyH",
+   "command": "Zoom: Zoom In"
+  },
+  {
+   "key": "⌥KeyH",
+   "command": "Zoom: Zoom In On Waveform Vertically"
+  },
+  {
+   "key": "⌘ArrowDown",
+   "command": "Zoom: Zoom In Tracks"
+  },
+  {
+   "key": "⇧KeyH",
+   "command": "Zoom: Zoom In Vertically"
+  },
+  {
+   "key": "KeyG",
+   "command": "Zoom: Zoom Out"
+  },
+  {
+   "key": "⌥KeyG",
+   "command": "Zoom: Zoom Out Of Waveform Vertically"
+  },
+  {
+   "key": "⌘ArrowUp",
+   "command": "Zoom: Zoom Out Tracks"
+  },
+  {
+   "key": "⇧KeyG",
+   "command": "Zoom: Zoom Out Vertically"
+  },
+  {
+   "key": "⇧KeyE",
+   "command": "Zoom: Zoom to Event"
+  },
+  {
+   "key": "⌥KeyS",
+   "command": "Zoom: Zoom to Selection"
+  },
+  {
+   "key": "KeyZ",
+   "command": "Zoom: Zoom Tracks Exclusive"
+  },
+  {
+   "key": "⌘Comma",
+   "command": "Preferences (macOS application menu; not in Steinberg's list — low confidence)"
+  },
+  {
+   "key": "⌘KeyH",
+   "command": "Hide Cubase (macOS application menu standard — not in Steinberg's list)"
+  },
+  {
+   "key": "⌥⌘KeyH",
+   "command": "Hide Others (macOS application menu standard — not in Steinberg's list)"
+  },
+  {
+   "key": "Escape",
+   "command": "Close pop-ups/dialogs (e.g. Transport pop-up window)"
+  }
+ ],
+ "sources": [
+  "https://archive.steinberg.help/cubase_pro/v12/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html",
+  "https://archive.steinberg.help/cubase_pro_artist/v9/en/cubase_nuendo/topics/key_commands/key_commands_default_c.html",
+  "https://daftdogmusic.com/wp-content/uploads/2026/06/Cubase-Key-Commands-Guide-John-Walden.pdf",
+  "https://forums.steinberg.net/t/cmd-w-close-window-on-mac-problem/825553",
+  "https://forums.steinberg.net/t/key-command-for-volume/618568",
+  "https://forums.steinberg.net/t/transport-panel-f2/957317",
+  "https://pcaudiolabs.com/fade-in-to-cursor-in-cubase/",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/_shared/topics/introduction/key_command_conventions_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/audio_effects/audio_effects_control_panels_closing_all_t.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/audio_functions/audio_functions_silence_detect_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/direct_offline_processing/direct_offline_processing_reverse_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/export_audio_mixdown/export_audio_mixdown_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/fades_crossfades_and_envelopes/fades_event_based_creating_and_editing_with_range_selection_tool_t.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/importing_audio_and_midi/importing_audio_and_midi_importing_audio_files_t.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_add_track_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_audio_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_default_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_devices_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_dialog_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_edit_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_editors_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_file_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_marker_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_navigate_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_nudge_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_project_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_quantize_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_set_insert_length_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_tool_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_transport_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_window_zones_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/key_commands/key_commands_zoom_category_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/markers/markers_editing_markers_on_the_marker_track_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/markers/markers_marker_window_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/mixconsole/mixconsole_mixconsole_toolbar_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_cut_head_and_cut_tail_using_t.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_gluing_t.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_move_to_submenu_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_moving_with_the_nudge_buttons_t.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_renaming_t.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_selecting_with_the_select_submenu_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/parts_events/parts_and_events_splitting_t.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/playback/playback_metronome_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/playback/playback_transport_menu_functions_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/pool/pool_resolve_missing_files_dialog_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/preferences/preferences_the_preferences_dialog_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_handling/project_handling_reverting_to_the_last_saved_version_t.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_handling/project_handling_steinberg_hub_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_grid_types_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/project_window/project_window_zoom_submenu_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/quantizing_midi_audio/quantizing_quantize_functions_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/recording/recording_audio_undoing_recording_t.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/rendering_to_audio/rendering_to_audio_render_selection_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/sample_editor_tempo_matching_audio/sample_editor_tempo_matching_audio_musical_mode_c.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/setting_up/setting_up_studio_setup_dialog_r.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_duplicating_tracks_t.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_removing_empty_tracks_t.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_renaming_tracks_t.html",
+  "https://www.steinberg.help/r/cubase-pro/14.0/en/cubase_nuendo/topics/track_handling/track_handling_track_folding_r.html"
+ ]
+}

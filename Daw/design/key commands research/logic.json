@@ -1,0 +1,3825 @@
+{
+ "daw": "Logic Pro 11",
+ "rows": [
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "General",
+   "equivalent": "Open General Settings…",
+   "key": "",
+   "note": "no default key; ⌘, (Open Settings) opens the Settings window at the last-used pane",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Display",
+   "equivalent": "Open View Settings…",
+   "key": "",
+   "note": "no default key; this is the Display pane (key command named \"Open View Settings\")",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Audio",
+   "equivalent": "Open Audio Settings…",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Slur Studio > Settings",
+   "line": "Plug-ins",
+   "equivalent": "Plug-in Manager…",
+   "key": "",
+   "note": "no default key; Logic has no Plug-ins settings pane, Plug-in Manager (Logic Pro > Settings > Plug-in Manager) is the counterpart",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Slur Studio",
+   "line": "Key Commands",
+   "equivalent": "Open Key Command Assignments…",
+   "key": "⌥KeyK",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "File",
+   "line": "New",
+   "equivalent": "New from Template…",
+   "key": "⌘KeyN",
+   "note": "⇧⌘N = New Empty Project",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "File",
+   "line": "Open…",
+   "equivalent": "Open…",
+   "key": "⌘KeyO",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "No Projects Yet",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (menu placeholder; Logic's File > Open Recent has no key commands)",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "File > Open Recent",
+   "line": "More…",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Logic's Open Recent submenu has no key commands)",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "File",
+   "line": "Save",
+   "equivalent": "Save",
+   "key": "⌘KeyS",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "File",
+   "line": "Save As…",
+   "equivalent": "Save Project as…",
+   "key": "⇧⌘KeyS",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "File",
+   "line": "Rename…",
+   "equivalent": "Rename Project…",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "File",
+   "line": "Revert To…",
+   "equivalent": "Revert to Saved…",
+   "key": "",
+   "note": "no default key; Logic's File > Revert to > Saved",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "File",
+   "line": "Find Missing Sounds…",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Logic only offers this in the missing-files dialog when a project opens)",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "File",
+   "line": "Import Audio…",
+   "equivalent": "Import Audio File…",
+   "key": "⇧⌘KeyI",
+   "note": "⌘I = Import (any file type), ⇧⌘I = Import Audio File",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off…",
+   "equivalent": "Bounce…",
+   "key": "⌘KeyB",
+   "note": "Logic: File > Bounce > Project or Section",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "File",
+   "line": "Hand Off Stems…",
+   "equivalent": "Export All Tracks as Audio Files…",
+   "key": "⇧⌘KeyE",
+   "note": "stems = a file for each track; ⌘E = Export Track(s) as Audio File(s) (selected tracks only)",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place",
+   "equivalent": "Bounce Regions/Cells in Place…",
+   "key": "⌃KeyB",
+   "note": "⌃⌘B = Bounce Tracks in Place",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "File",
+   "line": "Bounce in Place in Realtime",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (realtime/offline is an option inside Logic's bounce dialogs, not a key command)",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Edit",
+   "line": "Undo",
+   "equivalent": "Undo",
+   "key": "⌘KeyZ",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit",
+   "line": "Redo",
+   "equivalent": "Redo",
+   "key": "⇧⌘KeyZ",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut",
+   "equivalent": "Cut",
+   "key": "⌘KeyX",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit",
+   "line": "Copy",
+   "equivalent": "Copy",
+   "key": "⌘KeyC",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit",
+   "line": "Paste",
+   "equivalent": "Paste",
+   "key": "⌘KeyV",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit",
+   "line": "Delete",
+   "equivalent": "Delete",
+   "key": "Backspace",
+   "note": "Edit > Delete is on the Delete key (⌫), which is built in; the assignable \"Delete\" key command has no key in the U.S. preset",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Edit",
+   "line": "Select All",
+   "equivalent": "Select All",
+   "key": "⌘KeyA",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "None",
+   "equivalent": "Deselect All",
+   "key": "⇧KeyD",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Invert",
+   "equivalent": "Invert Selection",
+   "key": "⇧KeyI",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following",
+   "equivalent": "Select All Following",
+   "key": "⇧KeyF",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "All Following on the Same Track",
+   "equivalent": "Select All Following of Same Track/Pitch",
+   "key": "⌃⇧KeyF",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Inside the Cycle",
+   "equivalent": "Select All Inside Locators",
+   "key": "⇧KeyL",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Muted Regions",
+   "equivalent": "Select Muted Regions/Cells/Events",
+   "key": "⇧KeyM",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Region",
+   "equivalent": "Select Previous Region/Cell/Event or Move Marquee End (or Marquee Point) to Previous Transient",
+   "key": "ArrowLeft",
+   "note": "in the Tracks area ← is also Select Previous Region/Cell on Focused Track",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Region",
+   "equivalent": "Select Next Region/Cell/Event or Move Marquee End (or Marquee Point) to Next Transient",
+   "key": "ArrowRight",
+   "note": "in the Tracks area → is also Select Next Region/Cell on Focused Track",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Previous Region",
+   "equivalent": "Toggle Previous Region/Cell/Event or Move Marquee Start (or Extend Marquee Selection) to Previous Transient",
+   "key": "⇧ArrowLeft",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Add Next Region",
+   "equivalent": "Toggle Next Region/Cell/Event or Move Marquee Start (or Extend Marquee Selection) to Next Transient",
+   "key": "⇧ArrowRight",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "First Region",
+   "equivalent": "Select First, or Shift Marquee Selection Left",
+   "key": "⇧Home",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Last Region",
+   "equivalent": "Select Last, or Shift Marquee Selection Right",
+   "key": "⇧End",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Previous Track",
+   "equivalent": "Select Previous Track",
+   "key": "ArrowUp",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit > Select",
+   "line": "Next Track",
+   "equivalent": "Select Next Track",
+   "key": "ArrowDown",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Playhead",
+   "equivalent": "Split Regions/Events at Playhead Position",
+   "key": "⌘KeyT",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit",
+   "line": "Split at Cycle Ends",
+   "equivalent": "Split Regions/Events at Locators or Marquee Selection",
+   "key": "⌥⌘KeyT",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit",
+   "line": "Join",
+   "equivalent": "Join Regions per Tracks / Fill Cell",
+   "key": "KeyJ",
+   "note": "joins per track, as Slur does; ⌘J = Join Regions/Notes (all selected into one)",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat",
+   "equivalent": "Repeat Regions/Cells/Events",
+   "key": "⌘KeyR",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit",
+   "line": "Cut Section Between Locators",
+   "equivalent": "Cut Section Between Locators (Global)",
+   "key": "⌃⌘KeyX",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Silence at Locators",
+   "equivalent": "Insert Silence Between Locators (Global)",
+   "key": "⌃⌘KeyI",
+   "note": "Logic 11.2 uses ⌃⌘I (older Logic versions had ⌃⌘Z); ⌃⌘Z is now Plug-in Undo",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit",
+   "line": "Insert Section at Playhead",
+   "equivalent": "Insert Section at Playhead (Global)",
+   "key": "⌃⌘KeyV",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "Edit",
+   "line": "Repeat Section Between Locators",
+   "equivalent": "Repeat Section Between Locators (Global)",
+   "key": "⌃⌘KeyR",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region",
+   "line": "Mute",
+   "equivalent": "Mute Notes/Regions/Cells/Folders On/Off",
+   "key": "⌃KeyM",
+   "note": "Logic N = Show/Hide Score Editor; your own customised Logic set (com.apple.logic10.plist) has KeyN here, not the default",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region",
+   "line": "Rename…",
+   "equivalent": "Rename Regions/Cells/Scenes",
+   "key": "⇧KeyN",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead",
+   "equivalent": "Move Region/Event to Playhead Position (Pickup Clock)",
+   "key": "Semicolon",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region",
+   "line": "Move to Playhead and Select Next",
+   "equivalent": "Move Region/Event to Playhead Position and Select Next Region/Event (Pickup Clock+)",
+   "key": "⇧Semicolon",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region",
+   "line": "Loop to the Next Region",
+   "equivalent": "Loop Regions/Cells/Folders On/Off",
+   "key": "KeyL",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region",
+   "line": "Trim Start to Playhead",
+   "equivalent": "Set Region/Event/Marquee Start to Playhead Position",
+   "key": "⌘BracketLeft",
+   "note": "Logic [ and ] (no modifier) = Previous/Next Patch, Plug-in Setting or Sampler Instrument",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region",
+   "line": "Trim End to Playhead",
+   "equivalent": "Set Region/Event/Marquee End to Playhead Position",
+   "key": "⌘BracketRight",
+   "note": "Logic [ and ] (no modifier) = Previous/Next Patch, Plug-in Setting or Sampler Instrument",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Left",
+   "equivalent": "Shuffle Left",
+   "key": "⌥BracketLeft",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region",
+   "line": "Shuffle Right",
+   "equivalent": "Shuffle Right",
+   "key": "⌥BracketRight",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 1 dB",
+   "equivalent": "Region Gain +1 dB",
+   "key": "",
+   "note": "no default key; your own customised Logic set (com.apple.logic10.plist) has ⌃⇧ArrowUp here, not the default",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 1 dB",
+   "equivalent": "Region Gain -1 dB",
+   "key": "",
+   "note": "no default key; your own customised Logic set (com.apple.logic10.plist) has ⌃⇧ArrowDown here, not the default",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Up 0.1 dB",
+   "equivalent": "Region Gain +0.1 dB",
+   "key": "",
+   "note": "no default key; your own customised Logic set (com.apple.logic10.plist) has ⌃⌥⇧ArrowUp here, not the default",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Down 0.1 dB",
+   "equivalent": "Region Gain -0.1 dB",
+   "key": "",
+   "note": "no default key; your own customised Logic set (com.apple.logic10.plist) has ⌃⌥⇧ArrowDown here, not the default",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Gain",
+   "line": "Back to 0 dB",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up a Semitone",
+   "equivalent": "Transpose KeySignature/Chord/Region/Event +1 Semitone, Nudge Automation Up 1 Step or Move Marquee Top Up 1 Track",
+   "key": "⌥ArrowUp",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down a Semitone",
+   "equivalent": "Transpose KeySignature/Chord/Region/Event -1 Semitone, Nudge Automation Down 1 Step or Move Marquee Top Down 1 Track",
+   "key": "⌥ArrowDown",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Up an Octave",
+   "equivalent": "Transpose Region/Event +12 Semitone, Nudge Automation Up 10 Steps or Move Marquee Bottom Up 1 Track",
+   "key": "⌥⇧ArrowUp",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Down an Octave",
+   "equivalent": "Transpose Region/Event -12 Semitone, Nudge Automation Down 10 Steps or Move Marquee Bottom Down 1 Track",
+   "key": "⌥⇧ArrowDown",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Up 10 Cents",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Fine Tune is a Region inspector parameter without key commands)",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Fine Tune Down 10 Cents",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Fine Tune is a Region inspector parameter without key commands)",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region > Transpose",
+   "line": "Back to the Original Pitch",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Reverse",
+   "equivalent": "Reverse On/Off",
+   "key": "⌃⇧KeyR",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fades for Selection",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (nearest: Apply Default Crossfade ⌃⌥X, Apply Last Edited Fade Again ⌥⇧X; Logic F = Show/Hide Browsers)",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade In up to the Playhead",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Logic D = Show/Hide List Editors)",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region > Fades",
+   "line": "Fade Out from the Playhead",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Logic G = Show/Hide Global Tracks)",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Earlier",
+   "equivalent": "Nudge Region/Event/Marquee Position Left by Nudge Value",
+   "key": "⌥ArrowLeft",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Later",
+   "equivalent": "Nudge Region/Event/Marquee Position Right by Nudge Value",
+   "key": "⌥ArrowRight",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Shorter",
+   "equivalent": "Nudge Region/Event/Marquee Length Left by Nudge Value",
+   "key": "⌥⇧ArrowLeft",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Nudge",
+   "line": "Longer",
+   "equivalent": "Nudge Region/Event/Marquee Length Right by Nudge Value",
+   "key": "⌥⇧ArrowRight",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Follow the Tempo",
+   "equivalent": "Flex/Follow Tempo On/Off",
+   "key": "⌃KeyF",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Fit Region to Project Tempo",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent as one command (in Logic: Flex/Follow Tempo On/Off ⌃F with Smart Tempo; Apply Project Tempo to Region and Downbeat has no default key); Logic ⌃⌥F = Set Nudge Value to SMPTE Frame",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Region > Tempo",
+   "line": "Set Project Tempo from Region",
+   "equivalent": "Apply Region Tempo to Project Tempo",
+   "key": "",
+   "note": "no default key; Logic ⌃⌥T = Set Nudge Value to Tick",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Region",
+   "line": "Quantize",
+   "equivalent": "Quantize Selected Regions/Cells/Events",
+   "key": "KeyQ",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region",
+   "line": "Undo Quantize",
+   "equivalent": "Dequantize",
+   "key": "⌥⌘KeyQ",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region",
+   "line": "Strip Silence",
+   "equivalent": "Remove Silence from Audio Region…",
+   "key": "⌃KeyX",
+   "note": "older Logic called this Strip Silence",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/windows-showing-audio-files-lgcp7afa650a/11.2/mac/14.4"
+  },
+  {
+   "menu": "Region",
+   "line": "Group",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Logic has no region groups); Logic ⌥⌘G = Toggle Alignment Guides",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Ungroup",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Logic has no region groups); ⌥⌘U is unassigned in the U.S. preset",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Region",
+   "line": "Colour and Outline…",
+   "equivalent": "Show/Hide Colors",
+   "key": "⌥KeyC",
+   "note": "Logic opens the colour palette",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "New Tracks…",
+   "equivalent": "New Tracks…",
+   "key": "⌥⌘KeyN",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "New Audio Track",
+   "equivalent": "New Audio Track",
+   "key": "⌥⌘KeyA",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "New Instrument Track",
+   "equivalent": "New Software Instrument Track",
+   "key": "⌥⌘KeyS",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "New Bus",
+   "equivalent": "Create New Auxiliary Channel Strip",
+   "key": "⌃KeyN",
+   "note": "Mixer window only; in the Tracks area ⌃N = Apply All Region/Cell Parameters Permanently",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/mixer-lgcp2dc3f212/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate",
+   "equivalent": "New Track with Duplicate Settings",
+   "key": "⌘KeyD",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "Duplicate with Its Regions",
+   "equivalent": "New Track with Duplicate Settings and Content",
+   "key": "⌥⇧⌘KeyD",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "Rename…",
+   "equivalent": "Rename Track",
+   "key": "⇧Enter",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "Delete",
+   "equivalent": "Delete Track",
+   "key": "⌘Backspace",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "Delete Empty Tracks",
+   "equivalent": "Delete unused Tracks",
+   "key": "⇧⌘Backspace",
+   "note": "from the 11.2.2 preset; Apple's 11.2 guide page lists ⌥⌘⌫, but in the preset ⌥⌘⌫ is Cut Sections of Selected Arrangement Markers",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "Mute",
+   "equivalent": "Toggle Channel Strip Mute",
+   "key": "KeyM",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "Solo",
+   "equivalent": "Toggle Channel Strip Solo",
+   "key": "KeyS",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "Record Enable",
+   "equivalent": "Toggle Track Record Enable",
+   "key": "⌃KeyR",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "Hear the Input",
+   "equivalent": "Toggle Channel Strip Input Monitoring",
+   "key": "⌃KeyI",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Make a Stack",
+   "equivalent": "Create Track Stack…",
+   "key": "⇧⌘KeyD",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Take the Stack Apart",
+   "equivalent": "Flatten Stack",
+   "key": "⇧⌘KeyU",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Open the Stack",
+   "equivalent": "Open Track Stack",
+   "key": "⌃⌘ArrowRight",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track > Stack",
+   "line": "Close the Stack",
+   "equivalent": "Close Track Stack",
+   "key": "⌃⌘ArrowLeft",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "Group Tracks",
+   "equivalent": "Create Group for Selected Channel Strips / Tracks",
+   "key": "⌃⌘KeyG",
+   "note": "Logic ⌘G = Toggle Snap to Grid",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track",
+   "line": "Suspend Groups",
+   "equivalent": "Enable/Disable Groups",
+   "key": "⇧KeyG",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Typing Keyboard",
+   "equivalent": "Show/Hide Musical Typing…",
+   "key": "⌘KeyK",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "Capture as Recording",
+   "equivalent": "Flashback Capture as Recording",
+   "key": "⇧KeyR",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Track > Instruments",
+   "line": "All Notes Off",
+   "equivalent": "Send discrete Note Offs (Panic)",
+   "key": "",
+   "note": "no default key",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Transport",
+   "line": "Play or Stop",
+   "equivalent": "Play or Stop",
+   "key": "Space",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Play from Selection",
+   "equivalent": "Play from Selection",
+   "key": "⇧Space",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Record",
+   "equivalent": "Record",
+   "key": "KeyR",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Discard Recording",
+   "equivalent": "Discard Recording and Return to Last Play Position",
+   "key": "⌘Period",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Start",
+   "equivalent": "Go to Beginning",
+   "key": "Enter",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to End of Sound",
+   "equivalent": "Go to End of Last Region",
+   "key": "⌥Enter",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Back a Bar",
+   "equivalent": "Rewind",
+   "key": "Comma",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward a Bar",
+   "equivalent": "Forward",
+   "key": "Period",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Back Eight Bars",
+   "equivalent": "Fast Rewind",
+   "key": "⇧Comma",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Forward Eight Bars",
+   "equivalent": "Fast Forward",
+   "key": "⇧Period",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Previous Transient",
+   "equivalent": "Rewind by Transient",
+   "key": "⌃Comma",
+   "note": "Logic Tab = Cycle Through Window Views, ⇧Tab = counter-clockwise",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Next Transient",
+   "equivalent": "Forward by Transient",
+   "key": "⌃Period",
+   "note": "Logic Tab = Cycle Through Window Views",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Go to Bar…",
+   "equivalent": "Go to Position…",
+   "key": "Slash",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Cycle",
+   "equivalent": "Toggle Cycle Mode",
+   "key": "KeyC",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Set to Selection",
+   "equivalent": "Set Rounded Locators/Loop by Regions/Events/Marquee and Enable Cycle/Loop",
+   "key": "KeyU",
+   "note": "⌘U = same without rounding",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its Start",
+   "equivalent": "Go to Left Locator",
+   "key": "⌃⇧Comma",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Go to Its End",
+   "equivalent": "Go to Right Locator",
+   "key": "⌃⇧Period",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Forward by Its Length",
+   "equivalent": "Move Locators Forward by Cycle Length / Loop Forward by Loop Length",
+   "key": "⇧⌘Period",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Move Back by Its Length",
+   "equivalent": "Move Locators Backwards by Cycle Length / Loop Backwards by Loop Length",
+   "key": "⇧⌘Comma",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Twice as Long",
+   "equivalent": "Double Cycle/Loop Length",
+   "key": "⌥⇧⌘Period",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Half as Long",
+   "equivalent": "Halve Cycle/Loop Length",
+   "key": "⌥⇧⌘Comma",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport > Cycle Area",
+   "line": "Zoom to the Cycle",
+   "equivalent": "Zoom to fit Locators, store Navigation Snapshot",
+   "key": "⌃⇧KeyZ",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Click",
+   "equivalent": "Toggle Metronome Click",
+   "key": "KeyK",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Transport",
+   "line": "Count-In",
+   "equivalent": "Toggle Count-in",
+   "key": "⇧KeyK",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker Here",
+   "equivalent": "Create Marker",
+   "key": "⌥Quote",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers",
+   "line": "Add Marker for Selection",
+   "equivalent": "Create Marker for Region/Marquee Selection",
+   "key": "⌥⇧Quote",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers",
+   "line": "Rename Marker…",
+   "equivalent": "Rename Marker",
+   "key": "⇧Quote",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers",
+   "line": "Delete Marker Here",
+   "equivalent": "Delete Marker",
+   "key": "⌥Backspace",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers",
+   "line": "Previous Marker",
+   "equivalent": "Go to Previous Marker And Set Locators",
+   "key": "⌥Comma",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers",
+   "line": "Next Marker",
+   "equivalent": "Go to Next Marker And Set Locators",
+   "key": "⌥Period",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers",
+   "line": "Cycle the Marker",
+   "equivalent": "Set Locators by Marker and Enable Cycle",
+   "key": "⌃⌥KeyC",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 1",
+   "equivalent": "Go to Marker Number 1",
+   "key": "Numpad1",
+   "note": "numeric keypad",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 2",
+   "equivalent": "Go to Marker Number 2",
+   "key": "Numpad2",
+   "note": "numeric keypad",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 3",
+   "equivalent": "Go to Marker Number 3",
+   "key": "Numpad3",
+   "note": "numeric keypad",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 4",
+   "equivalent": "Go to Marker Number 4",
+   "key": "Numpad4",
+   "note": "numeric keypad",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 5",
+   "equivalent": "Go to Marker Number 5",
+   "key": "Numpad5",
+   "note": "numeric keypad",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 6",
+   "equivalent": "Go to Marker Number 6",
+   "key": "Numpad6",
+   "note": "numeric keypad",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 7",
+   "equivalent": "Go to Marker Number 7",
+   "key": "Numpad7",
+   "note": "numeric keypad",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 8",
+   "equivalent": "Go to Marker Number 8",
+   "key": "Numpad8",
+   "note": "numeric keypad",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Markers > Go to Marker",
+   "line": "Marker 9",
+   "equivalent": "Go to Marker Number 9",
+   "key": "Numpad9",
+   "note": "numeric keypad",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pointer",
+   "equivalent": "Set Pointer Tool",
+   "key": "",
+   "note": "no default key; in Logic press T (Tool menu), then T again for the Pointer tool (not in Apple's Tool Menu table)",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Smart",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Logic has no Smart tool; the Pointer tool has click zones)",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Pencil",
+   "equivalent": "Set Pencil Tool",
+   "key": "",
+   "note": "no default key; in Logic press T (Tool menu), then P",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Eraser",
+   "equivalent": "Set Eraser Tool",
+   "key": "",
+   "note": "no default key; in Logic press T (Tool menu), then E",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Scissors",
+   "equivalent": "Set Scissors Tool",
+   "key": "",
+   "note": "no default key; in Logic press T (Tool menu), then I",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Join",
+   "equivalent": "Set Join Tool",
+   "key": "",
+   "note": "no default key; in Logic press T (Tool menu), then J",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Mute",
+   "equivalent": "Set Mute Tool",
+   "key": "",
+   "note": "no default key; in Logic press T (Tool menu), then M",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Gain",
+   "equivalent": "Set Gain Tool",
+   "key": "",
+   "note": "no default key; in Logic press T (Tool menu), then G",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Fade",
+   "equivalent": "Set Fade Tool",
+   "key": "",
+   "note": "no default key; in Logic press T (Tool menu), then A",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Marquee",
+   "equivalent": "Set Marquee Tool",
+   "key": "",
+   "note": "no default key; in Logic press T (Tool menu), then R",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Rubato",
+   "equivalent": "Set Flex Tool",
+   "key": "",
+   "note": "no default key; Flex is Logic's counterpart; in Logic press T (Tool menu), then X",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Zoom",
+   "equivalent": "Set Zoom Tool",
+   "key": "",
+   "note": "no default key; in Logic press T (Tool menu), then Y",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Velocity",
+   "equivalent": "Set Velocity Tool",
+   "key": "",
+   "note": "no default key; in Logic press T (Tool menu), then V",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Tool",
+   "line": "Tool Menu",
+   "equivalent": "Show Tool Menu",
+   "key": "KeyT",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Smart",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Grid",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent as a mode; snapping is toggled with ⌘G (Toggle Snap to Grid). The U.S. preset uses no F-keys",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (snapping off: ⌘G toggles it); the U.S. preset uses no F-keys",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Shuffle",
+   "equivalent": "Drag Mode: Shuffle R",
+   "key": "",
+   "note": "no default key; Logic's drag modes (No Overlap, X-Fade, Shuffle L, Shuffle R) have no default keys",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Spot",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Tools > Edit Mode",
+   "line": "Slip, and Back",
+   "equivalent": "Toggle Snap to Grid",
+   "key": "⌘KeyG",
+   "note": "Logic toggles snapping on and off",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/1",
+   "equivalent": "Snap Mode: 1/1 Note",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/2",
+   "equivalent": "Snap Mode: 1/2 Note",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/4",
+   "equivalent": "Snap Mode: 1/4 Note",
+   "key": "",
+   "note": "no default key; Logic also has Set Division Value commands (from 1/4 down), also without keys",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/8",
+   "equivalent": "Snap Mode: 1/8 Note",
+   "key": "",
+   "note": "no default key; Logic also has Set Division Value commands (from 1/4 down), also without keys",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/16",
+   "equivalent": "Snap Mode: 1/16 Note",
+   "key": "",
+   "note": "no default key; Logic also has Set Division Value commands (from 1/4 down), also without keys",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/32",
+   "equivalent": "Snap Mode: 1/32 Note",
+   "key": "",
+   "note": "no default key; Logic also has Set Division Value commands (from 1/4 down), also without keys",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/3",
+   "equivalent": "Snap Mode: 1/2 Triplet (1/3)",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/6",
+   "equivalent": "Snap Mode: 1/4 Triplet (1/6)",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/12",
+   "equivalent": "Snap Mode: 1/8 Triplet (1/12)",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Grid",
+   "line": "1/24",
+   "equivalent": "Snap Mode: 1/16 Triplet (1/24)",
+   "key": "",
+   "note": "no default key",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Bar",
+   "equivalent": "Set Nudge Value to Bar",
+   "key": "⌃⌥KeyM",
+   "note": "your own customised Logic set (com.apple.logic10.plist) has ⌥⇧KeyM here, not the default",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Beat",
+   "equivalent": "Set Nudge Value to Beat",
+   "key": "⌃⌥KeyB",
+   "note": "your own customised Logic set (com.apple.logic10.plist) has ⌥⇧KeyB here, not the default",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1/16",
+   "equivalent": "Set Nudge Value to 1/16 Note",
+   "key": "",
+   "note": "no default key; ⌃⌥D = Set Nudge Value to Division; your own customised Logic set (com.apple.logic10.plist) has ⌥⇧KeyS here, not the default",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ticks",
+   "equivalent": "Set Nudge Value to 10 Ticks",
+   "key": "",
+   "note": "no default key; Logic ⌥⇧T = Open Tempo List; your own customised Logic set (com.apple.logic10.plist) has ⌥⇧KeyT here, not the default",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Tick",
+   "equivalent": "Set Nudge Value to Tick",
+   "key": "⌃⌥KeyT",
+   "note": "your own customised Logic set (com.apple.logic10.plist) has ⌥⇧KeyQ here, not the default",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "10 ms",
+   "equivalent": "Set Nudge Value to 10 ms",
+   "key": "⌃⌥Digit0",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "1 ms",
+   "equivalent": "Set Nudge Value to 1 ms",
+   "key": "⌃⌥Digit1",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Tools > Nudge Value",
+   "line": "Sample",
+   "equivalent": "Set Nudge Value to Sample",
+   "key": "⌃⌥KeyS",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/4",
+   "equivalent": "Quantize 1/4 Note",
+   "key": "",
+   "note": "no default key; in Logic this sets the quantize value of the selected regions",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8",
+   "equivalent": "Quantize 1/8 Note",
+   "key": "",
+   "note": "no default key; in Logic this sets the quantize value of the selected regions",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/8 Triplet",
+   "equivalent": "Quantize 1/8 Triplet (1/12)",
+   "key": "",
+   "note": "no default key; in Logic this sets the quantize value of the selected regions",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16",
+   "equivalent": "Quantize 1/16 Note",
+   "key": "",
+   "note": "no default key; in Logic this sets the quantize value of the selected regions",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/16 Triplet",
+   "equivalent": "Quantize 1/16 Triplet (1/24)",
+   "key": "",
+   "note": "no default key; in Logic this sets the quantize value of the selected regions",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "Tools > Quantize Value",
+   "line": "1/32",
+   "equivalent": "Quantize 1/32 Note",
+   "key": "",
+   "note": "no default key; in Logic this sets the quantize value of the selected regions",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded)"
+  },
+  {
+   "menu": "View",
+   "line": "Patch",
+   "equivalent": "Show/Hide Smart Controls",
+   "key": "KeyB",
+   "note": "closest counterpart only (Logic's sound-control panel under the tracks); not the same feature",
+   "confidence": "low",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Mixer",
+   "equivalent": "Show/Hide Mixer",
+   "key": "KeyX",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Notes",
+   "equivalent": "Show/Hide Piano Roll",
+   "key": "KeyP",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Prompt",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "View",
+   "line": "Rubato Panel",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Logic W = Show/Hide Audio File Editor)",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "View",
+   "line": "Slur",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Logic O = Show/Hide Loop Browser)",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "View",
+   "line": "Automation",
+   "equivalent": "Show/Hide Automation",
+   "key": "KeyA",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Next Automation Parameter",
+   "equivalent": "Automation: Cycle Through Used Parameters",
+   "key": "⌘KeyY",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/views-showing-automation-lgcp771facc4/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Rubato View",
+   "equivalent": "Show/Hide Flex Pitch/Time",
+   "key": "⌘KeyF",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom In",
+   "equivalent": "Zoom Horizontal In",
+   "key": "⌘ArrowRight",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom Out",
+   "equivalent": "Zoom Horizontal Out",
+   "key": "⌘ArrowLeft",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Zoom to Fit or Selection",
+   "equivalent": "Toggle Zoom to fit Selection or All Contents",
+   "key": "KeyZ",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Taller Rows",
+   "equivalent": "Zoom Vertical In",
+   "key": "⌘ArrowDown",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Shorter Rows",
+   "equivalent": "Zoom Vertical Out",
+   "key": "⌘ArrowUp",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Taller Waveforms",
+   "equivalent": "Waveform Vertical Zoom In",
+   "key": "⌘Equal",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Lower Waveforms",
+   "equivalent": "Waveform Vertical Zoom Out",
+   "key": "⌘Minus",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Page Left",
+   "equivalent": "Page Left",
+   "key": "Home",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Page Right",
+   "equivalent": "Page Right",
+   "key": "End",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Page Up",
+   "equivalent": "Page Up",
+   "key": "PageUp",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Page Down",
+   "equivalent": "Page Down",
+   "key": "PageDown",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Playhead",
+   "equivalent": "Catch Playhead Position",
+   "key": "Backquote",
+   "note": "Logic's command is about following (catching) the playhead",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Show the Selection",
+   "equivalent": "Scroll to Selection",
+   "key": "⇧Backquote",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Close Plug-in Windows",
+   "equivalent": "Show/Hide All Plug-in Windows",
+   "key": "KeyV",
+   "note": "Logic's key shows and hides all plug-in windows; your own customised Logic set has no key here, not the default",
+   "confidence": "medium",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "View",
+   "line": "Say It",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Logic / = Go to Position)",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Patch",
+   "equivalent": "Open Smart Controls…",
+   "key": "",
+   "note": "no default key; closest counterpart only",
+   "confidence": "low",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Window",
+   "line": "Mixer",
+   "equivalent": "Open Mixer…",
+   "key": "⌘Digit2",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Window",
+   "line": "Slur",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent",
+   "confidence": "high",
+   "source": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Rubato Panel",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Logic W = Show/Hide Audio File Editor)",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Window",
+   "line": "Minimize",
+   "equivalent": "Minimize Window",
+   "key": "⌘KeyM",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Window",
+   "line": "Zoom",
+   "equivalent": "Zoom Window",
+   "key": "⌃⌘KeyM",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Window",
+   "line": "Enter Full Screen",
+   "equivalent": "Enter/Exit Full Screen",
+   "key": "⌃⌘KeyF",
+   "note": "",
+   "confidence": "high",
+   "source": "Logic Pro 11.2.2 app bundle: Contents/Resources/Key Commands/U.S..logikcs (decoded) | https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4"
+  },
+  {
+   "menu": "Help",
+   "line": "Slur Studio Help",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent as a key command (Logic Pro Help has no default key; ⌘/ = Show Detailed Help, ⇧⌘/ = macOS Help menu search)",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Help",
+   "line": "Key Commands",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Logic ⇧/ = Show/Hide Quick Help; the key commands window is ⌥K)",
+   "confidence": "medium",
+   "source": ""
+  },
+  {
+   "menu": "Help",
+   "line": "Say It",
+   "equivalent": "",
+   "key": "",
+   "note": "no equivalent (Logic / = Go to Position)",
+   "confidence": "high",
+   "source": ""
+  }
+ ],
+ "taken": [
+  {
+   "key": "ArrowDown",
+   "command": "Select Next Track"
+  },
+  {
+   "key": "⇧ArrowDown",
+   "command": "Extend Track Selection Down"
+  },
+  {
+   "key": "⇧⌘ArrowDown",
+   "command": "Select Next Take or Comp"
+  },
+  {
+   "key": "⌃⇧⌘ArrowDown",
+   "command": "Move All Track Automation to Region"
+  },
+  {
+   "key": "⌃⌘ArrowDown",
+   "command": "Move Visible Track Automation to Region"
+  },
+  {
+   "key": "⌃⌥ArrowDown",
+   "command": "Activate Previous Track Alternative"
+  },
+  {
+   "key": "⌃⌥⌘ArrowDown",
+   "command": "Individual Track Zoom In"
+  },
+  {
+   "key": "⌘ArrowDown",
+   "command": "Zoom Vertical In"
+  },
+  {
+   "key": "⌥ArrowDown",
+   "command": "Transpose KeySignature/Chord/Region/Event -1 Semitone, Nudge Automation Down 1 Step or Move Marquee Top Down 1 Track"
+  },
+  {
+   "key": "⌥⇧ArrowDown",
+   "command": "Transpose Region/Event -12 Semitone, Nudge Automation Down 10 Steps or Move Marquee Bottom Down 1 Track"
+  },
+  {
+   "key": "⌥⇧⌘ArrowDown",
+   "command": "Transpose Chords -1 Semitone"
+  },
+  {
+   "key": "ArrowLeft",
+   "command": "Select Previous Region/Cell on Focused Track"
+  },
+  {
+   "key": "ArrowLeft",
+   "command": "Select Previous Region/Cell/Event or Move Marquee End (or Marquee Point) to Previous Transient"
+  },
+  {
+   "key": "⇧ArrowLeft",
+   "command": "Toggle Previous Region/Cell/Event or Move Marquee Start (or Extend Marquee Selection) to Previous Transient"
+  },
+  {
+   "key": "⌃⌘ArrowLeft",
+   "command": "Close Track Stack"
+  },
+  {
+   "key": "⌃⌥ArrowLeft",
+   "command": "Slip Left by Nudge Value"
+  },
+  {
+   "key": "⌃⌥⌘ArrowLeft",
+   "command": "Rotate Left by Nudge Value"
+  },
+  {
+   "key": "⌘ArrowLeft",
+   "command": "Zoom Horizontal Out"
+  },
+  {
+   "key": "⌥ArrowLeft",
+   "command": "Nudge Region/Event/Marquee Position Left by Nudge Value"
+  },
+  {
+   "key": "⌥⇧ArrowLeft",
+   "command": "Nudge Region/Event/Marquee Length Left by Nudge Value"
+  },
+  {
+   "key": "ArrowRight",
+   "command": "Select Next Region/Cell on Focused Track"
+  },
+  {
+   "key": "ArrowRight",
+   "command": "Select Next Region/Cell/Event or Move Marquee End (or Marquee Point) to Next Transient"
+  },
+  {
+   "key": "⇧ArrowRight",
+   "command": "Toggle Next Region/Cell/Event or Move Marquee Start (or Extend Marquee Selection) to Next Transient"
+  },
+  {
+   "key": "⌃⌘ArrowRight",
+   "command": "Open Track Stack"
+  },
+  {
+   "key": "⌃⌥ArrowRight",
+   "command": "Slip Right by Nudge Value"
+  },
+  {
+   "key": "⌃⌥⌘ArrowRight",
+   "command": "Rotate Right by Nudge Value"
+  },
+  {
+   "key": "⌘ArrowRight",
+   "command": "Zoom Horizontal In"
+  },
+  {
+   "key": "⌥ArrowRight",
+   "command": "Nudge Region/Event/Marquee Position Right by Nudge Value"
+  },
+  {
+   "key": "⌥⇧ArrowRight",
+   "command": "Nudge Region/Event/Marquee Length Right by Nudge Value"
+  },
+  {
+   "key": "ArrowUp",
+   "command": "Select Previous Track"
+  },
+  {
+   "key": "⇧ArrowUp",
+   "command": "Extend Track Selection Up"
+  },
+  {
+   "key": "⇧⌘ArrowUp",
+   "command": "Select Previous Take or Comp"
+  },
+  {
+   "key": "⌃⇧⌘ArrowUp",
+   "command": "Move All Region Data to Track Automation"
+  },
+  {
+   "key": "⌃⌘ArrowUp",
+   "command": "Move Visible Region Data to Track Automation"
+  },
+  {
+   "key": "⌃⌥ArrowUp",
+   "command": "Activate Next Track Alternative"
+  },
+  {
+   "key": "⌃⌥⌘ArrowUp",
+   "command": "Individual Track Zoom Out"
+  },
+  {
+   "key": "⌘ArrowUp",
+   "command": "Zoom Vertical Out"
+  },
+  {
+   "key": "⌥ArrowUp",
+   "command": "Transpose KeySignature/Chord/Region/Event +1 Semitone, Nudge Automation Up 1 Step or Move Marquee Top Up 1 Track"
+  },
+  {
+   "key": "⌥⇧ArrowUp",
+   "command": "Transpose Region/Event +12 Semitone, Nudge Automation Up 10 Steps or Move Marquee Bottom Up 1 Track"
+  },
+  {
+   "key": "⌥⇧⌘ArrowUp",
+   "command": "Transpose Chords +1 Semitone"
+  },
+  {
+   "key": "Backquote",
+   "command": "Catch Playhead Position"
+  },
+  {
+   "key": "⇧Backquote",
+   "command": "Scroll to Selection"
+  },
+  {
+   "key": "⌃Backquote",
+   "command": "Scroll in Play"
+  },
+  {
+   "key": "Backslash",
+   "command": "Remove Overlaps"
+  },
+  {
+   "key": "⇧Backslash",
+   "command": "Trim Region End to Next Region"
+  },
+  {
+   "key": "⌃Backslash",
+   "command": "Set Optimal Region/Cell Lengths Rounded by Bar"
+  },
+  {
+   "key": "⌘Backslash",
+   "command": "Crop Regions/Cells Outside Locators/Playable Range or Marquee Selection"
+  },
+  {
+   "key": "⌥Backslash",
+   "command": "Trim Regions to Fill within Locators"
+  },
+  {
+   "key": "Backspace",
+   "command": "Delete (Edit menu; built-in Delete key)"
+  },
+  {
+   "key": "⇧⌘Backspace",
+   "command": "Delete unused Tracks"
+  },
+  {
+   "key": "⌃Backspace",
+   "command": "Delete Redundant Automation Points"
+  },
+  {
+   "key": "⌃⇧Backspace",
+   "command": "Delete Orphaned Automation on Selected Track"
+  },
+  {
+   "key": "⌃⇧⌘Backspace",
+   "command": "Delete All Automation on Selected Track"
+  },
+  {
+   "key": "⌃⌘Backspace",
+   "command": "Delete Visible Automation on Selected Track"
+  },
+  {
+   "key": "⌃⌥Backspace",
+   "command": "Spot Erase"
+  },
+  {
+   "key": "⌃⌥⇧⌘Backspace",
+   "command": "Individual Track Zoom Reset for All Tracks"
+  },
+  {
+   "key": "⌃⌥⌘Backspace",
+   "command": "Reset Individual Track Zoom"
+  },
+  {
+   "key": "⌘Backspace",
+   "command": "Delete Track"
+  },
+  {
+   "key": "⌥Backspace",
+   "command": "Delete Marker"
+  },
+  {
+   "key": "⌥⇧Backspace",
+   "command": "Delete Take or Comp"
+  },
+  {
+   "key": "⌥⌘Backspace",
+   "command": "Cut Sections of Selected Arrangement Markers"
+  },
+  {
+   "key": "BracketLeft",
+   "command": "Previous Patch, Plug-in Setting or Sampler Instrument"
+  },
+  {
+   "key": "⇧BracketLeft",
+   "command": "Previous Channel Strip Setting of focused Track"
+  },
+  {
+   "key": "⌃BracketLeft",
+   "command": "Trim Region End to Previous Transient"
+  },
+  {
+   "key": "⌃⇧BracketLeft",
+   "command": "Trim Region Start to Previous Transient"
+  },
+  {
+   "key": "⌘BracketLeft",
+   "command": "Set Region/Event/Marquee Start to Playhead Position"
+  },
+  {
+   "key": "⌥BracketLeft",
+   "command": "Shuffle Left"
+  },
+  {
+   "key": "BracketRight",
+   "command": "Next Patch, Plug-in Setting or Sampler Instrument"
+  },
+  {
+   "key": "⇧BracketRight",
+   "command": "Next Channel Strip Setting of focused Track"
+  },
+  {
+   "key": "⌃BracketRight",
+   "command": "Trim Region End to Next Transient"
+  },
+  {
+   "key": "⌃⇧BracketRight",
+   "command": "Trim Region Start to Next Transient"
+  },
+  {
+   "key": "⌘BracketRight",
+   "command": "Set Region/Event/Marquee End to Playhead Position"
+  },
+  {
+   "key": "⌥BracketRight",
+   "command": "Shuffle Right"
+  },
+  {
+   "key": "Comma",
+   "command": "Rewind"
+  },
+  {
+   "key": "⇧Comma",
+   "command": "Fast Rewind"
+  },
+  {
+   "key": "⇧⌘Comma",
+   "command": "Move Locators Backwards by Cycle Length / Loop Backwards by Loop Length"
+  },
+  {
+   "key": "⌃Comma",
+   "command": "Rewind by Transient"
+  },
+  {
+   "key": "⌃⇧Comma",
+   "command": "Go to Left Locator"
+  },
+  {
+   "key": "⌃⌥Comma",
+   "command": "Set Locators by Previous Marker and Enable Cycle"
+  },
+  {
+   "key": "⌘Comma",
+   "command": "Open Settings…"
+  },
+  {
+   "key": "⌥Comma",
+   "command": "Go to Previous Marker And Set Locators"
+  },
+  {
+   "key": "⌥⇧⌘Comma",
+   "command": "Halve Cycle/Loop Length"
+  },
+  {
+   "key": "⌃⌥⌘Delete",
+   "command": "Delete Inactive Track Alternatives"
+  },
+  {
+   "key": "⌃Digit0",
+   "command": "Toggle Snap Edits to Zero Crossings"
+  },
+  {
+   "key": "⌃⌥Digit0",
+   "command": "Set Nudge Value to 10 ms"
+  },
+  {
+   "key": "⌘Digit0",
+   "command": "Open Environment…"
+  },
+  {
+   "key": "Digit1",
+   "command": "Recall Screenset 1"
+  },
+  {
+   "key": "⇧Digit1",
+   "command": "Recall Screenset 1x"
+  },
+  {
+   "key": "⌃⇧Digit1",
+   "command": "Toggle Hide Group 1"
+  },
+  {
+   "key": "⌃⇧⌘Digit1",
+   "command": "Create 1 Track Automation Point at Region Borders"
+  },
+  {
+   "key": "⌃⌘Digit1",
+   "command": "Create 1 Track Automation Point at Every Region Border"
+  },
+  {
+   "key": "⌃⌥Digit1",
+   "command": "Set Nudge Value to 1 ms"
+  },
+  {
+   "key": "⌃⌥⇧⌘Digit1",
+   "command": "Save as Zoom 1"
+  },
+  {
+   "key": "⌃⌥⌘Digit1",
+   "command": "Recall Zoom 1"
+  },
+  {
+   "key": "⌘Digit1",
+   "command": "Open Main Window…"
+  },
+  {
+   "key": "Digit2",
+   "command": "Recall Screenset 2"
+  },
+  {
+   "key": "⇧Digit2",
+   "command": "Recall Screenset 2x"
+  },
+  {
+   "key": "⌃⇧Digit2",
+   "command": "Toggle Hide Group 2"
+  },
+  {
+   "key": "⌃⇧⌘Digit2",
+   "command": "Create 2 Track Automation Points at Region Borders"
+  },
+  {
+   "key": "⌃⌘Digit2",
+   "command": "Create 2 Track Automation Points at Every Region Border"
+  },
+  {
+   "key": "⌃⌥⇧⌘Digit2",
+   "command": "Save as Zoom 2"
+  },
+  {
+   "key": "⌃⌥⌘Digit2",
+   "command": "Recall Zoom 2"
+  },
+  {
+   "key": "⌘Digit2",
+   "command": "Open Mixer…"
+  },
+  {
+   "key": "Digit3",
+   "command": "Recall Screenset 3"
+  },
+  {
+   "key": "⇧Digit3",
+   "command": "Recall Screenset 3x"
+  },
+  {
+   "key": "⌃⇧Digit3",
+   "command": "Toggle Hide Group 3"
+  },
+  {
+   "key": "⌃⌥⇧⌘Digit3",
+   "command": "Save as Zoom 3"
+  },
+  {
+   "key": "⌃⌥⌘Digit3",
+   "command": "Recall Zoom 3"
+  },
+  {
+   "key": "⌘Digit3",
+   "command": "Open Step Sequencer…"
+  },
+  {
+   "key": "Digit4",
+   "command": "Recall Screenset 4"
+  },
+  {
+   "key": "⇧Digit4",
+   "command": "Recall Screenset 4x"
+  },
+  {
+   "key": "⌃⇧Digit4",
+   "command": "Toggle Hide Group 4"
+  },
+  {
+   "key": "⌘Digit4",
+   "command": "Open Piano Roll…"
+  },
+  {
+   "key": "Digit5",
+   "command": "Recall Screenset 5"
+  },
+  {
+   "key": "⇧Digit5",
+   "command": "Recall Screenset 5x"
+  },
+  {
+   "key": "⌃⇧Digit5",
+   "command": "Toggle Hide Group 5"
+  },
+  {
+   "key": "⌘Digit5",
+   "command": "Open Score Editor…"
+  },
+  {
+   "key": "Digit6",
+   "command": "Recall Screenset 6"
+  },
+  {
+   "key": "⇧Digit6",
+   "command": "Recall Screenset 6x"
+  },
+  {
+   "key": "⌃⇧Digit6",
+   "command": "Toggle Hide Group 6"
+  },
+  {
+   "key": "⌘Digit6",
+   "command": "Open Audio File Editor…"
+  },
+  {
+   "key": "Digit7",
+   "command": "Recall Screenset 7"
+  },
+  {
+   "key": "⇧Digit7",
+   "command": "Recall Screenset 7x"
+  },
+  {
+   "key": "⌃⇧Digit7",
+   "command": "Toggle Hide Group 7"
+  },
+  {
+   "key": "⌘Digit7",
+   "command": "Open Event List…"
+  },
+  {
+   "key": "Digit8",
+   "command": "Recall Screenset 8"
+  },
+  {
+   "key": "⇧Digit8",
+   "command": "Recall Screenset 8x"
+  },
+  {
+   "key": "⌃⇧Digit8",
+   "command": "Toggle Hide Group 8"
+  },
+  {
+   "key": "⌘Digit8",
+   "command": "Open Project Audio…"
+  },
+  {
+   "key": "Digit9",
+   "command": "Recall Screenset 9"
+  },
+  {
+   "key": "⇧Digit9",
+   "command": "Recall Screenset 9x"
+  },
+  {
+   "key": "⌃⇧Digit9",
+   "command": "Toggle Hide Group 9"
+  },
+  {
+   "key": "⌘Digit9",
+   "command": "Open Transform…"
+  },
+  {
+   "key": "End",
+   "command": "Page Right"
+  },
+  {
+   "key": "⇧End",
+   "command": "Select Last, or Shift Marquee Selection Right"
+  },
+  {
+   "key": "⌃End",
+   "command": "Go to Selection End"
+  },
+  {
+   "key": "⌘End",
+   "command": "Insert Scenes at Playhead"
+  },
+  {
+   "key": "Enter",
+   "command": "Go to Beginning"
+  },
+  {
+   "key": "⇧Enter",
+   "command": "Rename Track"
+  },
+  {
+   "key": "⌃Enter",
+   "command": "New Track with Next Channel / MIDI Channel"
+  },
+  {
+   "key": "⌃⇧Enter",
+   "command": "New Track with Same Channel Strip/Instrument"
+  },
+  {
+   "key": "⌃⌥Enter",
+   "command": "Note Repeat"
+  },
+  {
+   "key": "⌃⌥⌘Enter",
+   "command": "Rename Track Alternative"
+  },
+  {
+   "key": "⌘Enter",
+   "command": "Stop All Cells"
+  },
+  {
+   "key": "⌥Enter",
+   "command": "Go to End of Last Region"
+  },
+  {
+   "key": "Equal",
+   "command": "Increase Last Clicked Parameter by 1"
+  },
+  {
+   "key": "⇧Equal",
+   "command": "Increase Last Clicked Parameter by 10"
+  },
+  {
+   "key": "⌘Equal",
+   "command": "Waveform Vertical Zoom In"
+  },
+  {
+   "key": "Home",
+   "command": "Page Left"
+  },
+  {
+   "key": "⇧Home",
+   "command": "Select First, or Shift Marquee Selection Left"
+  },
+  {
+   "key": "⌃Home",
+   "command": "Go to Selection Start"
+  },
+  {
+   "key": "⌘Home",
+   "command": "Copy to Live Loops Scene"
+  },
+  {
+   "key": "KeyA",
+   "command": "Show/Hide Automation"
+  },
+  {
+   "key": "⇧⌘KeyA",
+   "command": "Show/Hide Arrangement Track"
+  },
+  {
+   "key": "⌃KeyA",
+   "command": "Convert Alias to a Region Copy"
+  },
+  {
+   "key": "⌃⌘KeyA",
+   "command": "Toggle Selected Tracks or Channel Strips Automation Latch/Read"
+  },
+  {
+   "key": "⌃⌥KeyA",
+   "command": "Show/Hide Inactive Track Alternatives"
+  },
+  {
+   "key": "⌃⌥⇧KeyA",
+   "command": "Toggle Activation of All Tracks"
+  },
+  {
+   "key": "⌃⌥⌘KeyA",
+   "command": "Toggle Automation Quick Access"
+  },
+  {
+   "key": "⌘KeyA",
+   "command": "Select All"
+  },
+  {
+   "key": "⌥KeyA",
+   "command": "Open Automation Settings…"
+  },
+  {
+   "key": "⌥⇧KeyA",
+   "command": "Select All Aliases of Region"
+  },
+  {
+   "key": "⌥⌘KeyA",
+   "command": "New Audio Track"
+  },
+  {
+   "key": "KeyB",
+   "command": "Show/Hide Smart Controls"
+  },
+  {
+   "key": "⇧⌘KeyB",
+   "command": "Show/Hide Beat Mapping Track"
+  },
+  {
+   "key": "⌃KeyB",
+   "command": "Bounce Regions/Cells in Place…"
+  },
+  {
+   "key": "⌃⌘KeyB",
+   "command": "Bounce Tracks in Place"
+  },
+  {
+   "key": "⌃⌥KeyB",
+   "command": "Set Nudge Value to Beat"
+  },
+  {
+   "key": "⌘KeyB",
+   "command": "Bounce…"
+  },
+  {
+   "key": "⌥KeyB",
+   "command": "Show Both, Live Loops Grid and Tracks View"
+  },
+  {
+   "key": "⌥⌘KeyB",
+   "command": "Time Stretch Region Length to Nearest Bar"
+  },
+  {
+   "key": "KeyC",
+   "command": "Toggle Cycle Mode"
+  },
+  {
+   "key": "⇧KeyC",
+   "command": "Select Same-Colored Regions/Cells/Events"
+  },
+  {
+   "key": "⇧⌘KeyC",
+   "command": "Show/Hide Chord Track"
+  },
+  {
+   "key": "⌃KeyC",
+   "command": "Toggle Cycle Preview"
+  },
+  {
+   "key": "⌃⌥KeyC",
+   "command": "Set Locators by Marker and Enable Cycle"
+  },
+  {
+   "key": "⌘KeyC",
+   "command": "Copy"
+  },
+  {
+   "key": "⌥KeyC",
+   "command": "Show/Hide Colors"
+  },
+  {
+   "key": "⌥⇧KeyC",
+   "command": "Color Regions/Cells by Track Color"
+  },
+  {
+   "key": "⌥⇧⌘KeyC",
+   "command": "Color Tracks by Region/Cell Color"
+  },
+  {
+   "key": "⌥⌘KeyC",
+   "command": "Copy Channel Strip Setting"
+  },
+  {
+   "key": "KeyD",
+   "command": "Show/Hide List Editors"
+  },
+  {
+   "key": "⇧KeyD",
+   "command": "Deselect All"
+  },
+  {
+   "key": "⇧⌘KeyD",
+   "command": "Create Track Stack…"
+  },
+  {
+   "key": "⌃KeyD",
+   "command": "Drum Replacement/Doubling"
+  },
+  {
+   "key": "⌃⌥KeyD",
+   "command": "Set Nudge Value to Division"
+  },
+  {
+   "key": "⌃⌥⌘KeyD",
+   "command": "Duplicate Track Alternative"
+  },
+  {
+   "key": "⌘KeyD",
+   "command": "New Track with Duplicate Settings"
+  },
+  {
+   "key": "⌥KeyD",
+   "command": "Delete Duplicated MIDI Events"
+  },
+  {
+   "key": "⌥⇧⌘KeyD",
+   "command": "New Track with Duplicate Settings and Content"
+  },
+  {
+   "key": "KeyE",
+   "command": "Show/Hide Editor"
+  },
+  {
+   "key": "⇧KeyE",
+   "command": "Select Equal Regions/Events"
+  },
+  {
+   "key": "⇧⌘KeyE",
+   "command": "Export All Tracks as Audio Files…"
+  },
+  {
+   "key": "⌃KeyE",
+   "command": "Convert Regions to New Sampler Track…"
+  },
+  {
+   "key": "⌃⌘KeyE",
+   "command": "Track Automation Event List…"
+  },
+  {
+   "key": "⌘KeyE",
+   "command": "Export Track as Audio File"
+  },
+  {
+   "key": "⌥KeyE",
+   "command": "Show/Hide Event Float"
+  },
+  {
+   "key": "⌥⌘KeyE",
+   "command": "Export Selection as MIDI File…"
+  },
+  {
+   "key": "KeyF",
+   "command": "Show/Hide Browsers"
+  },
+  {
+   "key": "⇧KeyF",
+   "command": "Select All Following"
+  },
+  {
+   "key": "⌃KeyF",
+   "command": "Flex/Follow Tempo On/Off"
+  },
+  {
+   "key": "⌃⇧KeyF",
+   "command": "Select All Following of Same Track/Pitch"
+  },
+  {
+   "key": "⌃⌘KeyF",
+   "command": "Enter/Exit Full Screen"
+  },
+  {
+   "key": "⌃⌥KeyF",
+   "command": "Set Nudge Value to SMPTE Frame"
+  },
+  {
+   "key": "⌃⌥⇧KeyF",
+   "command": "Pack Folder"
+  },
+  {
+   "key": "⌃⌥⌘KeyF",
+   "command": "Pack Take Folder"
+  },
+  {
+   "key": "⌘KeyF",
+   "command": "Show/Hide Flex Pitch/Time"
+  },
+  {
+   "key": "⌥KeyF",
+   "command": "Un/disclose Take Folder"
+  },
+  {
+   "key": "⌥⌘KeyF",
+   "command": "Convert Regions to New Audio Files…"
+  },
+  {
+   "key": "KeyG",
+   "command": "Show/Hide Global Tracks"
+  },
+  {
+   "key": "⇧KeyG",
+   "command": "Enable/Disable Groups"
+  },
+  {
+   "key": "⇧⌘KeyG",
+   "command": "Create Summing Stack"
+  },
+  {
+   "key": "⌃KeyG",
+   "command": "Apply Normalize Region/Cell Gain Again"
+  },
+  {
+   "key": "⌃⌘KeyG",
+   "command": "Create Group for Selected Channel Strips / Tracks"
+  },
+  {
+   "key": "⌃⌥KeyG",
+   "command": "Normalize Region/Cell Gain…"
+  },
+  {
+   "key": "⌃⌥⌘KeyG",
+   "command": "Show Single Global Track On/Off"
+  },
+  {
+   "key": "⌘KeyG",
+   "command": "Toggle Snap to Grid"
+  },
+  {
+   "key": "⌥KeyG",
+   "command": "Configure Global Tracks…"
+  },
+  {
+   "key": "⌥⇧KeyG",
+   "command": "Show/Hide Groups Window"
+  },
+  {
+   "key": "⌥⌘KeyG",
+   "command": "Toggle Alignment Guides"
+  },
+  {
+   "key": "KeyH",
+   "command": "Toggle Hide View"
+  },
+  {
+   "key": "⇧⌘KeyH",
+   "command": "Create Folder Stack"
+  },
+  {
+   "key": "⌃KeyH",
+   "command": "Hide/Show Selected Tracks"
+  },
+  {
+   "key": "⌃⇧KeyH",
+   "command": "Unhide All Tracks"
+  },
+  {
+   "key": "⌃⌥KeyH",
+   "command": "Set Nudge Value to 0.5 SMPTE Frame"
+  },
+  {
+   "key": "⌘KeyH",
+   "command": "Hide Logic Pro"
+  },
+  {
+   "key": "⌥⌘KeyH",
+   "command": "Hide Others"
+  },
+  {
+   "key": "KeyI",
+   "command": "Show/Hide Inspector"
+  },
+  {
+   "key": "⇧KeyI",
+   "command": "Invert Selection"
+  },
+  {
+   "key": "⇧⌘KeyI",
+   "command": "Import Audio File…"
+  },
+  {
+   "key": "⌃KeyI",
+   "command": "Toggle Channel Strip Input Monitoring"
+  },
+  {
+   "key": "⌃⌘KeyI",
+   "command": "Insert Silence Between Locators (Global)"
+  },
+  {
+   "key": "⌃⌥⇧KeyI",
+   "command": "Show/Hide Score Sets Window"
+  },
+  {
+   "key": "⌃⌥⇧⌘KeyI",
+   "command": "Set Punch In Locator by Rounded Playhead"
+  },
+  {
+   "key": "⌃⌥⌘KeyI",
+   "command": "Set Punch In Locator by Playhead"
+  },
+  {
+   "key": "⌘KeyI",
+   "command": "Import…"
+  },
+  {
+   "key": "⌥KeyI",
+   "command": "MIDI In Toggle (Step Record)"
+  },
+  {
+   "key": "⌥⇧KeyI",
+   "command": "Show/Hide Local Inspector"
+  },
+  {
+   "key": "KeyJ",
+   "command": "Join Regions per Tracks / Fill Cell"
+  },
+  {
+   "key": "⌘KeyJ",
+   "command": "Join Regions/Notes"
+  },
+  {
+   "key": "KeyK",
+   "command": "Toggle Metronome Click"
+  },
+  {
+   "key": "⇧KeyK",
+   "command": "Toggle Count-in"
+  },
+  {
+   "key": "⇧⌘KeyK",
+   "command": "Show/Hide Marker Track"
+  },
+  {
+   "key": "⌃⌥⇧KeyK",
+   "command": "Create Key Signature Change"
+  },
+  {
+   "key": "⌘KeyK",
+   "command": "Show/Hide Musical Typing…"
+  },
+  {
+   "key": "⌥KeyK",
+   "command": "Open Key Command Assignments…"
+  },
+  {
+   "key": "⌥⌘KeyK",
+   "command": "Show/Hide Step Input Keyboard"
+  },
+  {
+   "key": "KeyL",
+   "command": "Loop Regions/Cells/Folders On/Off"
+  },
+  {
+   "key": "⇧KeyL",
+   "command": "Select All Inside Locators"
+  },
+  {
+   "key": "⌃KeyL",
+   "command": "Convert Loops to Regions"
+  },
+  {
+   "key": "⌃⇧⌘KeyL",
+   "command": "Set All Tracks to Automation Latch"
+  },
+  {
+   "key": "⌥KeyL",
+   "command": "Show Live Loops Grid only"
+  },
+  {
+   "key": "⌥⌘KeyL",
+   "command": "Time Stretch Region Length to Locators"
+  },
+  {
+   "key": "KeyM",
+   "command": "Toggle Channel Strip Mute"
+  },
+  {
+   "key": "⇧KeyM",
+   "command": "Select Muted Regions/Cells/Events"
+  },
+  {
+   "key": "⇧⌘KeyM",
+   "command": "Show/Hide Output Track"
+  },
+  {
+   "key": "⌃KeyM",
+   "command": "Mute Notes/Regions/Cells/Folders On/Off"
+  },
+  {
+   "key": "⌃⇧KeyM",
+   "command": "Mute off for all"
+  },
+  {
+   "key": "⌃⌘KeyM",
+   "command": "Zoom Window"
+  },
+  {
+   "key": "⌃⌥KeyM",
+   "command": "Set Nudge Value to Bar"
+  },
+  {
+   "key": "⌃⌥⌘KeyM",
+   "command": "Convert to MIDI Region/Cell"
+  },
+  {
+   "key": "⌘KeyM",
+   "command": "Minimize Window"
+  },
+  {
+   "key": "⌥KeyM",
+   "command": "Toggle Track On"
+  },
+  {
+   "key": "⌥⌘KeyM",
+   "command": "Minimize All Windows"
+  },
+  {
+   "key": "KeyN",
+   "command": "Show/Hide Score Editor"
+  },
+  {
+   "key": "⇧KeyN",
+   "command": "Rename Regions/Cells/Scenes"
+  },
+  {
+   "key": "⇧⌘KeyN",
+   "command": "New Empty Project"
+  },
+  {
+   "key": "⌃KeyN",
+   "command": "Apply All Region/Cell Parameters Permanently"
+  },
+  {
+   "key": "⌃⌥⌘KeyN",
+   "command": "New Track Alternative"
+  },
+  {
+   "key": "⌘KeyN",
+   "command": "New from Template…"
+  },
+  {
+   "key": "⌥KeyN",
+   "command": "Show Tracks View only"
+  },
+  {
+   "key": "⌥⇧KeyN",
+   "command": "Name Regions/Cells by Track Name"
+  },
+  {
+   "key": "⌥⇧⌘KeyN",
+   "command": "Name Tracks by Region/Cell Name"
+  },
+  {
+   "key": "⌥⌘KeyN",
+   "command": "New Tracks…"
+  },
+  {
+   "key": "KeyO",
+   "command": "Show/Hide Loop Browser"
+  },
+  {
+   "key": "⇧KeyO",
+   "command": "Select Overlapped Regions/Events"
+  },
+  {
+   "key": "⇧⌘KeyO",
+   "command": "Show/Hide Movie Track"
+  },
+  {
+   "key": "⌃⇧KeyO",
+   "command": "Add Region/Cell to Loop Library…"
+  },
+  {
+   "key": "⌃⇧⌘KeyO",
+   "command": "Set All Tracks to Automation Off"
+  },
+  {
+   "key": "⌃⌘KeyO",
+   "command": "Toggle Selected Tracks or Channel Strips Automation Off/Read"
+  },
+  {
+   "key": "⌃⌥⇧⌘KeyO",
+   "command": "Set Punch Out Locator Point by Rounded Playhead"
+  },
+  {
+   "key": "⌃⌥⌘KeyO",
+   "command": "Set Punch Out Locator by Playhead"
+  },
+  {
+   "key": "⌘KeyO",
+   "command": "Open…"
+  },
+  {
+   "key": "⌥KeyO",
+   "command": "MIDI Out Toggle"
+  },
+  {
+   "key": "⌥⌘KeyO",
+   "command": "Open Movie…"
+  },
+  {
+   "key": "KeyP",
+   "command": "Show/Hide Piano Roll"
+  },
+  {
+   "key": "⇧KeyP",
+   "command": "Select Same Subpositions"
+  },
+  {
+   "key": "⌃⇧KeyP",
+   "command": "Show/Hide Note Pad"
+  },
+  {
+   "key": "⌃⌘KeyP",
+   "command": "Search and Add Plug-in…"
+  },
+  {
+   "key": "⌃⌥KeyP",
+   "command": "Apply Selection-Based Processing Again"
+  },
+  {
+   "key": "⌃⌥⌘KeyP",
+   "command": "Toggle Autopunch Mode"
+  },
+  {
+   "key": "⌘KeyP",
+   "command": "Print"
+  },
+  {
+   "key": "⌥KeyP",
+   "command": "Project Settings…"
+  },
+  {
+   "key": "⌥⇧KeyP",
+   "command": "Show/Hide Selection-Based Processing"
+  },
+  {
+   "key": "⌥⌘KeyP",
+   "command": "New Session Player SI Track…"
+  },
+  {
+   "key": "KeyQ",
+   "command": "Quantize Selected Regions/Cells/Events"
+  },
+  {
+   "key": "⌃KeyQ",
+   "command": "Apply Quantization Permanently"
+  },
+  {
+   "key": "⌘KeyQ",
+   "command": "Quit"
+  },
+  {
+   "key": "⌥KeyQ",
+   "command": "Toggle Take Folder Quick Swipe Comping Mode"
+  },
+  {
+   "key": "⌥⌘KeyQ",
+   "command": "Dequantize"
+  },
+  {
+   "key": "KeyR",
+   "command": "Record"
+  },
+  {
+   "key": "⇧KeyR",
+   "command": "Flashback Capture as Recording"
+  },
+  {
+   "key": "⇧⌘KeyR",
+   "command": "Show Files in Finder"
+  },
+  {
+   "key": "⌃KeyR",
+   "command": "Toggle Track Record Enable"
+  },
+  {
+   "key": "⌃⇧KeyR",
+   "command": "Reverse On/Off"
+  },
+  {
+   "key": "⌃⇧⌘KeyR",
+   "command": "Set All Tracks to Automation Read"
+  },
+  {
+   "key": "⌃⌘KeyR",
+   "command": "Repeat Section Between Locators (Global)"
+  },
+  {
+   "key": "⌃⌥⇧KeyR",
+   "command": "Secondary Ruler"
+  },
+  {
+   "key": "⌃⌥⌘KeyR",
+   "command": "Free Tempo Recording"
+  },
+  {
+   "key": "⌘KeyR",
+   "command": "Repeat Regions/Cells/Events"
+  },
+  {
+   "key": "⌥KeyR",
+   "command": "Record into Cell"
+  },
+  {
+   "key": "⌥⇧KeyR",
+   "command": "Region Inspector Float"
+  },
+  {
+   "key": "⌥⇧⌘KeyR",
+   "command": "Move Region to Recorded Position"
+  },
+  {
+   "key": "⌥⌘KeyR",
+   "command": "Convert Regions to New Regions"
+  },
+  {
+   "key": "KeyS",
+   "command": "Toggle Channel Strip Solo"
+  },
+  {
+   "key": "⇧KeyS",
+   "command": "Select Similar Regions/Events"
+  },
+  {
+   "key": "⇧⌘KeyS",
+   "command": "Save Project as…"
+  },
+  {
+   "key": "⌃KeyS",
+   "command": "Engage Solo Tracks (Channel Strips) of Selected Regions/Cells"
+  },
+  {
+   "key": "⌃⇧KeyS",
+   "command": "Toggle Channel Strip Format (mono/stereo)"
+  },
+  {
+   "key": "⌃⌥KeyS",
+   "command": "Set Nudge Value to Sample"
+  },
+  {
+   "key": "⌃⌥⇧KeyS",
+   "command": "Show/Hide Staff Style Window"
+  },
+  {
+   "key": "⌘KeyS",
+   "command": "Save"
+  },
+  {
+   "key": "⌥KeyS",
+   "command": "Clear/Recall Solo"
+  },
+  {
+   "key": "⌥⌘KeyS",
+   "command": "New Software Instrument Track"
+  },
+  {
+   "key": "KeyT",
+   "command": "Show Tool Menu"
+  },
+  {
+   "key": "⇧KeyT",
+   "command": "Rename Take or Comp"
+  },
+  {
+   "key": "⇧⌘KeyT",
+   "command": "Show/Hide Tempo Track"
+  },
+  {
+   "key": "⌃⇧KeyT",
+   "command": "Move Selected Regions to Focused Track"
+  },
+  {
+   "key": "⌃⇧⌘KeyT",
+   "command": "Set All Tracks to Automation Touch"
+  },
+  {
+   "key": "⌃⌘KeyT",
+   "command": "Search and Select Track…"
+  },
+  {
+   "key": "⌃⌥KeyT",
+   "command": "Set Nudge Value to Tick"
+  },
+  {
+   "key": "⌃⌥⇧KeyT",
+   "command": "Create Time Signature Change"
+  },
+  {
+   "key": "⌃⌥⌘KeyT",
+   "command": "Show/Hide Toolbar"
+  },
+  {
+   "key": "⌘KeyT",
+   "command": "Split Regions/Events at Playhead Position"
+  },
+  {
+   "key": "⌥KeyT",
+   "command": "Configure Track Header…"
+  },
+  {
+   "key": "⌥⇧KeyT",
+   "command": "Open Tempo List…"
+  },
+  {
+   "key": "⌥⇧⌘KeyT",
+   "command": "Detect Tempo of Selected Region…"
+  },
+  {
+   "key": "⌥⌘KeyT",
+   "command": "Split Regions/Events at Locators or Marquee Selection"
+  },
+  {
+   "key": "KeyU",
+   "command": "Set Rounded Locators/Loop by Regions/Events/Marquee and Enable Cycle/Loop"
+  },
+  {
+   "key": "⇧⌘KeyU",
+   "command": "Flatten Stack"
+  },
+  {
+   "key": "⌃⇧⌘KeyU",
+   "command": "Unpack Take Folder to New Tracks"
+  },
+  {
+   "key": "⌃⌘KeyU",
+   "command": "Unpack Take Folder to Existing Tracks"
+  },
+  {
+   "key": "⌘KeyU",
+   "command": "Set Locators/Loop by Regions/Events/Marquee and Enable Cycle/Loop"
+  },
+  {
+   "key": "⌥KeyU",
+   "command": "Flatten and Merge Take Folder/Cell"
+  },
+  {
+   "key": "⌥⇧KeyU",
+   "command": "Flatten Take Folder/Cell"
+  },
+  {
+   "key": "KeyV",
+   "command": "Show/Hide All Plug-in Windows"
+  },
+  {
+   "key": "⇧⌘KeyV",
+   "command": "Paste Replace"
+  },
+  {
+   "key": "⌃⌘KeyV",
+   "command": "Insert Section at Playhead (Global)"
+  },
+  {
+   "key": "⌘KeyV",
+   "command": "Paste"
+  },
+  {
+   "key": "⌥KeyV",
+   "command": "Switch between Live Loops Grid and Tracks View"
+  },
+  {
+   "key": "⌥⌘KeyV",
+   "command": "Paste Channel Strip Setting"
+  },
+  {
+   "key": "KeyW",
+   "command": "Show/Hide Audio File Editor"
+  },
+  {
+   "key": "⇧KeyW",
+   "command": "Open in External Sample Editor"
+  },
+  {
+   "key": "⌘KeyW",
+   "command": "Close Window"
+  },
+  {
+   "key": "⌥KeyW",
+   "command": "Cycle Through Windows"
+  },
+  {
+   "key": "⌥⇧KeyW",
+   "command": "Cycle Through Windows (counter-clockwise)"
+  },
+  {
+   "key": "⌥⌘KeyW",
+   "command": "Close Project"
+  },
+  {
+   "key": "KeyX",
+   "command": "Show/Hide Mixer"
+  },
+  {
+   "key": "⌃KeyX",
+   "command": "Remove Silence from Audio Region…"
+  },
+  {
+   "key": "⌃⌘KeyX",
+   "command": "Cut Section Between Locators (Global)"
+  },
+  {
+   "key": "⌃⌥KeyX",
+   "command": "Apply Default Crossfade"
+  },
+  {
+   "key": "⌘KeyX",
+   "command": "Cut"
+  },
+  {
+   "key": "⌥KeyX",
+   "command": "Audio Crossfade Options for Merge…"
+  },
+  {
+   "key": "⌥⇧KeyX",
+   "command": "Apply Last Edited Fade Again"
+  },
+  {
+   "key": "⌥⌘KeyX",
+   "command": "New External MIDI Track"
+  },
+  {
+   "key": "KeyY",
+   "command": "Show/Hide Library"
+  },
+  {
+   "key": "⇧⌘KeyY",
+   "command": "Automation: Display Off"
+  },
+  {
+   "key": "⌘KeyY",
+   "command": "Automation: Cycle Through Used Parameters"
+  },
+  {
+   "key": "KeyZ",
+   "command": "Toggle Zoom to fit Selection or All Contents"
+  },
+  {
+   "key": "⇧KeyZ",
+   "command": "Store Navigation Snapshot"
+  },
+  {
+   "key": "⇧⌘KeyZ",
+   "command": "Redo"
+  },
+  {
+   "key": "⌃KeyZ",
+   "command": "Toggle Zoom Focused Track or Row"
+  },
+  {
+   "key": "⌃⇧KeyZ",
+   "command": "Zoom to fit Locators, store Navigation Snapshot"
+  },
+  {
+   "key": "⌃⇧⌘KeyZ",
+   "command": "Plug-in Redo"
+  },
+  {
+   "key": "⌃⌘KeyZ",
+   "command": "Plug-in Undo"
+  },
+  {
+   "key": "⌃⌥⌘KeyZ",
+   "command": "Toggle Individual Track Zoom"
+  },
+  {
+   "key": "⌘KeyZ",
+   "command": "Undo"
+  },
+  {
+   "key": "⌥KeyZ",
+   "command": "Navigation: Back"
+  },
+  {
+   "key": "⌥⇧KeyZ",
+   "command": "Navigation: Forward"
+  },
+  {
+   "key": "⌥⌘KeyZ",
+   "command": "Undo History…"
+  },
+  {
+   "key": "Minus",
+   "command": "Decrease Last Clicked Parameter by 1"
+  },
+  {
+   "key": "Minus",
+   "command": "Sustain inserted notes"
+  },
+  {
+   "key": "⇧Minus",
+   "command": "Decrease Last Clicked Parameter by 10"
+  },
+  {
+   "key": "⌘Minus",
+   "command": "Waveform Vertical Zoom Out"
+  },
+  {
+   "key": "Numpad0",
+   "command": "Stop"
+  },
+  {
+   "key": "⌃Numpad0",
+   "command": "Go to Marker Number 10"
+  },
+  {
+   "key": "Numpad1",
+   "command": "Go to Marker Number 1"
+  },
+  {
+   "key": "⌃Numpad1",
+   "command": "Go to Marker Number 11"
+  },
+  {
+   "key": "Numpad2",
+   "command": "Go to Marker Number 2"
+  },
+  {
+   "key": "⌃Numpad2",
+   "command": "Go to Marker Number 12"
+  },
+  {
+   "key": "Numpad3",
+   "command": "Go to Marker Number 3"
+  },
+  {
+   "key": "⌃Numpad3",
+   "command": "Go to Marker Number 13"
+  },
+  {
+   "key": "Numpad4",
+   "command": "Go to Marker Number 4"
+  },
+  {
+   "key": "⌃Numpad4",
+   "command": "Go to Marker Number 14"
+  },
+  {
+   "key": "Numpad5",
+   "command": "Go to Marker Number 5"
+  },
+  {
+   "key": "⌃Numpad5",
+   "command": "Go to Marker Number 15"
+  },
+  {
+   "key": "Numpad6",
+   "command": "Go to Marker Number 6"
+  },
+  {
+   "key": "⌃Numpad6",
+   "command": "Go to Marker Number 16"
+  },
+  {
+   "key": "Numpad7",
+   "command": "Go to Marker Number 7"
+  },
+  {
+   "key": "⌃Numpad7",
+   "command": "Go to Marker Number 17"
+  },
+  {
+   "key": "Numpad8",
+   "command": "Go to Marker Number 8"
+  },
+  {
+   "key": "⌃Numpad8",
+   "command": "Go to Marker Number 18"
+  },
+  {
+   "key": "Numpad9",
+   "command": "Go to Marker Number 9"
+  },
+  {
+   "key": "⌃Numpad9",
+   "command": "Go to Marker Number 19"
+  },
+  {
+   "key": "NumpadDecimal",
+   "command": "Pause"
+  },
+  {
+   "key": "NumpadDivide",
+   "command": "Toggle Replace"
+  },
+  {
+   "key": "NumpadEnter",
+   "command": "Play"
+  },
+  {
+   "key": "⇧NumpadEnter",
+   "command": "Play from Left Window Edge"
+  },
+  {
+   "key": "NumpadEqual",
+   "command": "Skip Cycle"
+  },
+  {
+   "key": "NumpadMultiply",
+   "command": "Record/Record Toggle"
+  },
+  {
+   "key": "PageDown",
+   "command": "Page Down"
+  },
+  {
+   "key": "⌘PageDown",
+   "command": "Lock SMPTE Position"
+  },
+  {
+   "key": "⌥PageDown",
+   "command": "Set Next Tool or Edit Mode"
+  },
+  {
+   "key": "PageUp",
+   "command": "Page Up"
+  },
+  {
+   "key": "⌘PageUp",
+   "command": "Unlock SMPTE Position"
+  },
+  {
+   "key": "⌥PageUp",
+   "command": "Set Previous Tool or Edit Mode"
+  },
+  {
+   "key": "Period",
+   "command": "Forward"
+  },
+  {
+   "key": "⇧Period",
+   "command": "Fast Forward"
+  },
+  {
+   "key": "⇧⌘Period",
+   "command": "Move Locators Forward by Cycle Length / Loop Forward by Loop Length"
+  },
+  {
+   "key": "⌃Period",
+   "command": "Forward by Transient"
+  },
+  {
+   "key": "⌃⇧Period",
+   "command": "Go to Right Locator"
+  },
+  {
+   "key": "⌃⌥Period",
+   "command": "Set Locators by Next Marker and Enable Cycle"
+  },
+  {
+   "key": "⌘Period",
+   "command": "Discard Recording and Return to Last Play Position"
+  },
+  {
+   "key": "⌥Period",
+   "command": "Go to Next Marker And Set Locators"
+  },
+  {
+   "key": "⌥⇧⌘Period",
+   "command": "Double Cycle/Loop Length"
+  },
+  {
+   "key": "Quote",
+   "command": "Show/Hide Marker Track Only"
+  },
+  {
+   "key": "⇧Quote",
+   "command": "Rename Marker"
+  },
+  {
+   "key": "⌃⌥Quote",
+   "command": "Create Marker without rounding"
+  },
+  {
+   "key": "⌥Quote",
+   "command": "Create Marker"
+  },
+  {
+   "key": "⌥⇧Quote",
+   "command": "Create Marker for Region/Marquee Selection"
+  },
+  {
+   "key": "Semicolon",
+   "command": "Move Region/Event to Playhead Position (Pickup Clock)"
+  },
+  {
+   "key": "⇧Semicolon",
+   "command": "Move Region/Event to Playhead Position and Select Next Region/Event (Pickup Clock+)"
+  },
+  {
+   "key": "⌘Semicolon",
+   "command": "Add to Tracks…"
+  },
+  {
+   "key": "Slash",
+   "command": "Go to Position…"
+  },
+  {
+   "key": "⇧Slash",
+   "command": "Show/Hide Quick Help"
+  },
+  {
+   "key": "⌘Slash",
+   "command": "Show Detailed Help"
+  },
+  {
+   "key": "⌥Slash",
+   "command": "Go to Marker Number…"
+  },
+  {
+   "key": "Space",
+   "command": "Play or Stop"
+  },
+  {
+   "key": "⇧Space",
+   "command": "Play from Selection"
+  },
+  {
+   "key": "⌥Space",
+   "command": "Preview"
+  },
+  {
+   "key": "⌥⇧Space",
+   "command": "Preview Selection-Based Processing"
+  },
+  {
+   "key": "Tab",
+   "command": "Cycle Through Window Views"
+  },
+  {
+   "key": "⇧Tab",
+   "command": "Cycle Through Window Views (counter-clockwise)"
+  }
+ ],
+ "sources": [
+  "Logic Pro 11.2.2 (installed on this Mac): /Applications/Logic Pro.app/Contents/Resources/Key Commands/U.S..logikcs, decoded; command names from the app binary",
+  "https://support.apple.com/guide/logicpro/global-commands-lgcp02bf31b6/11.2/mac/14.4",
+  "https://support.apple.com/guide/logicpro/various-windows-lgcp665bbccc/11.2/mac/14.4",
+  "https://support.apple.com/guide/logicpro/main-window-tracks-and-various-editors-lgcpe8314fe2/11.2/mac/14.4",
+  "https://support.apple.com/guide/logicpro/main-window-tracks-lgcpb99be9c5/11.2/mac/14.4",
+  "https://support.apple.com/guide/logicpro/views-showing-time-ruler-lgcp267f63a1/11.2/mac/14.4",
+  "https://support.apple.com/guide/logicpro/views-showing-automation-lgcp771facc4/11.2/mac/14.4",
+  "https://support.apple.com/guide/logicpro/windows-showing-audio-files-lgcp7afa650a/11.2/mac/14.4",
+  "https://support.apple.com/guide/logicpro/tool-menu-lgcp0182c4e5/11.2/mac/14.4",
+  "https://support.apple.com/guide/logicpro/mixer-lgcp2dc3f212/11.2/mac/14.4"
+ ]
+}

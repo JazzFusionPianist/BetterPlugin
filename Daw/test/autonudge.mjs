@@ -61,6 +61,36 @@ await key('ArrowRight', 'ArrowRight', 39, ALT)
 const r6 = await reg()
 ok('lines away: the region is nudged, as before', r6[0] === r0[0] + 1 && r6[1] === r0[1] + 1, r6)
 
+// a stack's own line cut out every half bar, as his: steps of two points a hair apart. The corner pressed is chosen and
+// drawn so; nudged, its step goes whole (its twin with it), and the next step stays
+{ const st = await ev(`S.auto = false; S.selR = [S.tracks[0].regs[0].id, S.tracks[1].regs[0].id]; S.focus = 'lanes'; makeStack(); const st = S.tracks.find(t => t.kind === 'stack'); st.autos = { vol: [] }
+    for (const [b, v] of [[10, 0], [10.002, -48], [10.498, -48], [10.5, 0], [14, 0], [14.002, -48]]) addPoint(st, 'vol', b, v); S.selP = []; S.nudge = 'beat'; VX = 6; dirtyAll(); flush()
+    const ti = S.tracks.indexOf(st), g = autoGeom(st, rowY(ti), rowH(ti)), q = st.autos.vol[1], bd = document.getElementById('board').getBoundingClientRect(), k = bd.width / W
+    return { x: bd.left + bx(q.b + 1) * k, y: bd.top + g.yOf(q.v) * k, id: q.id }`)
+  await b.click(st.x, st.y); await b.sleep(80)
+  const drawn = await ev(`flush(); const c = [...document.querySelectorAll('#g-lanes circle')]; const big = c.filter(e => +e.getAttribute('r') > 2.3); return { chosen: S.selP.slice(), lastIsChosen: big.length > 0 && c.indexOf(big[big.length - 1]) > c.findIndex(e => Math.abs(+e.getAttribute('cx') - +big[0].getAttribute('cx')) < .5 && +e.getAttribute('r') < 2.3) }`)
+  ok('a corner of a step on a stack\'s line pressed: it is chosen, and drawn over its twin', drawn.chosen.length === 1 && drawn.chosen[0] === st.id && drawn.lastIsChosen, drawn)
+  await key('ArrowRight', 'ArrowRight', 39, ALT)
+  const pts = await ev(`return S.tracks.find(t => t.kind === 'stack').autos.vol.map(q => +q.b.toFixed(3))`)
+  ok('option right: the whole step a beat later — both its points — and the next step where it was', JSON.stringify(pts) === JSON.stringify([10.25, 10.252, 10.498, 10.5, 14, 14.002]), pts)
+  await key('ArrowLeft', 'ArrowLeft', 39 - 2, ALT)
+  ok('option left: back', JSON.stringify(await ev(`return S.tracks.find(t => t.kind === 'stack').autos.vol.map(q => +q.b.toFixed(3))`)) === JSON.stringify([10, 10.002, 10.498, 10.5, 14, 14.002])) }
+
+// the lines hidden, a drag along the stack's own row, off its line: the points inside are chosen (his ask, 2026-10-19), and
+// they go with the keys; a drag over the regions of its tracks still takes the regions, and no point
+{ const at = await ev(`S.auto = false; S.selP = []; S.selR = []; dirtyAll(); flush(); const st = S.tracks.find(t => t.kind === 'stack'), ti = S.tracks.indexOf(st), g = autoGeom(st, rowY(ti), rowH(ti)), bd = document.getElementById('board').getBoundingClientRect(), k = bd.width / W
+    const X = b => bd.left + bx(b + 1) * k, Y = y => bd.top + y * k
+    return { x0: X(9.5), y0: Y(g.ly + g.lh - 1), x1: X(10.75), y1: Y(g.ly + 1), top: Y(g.yOf(0)), mx: X(10.6), my: Y(rowY(ti + 1) + rowH(ti + 1) / 2) }`)
+  await b.dragTo(at.x0, at.y0, at.x1, at.y1, 8); await b.sleep(80)
+  const got = await ev(`const st = S.tracks.find(t => t.kind === 'stack'); return { chosen: st.autos.vol.filter(q => S.selP.includes(q.id)).map(q => +q.b.toFixed(3)), regs: S.selR.length, band: S.band }`)
+  ok('lines hidden: a drag along a stack\'s row chooses the points of its line inside it, and no region', JSON.stringify(got.chosen) === JSON.stringify([10, 10.002, 10.498, 10.5]) && got.regs === 0 && !got.band, [got, at])
+  await key('ArrowRight', 'ArrowRight', 39, ALT)
+  ok('and option right takes them a beat on, the next step where it was', JSON.stringify(await ev(`return S.tracks.find(t => t.kind === 'stack').autos.vol.map(q => +q.b.toFixed(3))`)) === JSON.stringify([10.25, 10.252, 10.748, 10.75, 14, 14.002]))
+  await key('z', 'KeyZ', 90, CMD)
+  await b.dragTo(at.x0, at.my, at.x1, at.y1, 8); await b.sleep(80)
+  const both = await ev(`return { regs: S.selR.length, pts: S.selP.length }`)
+  ok('a drag that also lies over its tracks\' regions takes the regions, and no point', both.regs > 0 && both.pts === 0, both) }
+
 console.log(out.join('\n')); console.log(bad.length ? `\n${bad.length} FAILED` : '\nall passed')
 if (b.errors.length) console.log('page errors:', b.errors.slice(0, 5))
 await b.close()

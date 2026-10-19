@@ -1982,6 +1982,24 @@ async function runSelfTest (mode) {
     await loadProject(here); res.back = projKey() === here
     return res
   })
+  /* a stack's own line in a real project, the lines shown and not (his ask, 2026-10-19: with the lines shown it was not
+     seen): what is drawn on each stack's row, both ways */
+  await step('stackLine', async () => {
+    halt(false)
+    const here = projKey(), probe = ((await NAT.call('projList')) || []).find(p => / probe$/.test(p.name))
+    if (!probe) return { skipped: 'no project laid in (SLUR_OPEN)' }
+    await loadProject(probe.key); await sleep(400)
+    const look = () => { flush(); return S.tracks.filter(lineOwn).map(t => { const i = S.tracks.indexOf(t), g = (LANES.rows.get(t.id) || {}).el || null
+      return { name: t.name, kind: t.kind, ap: t.ap, key: shownKey(t), pts: autoPts(t, shownKey(t)).length, shown: rows().includes(i), h: rowH(i), y: rowY(i), drawn: g ? g.querySelectorAll('circle').length : 'no row group', html: g ? g.innerHTML.length : 0 } }) }
+    const res = { auto0: S.auto, off: null, on: null }
+    if (S.auto) toggleAuto()
+    const pl = S.tracks.find(t => lineOwn(t) && autoPts(t, 'vol').length > 2); if (pl) { const a = autoPts(pl, 'vol')[0].b; VX = Math.max(0, a - 4) } if (pl) { setView(true); VY = clamp(rowY(S.tracks.indexOf(pl)) - TY + VY - 60, 0, 1e9); dirtyAll() }
+    res.off = look(); await sleep(300); await NAT.call('testSnap', { name: 'stackline-off.png' }); await sleep(400)
+    toggleAuto(); res.on = look(); await sleep(300); await NAT.call('testSnap', { name: 'stackline-on.png' }); await sleep(400); toggleAuto()
+    res.groups = [...document.querySelectorAll('#g-lanes > *')].slice(0, 4).map(e => e.tagName + ' ' + [...e.attributes].map(a => a.name + '=' + a.value.slice(0, 30)).join(' '))
+    await loadProject(here)
+    return res
+  })
   /* another project opened while this one is changed: the same question first (his ask, 2026-10-18); cancel stays; don't
      save opens the other with the card up at once, the first left on disk as it was last saved; back again, nothing asked */
   /* zooming by the hand on a full screen (his users, 2026-10-19: "트랙 패드로 horizontal 줌인 줌 아웃 … 스무스하게 잘 안된다"):

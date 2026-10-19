@@ -1741,6 +1741,13 @@ function lanesMove (e, p) {
     const got = []
     for (let k = k0; k <= k1; k++) for (const r of S.tracks[vis[k]].regs) if (r.a - 1 < b && r.b - 1 > a) got.push(r.id)
     S.selR = withTheirs([...new Set(d.base.concat(got))])
+    /* a stack's or a bus's own line is up with the lines hidden too: its points inside the band are chosen, in the
+       regions' place (his ask, 2026-10-19 — a stack's points could not be taken by a drag). Only while the band holds no
+       region: a band over a stack's tracks is for their regions, and a delete or a nudge then is theirs, not its line's */
+    if (!d.pbase) d.pbase = S.selP.slice()
+    const pts = []
+    if (!got.length) for (let k = k0; k <= k1; k++) { const i = vis[k], t = S.tracks[i]; if (!lineOwn(t)) continue; const g = autoGeom(t, rowY(i), rowH(i)); for (const q of autoPts(t, g.k)) { const x = bx(q.b + 1), y = g.yOf(q.v); if (x >= x0 && x <= x1 && y >= S.band.y0 - 3 && y <= S.band.y1 + 3) pts.push(q.id) } }
+    S.selP = [...new Set(d.pbase.concat(pts))]
   } else if (d.a === 'zoom') { d.x1 = p.x; S.band = { x0: Math.min(d.x0, p.x), x1: Math.max(d.x0, p.x), y0: TY, y1: TY + LANES_H } }
   uiDirty('lanes')
 }

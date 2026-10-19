@@ -115,17 +115,17 @@ function autoLane (t, y, rh, xEnd = X1) {
   d += `L${n(own ? Math.max(xe, bx(pts[pts.length - 1].b + 1)) : Math.max(X1, bx(pts[pts.length - 1].b + 1)) + 2)} ${n(yOf(pts[pts.length - 1].v))}`
   /* each point, small, and its value beside it (his ask, 2026-10-19: how far a point takes it could not be seen) — said
      where there is room for it: a word that would run into the last one is left out */
-  let words = '', free = -Infinity
+  let words = '', free = -Infinity, chosenDots = ''
   const top = y + 2, bottom = y + rh - 2
   for (const q of pts) {
     const x = bx(q.b + 1)
     if (x < X0 - 5 || x > X1 + 5) continue
-    const on = S.selP.includes(q.id), py = yOf(q.v)
-    dots += Cc(x, py, on ? 2.6 : 2, { fill: on ? ink : K0, stroke: ink, sw: 1 })
+    const on = S.selP.includes(q.id), py = yOf(q.v), dot = Cc(x, py, on ? 2.6 : 2, { fill: on ? ink : K0, stroke: ink, sw: 1 })
+    if (on) chosenDots += dot; else dots += dot                                           // (the chosen drawn last: a point beside it does not hide it)
     const said = A.fmt(q.v), w = tw(said, 8.5)
     if (rh >= 18 && x + 5 >= free && x + 5 + w < X1) { words += T(x + 5, clamp(py + 3, top + 7, bottom), said, { size: 8.5, c: ink, a: on ? .95 : .62 }); free = x + 5 + w + 6 }      // (right of it, at its height)
   }
-  return P(d, { stroke: K0, sa: .55, sw: 2.2 }) + P(d, { stroke: ink, sa: pale, sw: .9 }) + dots + words
+  return P(d, { stroke: K0, sa: .55, sw: 2.2 }) + P(d, { stroke: ink, sa: pale, sw: .9 }) + dots + chosenDots + words
 }
 const OWN_LINE = .75
 /* is the pointer on such a row's own line, or on one of its points (the lines not shown) */
@@ -244,9 +244,18 @@ function autoNudge (dir) {
 
 /* ── chosen points nudged (option and the left or right arrow) ──
    The points go one nudge earlier or later — they alone: a region that is chosen besides stays where it is. Each line keeps
-   its order: chosen points stop at the next point of their line that is not chosen (and at the song's two ends). */
+   its order: chosen points stop at the next point of their line that is not chosen (and at the song's two ends).
+   A step in a line is two points a hair apart (where it falls, where it rises): one of them chosen, both go — else the
+   other would stop it at once, and the step could never be nudged (his DRESS, a stack cut in and out every half bar). */
+const POINT_TWIN = 1 / 64
 function nudgePoints (dir) {
   const d0 = nudgeBars() * dir, ids = new Set(S.selP)
+  for (const t of S.tracks) for (const k of Object.keys(t.autos || {})) {                // (their twins are chosen with them, and stay chosen)
+    const pts = t.autos[k]
+    if (!Array.isArray(pts)) continue
+    for (let round = 0; round < 3; round++) for (let i = 0; i < pts.length; i++) if (ids.has(pts[i].id)) for (const j of [i - 1, i + 1]) if (pts[j] && Math.abs(pts[j].b - pts[i].b) <= POINT_TWIN && Math.abs(pts[j].b - pts[i].b) > 1e-6) ids.add(pts[j].id)      // (a hair apart: a step; at the very same place is a point stopped against another, and stays apart from it)
+  }
+  if (ids.size > S.selP.length) S.selP = [...ids]
   let any = false
   edit(() => {
     for (const t of S.tracks) for (const k of Object.keys(t.autos || {})) {

@@ -247,15 +247,16 @@ async function runSelfTest (mode) {
       const res = {}, there = js => NAT.call('testSettingsJs', { js })
       await NAT.call('settings', { part: 'display' }); await sleep(1500)
       res.cards = await there(`JSON.stringify({ cards: document.querySelectorAll('[data-a="d-wear"]').length })`)
-      for (const name of ['console', 'score', 'phosphor']) {
+      for (const name of THEME_ORDER) {
         await there(`displayPress(document.querySelector('[data-a="d-wear"][data-v="${name}"]'), {}); '{}'`); await sleep(2200); flush()
         const lanes = document.querySelector('#ln-back rect'), pat = document.querySelector('#ln-back rect[fill^="url(#th-"]'), over = document.querySelector('#g-theme-over rect')
         res[name] = { font: FONT.split(',')[0], loaded: document.fonts.check(`500 10px ${FONT.split(',')[0]}`), k1: K1, lanes: lanes && lanes.getAttribute('fill'), pattern: pat ? pat.getAttribute('fill') : null, over: over ? over.getAttribute('fill') : null, caps: TF.caps, names: TF.names && TF.names.split(',')[0], word: await there(`JSON.stringify({ w: lookWord() })`) }
+        res[name].parts = `${SKIN.k.transport} ${SKIN.k.heads} ${SKIN.k.mixer} ${SKIN.right ? 'right' : 'left'}`; res[name].bands = `${BAR_H} ${DECK_H} ${SKV.left}`      // (its parts' shapes: skins.js)
         await NAT.call('testSnap', { name: `selftest-theme-${name}.png` }); await sleep(600)
       }
       await NAT.call('testSettings', { name: 'selftest-themes.png' }); await sleep(600)
       await there(`displayPress(document.querySelector('[data-a="d-wear"][data-v=""]'), {}); '{}'`); await sleep(1500); flush()
-      res.back = { font: FONT.split(',')[0], k1: K1, plain: looksChanged() === 0, over: !!document.querySelector('#g-theme-over rect') }
+      res.back = { font: FONT.split(',')[0], k1: K1, plain: looksChanged() === 0, over: !!document.querySelector('#g-theme-over rect'), bands: `${BAR_H} ${DECK_H} ${SKV.left}`, x0: X0 }
       await NAT.call('settingsClose')
       return res
     })

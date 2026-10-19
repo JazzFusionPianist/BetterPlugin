@@ -6,28 +6,39 @@
    the playhead as a tape head. As the room comes, none of them is on and nothing here draws.
    The materials (the meters' faces, the keys' plastic, chrome) are the parts' own; the panel, the ink and the meanings
    (recording, solo, listening) are the look's. */
-const SKIN = { bridge: false, deck: false, heads: false, flags: false, pencil: false, tapehead: false, console: false }
-const BRIDGE_H = 96, DECK_FULL = 82
+const SKIN = { k: {}, bridge: false, right: false, deck: false, heads: false, flags: false, pencil: false, tapehead: false, console: false }
+/* the bands a transport takes: over the room, over the foot, down the left */
+const SKIN_BANDS = { plain: [44, 0, 0], console: [0, 82, 0], cassette: [124, 70, 0], score: [84, 52, 0], poster: [0, 28, 196], blueprint: [64, 112, 0], terminal: [96, 30, 0] }
+/* what each theme's parts draw (filled by skin-*.js): top, foot, left (the transport's bands), head, scenes, cycle, play, lanes, strip */
+const SKINS = { top: {}, foot: {}, left: {}, head: {}, scenes: {}, cycle: {}, play: {}, rule: {}, lanes: {}, strip: {}, mixer: {}, sound: {}, frame: {} }
+const BRIDGE_H = 96
 let DECK_H = 0
 function skinRead () {
   if (typeof lk !== 'function') return
+  for (const part in PART_KINDS) { const v = lk('part.' + part), f = PART_KINDS[part].find(x => x[0] === v); SKIN.k[part] = f ? f[1] : 'plain' }
   SKIN.bridge = lk('part.meters') === 'VU meters over the room'
-  SKIN.deck = lk('part.transport') === 'a tape deck at the foot'
-  SKIN.heads = lk('part.heads') === 'labels, lamps, a knob'
-  SKIN.flags = lk('part.markers') === 'tape flags'
-  SKIN.pencil = lk('part.cycle') === 'grease pencil'
-  SKIN.tapehead = lk('part.playhead') === 'a tape head'
-  SKIN.console = lk('part.mixer') === 'a console'
+  SKIN.right = lk('part.headsAt') === 'at the right'
+  SKIN.deck = SKIN.k.transport === 'console'
+  SKIN.heads = SKIN.k.heads === 'console'
+  SKIN.flags = SKIN.k.markers === 'console'
+  SKIN.pencil = SKIN.k.cycle === 'console'
+  SKIN.tapehead = SKIN.k.playhead === 'console'
+  SKIN.console = SKIN.k.mixer === 'console'
 }
-/* the window cut again (ui.js relayout asks first): the bridge over everything, the deck over the foot */
+const skinHas = part => SKIN.k[part] && SKIN.k[part] !== 'plain'
+/* the window cut again (ui.js relayout asks first): the bands of the transport and the bridge of meters */
 function skinLayout () {
   skinRead()
-  BAR_H = (SKIN.bridge ? BRIDGE_H : 0) + (SKIN.deck ? 0 : 44)
-  DECK_H = SKIN.deck ? DECK_FULL : 0
+  const b = SKIN_BANDS[SKIN.k.transport] || SKIN_BANDS.plain
+  BAR_H = (SKIN.bridge ? BRIDGE_H : 0) + b[0]
+  DECK_H = b[1]
+  if (SKV.left !== b[2]) { SKV.left = b[2]; if (typeof fitRoom === 'function' && typeof board !== 'undefined' && !skinLayout.in) { skinLayout.in = true; try { fitRoom() } finally { skinLayout.in = false } } }
 }
 const skinDeckY = () => H - FOOT_H - DECK_H
-/* where the lists of the transport's things open: under the bar, or (the deck at the foot) over the deck */
-const barMenuY = () => SKIN.deck ? H : BAR_H - 6
+/* where the lists of the transport's things open: under its band at the top, or over it at the foot */
+/* a menu opened from a theme's own word stands at the word: under it, or over it when the word is low in the window */
+const skinMenuAt = what => { const f = skinField(what); return f ? { x: f.x, y: f.y > H / 2 ? f.y - 4 : f.y + f.h + 2, up: f.y > H / 2 } : null }
+const barMenuY = () => (SKIN_BANDS[SKIN.k.transport] || SKIN_BANDS.plain)[0] ? BAR_H - 6 : H
 
 /* ── materials ── */
 const SK = { well: '#120D09', face0: '#FFF4D2', face1: '#D6B272', red: '#C0392B', mask: '#EEE6D2', maskInk: '#211C17', chrome0: '#8E8A84', chrome1: '#F2EFE9', key0: '#F6F0E2', key1: '#C6B693', amber: '#FFB547', green: '#5DAA57' }
@@ -42,6 +53,8 @@ function skinDefs () {
     <radialGradient id="sk-skirt" cx=".5" cy=".5" r=".5"><stop offset=".7" stop-color="#1C1915"/><stop offset="1" stop-color="#3A3530"/></radialGradient>
     <linearGradient id="sk-drum" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#050403"/><stop offset=".25" stop-color="#2A2622"/><stop offset=".5" stop-color="#36322D"/><stop offset=".75" stop-color="#2A2622"/><stop offset="1" stop-color="#050403"/></linearGradient>
     <linearGradient id="sk-chrome" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${SK.chrome0}"/><stop offset=".45" stop-color="${SK.chrome1}"/><stop offset="1" stop-color="#77736D"/></linearGradient>
+    <pattern id="tm-shade" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="1" height="1" fill="${INK}" fill-opacity=".5"/><rect x="1" y="1" width="1" height="1" fill="${INK}" fill-opacity=".5"/></pattern>
+    <pattern id="bp-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0V6" stroke="${INK}" stroke-opacity=".22" stroke-width=".7"/></pattern>
     <filter id="sk-glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.2"/></filter>
   </defs>`
 }
@@ -124,7 +137,7 @@ function skKey (x, y, w, h, glyph, label, down, lamp, a) {
 const skTri = (x, y, s, dir = 1, c = '#2A231B') => P(`M${n(x - s * .5 * dir)} ${n(y - s * .6)}L${n(x + s * .6 * dir)} ${y}L${n(x - s * .5 * dir)} ${n(y + s * .6)}Z`, { fill: c })
 
 /* ── the bridge: a VU meter for each track over the room, and the mix's two ── */
-const SKV = { pivot: new Map(), at: new Map(), field: {} }
+const SKV = { pivot: new Map(), at: new Map(), field: {}, left: 0 }
 function skinBridge () {
   SKV.pivot.clear()
   let s = R(0, 0, W, BRIDGE_H, { fill: K1 }) + R(10, 8, W - 20, 64, { rx: 4, fill: SK.well }) + R(10, 8, W - 20, 2, { rx: 1, fill: '#000', fa: .5 })
@@ -150,7 +163,7 @@ function skinDeck () {
   s += skCounter(36, y0 + 30, [3, 1, 1], 'bar   beat   division', 'skb', bd) + hit(30, y0 + 24, 132, 38, 'pos')
   s += skCounter(176, y0 + 30, [1, 2, 1], 'min   sec   tenth', 'skt', td)
   SKV.field.pos = { x: 30, y: y0 + 26, w: 132, h: 32 }
-  s += skEng(268, y0 + 42, meterName(), { size: 8.5 }) + hit(262, y0 + 30, 40, 16, 'meter')
+  s += skEng(268, y0 + 42, meterName(), { size: 8.5 }) + hit(262, y0 + 30, 40, 16, 'meter'); SKV.field.meter = { x: 262, y: y0 + 30, w: 40, h: 16 }
   s += skEng(268, y0 + 58, `key  ${S.key || '—'}`, { size: 7.5, x: ' xml:space="preserve"' }) + hit(262, y0 + 48, 60, 16, 'key')
   SKV.field.key = { x: 300, y: y0 + 46, w: 58, h: 20 }
   /* the keys of the machine */
@@ -170,7 +183,7 @@ function skinDeck () {
   const sel = (x, label, items, on, a) => { let o = skKnob(x, y0 + 38, 8, -70 + Math.max(0, on) * (140 / (items.length - 1)), { kind: 'chicken' }); items.forEach((t2, k) => { const an = (-70 + k * (140 / (items.length - 1))) * Math.PI / 180; o += `<text x="${n(x + 19 * Math.sin(an))}" y="${n(y0 + 38 - 17 * Math.cos(an) + 2)}" text-anchor="middle" font-family="${FONT}" font-size="5.8" font-weight="600" fill="${k === on ? SK.red : '#2A231B'}">${esc(t2)}</text>` }); return o + skEng(x, y0 + 74, label, { anchor: 'middle' }) + hit(x - 24, y0 + 14, 48, 64, a) }
   const grids = ['1/2', '1/4', '1/8', '1/16'], nudges = ['bar', 'beat', '1/16', 'tick']
   s += sel(tdx + 70, 'grid', grids, grids.indexOf(S.grid), 'grid') + sel(tdx + 132, 'nudge', nudges.map(v => v.toUpperCase()), nudges.indexOf(S.nudge), 'nudge')
-  DISP_X = tdx + 70 - 308 - NUDGE_W                                                  // (the lists of the grid and the nudge open by their selectors)
+  SKV.field.grid = { x: tdx + 50, y: y0 + 16, w: 40, h: 44 }; SKV.field.nudge = { x: tdx + 112, y: y0 + 16, w: 40, h: 44 }      // (the lists of the grid and the nudge open by their selectors)
   /* the mix's level: a knob */
   const ox = W - 44, f = volF(S.master)
   s += skKnob(ox, y0 + 36, 15, -140 + f * 280, { cap: '#E9E1CF' }) + skEng(ox, y0 + 70, `out ${fmtDb(S.master)}`, { anchor: 'middle', x: ' xml:space="preserve"' }) + hit(ox - 22, y0 + 14, 44, 62, 'master', '', 'ns-resize')
@@ -178,10 +191,15 @@ function skinDeck () {
 }
 /* the control bar's place: what pTop draws when a theme has the bridge or the deck */
 function skinTop (bar) {
-  return skinDefs() + (SKIN.bridge ? skinBridge() : '') + (SKIN.deck ? skinDeck() : G(bar(), `translate(0 ${SKIN.bridge ? BRIDGE_H : 0})`))
+  const k = SKIN.k.transport, top = SKIN.bridge ? BRIDGE_H : 0
+  SKV.field = {}                                                                     // (each theme says again where its words stand)
+  let s = skinDefs() + (SKIN.bridge ? skinBridge() : '')
+  if (k === 'plain') return s + G(bar(), `translate(0 ${top})`)
+  if (k === 'console') return s + skinDeck()
+  return s + (SKINS.top[k] ? G(SKINS.top[k](), top ? `translate(0 ${top})` : '') : '') + (SKINS.foot[k] ? SKINS.foot[k](skinDeckY()) : '') + (SKINS.left[k] ? SKINS.left[k]() : '')
 }
 /* where a value is typed over the deck (project.js startRename) */
-const skinField = what => SKIN.deck && SKV.field[what] ? SKV.field[what] : null
+const skinField = what => skinHas('transport') && SKV.field[what] ? SKV.field[what] : null
 
 /* ── a frame: the drums turn, the needles move ── */
 const VU_LAG = .22
@@ -192,6 +210,8 @@ function skDigits (p) {
   return [bd, [String(m), ...String(ss).padStart(2, '0'), String(tenth)]]
 }
 function skinFrame (p) {
+  const ran = []                                                                    // (each theme whose part is worn: its transport, its heads, its mixer)
+  for (const part of ['transport', 'heads', 'mixer']) { const k = SKIN.k[part]; if (SKINS.frame[k] && !ran.includes(k)) { ran.push(k); SKINS.frame[k](p) } }
   if (SKIN.deck) {
     const [bd, td] = skDigits(p)
     bd.forEach((d, k) => { const el = $('skb-' + k); if (el && el.textContent !== d) el.textContent = d })
@@ -261,4 +281,13 @@ function skinStripLevel (cx, cy, r, vol, muted) {
 }
 function skinStripPan (cx, cy, pan) {
   return skKnob(cx, cy, 7, (pan || 0) * 135, { kind: 'chicken' })
+}
+
+/* console's own, among every theme's */
+SKINS.scenes.console = skinScenes; SKINS.cycle.console = skinCycle; SKINS.play.console = skinPlayhead
+SKINS.strip.console = {
+  pan: (px, py, pw, pan) => skinStripPan(px + pw / 2, py + 1, pan),
+  level: (x, w, sx, sw, q, vol, muted) => skinStripLevel(x + w / 2, (q.ft + q.fb) / 2, Math.max(8, Math.min(sw / 2 - 14, q.fh / 2 - 12, 22)), vol, muted),
+  cells: (sx, sw, y, its, i) => { const lw = Math.min(15, Math.floor((sw + 3) / its.length) - 3); return skinLamps(sx + (sw - (lw + 3) * its.length + 3) / 2, y, its, i, lw) },
+  name: (x, w, sx, sw, yb, t) => skTape(sx + 1, yb - 19, sw - 2, t.name, 9.5),
 }

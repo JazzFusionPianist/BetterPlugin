@@ -151,6 +151,12 @@ Object.assign(LANG.lists.ko, {
   'the parts': '부분의 모양', 'their shapes': '모양', 'what a theme may change the shape of': '테마가 모양을 바꿀 수 있는 것', 'the transport': '트랜스포트', 'a bar at the top': '위의 막대', 'a tape deck at the foot': '아래의 테이프 데크',
   'meters over the room': '방 위의 미터', 'VU meters over the room': '방 위의 VU 미터', 'a track’s head': '트랙 헤드', 'labels, lamps, a knob': '라벨, 램프, 노브', 'the markers': '마커', 'words': '글자', 'tape flags': '테이프 깃발',
   'a band': '띠', 'grease pencil': '그리스 펜슬', 'a tape head': '테이프 헤드', 'the mixer': '믹서', 'a console': '콘솔',
+  'a cassette deck': '카세트 데크', 'a title and a line of type': '제목과 한 줄의 글자', 'a composition down the left': '왼쪽을 따라 내려가는 구성', 'a title block': '표제란', 'a terminal': '터미널',
+  'a cassette’s spine': '카세트의 등', 'a score’s names': '악보의 이름', 'numbers and shapes': '숫자와 도형', 'balloons': '풍선 번호', 'a terminal’s lines': '터미널의 줄',
+  'a J-card': 'J카드', 'rehearsal marks': '리허설 마크', 'shapes': '도형', 'section lines': '단면선', 'a terminal’s': '터미널식',
+  'a stripe': '줄무늬', 'repeat barlines': '도돌이표', 'a yellow rule': '노란 줄', 'a dimension': '치수선', 'a red pencil': '빨간 연필', 'a disc on a bar': '막대 위의 원', 'a centre line': '중심선',
+  'sliders and lights': '슬라이더와 불빛', 'bars and dots': '막대와 점', 'an elevation': '입면도', 'as they come': '그대로', 'staves': '오선', 'a drawing': '도면', 'blocks of text': '글자 블록',
+  'the heads stand': '헤드의 자리', 'at the left': '왼쪽', 'at the right': '오른쪽', 'the sound': '소리',
   'bar   beat   division': '마디   박   분할', 'min   sec   tenth': '분   초   1/10', 'to start': '처음으로', 'low lat': '저지연', 'mix   left   right': '믹스   왼쪽   오른쪽',
 })
 /* settings > key commands (keypage.js, keymap.js): every key of the room, as it comes or as another program has them */

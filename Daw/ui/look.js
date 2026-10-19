@@ -31,6 +31,18 @@ function hexOklch (hex) {
 const pigHex = e => oklch(e[1], e[2], e[0])
 const famHex = (f, end) => pigHex(COME.pig[f][end])
 
+/* the shapes each part may take: the word the look keeps, and the theme it comes from (skins.js draws them) */
+const PART_KINDS = {
+  transport: [['a bar at the top', 'plain'], ['a tape deck at the foot', 'console'], ['a cassette deck', 'cassette'], ['a title and a line of type', 'score'], ['a composition down the left', 'poster'], ['a title block', 'blueprint'], ['a terminal', 'terminal']],
+  heads: [['as it comes', 'plain'], ['labels, lamps, a knob', 'console'], ['a cassette’s spine', 'cassette'], ['a score’s names', 'score'], ['numbers and shapes', 'poster'], ['balloons', 'blueprint'], ['a terminal’s lines', 'terminal']],
+  markers: [['words', 'plain'], ['tape flags', 'console'], ['a J-card', 'cassette'], ['rehearsal marks', 'score'], ['shapes', 'poster'], ['section lines', 'blueprint'], ['a terminal’s', 'terminal']],
+  cycle: [['a band', 'plain'], ['grease pencil', 'console'], ['a stripe', 'cassette'], ['repeat barlines', 'score'], ['a yellow rule', 'poster'], ['a dimension', 'blueprint'], ['a terminal’s', 'terminal']],
+  playhead: [['as it comes', 'plain'], ['a tape head', 'console'], ['a red pencil', 'score'], ['a disc on a bar', 'poster'], ['a centre line', 'blueprint'], ['a terminal’s', 'terminal']],
+  mixer: [['strips', 'plain'], ['a console', 'console'], ['sliders and lights', 'cassette'], ['bars and dots', 'poster'], ['an elevation', 'blueprint'], ['a terminal’s', 'terminal']],
+  lanes: [['as they come', 'plain'], ['staves', 'score'], ['a drawing', 'blueprint']],
+  sound: [['as it comes', 'plain'], ['blocks of text', 'terminal']],
+}
+const PART_WORDS = k => PART_KINDS[k].map(x => x[0])
 /* the faces a theme may give the room (theme.js carries them) and the grounds */
 const LOOK_FACES = ['instrument sans', 'plex condensed', 'archivo', 'archivo wide', 'garamond', 'jost', 'plex mono', 'courier']
 /* ── every part and every quality ── [group, [[part, say (what it reaches), [[head, [quality…]]…]]…]] */
@@ -51,13 +63,16 @@ const LOOK_TREE = [
   ['the parts', [
     ['their shapes', 'what a theme may change the shape of', [
       ['', [
-        ['part.transport', 'the transport', 'p', { items: ['a bar at the top', 'a tape deck at the foot'], d: 'a bar at the top' }],
+        ['part.transport', 'the transport', 'p', { items: PART_WORDS('transport'), d: 'a bar at the top' }],
         ['part.meters', 'meters over the room', 'p', { items: ['none', 'VU meters over the room'], d: 'none' }],
-        ['part.heads', 'a track’s head', 'p', { items: ['as it comes', 'labels, lamps, a knob'], d: 'as it comes' }],
-        ['part.markers', 'the markers', 'p', { items: ['words', 'tape flags'], d: 'words' }],
-        ['part.cycle', 'the cycle', 'p', { items: ['a band', 'grease pencil'], d: 'a band' }],
-        ['part.playhead', 'the playhead', 'p', { items: ['as it comes', 'a tape head'], d: 'as it comes' }],
-        ['part.mixer', 'the mixer', 'p', { items: ['strips', 'a console'], d: 'strips' }],
+        ['part.heads', 'a track’s head', 'p', { items: PART_WORDS('heads'), d: 'as it comes' }],
+        ['part.headsAt', 'the heads stand', 'p', { items: ['at the left', 'at the right'], d: 'at the left' }],
+        ['part.lanes', 'the lanes', 'p', { items: PART_WORDS('lanes'), d: 'as they come' }],
+        ['part.sound', 'the sound', 'p', { items: PART_WORDS('sound'), d: 'as it comes' }],
+        ['part.markers', 'the markers', 'p', { items: PART_WORDS('markers'), d: 'words' }],
+        ['part.cycle', 'the cycle', 'p', { items: PART_WORDS('cycle'), d: 'a band' }],
+        ['part.playhead', 'the playhead', 'p', { items: PART_WORDS('playhead'), d: 'as it comes' }],
+        ['part.mixer', 'the mixer', 'p', { items: PART_WORDS('mixer'), d: 'strips' }],
       ]],
     ]],
   ]],

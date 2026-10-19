@@ -60,11 +60,12 @@ function relayout () {
   if (typeof skinLayout === 'function') skinLayout()                              // (a theme's parts may cut the window otherwise: skins.js)
   const deck = typeof DECK_H === 'number' ? DECK_H : 0
   const fold = typeof RTB !== 'undefined' && RTB.on ? rtbFold() : 0                 // a realtime print folds the heads, the tool row, the bars and the foot away: the bar, the markers and the sound are left (realtime.js)
-  X0 = Math.round(HEAD_W * (1 - fold)); TOOL_Y = BAR_H; MK_Y = BAR_H + TOOL_H * (1 - fold); RU_Y = MK_Y + MK_H; TY = RU_Y + RU_H * (1 - fold)
+  const right = typeof SKIN === 'object' && SKIN.right                              // (a theme's heads at the right of the lanes: skins.js)
+  X0 = right ? 0 : Math.round(HEAD_W * (1 - fold)); TOOL_Y = BAR_H; MK_Y = BAR_H + TOOL_H * (1 - fold); RU_Y = MK_Y + MK_H; TY = RU_Y + RU_H * (1 - fold)
   for (const [id, a] of [['g-head', 0], ['g-info', 1], ['g-ruler', 1], ['g-cmd', 1]]) { const el = $(id); if (!el) continue; if (a) { el.style.opacity = fold ? String(1 - fold) : ''; el.style.visibility = fold >= 1 ? 'hidden' : '' } else el.setAttribute('transform', fold ? `translate(${n(-HEAD_W * fold)} 0)` : '') }
   if ($('cmd')) $('cmd').style.visibility = fold > 0 ? 'hidden' : ''
   S.panel.h = clamp(S.panel.h, MIN_PANEL, Math.max(MIN_PANEL, H - FOOT_H - deck - TY - 4 * 25))
-  RX = W - SLUR_W * VIEW.s; X1 = RX; BY = H - (FOOT_H + deck) * (1 - fold) - S.panel.h * VIEW.p; LANES_H = Math.max(0, BY - TY)
+  RX = W - SLUR_W * VIEW.s; X1 = RX - (right ? Math.round(HEAD_W * (1 - fold)) : 0); BY = H - (FOOT_H + deck) * (1 - fold) - S.panel.h * VIEW.p; LANES_H = Math.max(0, BY - TY)
   const set = (id, x, y, w, h) => { const r = $(id).firstChild; r.setAttribute('x', n(x)); r.setAttribute('y', n(y)); r.setAttribute('width', n(Math.max(0, w))); r.setAttribute('height', n(Math.max(0, h))) }
   set('tl', X0, MK_Y, X1 - X0, BY - MK_Y); set('ln', X0, TY, X1 - X0, LANES_H); set('hdc', 0, TY, HEAD_W, LANES_H)
   PXB = Math.max(PXB, fitPXB()); VX = clamp(VX, 0, maxVX()); VY = clamp(VY, 0, maxVY())
@@ -90,7 +91,7 @@ function syncSlur (hide) {
 let METER_W = 76
 let HO_X = 0
 function pTop () {
-  if (typeof SKIN === 'object' && (SKIN.bridge || SKIN.deck)) return skinTop(pBar)      // (a theme's bridge of meters, or its tape deck: skins.js)
+  if (typeof SKIN === 'object' && (SKIN.bridge || skinHas('transport'))) return skinTop(pBar)      // (a theme's bridge of meters, or its own transport: skins.js)
   return pBar()
 }
 function pBar () {
@@ -151,7 +152,7 @@ function pTool () {
   s += R(10.5, y + 4.5, 17, 17, { rx: 2, stroke: INK, sa: .24 }) + P(`M19 ${y + 9.5}V${y + 16.5}M15.5 ${y + 13}H22.5`, { stroke: INK, sa: .8 }) + hit(8, y + 2, 22, 22, 'addtrack')
   let x = 38
   for (const [l, v] of [['tracks', S.tracks.filter(t => t.kind === 'audio').length], ['stacks', S.tracks.filter(t => t.kind === 'stack').length], ['buses', S.tracks.filter(t => t.kind === 'bus').length]]) { if (!v && l !== 'tracks') continue; const [f, fw] = field(x, by, l, String(v)); s += f; x += fw + 12 }
-  x = X0 + 10
+  x = Math.max(X0 + 10, x + 4)                                                       // (the heads at the right: the row goes on after the counts — skins.js)
   const [c, cw] = cells(x, y + 4, 18, [{ t: 'auto', on: S.auto, a: 'autokey' }, { t: 'rubato', on: S.flex, a: 'flexkey' }], { size: 9.5 }); s += c; x += cw + 16
   const put = (label, word, a, dim) => { s += T(x, by, label, { size: 9.5, a: .4 }); x += tw(label, 9.5) + 6; const [k, w] = menuKey(x, y + 4, word, { a, dim }); s += k; x += w + 14 }
   put('tool', toolWord(S.tool), 'toolmenu'); put('cmd', toolWord(S.tool2), 'tool2menu'); put('mode', S.mode, 'modemenu', S.mode === 'slip')
@@ -227,7 +228,7 @@ function setLook (what, v) {
    along time. A press goes there (while the song runs: at the next bar line); twice makes it the cycle. ── */
 function pScenes () {
   if (typeof RTB !== 'undefined' && RTB.on) return ''
-  if (typeof SKIN === 'object' && SKIN.flags) return skinScenes()                  // (on tape flags: skins.js)                                 // (a realtime print writes the markers along its own top: realtime.js)
+  if (typeof SKIN === 'object' && SKINS.scenes[SKIN.k.markers]) return SKINS.scenes[SKIN.k.markers]()      // (a theme's markers: skins.js)                                 // (a realtime print writes the markers along its own top: realtime.js)
   const y = MK_Y, cur = sceneAt(curPos()).i, xe = bx(SONG_END + 1)
   let s = R(0, y, RX, MK_H, { fill: K1 }) + (X0 > 70 ? T(12, y + 14.2, 'markers', { size: 9, a: .38 }) : '')      // (no word when the heads are folded away: realtime.js)
   let g = R(bx(1) + .5, y + 4.5, xe - bx(1) - 1, 13, { rx: 2, stroke: INK, sa: .22 }), hits = hit(X0, y, X1 - X0, MK_H, 'scenebar', '', 'default')
@@ -275,7 +276,7 @@ function deepLines (D) {
 function pRuler () {
   if (typeof RTB !== 'undefined' && RTB.on) return ''                                 // (a realtime print folds the bars away: realtime.js)
   const y = RU_Y, span = (X1 - X0) / PXB, lab = [1, 2, 4, 8, 16, 32, 64].find(k => k * PXB >= 56) || 64, major = lab > 1 && lab / 2 * PXB >= 14 ? lab / 2 : lab, minor = PXB >= 6
-  let s = R(0, y, RX, RU_H, { fill: lkC('bars.ground', K1) }) + T(12, y + 15.3, 'bars', { size: 9, a: .38 }) + T(HEAD_W - 10, y + 15.3, meterName(), { size: 9, a: .38, anchor: 'end' })
+  let s = R(0, y, RX, RU_H, { fill: lkC('bars.ground', K1) }) + (typeof SKIN === 'object' && SKINS.rule[SKIN.k.cycle] ? SKINS.rule[SKIN.k.cycle](y) : '') + (X0 >= HEAD_W - 1 ? T(12, y + 15.3, 'bars', { size: 9, a: .38 }) + T(HEAD_W - 10, y + 15.3, meterName(), { size: 9, a: .38, anchor: 'end' }) : '')
   let g = '', t1 = '', t4 = ''
   const D = deepSteps()
   if (D) for (const [x, named, p] of deepLines(D)) {                                   // close up: beats, sixteenths, ticks, samples
@@ -293,7 +294,7 @@ function pRuler () {
   let hits = hit(X0, y, X1 - X0, RU_CY, 'cycle', ' data-m="new"', 'default') + hit(X0, y + RU_CY, X1 - X0, RU_H - RU_CY, 'seek')
   if (has) {
     const ca = bx(c.a + 1), cb = bx(c.b + 1), col = c.on ? lkC('cycle.c', SOLO) : INK, a = c.on ? 1 : .26, e = Math.min(5, (cb - ca) / 3)
-    g += typeof SKIN === 'object' && SKIN.pencil ? skinCycle(ca, cb, y, c.on) : R(ca, y, cb - ca, 3, { fill: col, fa: a }) + R(ca, y, 1.5, 8, { fill: col, fa: a }) + R(cb - 1.5, y, 1.5, 8, { fill: col, fa: a })
+    g += typeof SKIN === 'object' && SKINS.cycle[SKIN.k.cycle] ? SKINS.cycle[SKIN.k.cycle](ca, cb, y, c.on) : R(ca, y, cb - ca, 3, { fill: col, fa: a }) + R(ca, y, 1.5, 8, { fill: col, fa: a }) + R(cb - 1.5, y, 1.5, 8, { fill: col, fa: a })
     const part = (x0, x1, m, cur) => { const l = Math.max(X0, x0), r = Math.min(X1, x1); return r - l > .5 ? hit(l, y, r - l, RU_CY, 'cycle', ` data-m="${m}"`, cur) : '' }
     hits += part(ca + e, cb - e, 'move', 'grab') + part(ca - 5, ca + e, 'a', 'ew-resize') + part(cb - e, cb + 5, 'b', 'ew-resize')
   }
@@ -306,8 +307,8 @@ function pMenu () {
   const m = S.menu
   if (!m) return ''
   const rowH = 20, w = m.w || Math.max(132, Math.ceil(Math.max(...m.items.map(it => tw(it.t, 10.5, 500) + (it.k ? tw(it.k, 9.5) + 22 : 0) + 30)))), seps = m.items.filter(it => it.sep).length
-  const h = m.items.length * rowH + seps * 7 + 12, x = clamp(m.x, 8, (VIEW.s > .5 && m.y > BAR_H ? RX : W) - w - 8), y = clamp(m.y, 8, H - h - 8)
-  let s = hit(0, 0, W, H, 'menu-close', '', 'default') + R(x, y, w, h, { rx: 3, fill: K2 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 3, stroke: INK, sa: .28 }), ry = y + 6
+  const h = m.items.length * rowH + seps * 7 + 12, lc = typeof SKV === 'object' ? SKV.left || 0 : 0, x = clamp(m.x, 8 - lc, (VIEW.s > .5 && m.y > BAR_H ? RX : W) - w - 8), y = clamp(m.up ? m.y - h : m.y, 8, H - h - 8)
+  let s = hit(-lc, 0, W + lc, H, 'menu-close', '', 'default') + R(x, y, w, h, { rx: 3, fill: K2 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 3, stroke: INK, sa: .28 }), ry = y + 6
   m.items.forEach((it, i) => {
     if (it.sep) { s += P(`M${x + 1} ${ry + 3.5}H${x + w - 1}`, { stroke: INK, sa: .1 }); ry += 7 }
     if (it.on) s += R(x + 5, ry, w - 10, rowH, { rx: 2, fill: INK })
@@ -348,6 +349,7 @@ const triMark = (x, y, open, a = .6) => P(open ? `M${x - 3} ${y - 1.5}H${x + 3}L
    on ground a step darker than the rest. (Draft: design/stack nesting draft 1, a.) */
 const HEAD_IN = 58                                            // where the name of a track in a stack begins (a track by itself: 42)
 function headRow (i) {
+  if (typeof SKIN === 'object' && SKINS.head[SKIN.k.heads]) return SKINS.head[SKIN.k.heads](i)      // (a theme's head: skins.js)
   const t = S.tracks[i], rh = rowH(i), y = rowY(i), sel = isChosen(i), stack = t.kind === 'stack', par = t.parent ? byId(t.parent) : null, by = y + rh / 2 + 3.9
   const ups = []                                                                          // the stacks it stands in, the outermost first
   for (let x = par, k = 0; x && k < 16; x = x.parent ? byId(x.parent) : null, k++) ups.unshift(x)
@@ -404,7 +406,8 @@ function pHead () {
   if (S.rowPull != null) { const k = L.r.indexOf(S.rowPull); if (k >= 0) s += R(0, TY + L.tops[k] + rowH(S.rowPull) - VY - 1, HEAD_W, 1, { fill: INK, fa: .7 }) }
   s += grab
   if (S.reorder != null) s += R(0, TY + (S.reorder < L.r.length ? L.tops[S.reorder] : L.all) - VY - 1, HEAD_W, 2, { fill: INK })
-  return R(0, TY, HEAD_W, LANES_H, { fill: lkC('heads.ground', K1) }) + G(s, '', ' clip-path="url(#hdc)"') + vline(HEAD_W - .5, TY, BY, .1)
+  const all = R(0, TY, HEAD_W, LANES_H, { fill: lkC('heads.ground', K1) }) + G(s, '', ' clip-path="url(#hdc)"') + vline(HEAD_W - .5, TY, BY, .1)
+  return typeof SKIN === 'object' && SKIN.right ? G(all, `translate(${X1} 0)`) : all      // (at the right of the lanes: skins.js)
 }
 
 function peakOf (chs) { let m = 0; for (const a of chs) for (let i = 0; i < a.length; i += 3) { const v = Math.abs(a[i]); if (v > m) m = v } return m || 1 }
@@ -477,7 +480,7 @@ function wavePath (r, w, yc, hmax, outline, lh, v0, v1, slot = '') {
   if (r.loop && !(LOOPS && LOOPS[r.buf])) return ''                                          // (the loops are made once the fonts are in: drawn before that, no sound is drawn yet)
   const fiP = DRAFT.fades && r.fi > 0 ? r.fi * PXB : 0, foP = DRAFT.fades && r.fo > 0 ? r.fo * PXB : 0                      // under a fade the outline tapers as the sound does
   const live = typeof flexLive === 'function' && flexLive(r), fine = live ? null : fineFor(r, slot, v0, v1)      // (a pin being pulled: drawn from the file through the pins as they stand — flex.js)
-  const len = r.b - r.a, k = `${live ? (r.flex || []).map(m => m.d.toFixed(5)).join(',') : ''}|${S.tempo}|${n(w)}|${n(hmax)}|${n(yc)}|${n(len * 1000)}|${n((r.off || 0) * 1000)}|${r.gain || 0}|${r.wsig || ''}|${outline}|${v0}|${v1}|${n(fiP)}|${n(foP)}|${r.fic || 0}|${r.foc || 0}|${fine ? fine.stamp + ':' + n(PXB) : ''}|${S.wz || 1}|${LOOK_STAMP}`
+  const len = r.b - r.a, blocks = typeof SKIN === 'object' && SKINS.sound[SKIN.k.sound], k = `${blocks ? SKIN.k.sound : ''}${live ? (r.flex || []).map(m => m.d.toFixed(5)).join(',') : ''}|${S.tempo}|${n(w)}|${n(hmax)}|${n(yc)}|${n(len * 1000)}|${n((r.off || 0) * 1000)}|${r.gain || 0}|${r.wsig || ''}|${outline}|${v0}|${v1}|${n(fiP)}|${n(foP)}|${r.fic || 0}|${r.foc || 0}|${fine ? fine.stamp + ':' + n(PXB) : ''}|${S.wz || 1}|${LOOK_STAMP}`
   if (r['_p' + slot] && r['_k' + slot] === k) return r['_p' + slot]
   const steps = Math.max(1, v1 - v0), gk = dbLin(r.gain || 0) * (S.wz || 1), room = roomOf(SHAPES[outline], w, lh), half = lk('snd.drawn') === 'half'      // (half: the sound stands on the region's foot, as tall as the region; yc is then its foot)
   const taper = x => (fiP && x < fiP ? fadeShape(r.fic || 0, x / fiP) : 1) * (foP && w - x < foP ? fadeShape(r.foc || 0, (w - x) / foP) : 1)
@@ -509,8 +512,11 @@ function wavePath (r, w, yc, hmax, outline, lh, v0, v1, slot = '') {
   } else {
     if (r.loop) { const lp = LOOPS[r.buf], o = r.off || 0; pk = loopPeaks(lp, o + len * v0 / w, o + len * v1 / w, steps) } else pk = bufPeaks(r, steps, v0 / w, v1 / w)
     let up = '', dn = ''
-    for (let i = 0; i < steps; i++) { const x = v0 + i + .5, h = Math.max(.4, Math.min(Math.min(1, pk[i] / norm * gk) * hmax * taper(x), hmax - room(x))); up += `${i ? 'L' : 'M'}${n(x - v0)} ${n(yc - h)}`; dn = `L${n(x - v0)} ${n(half ? yc : yc + h)}` + dn }
-    d = up + dn + 'Z'
+    if (blocks) d = blocks(steps, i => { const x = v0 + i + .5; return Math.max(0, Math.min(Math.min(1, pk[i] / norm * gk) * hmax * taper(x), hmax - room(x))) }, yc, hmax, half)      // (a theme's own way of drawing it: skins.js)
+    else {
+      for (let i = 0; i < steps; i++) { const x = v0 + i + .5, h = Math.max(.4, Math.min(Math.min(1, pk[i] / norm * gk) * hmax * taper(x), hmax - room(x))); up += `${i ? 'L' : 'M'}${n(x - v0)} ${n(yc - h)}`; dn = `L${n(x - v0)} ${n(half ? yc : yc + h)}` + dn }
+      d = up + dn + 'Z'
+    }
   }
   r['_p' + slot] = d; r['_k' + slot] = k
   return d
@@ -688,7 +694,7 @@ function pLanesIn () {
   const D = deepSteps()
   if (D) { for (const [x, named, p] of deepLines(D)) if (p <= SONG_END + 1e-9) { if (named) g2 += `M${n(x) + .5} ${TY}V${BY}`; else grid += `M${n(x) + .5} ${TY}V${BY}` } }
   else for (let b = Math.floor(VX / major) * major; b <= VX + span + 1 && b <= SONG_END; b += major) { const x = bx(b + 1); if (x < X0 || x > X1) continue; if (b % lab === 0) g2 += `M${n(x) + .5} ${TY}V${BY}`; else grid += `M${n(x) + .5} ${TY}V${BY}` }
-  put('ln-grid', (typeof gridLanes === 'function' ? gridLanes(D) : P(grid, { stroke: INK, sa: .03 * lkN('lanes.grid') / 100 }) + P(g2, { stroke: INK, sa: .06 * lkN('lanes.grid') / 100 })) + (xEnd >= X0 - 1 && xEnd <= X1 + 1 ? P(`M${n(xEnd) + .5} ${TY}V${BY}`, { stroke: INK, sa: Math.min(1, .2 * lkN('lanes.end') / 100) }) : ''))
+  put('ln-grid', (typeof SKIN === 'object' && SKINS.lanes[SKIN.k.lanes] ? SKINS.lanes[SKIN.k.lanes](vis, L) : '') + (typeof gridLanes === 'function' ? gridLanes(D) : P(grid, { stroke: INK, sa: .03 * lkN('lanes.grid') / 100 }) + P(g2, { stroke: INK, sa: .06 * lkN('lanes.grid') / 100 })) + (xEnd >= X0 - 1 && xEnd <= X1 + 1 ? P(`M${n(xEnd) + .5} ${TY}V${BY}`, { stroke: INK, sa: Math.min(1, .2 * lkN('lanes.end') / 100) }) : ''))
   const box = $('ln-rows'), seen = new Set()
   vis.forEach((i, k) => {
     const y = TY + L.tops[k] - VY
@@ -729,7 +735,7 @@ function pDrop () {
 }
 /* the playhead: its line down the lanes; its head in the lower part of the bars, clear of the cycle's strip; and round the
    head a place to take it by, wider than the head (pressed there, it is held where it is and goes with the hand) */
-const pPlay = () => { if (typeof RTB !== 'undefined' && RTB.on) return ''; const y = RU_Y + RU_CY, c = lkC('play.c', INK); if (typeof SKIN === 'object' && SKIN.tapehead) return G(skinPlayhead(c, lkN('play.w')), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"'); return G(P(`M.5 ${y + 6}V${BY}`, { stroke: c, sw: lkN('play.w') }) + P(`M-4.5 ${y + 1}H5.5V${y + 7}L.5 ${y + 12}L-4.5 ${y + 7}Z`, { fill: c }) + hit(-10.5, y, 22, RU_H - RU_CY, 'playhead', '', 'ew-resize'), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"') }
+const pPlay = () => { if (typeof RTB !== 'undefined' && RTB.on) return ''; const y = RU_Y + RU_CY, c = lkC('play.c', INK); if (typeof SKIN === 'object' && SKINS.play[SKIN.k.playhead]) return G(SKINS.play[SKIN.k.playhead](c, lkN('play.w')), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"'); return G(P(`M.5 ${y + 6}V${BY}`, { stroke: c, sw: lkN('play.w') }) + P(`M-4.5 ${y + 1}H5.5V${y + 7}L.5 ${y + 12}L-4.5 ${y + 7}Z`, { fill: c }) + hit(-10.5, y, 22, RU_H - RU_CY, 'playhead', '', 'ew-resize'), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"') }
 
 /* ── the bottom panel: the chosen track's patch, with its strip beside it; or the mixer ── */
 const SIDE = 222, GUT = 34, WSTRIP = 86, NSTRIP = 56, NGUT = 36, MSTRIP = 64, MAX_INS = 4
@@ -819,6 +825,7 @@ function pPatch (y, h) {
   return s
 }
 function pMixer (y, h) {
+  if (typeof SKIN === 'object' && SKINS.mixer[SKIN.k.mixer]) { MGEOM = null; return SKINS.mixer[SKIN.k.mixer](y, h) }      // (a theme's mixer of its own: skins.js)
   const vis = rows(), mx = RX - 8 - MSTRIP, room = mx - 8 - NGUT, fitN = Math.max(1, Math.floor(room / NSTRIP))
   S.panel.mx = clamp(S.panel.mx, 0, Math.max(0, vis.length - fitN))
   const shownT = vis.slice(S.panel.mx, S.panel.mx + fitN)
@@ -833,7 +840,8 @@ function pMixer (y, h) {
   s += R(mx - 8, y, RX - mx + 8, h, { fill: K2, fa: .7 }) + vline(mx - 8.5, y, y + h, .1)
   s += strip(mx, y, MSTRIP, h, MASTER(), -1, { master: true })
   const q = stripGeom(y, h, false)
-  for (const db of DBS) s += T(mx + 12, q.yOf(db) + 3, db === -48 ? '∞' : String(Math.abs(db)), { size: 8.5, a: db === 0 ? .66 : .36, anchor: 'end' })
+  const con = typeof SKIN === 'object' && SKINS.strip[SKIN.k.mixer]                    // (a theme's strip without the room's meters has no scale beside the out's either: skins.js)
+  if (!con || con.meters) for (const db of DBS) s += T(mx + 12, q.yOf(db) + 3, db === -48 ? '∞' : String(Math.abs(db)), { size: 8.5, a: db === 0 ? .66 : .36, anchor: 'end' })
   return s
 }
 function pDock () {
@@ -1176,7 +1184,7 @@ function pAsk () {
 const PARTS = { ask: pAsk, new: pNew, back: pBack, lanes: pLanes, head: pHead, ruler: pRuler, scenes: pScenes, info: pTool, drop: pDrop, play: pPlay, dock: pDock, slur: pSlur, top: pTop, cmd: pCmd, hand: pHand, look: pLook, sheet: pSheet, menu: pMenu }
 
 /* ── hands ── */
-function pt (e) { const r = board.getBoundingClientRect(); return { x: (e.clientX - r.left) / (r.width / W), y: (e.clientY - r.top) / (r.height / H) } }
+function pt (e) { const r = board.getBoundingClientRect(), left = typeof SKV === 'object' ? SKV.left || 0 : 0; return { x: (e.clientX - r.left) / (r.width / (W + left)) - left, y: (e.clientY - r.top) / (r.height / H) } }
 let drag = null
 /* a marker pressed while the song runs is gone to at the next bar line, never in the middle of a bar (pressed again
    before then, it is let go); with the song stopped the playhead simply moves there */
@@ -1248,6 +1256,7 @@ function onDown (e) {
   if (typeof DOWN_MORE === 'object' && DOWN_MORE && DOWN_MORE[a]) DOWN_MORE[a](e, el, p, i)      // (what a module draws and takes presses for itself: groups.js)
   else switch (a) {
     case 'patch': case 'mixer': togglePanel(a); break
+    case 'arrange': if (S.panel.on) togglePanel(S.panel.tab); break                  // (the arrangement alone: the panel put away — a theme's tabs, skins.js)
     case 'tab-patch': case 'tab-mixer': S.panel.tab = a.slice(4); closePicker(); uiDirty('dock', 'top'); break
     case 'slur': toggleSlur(); break
     case 'pgrip': drag = { a, y0: p.y, h0: S.panel.h }; break
@@ -1255,17 +1264,20 @@ function onDown (e) {
     case 'tostart': jumpTo(0); uiDirty('scenes', 'top'); break
     case 'play': if (S.playing) halt(false); else play(); uiDirty('top'); break
     case 'stop': halt(true); uiDirty('top', 'scenes'); break
+    case 'pause': if (S.playing) { halt(false); uiDirty('top') } break             // (a deck's keys: skins.js)
+    case 'barback': barStep(-1); break
+    case 'barfwd': barStep(1); break
     case 'rec': record(); break
     case 'click': toggleClick(); break
     case 'loop': KEYS.KeyC(); break
     case 'lowlat': if (typeof toggleLowLat === 'function') toggleLowLat(); break
     case 'tempo': startRename('tempo'); break
-    case 'meter': if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(p.x - 20, barMenuY(), MEASURES.map(m => ({ t: `${m[0]}/${m[1]}`, v: m, on: m[0] === S.meter[0] && m[1] === S.meter[1] })), it => setMeter(it.v[0], it.v[1]), { w: 84 }); break
+    case 'meter': { const at = typeof skinMenuAt === 'function' && skinMenuAt('meter'); if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(at ? at.x : p.x - 20, at ? at.y : barMenuY(), MEASURES.map(m => ({ t: `${m[0]}/${m[1]}`, v: m, on: m[0] === S.meter[0] && m[1] === S.meter[1] })), it => setMeter(it.v[0], it.v[1]), { w: 84, up: at && at.up }); break }
     case 'key': startRename('key'); break
     case 'pos': startRename('pos'); break
     case 'volnum': break                                                              // (twice: a level is typed; with option: 0 db)
     case 'grid': gridMenu(); break
-    case 'nudge': if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(DISP_X + 308, barMenuY(), NUDGES.map(v => ({ t: v, k: NUDGE_KEY[v], v, on: v === S.nudge })), it => setNudge(it.v), { w: 150 }); break
+    case 'nudge': { const at = typeof skinMenuAt === 'function' && skinMenuAt('nudge'); if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(at ? at.x : DISP_X + 308, at ? at.y : barMenuY(), NUDGES.map(v => ({ t: v, k: NUDGE_KEY[v], v, on: v === S.nudge })), it => setNudge(it.v), { w: 150, up: at && at.up }); break }
     case 'master': drag = { a, ly: p.y, v0: S.master, acc: 0 }; break
     case 'mmaster': drag = { a, ly: p.y, f0: volF(S.master), acc: 0, g: stripGeom(BY + PH, S.panel.h - PH, S.panel.tab === 'patch') }; break
     /* a marker: it is the one the delete key is about now, the song goes there, and it can be pulled to another bar */
@@ -1702,9 +1714,10 @@ const BOOT = { up: 0, page: 0, ready: 0 }                          // how long t
 /* the room takes the size of the window; a window too small for it shows it smaller */
 function fitRoom () {
   const room = $('room'), ww = Math.max(320, room.clientWidth), hh = Math.max(240, room.clientHeight), k = Math.min(1, ww / 1100, hh / 640)
-  W = Math.round(ww / k); H = Math.round(hh / k)
-  board.style.width = W + 'px'; board.style.height = H + 'px'; board.style.transform = k === 1 ? 'none' : `scale(${k})`
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H)
+  const left = typeof SKV === 'object' ? SKV.left || 0 : 0                          // (a theme's column down the left: the room is the rest, its x counted from the column's edge — skins.js)
+  W = Math.round(ww / k) - left; H = Math.round(hh / k)
+  board.style.width = (W + left) + 'px'; board.style.height = H + 'px'; board.style.transform = k === 1 ? 'none' : `scale(${k})`; board.style.setProperty('--room-left', left + 'px')
+  svg.setAttribute('viewBox', `${-left} 0 ${W + left} ${H}`); svg.setAttribute('width', W + left); svg.setAttribute('height', H)
   relayout(); dirtyAll(); syncSlur()
 }
 /* levels, as the app measures them thirty times a second; they fall back on their own */
@@ -1779,7 +1792,7 @@ function frame () {
   if (play) play.setAttribute('transform', `translate(${Math.round(x)} 0)`)
   if (rd && rd.textContent !== txt) { rd.textContent = txt; rd.setAttribute('x', n(DISP_X + 39 - tw(txt, 12.5, 500) / 2)) }
   if (rt) { const ct = clock(p); if (rt.textContent !== ct) { rt.textContent = ct; rt.setAttribute('x', n(DISP_X + 78 + 33 - tw(ct, 11.5) / 2)) } }
-  if (typeof SKIN === 'object' && (SKIN.deck || SKIN.bridge)) skinFrame(p)
+  if (typeof SKIN === 'object' && (skinHas('transport') || SKIN.bridge)) skinFrame(p)
   if (si !== frame.si) { frame.si = si; uiDirty('scenes'); if (S.ho.open) uiDirty('hand') }
   if (drag) edgeTurn()
   if (NAT) drawMeters()

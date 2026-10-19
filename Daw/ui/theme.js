@@ -112,6 +112,7 @@ const THEMES = {
     'mean.rec': thC('#D62828'), 'mean.solo': thC('#F3A712'), 'mean.level': thC('#2A9D8F'),
     'type.face': 'archivo', 'type.names': 'courier',
     'ground.lanes': 'ruled', 'ground.lanesC': thC('#8FB0C4', 22),
+    'part.transport': 'a cassette deck', 'part.heads': 'a cassette’s spine', 'part.headsAt': 'at the right', 'part.markers': 'a J-card', 'part.cycle': 'a stripe', 'part.mixer': 'sliders and lights',
   },
   /* the song as an engraved page: paper and ink, no boxes, the sound in ink, a red pencil */
   score: {
@@ -122,6 +123,7 @@ const THEMES = {
     'mean.rec': thC('#B83A22'), 'mean.solo': thC('#8A6A1E'), 'mean.mon': thC('#8A5A2A'),
     'type.face': 'garamond', 'type.size': 112, 'type.names': 'garamond italic',
     'ground.lanes': 'paper', 'ground.lanesC': thC('#5A4A30', 4), 'ground.over': 'grain', 'ground.overA': 60,
+    'part.transport': 'a title and a line of type', 'part.heads': 'a score’s names', 'part.lanes': 'staves', 'part.markers': 'rehearsal marks', 'part.cycle': 'repeat barlines', 'part.playhead': 'a red pencil', 'lanes.grid': 0, 'heads.mark': 0,
   },
   /* a poster of primary colours: red, blue, yellow and black on paper, the sound cut out of flat fields */
   bauhaus: {
@@ -131,26 +133,29 @@ const THEMES = {
     'reg.shape': 'off', 'reg.gap': 3, 'snd.c': thC('#F1ECDF'), 'name.c': thC('#F1ECDF'), 'name.w': '600', 'fade.c': thC('#F1ECDF'), 'chosen.line': thC('#151412'),
     'mean.rec': thC('#D52B1E'), 'mean.solo': thC('#F2C230'), 'mean.mon': thC('#1D4E9E'), 'mean.level': thC('#D52B1E'),
     'type.face': 'jost', 'type.size': 104, 'type.names': 'jost',
+    'part.transport': 'a composition down the left', 'part.heads': 'numbers and shapes', 'part.markers': 'shapes', 'part.cycle': 'a yellow rule', 'part.playhead': 'a disc on a bar', 'part.mixer': 'bars and dots',
   },
   /* the song as a drawing: cyanotype, a grid, everything in outline, a red pencil centre line */
   blueprint: {
     'win.k1': thC('#123D6B'), 'win.k2': thC('#0F3560'), 'win.k3': thC('#1C548F'), 'win.k4': thC('#2563A3'), 'lanes.k0': thC('#174A80'), 'win.ink': thC('#E8F1FF'), 'win.lineK': 160,
     'play.c': thC('#FF7A59'), 'cycle.c': thC('#E8F1FF'), 'heads.mark': 0, 'heads.chosen': thC('#E8F1FF', 9), 'lanes.ink': thC('#E8F1FF'), 'lanes.chosen': thC('#E8F1FF', 4),
     ...famAll('#E8F1FF', '#B9CDEA'),
-    'reg.fill': thC('#174A80', 70), 'reg.line': thC('#E8F1FF', 90), 'reg.lineW': 1, 'reg.shape': 'off', 'snd.c': thC('#E8F1FF'), 'snd.drawn': 'line', 'snd.w': .8, 'name.c': thC('#E8F1FF'), 'fade.c': thC('#E8F1FF'), 'chosen.fill': thC('#2563A3'), 'chosen.line': thC('#FF7A59'),
+    'reg.fill': thC('#174A80', 0), 'reg.line': thC('#E8F1FF', 90), 'reg.lineW': 1, 'reg.shape': 'off', 'snd.c': thC('#E8F1FF'), 'snd.drawn': 'line', 'snd.w': .8, 'name.c': thC('#E8F1FF'), 'fade.c': thC('#E8F1FF'), 'chosen.fill': thC('#2563A3'), 'chosen.line': thC('#FF7A59'),
     'mean.rec': thC('#FF7A59'), 'mean.solo': thC('#FFD36A'), 'mean.mon': thC('#FFB27A'),
     'type.face': 'plex condensed', 'type.case': 'capitals', 'type.space': .5, 'type.names': 'plex mono',
     'ground.lanes': 'grid', 'ground.lanesC': thC('#FFFFFF', 9),
+    'part.transport': 'a title block', 'part.heads': 'balloons', 'part.lanes': 'a drawing', 'part.markers': 'section lines', 'part.cycle': 'a dimension', 'part.playhead': 'a centre line', 'part.mixer': 'an elevation', 'lanes.grid': 60,
   },
   /* the room as a terminal on an amber screen: one colour, one face of fixed width, the lines of a tube */
   phosphor: {
     'win.k1': thC('#0B0805'), 'win.k2': thC('#120C05'), 'win.k3': thC('#22170A'), 'win.k4': thC('#33230E'), 'lanes.k0': thC('#0B0805'), 'win.ink': thC('#FFB000'), 'win.lineK': 180,
-    'bars.ground': thC('#0B0805'), 'play.c': thC('#FFB000'), 'cycle.c': thC('#FFB000'), 'heads.mark': 2, 'heads.chosen': thC('#FFB000', 10), 'lanes.ink': thC('#FFB000'), 'lanes.chosen': thC('#FFB000', 5),
+    'bars.ground': thC('#0B0805'), 'play.c': thC('#FFB000'), 'cycle.c': thC('#FFB000'), 'heads.mark': 0, 'heads.chosen': thC('#FFB000', 10), 'lanes.ink': thC('#FFB000'), 'lanes.chosen': thC('#FFB000', 5),
     ...famAll('#FFB000', '#C98A00'),
     'reg.fill': thC('#FFB000', 7), 'reg.line': thC('#FFB000', 55), 'reg.shape': 'off', 'snd.c': thC('#FFB000'), 'name.c': thC('#FFB000'), 'fade.c': thC('#FFB000'), 'chosen.fill': thC('#FFB000', 22), 'chosen.line': thC('#FFB000'),
     'mean.rec': thC('#FF5A1F'), 'mean.solo': thC('#FFD060'), 'mean.mon': thC('#FF8A1F'), 'mean.level': thC('#FFB000'), 'slur.look': 'dark',
     'type.face': 'plex mono', 'type.names': 'plex mono', 'type.size': 96,
     'ground.over': 'scanlines', 'ground.overA': 100,
+    'part.transport': 'a terminal', 'part.heads': 'a terminal’s lines', 'part.sound': 'blocks of text', 'part.markers': 'a terminal’s', 'part.cycle': 'a terminal’s', 'part.playhead': 'a terminal’s', 'part.mixer': 'a terminal’s',
   },
 }
 const THEME_ORDER = ['console', 'cassette', 'score', 'bauhaus', 'blueprint', 'phosphor']

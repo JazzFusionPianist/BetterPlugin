@@ -13,6 +13,8 @@ html, body { height: 100% }
 body { margin: 0; background: var(--k1); color: var(--ink); font-family: var(--f); overflow: hidden; -webkit-user-select: none; user-select: none; cursor: default }
 #room { height: 100%; position: relative; overflow: hidden }
 #board { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; background: var(--k1) }
+/* a theme's column down the left (skins.js): what lies over the room is laid by the room's own x, from the column's edge */
+#board > :not(svg) { margin-left: var(--room-left, 0px) }
 #svg { display: block; touch-action: none }
 #svg text { pointer-events: none }
 #g-play, #g-drop, #g-rec { pointer-events: none }
@@ -87,6 +89,11 @@ addEventListener('unhandledrejection', e => { __errs.push('rejection: ' + String
 <script src="look.js"></script>
 <script src="theme.js"></script>
 <script src="skins.js"></script>
+<script src="skin-score.js"></script>
+<script src="skin-blueprint.js"></script>
+<script src="skin-terminal.js"></script>
+<script src="skin-cassette.js"></script>
+<script src="skin-poster.js"></script>
 <script src="lang.js"></script>
 <script src="lang.ko.js"></script>
 <script src="engine.js"></script>

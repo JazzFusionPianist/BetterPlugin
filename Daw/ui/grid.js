@@ -24,7 +24,8 @@ function gridShown () {
 function setGrid (v) { if (!GRIDS.includes(v)) return; S.grid = v; say(`grid ${v}`); uiDirty('top', 'lanes') }
 function gridMenu () {
   if (S.menu) { S.menu = null; uiDirty('menu'); return }
-  openMenu(DISP_X + 308 + NUDGE_W, barMenuY(), GRIDS.map((v, i) => ({ t: v, v, on: v === S.grid, sep: v === '1/3' })), it => setGrid(it.v), { w: 96 })
+  const at = typeof skinMenuAt === 'function' && skinMenuAt('grid')                 // (a theme's own word for the grid: the menu stands at it — skins.js)
+  openMenu(at ? at.x : DISP_X + 308 + NUDGE_W, at ? at.y : barMenuY(), GRIDS.map((v, i) => ({ t: v, v, on: v === S.grid, sep: v === '1/3' })), it => setGrid(it.v), { w: 96, up: at && at.up })
 }
 /* the lines, as the lanes' own drawing: D is the close-up's steps (ui.js, deepSteps) when the view is that near */
 function gridLanes (D) {

@@ -348,7 +348,7 @@ function stripGutter (x, w, y, h, wide) {
   let s = ''
   q.rows.forEach((l, i) => { if (l) s += T(x + w - 6, q.y0 + i * q.sp + q.sh / 2 + 3.2, l, { size: 9, a: .4, anchor: 'end' }) })
   s += T(x + w - 6, q.panY + 4, 'pan', { size: 9, a: .4, anchor: 'end' })
-  if (!(typeof SKIN === 'object' && SKIN.console)) for (const db of DBS) s += T(x + w - 6, q.yOf(db) + 3, db === -48 ? '∞' : String(Math.abs(db)), { size: 8.5, a: db === 0 ? .66 : .36, anchor: 'end' })      // (a console's knobs carry their own scale)
+  if (!(typeof SKIN === 'object' && SKINS.strip[SKIN.k.mixer] && !SKINS.strip[SKIN.k.mixer].meters)) for (const db of DBS) s += T(x + w - 6, q.yOf(db) + 3, db === -48 ? '∞' : String(Math.abs(db)), { size: 8.5, a: db === 0 ? .66 : .36, anchor: 'end' })      // (a console's knobs carry their own scale)
   return s
 }
 /* left or right of the middle: a line that fills from its centre */
@@ -389,10 +389,10 @@ function strip (x, y, w, h, t, i, o = {}) {
     yy += q.sp
   }
   const fx = x + (wide ? 34 : o.master ? 28 : 23), vol = o.master ? S.master : shown(t, 'vol'), muted = !o.master && !heard(t)
-  const con = typeof SKIN === 'object' && SKIN.console                                  // (a theme's console: knobs and lamps — skins.js)
+  const con = typeof SKIN === 'object' && SKINS.strip[SKIN.k.mixer]                    // (a theme's strip: its level, pan, buttons and name — skins.js)
   if (!o.master) {
     const pan = shown(t, 'pan'), px = sx + (wide ? 4 : 2), pw = sw - (wide ? 34 : 24)
-    s += con ? skinStripPan(px + pw / 2, q.panY + 1, pan) : panBar(px, q.panY, pw, pan)
+    s += con ? con.pan(px, q.panY, pw, pan) : panBar(px, q.panY, pw, pan)
     s += T(sx + sw - 2, q.panY + (wide ? 3.6 : 3.2), panText(pan), { size: wide ? 9.5 : 8.5, a: autoPts(t, 'pan').length ? 1 : .66, anchor: 'end' })      // (every strip says where its pan stands, the narrow ones too)
     hits += hit(px - 3, q.panY - 7, pw + 6, 16, 'mpan', `${di} data-x="${n(px)}" data-pw="${n(pw)}"`, 'ew-resize')
   }
@@ -400,14 +400,14 @@ function strip (x, y, w, h, t, i, o = {}) {
   let tk = ''
   for (const db of DBS) tk += `M${fx - 10} ${n(q.yOf(db)) + .5}H${fx - (db === 0 ? 6 : 7.5)}`
   const fy = q.yOf(vol)
-  if (con) s += skinStripLevel(x + w / 2, (q.ft + q.fb) / 2, Math.max(8, Math.min(sw / 2 - 14, q.fh / 2 - 12, 22)), vol, muted)
+  if (con) s += con.level(x, w, sx, sw, q, vol, muted, o.master ? null : t)
   else {
     s += P(tk, { stroke: INK, sa: .26 }) + R(fx - .5, q.ft, 1, q.fh, { fill: INK, fa: .2 })
     if (!o.master && t.ghost != null) s += R(fx - 6, q.yOf(t.ghost) - .5, 12, 1, { fill: INK, fa: .4 })
     s += R(fx - 6, fy - 3, 12, 6, { rx: 1, fill: INK, fa: muted ? .5 : 1 }) + P(`M${fx - 4} ${n(fy)}H${fx + 4}`, { stroke: K0, sa: .7 })
   }
   const bw = wide || o.master ? 3.5 : 3, mx = fx + (wide || o.master ? 13 : 12)
-  for (let c = 0; c < 2 && !con; c++) {
+  for (let c = 0; c < 2 && (!con || con.meters); c++) {
     const x2 = mx + c * (bw + 1), ids = `${t.id}-${c}`
     s += R(x2, q.ft, bw, q.fh, { fill: INK, fa: .1 }) + R(x2, q.fb, bw, 0, { fill: LEVEL, fa: .86, x: ` id="ms-${ids}"` }) + R(x2, q.fb, bw, 0, { fill: SOLO, x: ` id="mh-${ids}"` }) + R(x2, q.fb, bw, 1, { fill: INK, fa: 0, x: ` id="mk-${ids}"` })
   }
@@ -416,9 +416,10 @@ function strip (x, y, w, h, t, i, o = {}) {
   const ns = wide ? 10 : 9.5
   s += T(x + w / 2, y + h - 52, fmtDb(vol), { size: wide ? 10 : 9.5, a: sel || (!o.master && autoPts(t, 'vol').length) ? 1 : .72, anchor: 'middle' })
   if (o.master || !autoPts(t, 'vol').length) hits += hit(sx, y + h - 60.5, sw, 13.5, 'volnum', di, 'default')                 // what it reads: pressed twice, a level can be typed
-  if (!o.master) { const its = cellsOf(t), cw = Math.min(wide ? 18 : 13, Math.floor(sw / its.length)); const lw = Math.min(15, Math.floor((sw + 3) / its.length) - 3); s += con ? skinLamps(sx + (sw - (lw + 3) * its.length + 3) / 2, y + h - 44, its, i, lw) : miniCells(sx + (sw - cw * its.length) / 2, y + h - 45, its, cw, 14, 9, i) }
+  if (!o.master) { const its = cellsOf(t), cw = Math.min(wide ? 18 : 13, Math.floor(sw / its.length)); s += con ? con.cells(sx, sw, y + h - 44, its, i) : miniCells(sx + (sw - cw * its.length) / 2, y + h - 45, its, cw, 14, 9, i) }
   s += R(sx, y + h - 24, sw, 2, { fill: t.c, fa: !o.master && t.mute ? .4 : 1 })
-  s += con ? skTape(sx + 1, y + h - 19, sw - 2, t.name, Math.min(ns, 9.5)) : T(x + w / 2, y + h - 9, fit(asGiven(t.name), sw, ns, sel ? 500 : 400), { size: ns, w: sel ? 500 : 400, a: !o.master && t.mute ? .42 : sel ? 1 : .84, anchor: 'middle' })
+  s += con ? con.name(x, w, sx, sw, y + h, t, sel) : T(x + w / 2, y + h - 9, fit(asGiven(t.name), sw, ns, sel ? 500 : 400), { size: ns, w: sel ? 500 : 400, a: !o.master && t.mute ? .42 : sel ? 1 : .84, anchor: 'middle' })
+  if (con && con.box) s += con.box(x, y, w, h, sel, o.master ? null : t)
   if (!o.master) hits += hit(x, y + h - 27, w, 27, 'msel', di)
   else hits += hit(x, y + h - 27, w, 27, 'wall-out')                                      // (wall.js: the stereo out's own patch)
   return s + hits

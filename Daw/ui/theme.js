@@ -101,6 +101,7 @@ const THEMES = {
     'mean.rec': thC('#C0392B'), 'mean.solo': thC('#5DAA57'), 'mean.mon': thC('#E08A2E'), 'mean.level': thC('#2A231B'),
     'type.face': 'plex condensed', 'type.case': 'capitals', 'type.space': .6, 'type.names': 'courier',
     'ground.lanes': 'tape', 'ground.lanesC': thC('#E8D5AC', 7), 'ground.over': 'brushed', 'ground.overA': 80,
+    'part.transport': 'a tape deck at the foot', 'part.meters': 'VU meters over the room', 'part.heads': 'labels, lamps, a knob', 'part.markers': 'tape flags', 'part.cycle': 'grease pencil', 'part.playhead': 'a tape head', 'part.mixer': 'a console', 'heads.size': 10.5,
   },
   /* a tape deck of the eighties: card and beige plastic, the label's stripes, pills of colour, typed names */
   cassette: {

@@ -24,7 +24,8 @@ let SCENES = mkScenes(DEMO_SCENES)
 /* how the window is cut: the control bar, the tracks' own bar, the markers, the bars; the heads at the left; the foot.
    Below the lanes a panel opens (patch or mixer); at the right, slur. VIEW says how far each is open, as it is drawn now.
    The bars are cut in two along their length: the top (RU_CY of it) is the cycle's, the rest is the playhead's. */
-const BAR_H = 44, TOOL_H = 26, MK_H = 22, RU_H = 24, RU_CY = 10, HEAD_W = 292, FOOT_H = 22, PH = 26, SLUR_W = 300, MIN_PANEL = 232
+let BAR_H = 44                           // (let: a theme puts VU meters over the room, or the transport at its foot — skins.js)
+const TOOL_H = 26, MK_H = 22, RU_H = 24, RU_CY = 10, HEAD_W = 292, FOOT_H = 22, PH = 26, SLUR_W = 300, MIN_PANEL = 232
 let X0 = HEAD_W, TY = BAR_H + TOOL_H + MK_H + RU_H, TOOL_Y = BAR_H, MK_Y = BAR_H + TOOL_H, RU_Y = BAR_H + TOOL_H + MK_H      // (let: a realtime print folds the heads, the tool row and the bars away — relayout)
 const VIEW = { p: 0, s: 0 }
 let RX = W, X1 = W, BY = H - FOOT_H, LANES_H = H - FOOT_H - TY

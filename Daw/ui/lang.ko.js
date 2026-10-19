@@ -148,6 +148,10 @@ Object.assign(LANG.lists.ko, {
   'tape': '테이프', 'ruled': '줄', 'paper': '종이', 'dots': '점', 'grain': '입자', 'brushed': '헤어라인', 'scanlines': '주사선',
   'their ground': '레인 바탕', 'the deepest tone': '가장 깊은 톤', 'the lanes alone': '레인에만', 'marks on them': '레인 위의 표시', 'every mark drawn on the lanes': '레인에 그려지는 모든 표시',
   'more, a scroll away': '더 있음, 스크롤해서 보기',
+  'the parts': '부분의 모양', 'their shapes': '모양', 'what a theme may change the shape of': '테마가 모양을 바꿀 수 있는 것', 'the transport': '트랜스포트', 'a bar at the top': '위의 막대', 'a tape deck at the foot': '아래의 테이프 데크',
+  'meters over the room': '방 위의 미터', 'VU meters over the room': '방 위의 VU 미터', 'a track’s head': '트랙 헤드', 'labels, lamps, a knob': '라벨, 램프, 노브', 'the markers': '마커', 'words': '글자', 'tape flags': '테이프 깃발',
+  'a band': '띠', 'grease pencil': '그리스 펜슬', 'a tape head': '테이프 헤드', 'the mixer': '믹서', 'a console': '콘솔',
+  'bar   beat   division': '마디   박   분할', 'min   sec   tenth': '분   초   1/10', 'to start': '처음으로', 'low lat': '저지연', 'mix   left   right': '믹스   왼쪽   오른쪽',
 })
 /* settings > key commands (keypage.js, keymap.js): every key of the room, as it comes or as another program has them */
 Object.assign(LANG.lists.ko, {

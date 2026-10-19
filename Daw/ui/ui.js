@@ -57,12 +57,14 @@ const dirtyAll = () => { for (const p in PARTS) uiDirty(p) }
 
 /* ── how the window is cut, worked out again when it is resized or a panel opens ── */
 function relayout () {
+  if (typeof skinLayout === 'function') skinLayout()                              // (a theme's parts may cut the window otherwise: skins.js)
+  const deck = typeof DECK_H === 'number' ? DECK_H : 0
   const fold = typeof RTB !== 'undefined' && RTB.on ? rtbFold() : 0                 // a realtime print folds the heads, the tool row, the bars and the foot away: the bar, the markers and the sound are left (realtime.js)
-  X0 = Math.round(HEAD_W * (1 - fold)); MK_Y = BAR_H + TOOL_H * (1 - fold); RU_Y = MK_Y + MK_H; TY = RU_Y + RU_H * (1 - fold)
+  X0 = Math.round(HEAD_W * (1 - fold)); TOOL_Y = BAR_H; MK_Y = BAR_H + TOOL_H * (1 - fold); RU_Y = MK_Y + MK_H; TY = RU_Y + RU_H * (1 - fold)
   for (const [id, a] of [['g-head', 0], ['g-info', 1], ['g-ruler', 1], ['g-cmd', 1]]) { const el = $(id); if (!el) continue; if (a) { el.style.opacity = fold ? String(1 - fold) : ''; el.style.visibility = fold >= 1 ? 'hidden' : '' } else el.setAttribute('transform', fold ? `translate(${n(-HEAD_W * fold)} 0)` : '') }
   if ($('cmd')) $('cmd').style.visibility = fold > 0 ? 'hidden' : ''
-  S.panel.h = clamp(S.panel.h, MIN_PANEL, Math.max(MIN_PANEL, H - FOOT_H - TY - 4 * 25))
-  RX = W - SLUR_W * VIEW.s; X1 = RX; BY = H - FOOT_H * (1 - fold) - S.panel.h * VIEW.p; LANES_H = Math.max(0, BY - TY)
+  S.panel.h = clamp(S.panel.h, MIN_PANEL, Math.max(MIN_PANEL, H - FOOT_H - deck - TY - 4 * 25))
+  RX = W - SLUR_W * VIEW.s; X1 = RX; BY = H - (FOOT_H + deck) * (1 - fold) - S.panel.h * VIEW.p; LANES_H = Math.max(0, BY - TY)
   const set = (id, x, y, w, h) => { const r = $(id).firstChild; r.setAttribute('x', n(x)); r.setAttribute('y', n(y)); r.setAttribute('width', n(Math.max(0, w))); r.setAttribute('height', n(Math.max(0, h))) }
   set('tl', X0, MK_Y, X1 - X0, BY - MK_Y); set('ln', X0, TY, X1 - X0, LANES_H); set('hdc', 0, TY, HEAD_W, LANES_H)
   PXB = Math.max(PXB, fitPXB()); VX = clamp(VX, 0, maxVX()); VY = clamp(VY, 0, maxVY())
@@ -81,14 +83,18 @@ function toggleSlur () { S.slur = !S.slur; setView() }
 function syncSlur (hide) {
   if (!NAT) return
   const on = !hide && S.slur && VIEW.s > .999 && !S.sheet, r = board.getBoundingClientRect(), k = r.width / W
-  NAT.call('slurPanel', { on: on ? 1 : 0, x: r.left + RX * k, y: r.top + BAR_H * k, w: SLUR_W * k, h: (H - FOOT_H - BAR_H) * k, zoom: k })
+  NAT.call('slurPanel', { on: on ? 1 : 0, x: r.left + RX * k, y: r.top + BAR_H * k, w: SLUR_W * k, h: (H - FOOT_H - (typeof DECK_H === 'number' ? DECK_H : 0) - BAR_H) * k, zoom: k })
 }
 
 /* ── the control bar: what opens below at the left, the transport and the display in the middle, the way out, hand off and slur at the right ── */
 let METER_W = 76
 let HO_X = 0
 function pTop () {
-  let s = R(0, 0, W, BAR_H, { fill: K2 })
+  if (typeof SKIN === 'object' && (SKIN.bridge || SKIN.deck)) return skinTop(pBar)      // (a theme's bridge of meters, or its tape deck: skins.js)
+  return pBar()
+}
+function pBar () {
+  let s = R(0, 0, W, 44, { fill: K2 })
   const g = (d, line) => (x, y, c, a) => G(P(d, line ? { stroke: c, sa: a, sw: 1.2, cap: 'round' } : { fill: c, fa: a }), `translate(${x} ${y})`)
   const tr = [
     { g: g('M-5 -4.5H-3.6V4.5H-5ZM4.6 -4.5L-2.6 0L4.6 4.5Z'), a: 'tostart' },
@@ -126,7 +132,7 @@ function pTop () {
   s += T(x, 25.6, fmtDb(S.master), { size: 10, a: .82, anchor: 'end' })
   for (let c = 0; c < 2; c++) { const y = 18 + c * 5; s += R(mx, y, METER_W, 2.5, { fill: INK, fa: .12 }) + R(mx, y, 0, 2.5, { fill: LEVEL, fa: .86, x: ` id="mm-${c ? 'r' : 'l'}"` }) }
   s += R(mx + METER_W * volF(0), 15, 1, 13.5, { fill: INK, fa: .28 }) + T(mx - 8, 25.6, 'out', { size: 9.5, a: .4, anchor: 'end' }) + hit(mx - 26, 8, METER_W + 62, 28, 'master', '', 'ns-resize')
-  return s + hline(0, W, BAR_H - .5, .1)
+  return s + hline(0, W, 44 - .5, .1)
 }
 let DISP_X = 0
 const NUDGE_W = 92
@@ -220,7 +226,8 @@ function setLook (what, v) {
    at the markers; the part that plays is the filled cell — the same grammar as every other row of cells here, laid
    along time. A press goes there (while the song runs: at the next bar line); twice makes it the cycle. ── */
 function pScenes () {
-  if (typeof RTB !== 'undefined' && RTB.on) return ''                                 // (a realtime print writes the markers along its own top: realtime.js)
+  if (typeof RTB !== 'undefined' && RTB.on) return ''
+  if (typeof SKIN === 'object' && SKIN.flags) return skinScenes()                  // (on tape flags: skins.js)                                 // (a realtime print writes the markers along its own top: realtime.js)
   const y = MK_Y, cur = sceneAt(curPos()).i, xe = bx(SONG_END + 1)
   let s = R(0, y, RX, MK_H, { fill: K1 }) + (X0 > 70 ? T(12, y + 14.2, 'markers', { size: 9, a: .38 }) : '')      // (no word when the heads are folded away: realtime.js)
   let g = R(bx(1) + .5, y + 4.5, xe - bx(1) - 1, 13, { rx: 2, stroke: INK, sa: .22 }), hits = hit(X0, y, X1 - X0, MK_H, 'scenebar', '', 'default')
@@ -286,7 +293,7 @@ function pRuler () {
   let hits = hit(X0, y, X1 - X0, RU_CY, 'cycle', ' data-m="new"', 'default') + hit(X0, y + RU_CY, X1 - X0, RU_H - RU_CY, 'seek')
   if (has) {
     const ca = bx(c.a + 1), cb = bx(c.b + 1), col = c.on ? lkC('cycle.c', SOLO) : INK, a = c.on ? 1 : .26, e = Math.min(5, (cb - ca) / 3)
-    g += R(ca, y, cb - ca, 3, { fill: col, fa: a }) + R(ca, y, 1.5, 8, { fill: col, fa: a }) + R(cb - 1.5, y, 1.5, 8, { fill: col, fa: a })
+    g += typeof SKIN === 'object' && SKIN.pencil ? skinCycle(ca, cb, y, c.on) : R(ca, y, cb - ca, 3, { fill: col, fa: a }) + R(ca, y, 1.5, 8, { fill: col, fa: a }) + R(cb - 1.5, y, 1.5, 8, { fill: col, fa: a })
     const part = (x0, x1, m, cur) => { const l = Math.max(X0, x0), r = Math.min(X1, x1); return r - l > .5 ? hit(l, y, r - l, RU_CY, 'cycle', ` data-m="${m}"`, cur) : '' }
     hits += part(ca + e, cb - e, 'move', 'grab') + part(ca - 5, ca + e, 'a', 'ew-resize') + part(cb - e, cb + 5, 'b', 'ew-resize')
   }
@@ -364,18 +371,20 @@ function headRow (i) {
   const alt = t.kind === 'audio' && (t.alts || []).length ? `alt ${altName(t)}` : ''                      // which of its alternatives is on the lane, once it has more than one
   const tag = t.theirs || (t.kind === 'bus' ? 'bus' : alt), tagW = tag ? tw(tag, 9, 400, !!t.theirs) + 6 : 0, wt = stack || sel ? 500 : 400
   const hs = lkN('heads.size'), nm = fit(asGiven(t.name), cx - 8 - x0 - tagW - grpW, hs, wt)      // (as large as the look says)
-  s += T(x0, by, nm, { size: hs, w: wt, a: t.mute ? .42 : sel ? 1 : .88 })
-  if (tag) s += T(x0 + tw(nm, hs, wt) + 6, by, tag, { size: 9, it: !!t.theirs, a: .4 })
+  const sk = typeof SKIN === 'object' && SKIN.heads                                  // (a theme's head: the name on label tape, lamps, a knob — skins.js)
+  if (sk) s += skTape(x0 - 4, y + rh / 2 - 8, Math.min(cx - 12 - x0, tw(nm, hs, 700) + 16), t.name, Math.min(hs, rh / 2 - 1))
+  else s += T(x0, by, nm, { size: hs, w: wt, a: t.mute ? .42 : sel ? 1 : .88 })
+  if (tag) s += T(x0 + tw(nm, hs, sk ? 700 : wt) + (sk ? 16 : 6), by, tag, { size: 9, it: !!t.theirs, a: .4 })
   s += hit(0, y, cx - 4, rh, 'sel', ` data-i="${i}"`) + (stack ? hit(deep ? x0 - 13 : 27, y, 14, rh, 'fold', ` data-i="${i}"`) : '')      // from its number to its cells, a press chooses it
   if (grp) s += typeof grpChip === 'function' ? grpChip(t, i, x0 + tw(nm, hs, wt) + 8 + tagW, by) : T(x0 + tw(nm, hs, wt) + 6 + tagW, by, grp, { size: 9, w: 500, a: S.grpOff ? .22 : .62 })      // (over the row's own press: it opens the group)
-  c += miniCells(cx, y + rh / 2 - 7, its, cw, 14, 8.5, i)
+  c += sk ? skinLamps(214 - its.length * 18 + 3, y + rh / 2 - 6.5, its, i) : miniCells(cx, y + rh / 2 - 7, its, cw, 14, 8.5, i)
   const vol = shown(t, 'vol'), led = autoPts(t, 'vol').length > 0
   if (S.auto) {
     const k = apOf(t)
     c += R(219.5, y + rh / 2 - 6.5, 40, 13, { rx: 1.5, stroke: INK, sa: .22 }) + T(223, by - .6, fit(autoName(t, k), 34, 8.5), { size: 8.5, a: .8 }) + hit(218, y, 43, rh, 'ap', ` data-i="${i}"`)
     c += T(HEAD_W - 6, by - .6, AUTO[k].fmt(shown(t, k)), { size: 8.5, a: autoPts(t, k).length ? .9 : .56, anchor: 'end' })
   } else {
-    c += levelBar(HEAD_FX, y + rh / 2 - 1, HEAD_FW, t, vol) + hit(HEAD_FX - 6, y + 1, HEAD_FW + 12, rh - 2, 'vol', ` data-i="${i}"`, 'ew-resize')
+    c += sk ? skinLevel(HEAD_FX + HEAD_FW / 2, y + rh / 2, t, vol, i) : levelBar(HEAD_FX, y + rh / 2 - 1, HEAD_FW, t, vol) + hit(HEAD_FX - 6, y + 1, HEAD_FW + 12, rh - 2, 'vol', ` data-i="${i}"`, 'ew-resize')
     c += T(HEAD_W - 8, by - .4, fmtDb(vol), { size: 9, a: t.ghost != null || led || sel ? .9 : .56, anchor: 'end' })
     if (!led) c += hit(HEAD_FX + HEAD_FW + 7, y + 1, HEAD_W - HEAD_FX - HEAD_FW - 8, rh - 2, 'volnum', ` data-i="${i}"`, 'default')      // what it reads: pressed twice, a level can be typed
   }
@@ -720,7 +729,7 @@ function pDrop () {
 }
 /* the playhead: its line down the lanes; its head in the lower part of the bars, clear of the cycle's strip; and round the
    head a place to take it by, wider than the head (pressed there, it is held where it is and goes with the hand) */
-const pPlay = () => { if (typeof RTB !== 'undefined' && RTB.on) return ''; const y = RU_Y + RU_CY, c = lkC('play.c', INK); return G(P(`M.5 ${y + 6}V${BY}`, { stroke: c, sw: lkN('play.w') }) + P(`M-4.5 ${y + 1}H5.5V${y + 7}L.5 ${y + 12}L-4.5 ${y + 7}Z`, { fill: c }) + hit(-10.5, y, 22, RU_H - RU_CY, 'playhead', '', 'ew-resize'), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"') }
+const pPlay = () => { if (typeof RTB !== 'undefined' && RTB.on) return ''; const y = RU_Y + RU_CY, c = lkC('play.c', INK); if (typeof SKIN === 'object' && SKIN.tapehead) return G(skinPlayhead(c, lkN('play.w')), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"'); return G(P(`M.5 ${y + 6}V${BY}`, { stroke: c, sw: lkN('play.w') }) + P(`M-4.5 ${y + 1}H5.5V${y + 7}L.5 ${y + 12}L-4.5 ${y + 7}Z`, { fill: c }) + hit(-10.5, y, 22, RU_H - RU_CY, 'playhead', '', 'ew-resize'), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"') }
 
 /* ── the bottom panel: the chosen track's patch, with its strip beside it; or the mixer ── */
 const SIDE = 222, GUT = 34, WSTRIP = 86, NSTRIP = 56, NGUT = 36, MSTRIP = 64, MAX_INS = 4
@@ -1193,7 +1202,7 @@ function carry (d, k, now) {
 function setVolX (i, x, e) {
   const t = S.tracks[i], d = drag && drag.a === 'vol' ? drag : null
   let f = clamp((x - HEAD_FX) / HEAD_FW, 0, 1)
-  if (d) { if (e && e.shiftKey && d.f != null) f = clamp(d.f + (x - d.lx) / HEAD_FW * .2, 0, 1); d.f = f; d.lx = x }
+  if (d) { if (d.rel && d.f != null) f = clamp(d.f + (x - d.lx) / (e && e.shiftKey ? 600 : 160), 0, 1); else if (e && e.shiftKey && d.f != null) f = clamp(d.f + (x - d.lx) / HEAD_FW * .2, 0, 1); d.f = f; d.lx = x }
   volSet(t, fVol(f))
   if (d && d.others.size) { carry(d, 'vol', t.vol); uiDirty('head') }
   else { const el = $('hd-' + i); if (el) el.innerHTML = headRow(i) }
@@ -1251,12 +1260,12 @@ function onDown (e) {
     case 'loop': KEYS.KeyC(); break
     case 'lowlat': if (typeof toggleLowLat === 'function') toggleLowLat(); break
     case 'tempo': startRename('tempo'); break
-    case 'meter': if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(p.x - 20, BAR_H - 6, MEASURES.map(m => ({ t: `${m[0]}/${m[1]}`, v: m, on: m[0] === S.meter[0] && m[1] === S.meter[1] })), it => setMeter(it.v[0], it.v[1]), { w: 84 }); break
+    case 'meter': if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(p.x - 20, barMenuY(), MEASURES.map(m => ({ t: `${m[0]}/${m[1]}`, v: m, on: m[0] === S.meter[0] && m[1] === S.meter[1] })), it => setMeter(it.v[0], it.v[1]), { w: 84 }); break
     case 'key': startRename('key'); break
     case 'pos': startRename('pos'); break
     case 'volnum': break                                                              // (twice: a level is typed; with option: 0 db)
     case 'grid': gridMenu(); break
-    case 'nudge': if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(DISP_X + 308, BAR_H - 6, NUDGES.map(v => ({ t: v, k: NUDGE_KEY[v], v, on: v === S.nudge })), it => setNudge(it.v), { w: 150 }); break
+    case 'nudge': if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(DISP_X + 308, barMenuY(), NUDGES.map(v => ({ t: v, k: NUDGE_KEY[v], v, on: v === S.nudge })), it => setNudge(it.v), { w: 150 }); break
     case 'master': drag = { a, ly: p.y, v0: S.master, acc: 0 }; break
     case 'mmaster': drag = { a, ly: p.y, f0: volF(S.master), acc: 0, g: stripGeom(BY + PH, S.panel.h - PH, S.panel.tab === 'patch') }; break
     /* a marker: it is the one the delete key is about now, the song goes there, and it can be pulled to another bar */
@@ -1336,7 +1345,7 @@ function onDown (e) {
       if (!only) drag = { a: 'swipe', what: a, to, seen: new Set(g.map(t => t.id)) }
       break
     }
-    case 'vol': S.tracks[i].ghost = null; drag = { a, i, v0: S.tracks[i].vol, others: others(i, 'vol'), before: autoPts(S.tracks[i], 'vol').length ? editState() : null }; if (e.shiftKey) { drag.f = volF(shown(S.tracks[i], 'vol')); drag.lx = p.x } else setVolX(i, p.x, e); break
+    case 'vol': S.tracks[i].ghost = null; drag = { a, i, v0: S.tracks[i].vol, others: others(i, 'vol'), before: autoPts(S.tracks[i], 'vol').length ? editState() : null, rel: !!el.dataset.rel, py: p.y }; if (e.shiftKey || drag.rel) { drag.f = volF(shown(S.tracks[i], 'vol')); drag.lx = p.x } else setVolX(i, p.x, e); break      // (rel: a knob — turned from where it stands, up and to the right: skins.js)
     case 'print': drag = { a, k: pk(el.dataset.k), ly: p.y, acc: 0, v0: patchNow(cur)[pk(el.dataset.k)] }; break
     case 'ho': S.ho.open = !S.ho.open; S.ho.note = ''; S.ho.done = 0; uiDirty('top', 'hand'); break
     case 'ho-close': S.ho.open = false; uiDirty('top', 'hand'); break
@@ -1400,7 +1409,7 @@ function onMove (e) {
   if (LASTP && (Math.abs(p.x - LASTP.x) > 4 || Math.abs(p.y - LASTP.y) > 4)) LASTP = null          // a pointer that has moved is not pressing twice
   if (!drag) { const el = e.target && e.target.closest ? e.target.closest('[data-a="lanes"]') : null; if (el) lanesHover(e, p, el); return }
   const t = S.tracks[S.sel]
-  if (drag.a === 'vol') setVolX(drag.i, p.x, e)
+  if (drag.a === 'vol') setVolX(drag.i, drag.rel ? p.x - (p.y - drag.py) : p.x, e)
   else if (drag.a === 'mvol') stripVolY(drag, p.y, e)
   else if (drag.a === 'mpan') stripPanX(drag, p.x, e)
   else if (drag.a === 'mmaster') masterY(p.y, e)
@@ -1770,6 +1779,7 @@ function frame () {
   if (play) play.setAttribute('transform', `translate(${Math.round(x)} 0)`)
   if (rd && rd.textContent !== txt) { rd.textContent = txt; rd.setAttribute('x', n(DISP_X + 39 - tw(txt, 12.5, 500) / 2)) }
   if (rt) { const ct = clock(p); if (rt.textContent !== ct) { rt.textContent = ct; rt.setAttribute('x', n(DISP_X + 78 + 33 - tw(ct, 11.5) / 2)) } }
+  if (typeof SKIN === 'object' && (SKIN.deck || SKIN.bridge)) skinFrame(p)
   if (si !== frame.si) { frame.si = si; uiDirty('scenes'); if (S.ho.open) uiDirty('hand') }
   if (drag) edgeTurn()
   if (NAT) drawMeters()

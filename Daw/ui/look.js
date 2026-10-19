@@ -48,6 +48,19 @@ const LOOK_TREE = [
       ['', [['type.names', 'face', 'p', { items: ['as the words', 'courier', 'garamond italic', 'plex mono', 'jost', 'archivo'], d: 'as the words' }]]],
     ]],
   ]],
+  ['the parts', [
+    ['their shapes', 'what a theme may change the shape of', [
+      ['', [
+        ['part.transport', 'the transport', 'p', { items: ['a bar at the top', 'a tape deck at the foot'], d: 'a bar at the top' }],
+        ['part.meters', 'meters over the room', 'p', { items: ['none', 'VU meters over the room'], d: 'none' }],
+        ['part.heads', 'a track’s head', 'p', { items: ['as it comes', 'labels, lamps, a knob'], d: 'as it comes' }],
+        ['part.markers', 'the markers', 'p', { items: ['words', 'tape flags'], d: 'words' }],
+        ['part.cycle', 'the cycle', 'p', { items: ['a band', 'grease pencil'], d: 'a band' }],
+        ['part.playhead', 'the playhead', 'p', { items: ['as it comes', 'a tape head'], d: 'as it comes' }],
+        ['part.mixer', 'the mixer', 'p', { items: ['strips', 'a console'], d: 'strips' }],
+      ]],
+    ]],
+  ]],
   ['background', [
     ['under the lanes', 'a pattern on the lanes’ ground', [
       ['', [

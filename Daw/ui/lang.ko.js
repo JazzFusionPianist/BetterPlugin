@@ -39,7 +39,7 @@ LANG.lists.ko = {
   'play, stop': '재생, 정지', 'record': '녹음', 'throw the take away': '테이크 버리기', 'click': '클릭', 'count-in': '카운트인',
   'to the start': '처음으로', 'a bar back, a bar on': '한 마디 뒤로, 앞으로', 'eight bars': '여덟 마디', 'go to a bar': '마디로 이동',
   'this sheet': '이 단축키 표', 'tool menu, then a letter': '도구 메뉴, 이어서 글자', 'the other tool, while held': '누르는 동안 다른 도구', 'while held': '누르는 동안',
-  'a finer grid, in a drag': '드래그 중 더 촘촘한 그리드', 'no grid': '그리드 없이', 'finely': '미세하게',
+  'a finer grid, in a drag': '드래그 중 더 촘촘한 그리드', 'no grid': '그리드 없이', 'finely': '미세하게', 'a region, to another track only': '리전, 다른 트랙으로만', 'a point, along the song only': '포인트, 시간 방향으로만',
   'shuffle, slip, spot, grid': '셔플, 슬립, 스팟, 그리드', 'slip, and back': '슬립, 다시 원래대로',
   'split at the playhead': '플레이헤드에서 자르기', 'join': '합치기', 'mute, solo': '뮤트, 솔로', 'solo only this': '이것만 솔로',
   'duplicate': '복제', 'repeat': '반복', 'reverse': '리버스', 'quantize': '퀀타이즈', 'let go of quantize': '퀀타이즈 풀기',

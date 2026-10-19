@@ -6,6 +6,8 @@ async function runSelfTest (mode) {
   const listen = async ms => { await NAT.call('testMeter'); await sleep(ms); const m = await NAT.call('testMeter'); return { rms: +m.rms.toFixed(4), peak: +m.peak.toFixed(4) } }
   const snap = async name => { __daw.redraw(); await sleep(120); await NAT.call('testSnap', { name }); await sleep(250) }
   const wanted = /^steps:/.test(mode || '') ? new Set(mode.slice(6).split(',')) : null      // --selftest=steps:a,b — only those steps (for trying one out; the whole check is what counts)
+  /* a song as it lies on the disk, its text as the page reads it (the app hands it over in base64: Main.cpp, text64) */
+  const projRead = async o => { const r = await NAT.call('projLoad', o); if (r && r.json64 != null) r.json = natText(r.json64); return r }
   const step = async (key, fn) => { if (wanted && !wanted.has(key)) return; try { await note(key, await fn()) } catch (e) { await note(key, { error: String((e && e.stack) || e).slice(0, 400) }) } }
   const track = name => S.tracks.find(t => t.name === name)
   const playFrom = async bar => { halt(false); play(bar); await sleep(350) }
@@ -174,7 +176,7 @@ async function runSelfTest (mode) {
       return { place, page, panel, withPatch, closed: { slur: S.slur, s: VIEW.s } }
     })
     await step('audioWindow', async () => { await NAT.call('audioSettings'); await sleep(1200); return { windows: (await NAT.call('testMenus')).titles.split(' | ').pop() } })      // the window's own name, as the menu bar lists it
-    await step('projects', async () => { const out = []; for (const p of (await NAT.call('projList')) || []) { const r = await NAT.call('projLoad', { name: p.name }); let d = null; try { d = JSON.parse(r.json) } catch (e) {} out.push([p.name, !!(r && r.ok), d ? d.tracks.length : 0, d ? d.v : null]) } return out })      // found, and readable: nothing is opened or written
+    await step('projects', async () => { const out = []; for (const p of (await NAT.call('projList')) || []) { const r = await projRead({ name: p.name }); let d = null; try { d = JSON.parse(r.json) } catch (e) {} out.push([p.name, !!(r && r.ok), d ? d.tracks.length : 0, d ? d.v : null]) } return out })      // found, and readable: nothing is opened or written
     await note('page', { errors: window.__errs || [] })
     await NAT.call('testDone'); return
   }
@@ -1576,9 +1578,9 @@ async function runSelfTest (mode) {
     res.saved = { key: tail(projKey()), name: PROJ.name, outside: PROJ.at[0] === '/', pool: [pool0, (PROJ.pool || []).length], said: S.last && S.last.say }
     const there = projKey()
     newTrack('audio'); res.write = await saveNow(true)
-    res.onDisk = JSON.parse((await NAT.call('projLoad', { name: there })).json).tracks.length - tracks0             // the track just made is in the file that lies there
-    res.old = JSON.parse((await NAT.call('projLoad', { name: from })).json).tracks.length - tracks0                 // and not in the one it was copied from
-    await renameProject('selftest moved'); res.renamed = { key: tail(projKey()), name: PROJ.name, oldGone: !(await NAT.call('projLoad', { name: there })).ok }
+    res.onDisk = JSON.parse((await projRead({ name: there })).json).tracks.length - tracks0             // the track just made is in the file that lies there
+    res.old = JSON.parse((await projRead({ name: from })).json).tracks.length - tracks0                 // and not in the one it was copied from
+    await renameProject('selftest moved'); res.renamed = { key: tail(projKey()), name: PROJ.name, oldGone: !(await projRead({ name: there })).ok }
     const moved = projKey()
     res.same = (await NAT.call('projCopy', { from: moved, to: moved })).why
     res.inside = (await NAT.call('projCopy', { from, to: moved + '/audio/in.sls' })).why
@@ -1937,7 +1939,7 @@ async function runSelfTest (mode) {
     const kept = LEAVE.kept, n0 = S.tracks.length, copies0 = ((await NAT.call('projBackups', { name: projKey() })) || []).length
     res.unchanged = !leaveChanged()
     newTracks({ kind: 'audio', n: 1, out: 0 }); await natSession(); await sleep(3600)        // a change, and time for the quiet save to write it
-    const quiet = (await NAT.call('projLoad', { name: projKey() })) || {}
+    const quiet = (await projRead({ name: projKey() })) || {}
     res.changed = { asks: leaveChanged(), writtenQuietly: quiet.json !== kept }
     const hold0 = PROJ.hold
     leaveAsk(); flush(); await sleep(120)
@@ -1946,7 +1948,7 @@ async function runSelfTest (mode) {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true })); await sleep(1800)      // (longer than the app would have waited by itself)
     res.cancelled = { gone: !S.leave, writingAgain: PROJ.hold === hold0, stillHere: true }
     leaveAsk(); flush(); await leaveAnswer('dont', true); await sleep(250)
-    const disk = (await NAT.call('projLoad', { name: projKey() })) || {}
+    const disk = (await projRead({ name: projKey() })) || {}
     res.dontSave = { fileAsLastSaved: disk.json === kept, copiesMore: ((await NAT.call('projBackups', { name: projKey() })) || []).length - copies0, gone: !S.leave }
     await loadProject(projKey()); await sleep(700)
     res.reopened = { tracksAsSaved: S.tracks.length === n0, nothingToAsk: !leaveChanged() }
@@ -1978,6 +1980,24 @@ async function runSelfTest (mode) {
     if (rate !== 48000 && !window.OPEN_BIG_RATE) {                                                 // (the same at the device's own rate: nothing to bring to it)
       for (let k = 0; k < n; k++) await NAT.call('testFile', { project: name, name: `take ${k + 1}`, sec, ch: 2, rate: 48000 })
       const t4 = performance.now(); await loadProject(name); res.openFirstSameRateMs = Math.round(performance.now() - t4); res.partsSameRate = OPENING.last
+    }
+    await loadProject(here); res.back = projKey() === here
+    return res
+  })
+  /* a real project, laid in by selftest.sh (SLUR_OPEN=…, "<name> probe"): opened the first time (its sounds new to the
+     cache, as on another Mac) and again; how long, part by part, when it was drawn, and the longest the window stood still */
+  await step('openReal', async () => {
+    halt(false)
+    const here = projKey(), probe = ((await NAT.call('projList')) || []).find(p => / probe$/.test(p.name))
+    if (!probe) return { skipped: 'no project laid in (SLUR_OPEN)' }
+    const res = { name: probe.name }
+    for (const when of ['first', 'again']) {
+      await NAT.call('stalls'); OPENING.drawnAt = 0
+      const t0 = performance.now(), ok = await loadProject(probe.key), ms = Math.round(performance.now() - t0)
+      res[when] = { ok, ms, drawnMs: OPENING.drawnAt ? Math.round(OPENING.drawnAt - t0) : null, parts: OPENING.last, stallMs: (await NAT.call('stalls')).ms,
+        tracks: S.tracks.length, regions: S.tracks.flatMap(lanesOf).reduce((n, t) => n + t.regs.length, 0), waiting: S.tracks.flatMap(lanesOf).reduce((n, t) => n + t.regs.filter(r => r.missing).length, 0),
+        plugins: S.tracks.reduce((n, t) => n + t.inserts.filter(i => i.uid).length, 0) }
+      await sleep(500)
     }
     await loadProject(here); res.back = projKey() === here
     return res
@@ -2031,7 +2051,7 @@ async function runSelfTest (mode) {
     halt(false)
     const res = {}, here = projKey(), key = (code, k) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k, code, bubbles: true, cancelable: true }))
     await saveNow(true); await sleep(150)
-    const kept = LEAVE.kept, n0 = S.tracks.length, cur = (await NAT.call('projLoad', { name: here })) || {}, test0 = PROJ.test
+    const kept = LEAVE.kept, n0 = S.tracks.length, cur = (await projRead({ name: here })) || {}, test0 = PROJ.test
     await NAT.call('projSave', { name: 'open ask other', json: cur.json }); await saveNow(false, true)
     PROJ.test = false                                                                             // (the check's own song is never asked about: here it is, as one of his would be)
     newTracks({ kind: 'audio', n: 1, out: 0 }); await natSession(); await sleep(300)
@@ -2045,7 +2065,7 @@ async function runSelfTest (mode) {
     key('KeyD', 'd'); await sleep(20)
     res.cardAtOnce = { on: OPENING.on, shown: !document.getElementById('loading').hidden, says: document.getElementById('ld-what').textContent, ms: Math.round(performance.now() - t0) }
     await p; await sleep(300)
-    res.opened = { other: /open ask other/.test(projKey()), firstAsLastSaved: ((await NAT.call('projLoad', { name: here })) || {}).json === kept }
+    res.opened = { other: /open ask other/.test(projKey()), firstAsLastSaved: ((await projRead({ name: here })) || {}).json === kept }
     const t1 = performance.now(); p = openProject(here); await sleep(10)
     res.backCard = { on: OPENING.on, shown: !document.getElementById('loading').hidden, says: document.getElementById('ld-what').textContent, asked: !!S.leave, ms: Math.round(performance.now() - t1) }
     await p; await sleep(300)
@@ -2068,7 +2088,7 @@ async function runSelfTest (mode) {
     const inKey = String((res.putIn || {}).key || '')
     res.listedIn = await where()
     res.readThere = !!((await NAT.call('projFacts', { name: inKey })) || {}).ok
-    res.notWhereItWas = !((await NAT.call('projLoad', { name: 'to be moved' })) || {}).ok
+    res.notWhereItWas = !((await projRead({ name: 'to be moved' })) || {}).ok
     res.heldFolderStays = await NAT.call('folderDrop', { name: 'demos check' })
     res.nowhere = await NAT.call('projMove', { name: inKey, to: 'no such folder' })
     res.takenOut = await NAT.call('projMove', { name: inKey, to: '' })
@@ -2900,7 +2920,7 @@ async function runSelfTest (mode) {
     res.listed = START.list.map(p => ({ name: p.name, tracks: p.f ? p.f.count : -1, seconds: p.f ? Math.round(p.f.len) : -1, lanes: p.f ? p.f.lanes.length : -1, bytes: p.f ? p.f.bytes : -1 }))
     const vol0 = S.tracks[0].vol
     S.tracks[0].vol = vol0 - 3; await sleep(3600)                                        // the quiet save comes round meanwhile: it must leave the disk alone
-    res.wroteNothing = JSON.parse((await NAT.call('projLoad', { name: key })).json).tracks[0].vol === vol0
+    res.wroteNothing = JSON.parse((await projRead({ name: key })).json).tracks[0].vol === vol0
     keyDown('Space'); await sleep(200); res.played = S.playing
     START.sel = Math.max(0, START.list.findIndex(p => p.key === key)); START.focus = 'list'
     keyDown('Enter'); for (let k = 0; k < 80 && START.on; k++) await sleep(100)

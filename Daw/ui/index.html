@@ -32,7 +32,7 @@ body { margin: 0; background: var(--k1); color: var(--ink); font-family: var(--f
 #picker { position: absolute; left: 24px; top: 474px; width: 304px; height: 338px; box-sizing: border-box; display: flex; flex-direction: column; background: var(--k2); border: 1px solid rgba(236, 234, 228, .28); border-radius: 3px }
 #picker[hidden] { display: none }
 /* a project being opened: what is being done, and how far along it is */
-#loading { position: absolute; width: 340px; box-sizing: border-box; padding: 16px 18px 15px; background: var(--k2); border: 1px solid rgba(236, 234, 228, .28); border-radius: 3px; z-index: 5 }
+#loading { pointer-events: none; position: absolute; width: 340px; box-sizing: border-box; padding: 16px 18px 15px; background: var(--k2); border: 1px solid rgba(236, 234, 228, .28); border-radius: 3px; z-index: 5 }
 #loading[hidden] { display: none }
 #ld-word { font-size: 9.5px; opacity: .45 }
 #ld-name { font-size: 12.5px; font-weight: 500; margin: 3px 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }

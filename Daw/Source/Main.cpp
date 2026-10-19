@@ -235,6 +235,15 @@ void keepBackup (const juce::File& dir, const juce::File& project, bool always =
     std::sort (all.begin(), all.end(), [] (const juce::File& a, const juce::File& b) { return a.getFileName() > b.getFileName(); });
     for (int i = 24; i < all.size(); ++i) all.getReference (i).deleteFile();
 }
+/** A song's whole text, as it is handed to the page: in base64. The library escapes what it hands over by replacing in
+    the string one backslash at a time, each time making the string anew — a song of two megabytes, written as a string
+    inside the answer (a backslash before each of its quotes), stood the window still for over a minute before it was
+    drawn (his project of sixty tracks, 2026-10-19). Base64 has nothing to escape. The page reads it with natText. */
+juce::String text64 (const juce::File& f)
+{
+    juce::MemoryBlock mb;
+    return f.loadFileAsData (mb) ? juce::Base64::toBase64 (mb.getData(), mb.getSize()) : juce::String();
+}
 juce::var withFile (juce::var decoded, const juce::String& file, const juce::String& name)
 {
     if (auto* o = decoded.getDynamicObject()) { o->setProperty ("file", file); o->setProperty ("name", name); }
@@ -708,7 +717,7 @@ private:
             auto f = projectDir (d["name"].toString()).getChildFile ("project.json");
             auto* o = new juce::DynamicObject();
             o->setProperty ("ok", f.existsAsFile());
-            if (f.existsAsFile()) { o->setProperty ("json", f.loadFileAsString()); o->setProperty ("saved", f.getLastModificationTime().toMilliseconds()); daw::Marker::set ("project", d["name"].toString()); }
+            if (f.existsAsFile()) { o->setProperty ("json64", text64 (f)); o->setProperty ("saved", f.getLastModificationTime().toMilliseconds()); daw::Marker::set ("project", d["name"].toString()); }
             done (juce::var (o)); return;
         }
         if (op == "projFacts")                                                 // a project seen from far away, for the start page: its numbers, its weight, and where each track sounds. It is only read: nothing marks it as the open one
@@ -757,7 +766,7 @@ private:
             const auto f = projectDir (d["name"].toString()).getChildFile ("backups").getChildFile (juce::File::createLegalFileName (d["file"].toString()));
             auto* o = new juce::DynamicObject();
             o->setProperty ("ok", f.existsAsFile());
-            if (f.existsAsFile()) o->setProperty ("json", f.loadFileAsString());
+            if (f.existsAsFile()) o->setProperty ("json64", text64 (f));
             done (juce::var (o)); return;
         }
         if (op == "takesLeft") { done (engine.takesLeft (audioDirOf (projectDir (d["project"].toString())))); return; }
@@ -1400,6 +1409,7 @@ private:
             return;
         }
         if (op == "log") { daw::logLine ("page: " + d["text"].toString()); done (okVar()); return; }
+        if (op == "stalls") { auto* o = new juce::DynamicObject(); o->setProperty ("ms", juce::roundToInt (stallMax)); stallMax = 0.0; done (juce::var (o)); return; }      // the longest the window stood still since last asked
         if (op == "testPerf")  { done (engine.takePerf()); return; }
         if (op == "testSound") { done (engine.testSound (audioDirOf (projectDir (d["project"].toString())).getChildFile (d["file"].toString()))); return; }
         if (op == "testHands") { engine.setHands ((int) d["n"]); auto* o = new juce::DynamicObject(); o->setProperty ("threads", engine.hands() + 1); done (juce::var (o)); return; }       // how many threads share a block (-1: as the machine allows)
@@ -1531,6 +1541,14 @@ private:
     void timerCallback() override
     {
         if (quitIn > 0 && --quitIn == 0) { juce::JUCEApplication::quit(); return; }
+        {
+            /* the window standing still: the longest wait between two of these (thirty a second when all is well) is kept
+               for the check (op stalls), and one of more than a second and a half — the Mac's spinning wheel — is written
+               into the log, so that a slow opening on another Mac can be told from a frozen one */
+            const double now = juce::Time::getMillisecondCounterHiRes();
+            if (lastTick > 0.0) { const double gap = now - lastTick; stallMax = juce::jmax (stallMax, gap); if (gap > 1500.0) daw::logLine ("stall: the window stood still for " + juce::String (gap / 1000.0, 1) + " s"); }
+            lastTick = now;
+        }
         if (++ticks % 6 == 0) engine.warm();                                   // five times a second: the sound just ahead of the playhead is asked for
         engine.liveTick();                                                     // a realtime print whose range has gone by is made into its files
         auto* o = new juce::DynamicObject();
@@ -1687,6 +1705,7 @@ private:
     std::unique_ptr<juce::FileChooser> chooser;
     std::map<juce::String, juce::File> uploads;
     int quitIn = 0, lastTracks = -1, ticks = 0;
+    double lastTick = 0.0, stallMax = 0.0;
 };
 
 //==============================================================================

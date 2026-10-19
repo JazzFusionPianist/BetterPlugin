@@ -45,13 +45,18 @@ FREE_KB="$(df -k "$HOME" | tail -1 | awk '{print $4}')"
 if [ "${FREE_KB:-0}" -lt 3145728 ]; then echo "less than 3 GB free on the disk ($((FREE_KB / 1024)) MB): the check is not run"; exit 1; fi
 [ "$SLUR_SKIP_BUILD" = "1" ] || ./build.sh --only > /dev/null
 rm -rf "$B/selftest"
+# the copies are signed by the certificate the app itself is signed with (build.sh), when this Mac has one: the Mac keeps
+# what an app may reach (the microphone, Documents, Downloads) by its id and by who signed it, and a copy with the app's id
+# signed by nobody was another app to it — each check asked again, as "Slur Studio", and the app's own answers were
+# forgotten, so the app asked again on its next start (his ask, 2026-10-19: "매번 열때마다 … allow")
+SIGN="${SLUR_SIGN_ID:-$(security find-identity -p codesigning 2> /dev/null | sed -n 's/.*"\(Slur Studio[^"]*\)".*/\1/p' | head -1)}"
 copy () {                                                   # a copy of the build under the check's own name and identity
   mkdir -p "$B/selftest/$1"
   local T="$B/selftest/$1/Slur DAW self-test.app"
   ditto "$B/SlurDaw_artefacts/Release/Slur Studio.app" "$T"
   /usr/libexec/PlistBuddy -c "Delete :CFBundleDocumentTypes" "$T/Contents/Info.plist" 2> /dev/null || true
   /usr/libexec/PlistBuddy -c "Delete :UTExportedTypeDeclarations" "$T/Contents/Info.plist" 2> /dev/null || true
-  codesign --force --deep --sign - "$T" > /dev/null 2>&1
+  { [ -n "$SIGN" ] && codesign --force --deep --sign "$SIGN" "$T" > /dev/null 2>&1; } || codesign --force --deep --sign - "$T" > /dev/null 2>&1
   echo "$PWD/$T"
 }
 A="$(copy a)"
@@ -73,6 +78,13 @@ for home, name, f, sound in (("Moved Song 2", "Moved Song", "tone.wav", True), (
         w = wave.open(os.path.join(root, home, "Audio Files", f), "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(44100)
         w.writeframes(b"".join(struct.pack("<h", int(12000 * math.sin(2 * math.pi * 220 * i / 44100))) for i in range(44100))); w.close()
 PY
+# a real project, to see how it opens (SLUR_OPEN=<its .sls folder> ./selftest.sh steps:openReal): laid in as "<name> probe",
+# its song copied and each of its sounds a link to where it lies, so nothing of it is written
+if [ -n "$SLUR_OPEN" ] && [ -f "$SLUR_OPEN/project.json" ]; then
+  P="$ROOT/Projects/$(basename "$SLUR_OPEN" .sls) probe.sls"; mkdir -p "$P/audio"; cp "$SLUR_OPEN/project.json" "$P/"
+  SND="$SLUR_OPEN/audio"; [ -d "$SND" ] || SND="$(dirname "$SLUR_OPEN")/Audio Files"
+  for f in "$SND"/*; do ln -s "$f" "$P/audio/"; done
+fi
 if [ -d test/projects ]; then for p in test/projects/*.sls test/projects/*.slur; do [ -d "$p" ] && ditto "$p" "$ROOT/Projects/$(basename "$p")"; done; fi
 open -g -n "$A" --args "--selftest${MODE:+=$MODE}" ${SLUR_URL:+"--slur-url=$SLUR_URL"} ${SLUR_OWN_AU:+"--own-au"} ${SLUR_AU_APART:+"--au-apart"}
 # while it runs: a second copy, opened from somewhere else, must see the first and go without doing anything

@@ -150,6 +150,14 @@
     [
      "finely",
      "⇧ drag"
+    ],
+    [
+     "a region, to another track only",
+     "⇧ drag"
+    ],
+    [
+     "a point, along the song only",
+     "⇧ drag"
     ]
    ]
   ]

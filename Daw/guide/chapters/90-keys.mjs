@@ -28,11 +28,11 @@ const group = ([name, rows]) => `<div class="kg"><h3>${esc(say(name))}</h3><tabl
 export default () => {
   const SHEET = JSON.parse(readFileSync(join(here, 'keys.json'), 'utf8'))
   const all = SHEET.flat()
-  const a = all.slice(0, 8), b = all.slice(8)
+  const a = all.slice(0, 7), b = all.slice(7)                                               // (choosing went over, once the hand had its two shift drags)
   return chapter('keys', t('key commands', '단축키'),
     t('Every key the app answers to, as its own sheet lists them. In the app the same list opens with shift and slash, with the keys button at the foot of the window, or from ((Help > Key Commands)).', '앱이 알아듣는 모든 단축키를 앱 안의 표 그대로 실었습니다. 앱에서는 shift와 슬래시, 창 아래의 keys 버튼, 또는 ((Help > Key Commands))로 같은 표가 열립니다.'), [
-      page(t('playing, tools, regions, choosing', '재생, 도구, 리전, 선택'), { kind: 'text', cc: 4, txt: a.map(group).join('') }),
-      page(t('tracks, markers, time, view, project', '트랙, 마커, 시간, 보기, 프로젝트'), { kind: 'text', cc: 4, txt: p('Keys are read by their place on the keyboard, so they are the same whatever language the keyboard is set to.', '단축키는 키보드에서의 위치로 읽기 때문에, 입력 언어가 한글이어도 똑같이 동작합니다.') + b.map(group).join('') }),
+      page(t('playing, tools, regions', '재생, 도구, 리전'), { kind: 'text', cc: 4, txt: a.map(group).join('') }),
+      page(t('choosing, tracks, markers, time, view, project', '선택, 트랙, 마커, 시간, 보기, 프로젝트'), { kind: 'text', cc: 4, txt: p('Keys are read by their place on the keyboard, so they are the same whatever language the keyboard is set to.', '단축키는 키보드에서의 위치로 읽기 때문에, 입력 언어가 한글이어도 똑같이 동작합니다.') + b.map(group).join('') }),
       page(t('also bound, and the menu bar', '표에 없는 키, 그리고 메뉴 막대'), { kind: 'split', tw: 128, txt:
         p('These keys work but are not on the app’s own sheet.', '아래 키들은 동작하지만 앱의 단축키 표에는 없습니다.') +
         table(null,

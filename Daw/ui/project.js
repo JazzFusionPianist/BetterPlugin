@@ -237,11 +237,58 @@ async function loadFiles (project, tracks, step) {
   await Promise.all(Array.from({ length: Math.min(8, names.length) }, one))
   return files
 }
+/* ── the sounds of a project being opened come after it is on the screen (his ask, 2026-10-19: a project of sixty tracks
+   and 4.5 GB stood still with the wheel spinning until every sound was ready — "적어도 메인 화면은 바로 띄워주고 progress
+   bar"). Its regions are drawn at once as outlines with their sound's name (as one not found is: missing.js), and filled
+   in as each sound comes, eight at a time beside the plug-ins being opened; the card says how far along they are. A
+   region made meanwhile from one still waiting (a copy, an undo) is filled in with the rest (soundsFill). Another project
+   opened before they have all come: no more of them is asked for, and what still comes is let go (gen). ── */
+/* a song's text as the app hands it over: base64 of its bytes (Main.cpp, text64) */
+const natText = b64 => { const s = atob(String(b64 || '')), u8 = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i); return new TextDecoder().decode(u8) }
+const SOUNDS = { gen: 0, ready: new Map(), stop: null, fresh: [], settle: 0 }
+function soundsStop () { SOUNDS.gen++; SOUNDS.ready = new Map(); SOUNDS.fresh = []; if (SOUNDS.stop) { const s = SOUNDS.stop; SOUNDS.stop = null; s(false) } }
+const soundNames = tracks => [...new Set(tracks.flatMap(t => [t].concat(t.alts || [])).flatMap(L => L.regs || []).filter(q => !q.loop && !q.notes && q.file).map(q => q.file))]
+/* a region given its sound (f: what audioLoad answered); one whose sound could not be found stays, now as not found */
+function soundOn (r, f) {
+  delete r.wait
+  if (f && f.ok) { r.key = f.key; r.peaksAll = f.peaks; r.buf = null; delete r.missing; delete r.peak; SOUNDS.fresh.push(r) }
+  dirtyReg(r)
+}
+function soundsFill () {
+  if (!SOUNDS.ready.size) return
+  for (const L of S.tracks.flatMap(t => [t].concat(t.alts || []))) for (const r of L.regs) if (r.wait && SOUNDS.ready.has(r.file)) soundOn(r, SOUNDS.ready.get(r.file))
+}
+/* -> a promise: true once every sound has come, false when another project was opened first. step(done): after each */
+function soundsRead (project, names, step) {
+  const gen = SOUNDS.gen
+  return new Promise(resolve => {
+    if (!names.length) { resolve(true); return }
+    SOUNDS.stop = resolve
+    let next = 0, done = 0
+    const one = async () => {
+      while (next < names.length && gen === SOUNDS.gen) {
+        const name = names[next++], f = await NAT.call('audioLoad', { project, file: name })
+        if (gen !== SOUNDS.gen) { if (f && f.key) { NAT.call('dropBuffer', { key: f.key }); NAT.keys.delete(f.key) } return }
+        SOUNDS.ready.set(name, f || { ok: false }); soundsFill(); done++; step(done)
+        clearTimeout(SOUNDS.settle); SOUNDS.settle = setTimeout(soundsSettle, 150)
+        if (done === names.length) { SOUNDS.stop = null; resolve(true) }
+      }
+    }
+    for (let k = 0; k < Math.min(8, names.length); k++) one()
+  })
+}
+/* what has come is heard and drawn (a few at a time): its regions go to the engine, the stretched ones are rendered */
+function soundsSettle () {
+  const fresh = SOUNDS.fresh.splice(0)
+  if (!fresh.length) return
+  resync(); uiDirty('lanes', 'dock', 'info')
+  rewarp(fresh.filter(r => S.tracks.some(t => t.regs.includes(r))))
+}
 /* ── a project being opened: a card in the middle of the window says whose it is, what is being done (its sounds made
    ready, its plug-ins opened one after another — the long part: each is a program of its own starting up — its stretched
    sounds rendered) and how far along it is. It comes up only when the opening takes more than a moment. How long each part
    took is written into the app's log (Library/Logs/Slur/daw.log), so that a slow one can be found. ── */
-const OPENING = { on: false, t0: 0, show: 0, parts: [], marks: [], base: 0 }
+const OPENING = { on: false, t0: 0, show: 0, parts: [], marks: [], base: 0, n: 0, count: null, took: null, drawnAt: 0 }
 /* beside the bar, while the card is up: a whole note walks a scale up and down five hairlines, a step every 0.14 s (his
    pick of five, design/progress motion draft 1: a) */
 function ldNote () {
@@ -264,13 +311,14 @@ function ldNote () {
    could not tell whether it was opening at all) — before the song that is open is saved, before the file is read and
    taken apart; what there is to do after that (its sounds, its plug-ins) is added once it is known (openingMore). */
 function openingBegin (name, parts) {
-  OPENING.on = true; OPENING.t0 = performance.now(); OPENING.parts = parts; OPENING.marks = []; OPENING.base = 0
-  const el = $('loading')
-  if (!el) return
+  OPENING.on = true; OPENING.t0 = performance.now(); OPENING.parts = parts; OPENING.marks = []; OPENING.base = 0; OPENING.count = null; OPENING.took = null
+  const n = ++OPENING.n, el = $('loading')
+  if (!el) return n
   $('ld-word').textContent = LANG_WORDS('opening'); $('ld-name').textContent = String(name); $('ld-fill').style.width = '0'; $('ld-what').textContent = parts.length ? LANG_WORDS(parts[0][0]) : ''
   el.style.left = Math.round((W - 340) / 2) + 'px'; el.style.top = Math.round((H - 96) / 2) + 'px'
   clearTimeout(OPENING.show); el.hidden = false
   ldNote()
+  return n
 }
 /* the rest of what there is to do, once the project has been read: its parts are said from here on by their own places */
 function openingMore (parts) { OPENING.base = OPENING.parts.length; OPENING.parts = OPENING.parts.concat(parts) }
@@ -288,11 +336,20 @@ function openingAt (part, done, what) {
   if (el) el.style.width = (100 * Math.min(all, before + Math.min(done, Math.max(1, p[1]))) / Math.max(1, all)).toFixed(1) + '%'
   if (w) w.textContent = (p[1] > 1 ? LANG_WORDS(`${p[0]} ${Math.min(done + 1, p[1])} of ${p[1]}`) : LANG_WORDS(p[0])) + (what ? '   ' + String(what).toLowerCase() : '')
 }
-function openingEnd (ok) {
-  if (!OPENING.on) return
+/* the card while the project is already on the screen: its plug-ins being opened (pd of pn, `what` the one now) and its
+   sounds made ready beside them (sd of sn), as one bar */
+function openingTell () {
+  const c = OPENING.count, el = $('ld-fill'), w = $('ld-what')
+  if (!OPENING.on || !c) return
+  if (el) el.style.width = (100 * (c.pd + c.sd) / Math.max(1, c.pn + c.sn)).toFixed(1) + '%'
+  if (w) w.textContent = c.pd < c.pn ? LANG_WORDS(`plug-ins ${c.pd + 1} of ${c.pn}`) + (c.what ? '   ' + String(c.what).toLowerCase() : '') : c.sd < c.sn ? LANG_WORDS(`sounds ${c.sd} of ${c.sn}`) : LANG_WORDS('getting ready')
+}
+/* n: the opening it ends (what openingBegin gave): one asked for after it has its own card */
+function openingEnd (ok, n) {
+  if (!OPENING.on || (n != null && n !== OPENING.n)) return
   OPENING.on = false; clearTimeout(OPENING.show)
   const el = $('loading'); if (el) el.hidden = true
-  const now = performance.now(), ms = OPENING.marks, took = OPENING.parts.map((p, i) => { if (!ms[i]) return null; let j = i + 1; while (j < ms.length && !ms[j]) j++; return `${p[0]} ${p[1]} in ${(((ms[j] || now) - ms[i]) / 1000).toFixed(1)} s` }).filter(Boolean)
+  const now = performance.now(), ms = OPENING.marks, took = OPENING.took || OPENING.parts.map((p, i) => { if (!ms[i]) return null; let j = i + 1; while (j < ms.length && !ms[j]) j++; return `${p[0]} ${p[1]} in ${(((ms[j] || now) - ms[i]) / 1000).toFixed(1)} s` }).filter(Boolean)
   if (NAT) NAT.call('log', { text: `${ok ? 'opened' : 'would not open'} in ${((now - OPENING.t0) / 1000).toFixed(1)} s: ${took.join(', ')}` })
   OPENING.last = { ok, ms: Math.round(now - OPENING.t0), took }                         // (the last opening, as the check reads it)
 }
@@ -333,32 +390,34 @@ function printDraw () {
 }
 function printEnd () { if (!PRINT.on) return; PRINT.on = false; PRINT.stopping = false; removeEventListener('keydown', printKey, true); const el = $('loading'); if (el && !OPENING.on) el.hidden = true }
 async function loadProject (key, json) {
-  if (!OPENING.on) { openingBegin(projNameOf(key), [['reading', 1]]); await openingShown() }
+  let n = OPENING.n
+  if (!OPENING.on) { n = openingBegin(projNameOf(key), [['reading', 1]]); await openingShown() }
   PROJ.hold++
-  let ok = false
-  try { ok = await loadProjectNow(key, json); return ok } finally { PROJ.hold--; openingEnd(ok) }
+  let ok = false, held = true
+  const free = () => { if (held) { held = false; PROJ.hold-- } }                        // (the song may be written once its plug-ins are in: loadProjectNow)
+  try { ok = await loadProjectNow(key, json, free); return ok } finally { free(); openingEnd(ok, n) }
 }
 /* Plug-ins the app has learnt not to open by itself (one was playing, or being opened, when the app last went down), and what
    was left out of the song being opened. A plug-in left out keeps its place in the patch and its settings: it is drawn
    there dimmed, and a press brings it back. One that will not open (it is not on this machine) is kept the same way. */
 const DISTRUST = new Set()
 const LOAD = { bare: false, left: [] }
-async function loadProjectNow (key, json) {
+async function loadProjectNow (key, json, free) {
+  soundsStop()                                                                         // (another project's sounds still on their way: no more of them)
+  const gen = SOUNDS.gen, t0 = performance.now()
   openingAt(Math.max(0, OPENING.parts.findIndex(p => p[0] === 'reading')), 0)
   const r = json ? { ok: true, json, saved: Date.now() } : await NAT.call('projLoad', { name: key })
   if (!r || !r.ok) return false
   let d
-  try { d = JSON.parse(r.json) } catch (e) { return false }
+  try { d = JSON.parse(r.json != null ? r.json : natText(r.json64)) } catch (e) { return false }
   if (!d || !Array.isArray(d.tracks) || !d.tracks.length) return false
-  /* how much there is to do: its sounds, its plug-ins (those of the stereo out too), and the stretched sounds at the end */
-  { const fs = new Set(); for (const t of d.tracks) for (const L of [t].concat(t.alts || [])) for (const q of L.regs || []) if (!q.loop && q.file) fs.add(q.file)
-    const plugs = d.tracks.reduce((n, t) => n + (t.inserts || []).filter(i => !i.out).length, 0) + ((d.out && d.out.inserts) || []).filter(i => !i.out).length
-    openingMore([['sounds', fs.size], ['plug-ins', plugs], ['getting ready', 1]]) }
-  openingSay(0, 0)
+  /* how much there is to do: its plug-ins (those of the stereo out too) and its sounds, both once it is on the screen */
+  const names = soundNames(d.tracks), plugs = d.tracks.reduce((n, t) => n + (t.inserts || []).filter(i => !i.out).length, 0) + ((d.out && d.out.inserts) || []).filter(i => !i.out).length
+  OPENING.count = { pn: plugs, pd: 0, sn: names.length, sd: 0, what: '' }
   resetSession()
   await NAT.call('session', { tempo: S.tempo, end: SONG_END, tracks: [] })                           // everything out of the engine first, plug-ins too
   dropAllAudio()
-  const files = await loadFiles(key, d.tracks, done => openingSay(0, done))
+  if (gen !== SOUNDS.gen) return true                                                  // (another project was asked for meanwhile: it is that one's to open)
   const meter = Array.isArray(d.meter) && MEASURES.some(m => m[0] === d.meter[0] && m[1] === d.meter[1]) ? d.meter.slice(0, 2) : [4, 4]
   if (d.tempo !== S.tempo || meter[0] !== S.meter[0] || meter[1] !== S.meter[1]) { S.tempo = d.tempo; S.meter = meter; LOOPS = songLoops(S.tempo); await natSendLoops() }
   PROJ.fresh = !!d.fresh; setProj(key); PROJ.demo = d.demo == null ? !(d.v >= 2) : !!d.demo                    // it is called what its folder is called: a copy made in the Finder must not write into the one it was copied from
@@ -369,7 +428,7 @@ async function loadProjectNow (key, json) {
     if (!(t.h >= ROW_MIN && t.h <= ROW_MAX)) delete t.h                                    // (a row's own height, when it was pulled to one)
     delete t.c; delete t.own                                                             // a project from before colours were read from what a track holds
     if (d.demo && MOCK_PATCH[t.name] && JSON.stringify(t.patch) === JSON.stringify(MOCK_PATCH[t.name])) t.patch = NO_PATCH()          // the first song's mock-up patch, exactly as it was put there and never touched: taken off
-    const back = list => list.map(q => { const f = q.file ? files.get(q.file) : null; return Object.assign({ off: 0, gain: 0, mute: false, fi: 0, fo: 0 }, q, f && f.ok ? { key: f.key, peaksAll: f.peaks, buf: null } : q.file && !q.loop ? { missing: true } : {}) }).filter(q => q.notes ? Array.isArray(q.notes) : q.loop ? LOOPS[q.buf] : q.key || q.missing)      // (a sound not found is never let go of: its region stays, says so, and is written back as it was — missing.js)
+    const back = list => list.map(q => Object.assign({ off: 0, gain: 0, mute: false, fi: 0, fo: 0 }, q, q.file && !q.loop && !q.notes ? { missing: true, wait: true } : {})).filter(q => q.notes ? Array.isArray(q.notes) : q.loop ? LOOPS[q.buf] : q.key || q.missing)      // (its sound is still to come: soundsRead. One not found is never let go of: its region stays, says so, and is written back as it was — missing.js)
     t.regs = back(o.regs)
     t.alts = Array.isArray(o.alts) ? o.alts.map(a => ({ name: String(a.name), regs: back(a.regs || []) })) : []
     t.patch0 = copy(t.patch)
@@ -388,34 +447,50 @@ async function loadProjectNow (key, json) {
   PXB = clamp(vw.pxb || fitPXB(), fitPXB(), maxPXB()); VX = clamp(vw.vx || 0, 0, maxVX()); S.rh = now ? clamp(vw.rh || 25, 20, 120) : 25; S.wz = now ? clamp(vw.wz || 1, 1, 1024) : 1; VY = clamp(now ? vw.vy || 0 : 0, 0, maxVY())
   normalizeOrder(); repaint()
   resync(); pushTransport(); pushMaster(); pushClick(); applyAll()
+  /* on the screen now, whole but for its sounds; they are asked for at once, and come beside the plug-ins */
+  closeStart(); dirtyAll(); refreshPool(); setTitle(); flush()
+  await openingShown()
+  OPENING.drawnAt = performance.now()
+  const c = OPENING.count, came = soundsRead(key, names, done => { c.sd = done; openingTell() })
+  openingTell()
   LOAD.left = []
   let plugN = 0
   for (let i = 0; i < d.tracks.length; i++) for (const ins of d.tracks[i].inserts || []) {
     const t = byId(d.tracks[i].id)
+    if (gen !== SOUNDS.gen) return true
     if (!t) continue
-    if (!ins.out) openingSay(1, plugN++, ins.name)
+    if (!ins.out) { c.pd = plugN++; c.what = ins.name; openingTell() }
     const kept = { uid: 0, name: ins.name || 'plug-in', fmt: ins.fmt || '', id: ins.id, state: ins.state || '', off: !!ins.off, key: ins.key || 0, n: ins.n || 0, pn: ins.pn || null, out: true }
     if (ins.out || LOAD.bare || DISTRUST.has(ins.id)) { t.inserts.push(kept); if (!ins.out) LOAD.left.push(kept.name); continue }
     const rr = await NAT.call('insert', { track: t.id, id: ins.id, state: ins.state || '', show: 0 })
     if (rr && rr.ok) { const got = { uid: rr.uid, name: rr.name, fmt: rr.fmt, id: ins.id, state: ins.state || '', off: !!ins.off, key: ins.key || 0, n: ins.n || 0, pn: ins.pn || null, sc: !!rr.key }; t.inserts.push(got); if (ins.off) NAT.call('bypass', { track: t.id, uid: rr.uid, off: 1 }); keyTold(t, got) }
     else { t.inserts.push(kept); LOAD.left.push(kept.name) }                              // it would not open: its place and its settings stay in the song
   }
-  if (typeof wallOutLoad === 'function') await wallOutLoad(d.out, name => openingSay(1, plugN++, name))      // (wall.js: the stereo out's own wall and plug-ins)
-  openingSay(2, 0)
-  await rewarpAll()
+  if (typeof wallOutLoad === 'function') await wallOutLoad(d.out, name => { c.pd = plugN++; c.what = name; openingTell() })      // (wall.js: the stereo out's own wall and plug-ins)
+  if (gen !== SOUNDS.gen) return true
+  c.pd = c.pn; openingTell()
+  const plugged = performance.now()
+  /* the song is whole from here (what its sounds bring changes nothing of what is written): it may be saved */
   PROJ.last = json ? '' : serialize(); PROJ.saved = !json; PROJ.savedAt = ''; PROJ.savedMs = r.saved || 0
   rememberProj()
-  closeStart()
-  dirtyAll()
-  refreshPool(); setTitle()
+  free()
+  await came
+  if (gen !== SOUNDS.gen) return true
+  const heard = performance.now()
+  clearTimeout(SOUNDS.settle); soundsSettle()
+  await rewarpAll()
+  dirtyAll(); refreshPool()
+  const sec = (a, b) => `${((b - a) / 1000).toFixed(1)} s`
+  OPENING.took = [`drawn in ${sec(t0, OPENING.drawnAt)}`, `plug-ins ${c.pn} in ${sec(OPENING.drawnAt, plugged)}`, `sounds ${c.sn} in ${sec(OPENING.drawnAt, heard)} (beside the plug-ins)`, `getting ready in ${sec(heard, performance.now())}`]
   return true
 }
 /* the device moved to another rate: every sound has to come again at it */
 async function reloadAudio () {
+  soundsStop()
   const files = await loadFiles(projKey(), S.tracks)
   const old = new Set(NAT.keys)
   for (const f of files.values()) if (f && f.key) old.delete(f.key)
-  for (const t of S.tracks.flatMap(lanesOf)) for (const r of t.regs) { if (r.loop) { r.wkey = null; r.wsig = ''; continue } const f = r.file ? files.get(r.file) : null; if (f && f.ok) { r.key = f.key; r.peaksAll = f.peaks; r.wkey = null; r.wsig = ''; r.wpeaks = null; dirtyReg(r) } }
+  for (const t of S.tracks.flatMap(lanesOf)) for (const r of t.regs) { if (r.loop) { r.wkey = null; r.wsig = ''; continue } const f = r.file ? files.get(r.file) : null; if (f && f.ok) { soundOn(r, f); r.wkey = null; r.wsig = ''; r.wpeaks = null } else if (r.wait) soundOn(r, f) }
   WARPS.clear(); LIVEW.clear(); forgetTransients()
   resync()
   for (const key of old) { NAT.call('dropBuffer', { key }); NAT.keys.delete(key) }                  // what was decoded at the old rate
@@ -430,6 +505,7 @@ async function newProject () {
   try { await newProjectNow() } finally { PROJ.hold-- }
 }
 async function newProjectNow () {
+  soundsStop()
   const have = new Set(((await NAT.call('projList')) || []).map(p => p.name))
   let name = 'untitled', k = 1
   while (have.has(name)) name = `untitled ${++k}`
@@ -524,14 +600,15 @@ async function openProject (key) {
   const ans = typeof leaveFirst === 'function' && !START.on ? await leaveFirst() : 'same'
   if (ans === 'cancel') return
   const save = !START.on && ans !== 'dont'
-  openingBegin(projNameOf(key), save ? [['saving', 1], ['reading', 1]] : [['reading', 1]])
+  const n = openingBegin(projNameOf(key), save ? [['saving', 1], ['reading', 1]] : [['reading', 1]])
   await openingShown()
   let ok = false
   try {
     if (save) { openingAt(0, 0); if (!(await saveNow(true, ans === 'save')) && ans === 'save') { say('the song could not be written'); return } }
     else if (ans === 'dont') await leavePutBack()
     ok = await loadProject(key)
-  } finally { openingEnd(ok) }
+  } finally { openingEnd(ok, n) }
+  if (n !== OPENING.n) return                                                          // (another project was opened while this one's sounds were still coming)
   if (!ok) say('that project would not open'); else await takesBack()
 }
 /* a take that was being recorded when the app last stopped: its file was made whole on disk as it went, and it is put where
@@ -596,7 +673,7 @@ async function revertTo (file, when) {
   const cur = serialize()
   await NAT.call('projSave', { name: projKey(), json: cur, backup: 1 })                  // the song as it is now is put aside first: going back can itself be taken back
   const r = await NAT.call('projBackup', { name: projKey(), file })
-  if (!r || !r.ok || !(await loadProject(projKey(), r.json))) { say('that copy would not open'); return }
+  if (!r || !r.ok || !(await loadProject(projKey(), natText(r.json64)))) { say('that copy would not open'); return }
   await saveNow(false, true)
   say(`back to ${whenText(when)}`)
 }

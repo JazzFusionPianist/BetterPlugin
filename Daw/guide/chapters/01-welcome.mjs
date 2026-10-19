@@ -42,7 +42,7 @@ export default () => chapter('welcome', t('before you begin', '시작하기 전�
     h('two habits that work everywhere', '어디서나 통하는 두 가지') +
     table(null,
       ['[[⌥]] ' + t('click', '클릭'), ['back to where it starts: a fader to 0 dB, a pan to the middle, a region’s gain to none, a print to its first amount, the zoom to the whole song', '처음 값으로. 페이더는 0 dB, 팬은 가운데, 리전 게인은 0, 프린트는 처음 양, 줌은 곡 전체']],
-      ['[[⇧]] ' + t('drag', '드래그'), ['finely: the thing moves a fifth as far', '미세하게. 움직임이 5분의 1이 됩니다']]) +
+      ['[[⇧]] ' + t('drag', '드래그'), ['finely: the thing moves a fifth as far. A region goes only to another track, keeping its place in the song; a point of a line goes only along the song, keeping its value', '미세하게. 움직임이 5분의 1이 됩니다. 리전은 곡 안의 위치를 지킨 채 다른 트랙으로만, 오토메이션 포인트는 값을 지킨 채 시간 방향으로만 움직입니다']]) +
     h('numbers on pictures', '그림의 번호') +
     p('A numbered square beside a picture, with a line to a part of it, belongs to the same number in the list beside it.', '그림 옆의 번호 네모와 거기서 뻗은 선은 옆 목록의 같은 번호를 가리킵니다.') +
     h('drawings', '도해') +

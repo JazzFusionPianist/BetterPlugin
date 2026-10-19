@@ -1651,6 +1651,7 @@ function lanesMove (e, p) {
     const lead = d.orig.get(d.lead), vis = rows()
     let dx = Math.max(0, snapPos(pos - d.grab, e, new Set(d.orig.keys()))) - (lead.a - 1)
     for (const o of d.orig.values()) dx = Math.max(dx, -(o.a - 1))
+    if (e.shiftKey && !e.ctrlKey) dx = 0                                               // shift held: only to another track, where it is in the song kept (his ask, 2026-10-19)
     let dk = vis.indexOf(laneAt(p.y)) - vis.indexOf(d.ti0)
     const dest = o => S.tracks[vis[vis.indexOf(o.ti) + dk]]
     for (const o of d.orig.values()) { const tt = dest(o); if (vis.indexOf(o.ti) < 0 || !tt || tt.kind !== 'audio' || tt.theirs !== S.tracks[o.ti].theirs || !!tt.inst !== !!S.tracks[o.ti].inst) dk = 0 }      // (one of them lies on a track that does not show — inside a closed stack: nothing changes rows then)

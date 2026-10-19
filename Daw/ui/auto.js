@@ -188,7 +188,7 @@ function autoMove (e, p) {
   const t = S.tracks[d.ti], g = autoGeom(t, rowY(d.ti), rowH(d.ti))
   if (d.seg && d.lead == null) { if (Math.hypot(p.x - d.x0, p.y - d.y0) < 3) return; autoSeg(d, t) }      // a stretch of the line taken hold of: it is pulled only once the hand has moved
   const pts = autoPts(t, d.k), lead = d.orig.get(d.lead)
-  const db = d.seg ? 0 : clamp(snapPos(lead.b + (barAt(p.x) - barAt(d.x0)), e), 0, SONG_END) - lead.b, df = -(p.y - d.y0) / g.lh
+  const db = d.seg ? 0 : clamp(snapPos(lead.b + (barAt(p.x) - barAt(d.x0)), e), 0, SONG_END) - lead.b, df = !d.seg && e.shiftKey && !e.ctrlKey ? 0 : -(p.y - d.y0) / g.lh      // (shift held: points go along the song only, their values kept — his ask, 2026-10-19)
   const lv = g.A.inv(clamp(g.A.f(lead.v) + df, 0, 1)), dv = lv - lead.v                   // (the hand moves the first by so much of the lane; all the others go by as much of their own unit — a stretch of a volume line goes down by the same db all along)
   for (const q of pts) { const o = d.orig.get(q.id); if (!o) continue; q.b = clamp(o.b + db, 0, SONG_END); q.v = o === lead ? lv : g.A.inv(clamp(g.A.f(o.v + dv), 0, 1)); delete q.e }      // (a point an edit of the song's time made is whoever moves it's from then on)
   sortPts(pts)

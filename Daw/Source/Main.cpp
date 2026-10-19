@@ -294,7 +294,7 @@ public:
         startTimerHz (30);
     }
 
-    ~MainComponent() override { slur::PlugWindow::key = nullptr; meters.clear(); settings.reset(); engine.devices().removeChangeListener (this); }
+    ~MainComponent() override { decodeAlive->store (false); decodePool.removeAllJobs (false, 0); slur::PlugWindow::key = nullptr; meters.clear(); settings.reset(); engine.devices().removeChangeListener (this); }
     void resized() override { if (web) web->setBounds (getLocalBounds()); }
     void paint (juce::Graphics& g) override { g.fillAll (juce::Colour (0xff151514)); }
 
@@ -409,6 +409,12 @@ public:
     void askToQuit() { if (quitIn > 0) return; quitIn = 45; web->emitEventIfBrowserIsVisible ("dawQuit", juce::var()); }
     void snapshot (const juce::File& f, bool slursOwn = false) { if (auto* p = getPeer()) slurSnapshotWebView (p->getNativeHandle(), f.getFullPathName().toRawUTF8(), slursOwn); }
     daw::Engine engine;
+    /** Sounds made ready (decoded into the cache the first time, and brought to the engine's rate) several at a time and
+        off the message thread: a project of many takes opens in a share of the time, and the window goes on moving while it
+        does (his ask, 2026-10-18: opening took too long). After the engine, so it goes first; what it hands back after the
+        window has gone is dropped. */
+    std::shared_ptr<std::atomic<bool>> decodeAlive = std::make_shared<std::atomic<bool>> (true);
+    juce::ThreadPool decodePool { juce::jlimit (2, 8, juce::SystemStats::getNumCpus() - 2) };
     std::function<void (const juce::String&, const juce::var&)> onTestNote;
     std::function<void()> onTestDone;
     static juce::File logDir() { return juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Logs/Slur"); }
@@ -579,7 +585,7 @@ private:
         if (op == "dropBuffer") { engine.dropBuffer (d["key"].toString()); done (okVar()); return; }
         if (op == "wave") { done (engine.wave (d["key"].toString(), (double) d["from"], (double) d["to"], (int) d["n"])); return; }      // a stretch of a sound, close up, for drawing
         if (op == "closeEditors") { engine.closeEditors(); done (okVar()); return; }
-        if (op == "testPlugWindows") { done (juce::JSON::parse (juce::String (slur::PlugWindow::check ((bool) d["space"])))); return; }      // (for the self-test)
+        if (op == "testPlugWindows") { done (juce::JSON::parse (juce::String (slur::PlugWindow::check ((bool) d["space"], d.hasProperty ("code") ? (int) d["code"] : 49, (int) d["post"] != 0)))); return; }      // (for the self-test)
         if (op == "plugins") { done (engine.listPlugins ([] (const juce::String& id) { return auMaker (id); })); return; }
         if (op == "insert")  { engine.insertPlugin ((int) d["track"], d["id"].toString(), d["state"].toString(), ! d.hasProperty ("show") || (int) d["show"] != 0, [done] (juce::var r) { done (r); }, d.hasProperty ("at") ? (int) d["at"] : -1, (int) d["inst"] != 0); return; }
         // a track's instrument: one of the DAW's own ({track, kind, p}), what is turned on it ({track, p}), a sound for it to play from ({track, slot, key})
@@ -1185,13 +1191,20 @@ private:
             juce::File file;
             for (auto& at : look) if (at != juce::File() && at.getChildFile (name).existsAsFile()) { file = at.getChildFile (name); break; }
             if (file == juce::File()) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); o->setProperty ("missing", 1); o->setProperty ("file", name); done (juce::var (o)); return; }
-            if ((int) d["adopt"] != 0 && file.getParentDirectory() != own)
+            const bool adopt = (int) d["adopt"] != 0 && file.getParentDirectory() != own;
+            auto alive = decodeAlive;
+            decodePool.addJob ([this, alive, file, own, name, adopt, done] () mutable              // (on a thread of the pool: the answer comes back on the message thread)
             {
-                own.createDirectory();
-                const auto in = own.getChildFile (name);
-                if ((in.existsAsFile() || file.copyFileTo (in)) && in.existsAsFile()) file = in;
-            }
-            done (withFile (engine.decodeFile (file), file.getFileName(), file.getFileNameWithoutExtension())); return;
+                if (adopt)
+                {
+                    own.createDirectory();
+                    const auto in = own.getChildFile (name);
+                    if ((in.existsAsFile() || file.copyFileTo (in)) && in.existsAsFile()) file = in;
+                }
+                auto v = withFile (engine.decodeFile (file), file.getFileName(), file.getFileNameWithoutExtension());
+                juce::MessageManager::callAsync ([alive, done, v] () mutable { if (alive->load()) done (v); });
+            });
+            return;
         }
         if (op == "audioFind")                                                  // the folder the sounds of a project are in, picked by hand (the Mac lets the app read what is picked)
         {
@@ -1366,6 +1379,8 @@ private:
             }, [done] (juce::var r) { done (r); });
             return;
         }
+        if (op == "probe")  { engine.probe (d, [done] (juce::var r) { done (r); }); return; }      // a plug-in learnt by what it does (ui/probe.js)
+        if (op == "listen") { engine.listen (d, [done] (juce::var r) { done (r); }); return; }      // how tracks sound over a stretch, as numbers (Engine::listen)
         if (op == "bounceLive")                                                // a print played through in real time (Engine::liveStart): the room draws it as it goes
         {
             juce::var opts = d;

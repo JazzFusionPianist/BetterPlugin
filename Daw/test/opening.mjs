@@ -1,5 +1,5 @@
-// node test/opening.mjs — the card that stands in the window while a project is opened: it comes up only once the opening
-// has taken more than a moment, names the project, says which part is under way and which thing of it, fills its bar by
+// node test/opening.mjs — the card that stands in the window while a project is opened: it comes up the moment the opening
+// begins (his ask, 2026-10-18: "딱 열자마자 progress bar가 보여야"), names the project, says which part is under way and which thing of it, fills its bar by
 // how much of all there is to do is done, and goes when the opening ends. (No app here: the parts are told by hand.)
 import { open, PAGE } from './cdp.mjs'
 const b = await open(PAGE, { width: 1440, height: 900, dsf: 1 })
@@ -10,7 +10,7 @@ const ev = b.ev
 const see = () => ev(`const el = document.getElementById('loading'), r = el.getBoundingClientRect(), bw = document.getElementById('ld-bar').getBoundingClientRect().width; return { up: !el.hidden, name: document.getElementById('ld-name').textContent, what: document.getElementById('ld-what').textContent, fill: +(document.getElementById('ld-fill').getBoundingClientRect().width / (bw || 1)).toFixed(3), mid: [Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2)], win: [innerWidth, innerHeight] }`)
 ok('with nothing being opened there is no card', !(await see()).up)
 await ev(`openingBegin('My Song', [['sounds', 4], ['plug-ins', 3], ['getting ready', 1]]); openingSay(0, 0)`)
-ok('at once, nothing yet: an opening that is over in a moment shows no card', !(await see()).up)
+ok('at once: the card is up the moment the opening begins', (await see()).up)
 await b.sleep(380)
 const s0 = await see()
 ok('after a moment the card is up, in the middle of the window, with the project’s name', s0.up && s0.name.toLowerCase() === 'my song' && Math.abs(s0.mid[0] - s0.win[0] / 2) < 4 && Math.abs(s0.mid[1] - s0.win[1] / 2) < 30, s0)
@@ -32,20 +32,20 @@ ok('a project opened in a moment never shows the card', !(await see()).up)
 /* the same card while something is printed: up at once, file by file and within the file, gone when the print ends */
 await ev(`printBegin('printing stems', 'My Song chorus stems', 4)`)
 const p0 = await see()
-ok('a print begun: the card is up at once, with what is printed', p0.up && p0.name.toLowerCase() === 'my song chorus stems' && /^file 1 of 4\s+0%$/.test(p0.what) && p0.fill === 0, p0)
+ok('a print begun: the card is up at once, with what is printed', p0.up && p0.name.toLowerCase() === 'my song chorus stems' && /^file 1 of 4\s+0%(\s+esc stops it)?$/.test(p0.what) && p0.fill === 0, p0)
 await ev(`printTell({ part: .5 })`)
 const p1 = await see()
-ok('half of the first file written: an eighth of the whole', /^file 1 of 4\s+13%$/.test(p1.what) && Math.abs(p1.fill - .125) < .01, p1)
+ok('half of the first file written: an eighth of the whole', /^file 1 of 4\s+13%(\s+esc stops it)?$/.test(p1.what) && Math.abs(p1.fill - .125) < .01, p1)
 await ev(`printTell({ done: 1, total: 4, part: 1 }); printTell({ part: .2 })`)
 const p2 = await see()
-ok('the first file done and the second begun', /^file 2 of 4\s+30%$/.test(p2.what) && Math.abs(p2.fill - .3) < .01, p2)
+ok('the first file done and the second begun', /^file 2 of 4\s+30%(\s+esc stops it)?$/.test(p2.what) && Math.abs(p2.fill - .3) < .01, p2)
 await ev(`printTell({ done: 4, total: 4, part: 1 })`)
 ok('all four written: the bar is full', (await see()).fill === 1, await see())
 await ev(`printEnd()`)
 ok('the print over: the card is gone', !(await see()).up)
 await ev(`printBegin('printing the mix', 'My Song mix', 1); printTell({ part: .42 })`)
 const p3 = await see()
-ok('one file (the mix): only how far along it is', p3.up && p3.what.trim() === '42%' && Math.abs(p3.fill - .42) < .01, p3)
+ok('one file (the mix): only how far along it is', p3.up && /^42%(\s+esc stops it)?$/.test(p3.what.trim()) && Math.abs(p3.fill - .42) < .01, p3)
 await b.shot('printing.png')
 await ev(`printEnd()`)
 

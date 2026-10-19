@@ -14,6 +14,30 @@
 /* every window of a plug-in's that is up (both kinds), for the self-test to look at */
 static NSHashTable<NSWindow*>* slurPlugWindows() { static NSHashTable<NSWindow*>* all = [NSHashTable weakObjectsHashTable]; return all; }
 
+/* The space bar is the room's in a plug-in's window whatever the plug-in does with keys (his ask, 2026-10-19: a plug-in
+   that takes every key, as many do, left play and stop deaf while he worked in it) — but not while words are typed into
+   a field of the Mac's own. Comma and period (the playhead a bar back and on) as well, where nothing of the plug-in has
+   the keys: in one of its own fields they are a number's point, and stay its. Seen before the plug-in sees them. */
+static void slurPlugKeysFirst()
+{
+    static id monitor = nil;
+    if (monitor != nil) return;
+    monitor = [NSEvent addLocalMonitorForEventsMatchingMask: NSEventMaskKeyDown handler: ^NSEvent* (NSEvent* e)
+    {
+        NSWindow* w = e.window;
+        if (w == nil || ! [slurPlugWindows() containsObject: w] || ! slur::PlugWindow::key) return e;
+        const NSEventModifierFlags m = e.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
+        if ((m & (NSEventModifierFlagCommand | NSEventModifierFlagControl | NSEventModifierFlagOption)) != 0) return e;
+        id fr = w.firstResponder;
+        if ([fr isKindOfClass: [NSText class]]) return e;
+        const bool idle = fr == nil || fr == w || fr == w.contentView;
+        const std::string code = e.keyCode == 49 ? "Space" : idle && e.keyCode == 43 ? "Comma" : idle && e.keyCode == 47 ? "Period" : "";
+        if (code.empty()) return e;
+        if (! e.isARepeat || code != "Space") slur::PlugWindow::key (code, (m & NSEventModifierFlagShift) != 0);      // (held down: the space bar once, the playhead on and on)
+        return nil;
+    }];
+}
+
 /* over the app's own windows while the app is in front; out of sight with the app when another is */
 static void slurKeepOver (NSWindow* w)
 {
@@ -22,6 +46,7 @@ static void slurKeepOver (NSWindow* w)
     w.hidesOnDeactivate = YES;
     w.collectionBehavior = (w.collectionBehavior & ~NSWindowCollectionBehaviorFullScreenPrimary) | NSWindowCollectionBehaviorFullScreenAuxiliary;      // (over the room when the room fills the screen, too)
     [slurPlugWindows() addObject: w];
+    slurPlugKeysFirst();
 }
 
 /* a key that came all the way up to the window: nothing of the plug-in's wanted it */
@@ -29,7 +54,7 @@ static bool slurPlugKey (NSEvent* e)
 {
     const NSEventModifierFlags m = e.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
     if ((m & (NSEventModifierFlagCommand | NSEventModifierFlagControl | NSEventModifierFlagOption)) != 0 || ! slur::PlugWindow::key) return false;
-    const std::string code = e.keyCode == 49 ? "Space" : e.keyCode == 36 ? "Enter" : e.keyCode == 9 && (m & NSEventModifierFlagShift) == 0 ? "KeyV" : "";
+    const std::string code = e.keyCode == 49 ? "Space" : e.keyCode == 36 ? "Enter" : e.keyCode == 9 && (m & NSEventModifierFlagShift) == 0 ? "KeyV" : e.keyCode == 43 ? "Comma" : e.keyCode == 47 ? "Period" : "";
     if (code.empty()) return false;
     if (e.isARepeat) return true;                                  // (held down: once)
     return slur::PlugWindow::key (code, (m & NSEventModifierFlagShift) != 0);
@@ -140,7 +165,7 @@ int PlugWindow::keyCodeNow()
     return e != nil && e.type == NSEventTypeKeyDown ? (int) e.keyCode : -1;
 }
 
-std::string PlugWindow::check (bool pressSpace)
+std::string PlugWindow::check (bool pressSpace, int keyCode, bool posted)
 {
     NSMutableArray* list = [NSMutableArray array];
     NSWindow* first = nil;
@@ -155,9 +180,11 @@ std::string PlugWindow::check (bool pressSpace)
     bool sent = false;
     if (pressSpace && first != nil)
     {
+        NSString* ch = keyCode == 47 ? @"." : keyCode == 43 ? @"," : @" ";
         NSEvent* ev = [NSEvent keyEventWithType: NSEventTypeKeyDown location: NSZeroPoint modifierFlags: 0 timestamp: NSProcessInfo.processInfo.systemUptime
-                                   windowNumber: first.windowNumber context: nil characters: @" " charactersIgnoringModifiers: @" " isARepeat: NO keyCode: 49];
-        [first sendEvent: ev];
+                                   windowNumber: first.windowNumber context: nil characters: ch charactersIgnoringModifiers: ch isARepeat: NO keyCode: (unsigned short) keyCode];
+        if (posted) [NSApp postEvent: ev atStart: NO];             // (the app's own way in: its watch sees it before the window does)
+        else [first sendEvent: ev];
         sent = true;
     }
     NSData* json = [NSJSONSerialization dataWithJSONObject: @{ @"windows": list, @"sent": @(sent) } options: 0 error: nil];

@@ -3,6 +3,23 @@ import { t, p, lead, h, note, steps, list, legend, table, cols, fig, draw, D, pa
 // one clause of a line, drawn as cells: [word, kind]
 const clause = (x, y, cells) => { let s = '', cx = x; for (const [w, kind, wd] of cells) { const ww = wd || Math.max(12, w.length * 1.75 + 5); s += D.cell(cx, y, ww, 8, w, w, kind === 'do' ? 'on' : kind === 'then' ? 'dash' : '') + D.txt(cx + ww / 2, y + 12.5, ...({ who: ['who', '누구'], where: ['where', '어디'], much: ['how much', '얼마나'], do: ['do', '무엇을'], then: ['then', '그리고'] })[kind], 'xs m'); cx += ww + 1.6 } return s }
 
+/* the three ways side by side: the bass along the song and up from its lows, the kick's hits as dots over it, and where the
+   bass gives way drawn pale: A always at the kick's low, B on each hit and all of it, C on each hit and only where they meet */
+const waysDrawn = () => {
+  let s = ''
+  const pale = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="var(--paper)" fill-opacity=".78"/>`
+  ;[['A', 'carve the lows', 'always, at the kick’s low', '늘, 킥의 저음 자리에서'], ['B', 'duck the bass', 'on each hit, all of the bass', '칠 때마다, 베이스 전체'], ['C', 'only where they meet', 'on each hit, only where they meet', '칠 때마다, 겹치는 곳만']].forEach(([l, name, en, ko], i) => {
+    const x = i * 42, hits = [3, 12, 21, 30]
+    s += `<rect x="${x}" y="11" width="36" height="16" fill="var(--ink)" fill-opacity=".16"/>` + D.box(x, 5, 36, 22, 'soft')
+    for (const hx of hits) s += D.dot(x + hx + 1.4, 2.6, .75, 'bl')
+    if (i === 0) s += pale(x, 17.5, 36, 3.4)
+    for (const hx of hits) { if (i === 1) s += pale(x + hx, 11, 3.2, 16); if (i === 2) s += pale(x + hx, 16, 3.2, 6) }
+    s += D.line(x, 16, x + 36, 16, 'dash soft') + D.line(x, 22, x + 36, 22, 'dash soft')
+    s += D.txt(x, 32.5, l + '  ' + name, l + '  ' + name, 'b') + D.txt(x, 36.6, en, ko, 'xs')
+  })
+  return s
+}
+
 export default () => chapter('say', t('the command line', '커맨드 라인'),
   t('Type what you want done, in English, on the panel’s prompt page (or at the foot of the window). Everything one line does is one step of undo.', '패널의 prompt 페이지(또는 창 맨 아래)에 하고 싶은 일을 영어로 입력합니다. 한 줄이 한 모든 일은 실행 취소 한 번으로 되돌아갑니다.'), [
 
@@ -183,4 +200,43 @@ export default () => chapter('say', t('the command line', '커맨드 라인'),
       ['On a track of notes the marquee lies on, where what stood in those bars makes way; else the leading track, if it is a track of notes with those bars free; else a track called {{chords}}, made the first time. A kit, and a sound that plays one key at a time, are never given chords.', '마키가 놓인 노트 트랙(그 마디에 있던 것은 자리를 내줍니다). 아니면 리드 트랙이 노트 트랙이고 그 마디가 비어 있을 때 그 트랙, 그것도 아니면 처음에 만들어지는 {{chords}} 트랙. 드럼 키트와 한 번에 한 음만 내는 사운드에는 넣지 않습니다.'],
       ['The region is named for its chords, the notes page opens on it, and every note is as hard as the notes page draws one. One line is one step of undo.', '리전 이름은 그 코드들이고, 노트 페이지가 그 리전으로 열리며, 모든 노트의 세기는 노트 페이지에서 그리는 노트와 같습니다. 한 줄은 실행 취소 한 번입니다.']) +
     note('One chord name alone can be a word the list over the line knows (G begins guitar): the list then takes return. Type it with a bar line, `G |`, or put the list away with [[esc]] first.', '코드 이름 하나만 쓰면 줄 위의 목록이 아는 낱말일 수 있습니다(G는 guitar의 첫 글자). 그러면 return을 목록이 가져갑니다. 마디선과 함께 `G |`라고 쓰거나 먼저 [[esc]]로 목록을 닫습니다.') }),
+
+  page(t('asking by the sound', '소리로 요청하기'), { kind: 'wide', cc: 3, txt:
+    legend(
+      [1, 'the request, as typed: two tracks and how they should sound', '입력한 요청: 트랙 둘과 원하는 소리'],
+      [2, '{{heard}} the lows of both tracks from 30 to 400 hz, each in its track’s colour; where they meet is shaded. At the right, the bars listened to', '{{heard}} 두 트랙의 저음, 30~400 hz. 각자 트랙 색으로 그리고 겹치는 곳은 칠해 둡니다. 오른쪽 위는 들은 마디'],
+      [3, 'the same in numbers: where they meet, each one’s low ({{longer}}: it sounds for more of the time), and on how many of the kick’s hits the bass is about as loud there', '같은 것을 숫자로: 겹치는 대역, 각자의 저음({{longer}}는 소리 나는 시간이 더 길다는 뜻), 그리고 킥이 칠 때 그 대역에서 베이스가 킥만큼 큰 비율'],
+      [4, '{{hear}} {{as it is}}, {{A}}, {{B}}, {{C}}: one at a time, {{levels matched}}', '{{hear}} {{as it is}}, {{A}}, {{B}}, {{C}}: 한 번에 하나씩, {{levels matched}}'],
+      [5, 'a way’s cells, written as the command line writes things: what it puts on, on which track, keyed by what, and every amount', '방법의 셀. 커맨드 라인이 적는 방식 그대로: 무엇을, 어느 트랙에, 무엇을 키로, 얼마나'],
+      [6, '{{hear}} puts the way on; it reads {{hearing}} while it is on', '{{hear}}는 그 방법을 걸어 둡니다. 걸려 있는 동안은 {{hearing}}'],
+      [7, 'what the way was heard to do, measured', '그 방법이 실제로 한 일, 측정값'],
+      [8, 'an amount typed over: A’s −3 db made −1.5', '덮어 입력한 값: A의 −3 db를 −1.5로'],
+      [9, '{{use this}} keeps it', '{{use this}}는 그 방법을 남깁니다']) +
+    h('asking', '요청하기') +
+    p('Name two tracks and how they should sound: `kick and bass sound apart`. `apart`, `separate` and `separated` (each with `sound` before it or not), `unmask` and `untangle` all do, and the names may come first or last (`untangle the bass and the kick`). Join the two with `and` or a comma. Any other number of tracks is asked again: “which two tracks”.', '트랙 둘과 원하는 소리를 말합니다: `kick and bass sound apart`. `apart`, `separate`, `separated`(앞에 `sound`가 있어도 없어도), `unmask`, `untangle` 모두 됩니다. 이름은 앞에 와도 뒤에 와도 됩니다(`untangle the bass and the kick`). 두 이름은 `and`나 쉼표로 잇습니다. 트랙이 둘이 아니면 “which two tracks”라고 되묻습니다.') +
+    h('what is listened to', '무엇을 듣나') +
+    p('The answer says “listening to kick, bass”, and the prompt page shows what comes of it. Both tracks are heard over one stretch: the cycle, if it is on; else the part the playhead is in, if both play there; else the first part where both play; else bars 1 to 16. It is done offline: a playing song stops, nothing is heard, and the tracks are left as they were. Meanwhile the page says {{listening}}, then {{hearing A}}, B and C as each way is tried and measured.', '답에 “listening to kick, bass”라고 나오고, 결과는 prompt 페이지에 나옵니다. 두 트랙을 한 구간에서 듣습니다. 사이클이 켜져 있으면 사이클, 아니면 플레이헤드가 있는 파트(둘 다 연주하는 곳일 때), 그다음은 둘 다 연주하는 첫 파트, 그것도 없으면 1~16마디. 오프라인으로 하므로 재생 중이던 곡은 멈추고, 아무 소리도 나지 않으며, 트랙은 그대로 남습니다. 그동안 페이지에는 {{listening}}, 이어서 방법마다 걸어 보고 측정하는 동안 {{hearing A}}, B, C가 나옵니다.') +
+    p('The one that hits more (here the kick) keeps its place; the other gives way. The ways are made from what was heard, so their numbers differ from song to song.', '더 많이 치는 쪽(여기서는 킥)이 자리를 지키고, 다른 쪽이 비켜 줍니다. 방법은 들은 것으로 만들기 때문에 숫자는 곡마다 다릅니다.'),
+    art: fig('ways', { w: 250, calls: [[1, 'prompt:field', 't', 0, { fx: .1 }], [2, [70, 150], 'l'], [3, [14, 268], 'l'], [4, 'ways-hear#2', 't'], [5, 'ways-edit#10', 'r', 0, { fx: 1 }], [6, 'ways-hear#5', 'b'], [7, [505, 342], 'b'], [8, 'ways-edit#2', 'b', 14.8, { fy: 1.05 }], [9, 'ways-use#1', 'b']] }) }),
+
+  page(t('three ways, one used', '세 가지 방법, 하나만 사용'), { kind: 'text', cc: 2, txt:
+    p('Each way does it differently; none is another at a different strength, since the strength is a cell. They are named for the tracks: the one that gives way is the bass here.', '방법마다 하는 방식이 다릅니다. 세기만 다른 같은 방법은 없습니다. 세기는 셀이기 때문입니다. 이름은 트랙을 따릅니다. 여기서 비켜 주는 쪽은 베이스입니다.') +
+    table([['way', '방법'], ['what it puts on', '거는 것']],
+      ['{{carve the lows}}', ['A bell of the Mac’s own eq ({{mac eq}}) on the bass, −3 db at the kick’s low, q 1.4. When the two lows lie a third of an octave or more apart, a second on the kick, −2 db at the bass’s low. Each keeps a low of its own.', 'Mac 자체 이큐({{mac eq}})의 벨을 베이스에. 킥의 저음 자리에서 −3 db, q 1.4. 두 저음이 3분의 1옥타브 이상 떨어져 있으면 킥에도 하나, 베이스의 저음 자리에서 −2 db. 각자 자기 저음을 갖습니다.']],
+      ['{{duck the bass}}', ['A {{comp}} on the bass’s wall, its {{key}} fed by a {{side}} playing the kick: ratio 4:1, −4 db, attack 1 ms, release 80 ms. The bass steps aside for as long as the kick sounds.', '베이스 패치에 {{comp}}. 그 {{key}}에는 킥을 내는 {{side}}를 연결. ratio 4:1, −4 db, attack 1 ms, release 80 ms. 킥이 울리는 동안 베이스가 비켜섭니다.']],
+      ['{{only where they meet}}', ['A {{carve}} on the bass’s wall, keyed by the kick the same way, between the two frequencies where they meet: up to −4 db, attack 5 ms, release 80 ms. The bass gives way only there, and only on the kick’s hits.', '베이스 패치에 {{carve}}. 같은 방식으로 킥을 키로 하고, 둘이 겹치는 두 주파수 사이에서 최대 −4 db, attack 5 ms, release 80 ms. 베이스는 그 대역에서만, 킥이 칠 때만 비켜 줍니다.']]) +
+    draw(120, 39, waysDrawn(), ['the bass along the song (across) and from low to high (up); the dots are the kick’s hits. Where the bass gives way is drawn pale', '베이스를 곡의 흐름(가로)과 낮은 음에서 높은 음(세로)으로 그렸습니다. 점은 킥이 치는 곳, 베이스가 비켜 주는 곳은 옅게 그렸습니다']) +
+    h('every amount is a cell', '모든 값은 셀') +
+    p('Press an amount, type over it and press [[↩]] ([[esc]] leaves it as it was): the bass’s −3 db made −1.5. The way is heard again and measured again, and if it was on, it goes back on as it now reads.', '값을 누르고 덮어 입력한 뒤 [[↩]]를 누릅니다([[esc]]는 그대로 둡니다). 베이스의 −3 db를 −1.5로. 그 방법을 다시 듣고 다시 측정하며, 걸려 있던 방법이면 바뀐 값으로 다시 걸립니다.') +
+    p('The eq’s name ({{mac eq}}) opens the list of the eqs on this Mac. One whose controls the app does not know yet says {{not known yet}}, and the Mac’s eq stays; in this version that is every eq but the Mac’s own.', '이큐 이름({{mac eq}})을 누르면 이 Mac에 있는 이큐 목록이 열립니다. 앱이 아직 조절값을 모르는 이큐에는 {{not known yet}}이라고 나오고, 골라도 Mac의 이큐가 그대로 남습니다. 이 버전에서는 Mac 자체 이큐 말고는 모두 그렇습니다.') +
+    h('measured, not promised', '약속이 아니라 측정값') +
+    p('“heard: −4.1 db on the hits, where they meet” is what the way was heard to do: how much quieter the bass is on the kick’s hits, between the two frequencies where they meet. A duck or a carve is turned until what is heard is what its cell asks, within half a db, in four hearings at most; an eq is measured as it is set.', '“heard: −4.1 db on the hits, where they meet”는 그 방법이 실제로 한 일입니다. 킥이 칠 때, 둘이 겹치는 두 주파수 사이에서 베이스가 얼마나 작아졌는지입니다. 덕킹과 카브는 들리는 값이 셀이 말하는 값과 0.5 db 안으로 맞을 때까지(최대 네 번 들어 보며) 조정하고, 이큐는 설정한 그대로 측정합니다.') +
+    h('levels matched', 'levels matched') +
+    p('While a way is heard, the stereo out is moved by what that way took from the whole mix, so {{as it is}}, A, B and C are compared at one loudness. It is never kept: a way used leaves the stereo out as it was.', '방법을 듣는 동안 스테레오 아웃이 그 방법이 믹스 전체에서 덜어 낸 만큼 움직여서, {{as it is}}, A, B, C를 같은 크기로 비교합니다. 이 값은 남지 않습니다. 사용한 방법은 스테레오 아웃을 원래대로 둡니다.') +
+    h('hear, use this', 'hear, use this') +
+    list(
+      ['{{hear}} puts a way on in place of whatever was on; play the song to hear it. {{as it is}} takes it off.', '{{hear}}는 걸려 있던 것 대신 그 방법을 겁니다. 곡을 재생해서 듣습니다. {{as it is}}는 걸어 둔 것을 뺍니다.'],
+      ['{{use this}} keeps it, as one step of undo: [[⌘Z]] takes it all off again and the three are offered again, [[⇧⌘Z]] brings it back. Only one way is used, never two together: the page says {{A used — the others step back}}.', '{{use this}}는 그 방법을 남깁니다. 실행 취소 한 번 단위입니다. [[⌘Z]]로 전부 다시 빼면 세 방법이 다시 나오고, [[⇧⌘Z]]로 되살립니다. 쓰는 방법은 하나뿐이고 둘을 함께 쓸 수는 없습니다. 페이지에는 {{A used — the others step back}}이라고 나옵니다.'],
+      ['A new line said on the command line lets the request go: a way heard and not used is taken off.', '커맨드 라인에 새 줄을 입력하면 요청이 끝납니다. 듣기만 하고 쓰지 않은 방법은 빠집니다.']) +
+    note('This version knows one request by the sound: two tracks apart.', '이 버전이 아는 소리 요청은 하나, 두 트랙 떼어 놓기뿐입니다.') }),
 ])

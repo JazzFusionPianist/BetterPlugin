@@ -230,14 +230,18 @@ function resetSession () {
 async function loadFiles (project, tracks, step) {
   const files = new Map(), names = []
   for (const t of tracks) for (const L of [t].concat(t.alts || [])) for (const q of L.regs) if (!q.loop && q.file && !names.includes(q.file)) names.push(q.file)
-  for (const f of names) { files.set(f, await NAT.call('audioLoad', { project, file: f })); if (step) step(files.size, names.length) }
+  /* several asked for at once: the app makes them ready on as many threads as it has to spare (a new sound is decoded the
+     first time, which is the long part of opening a project of many takes) */
+  let next = 0, done = 0
+  const one = async () => { while (next < names.length) { const f = names[next++]; files.set(f, await NAT.call('audioLoad', { project, file: f })); done++; if (step) step(done, names.length) } }
+  await Promise.all(Array.from({ length: Math.min(8, names.length) }, one))
   return files
 }
 /* ── a project being opened: a card in the middle of the window says whose it is, what is being done (its sounds made
    ready, its plug-ins opened one after another — the long part: each is a program of its own starting up — its stretched
    sounds rendered) and how far along it is. It comes up only when the opening takes more than a moment. How long each part
    took is written into the app's log (Library/Logs/Slur/daw.log), so that a slow one can be found. ── */
-const OPENING = { on: false, t0: 0, show: 0, parts: [], marks: [] }
+const OPENING = { on: false, t0: 0, show: 0, parts: [], marks: [], base: 0 }
 /* beside the bar, while the card is up: a whole note walks a scale up and down five hairlines, a step every 0.14 s (his
    pick of five, design/progress motion draft 1: a) */
 function ldNote () {
@@ -256,17 +260,26 @@ function ldNote () {
   }
   requestAnimationFrame(go)
 }
+/* The card is up the moment a project is asked for (his ask, 2026-10-18: a big project showed nothing for a while, and he
+   could not tell whether it was opening at all) — before the song that is open is saved, before the file is read and
+   taken apart; what there is to do after that (its sounds, its plug-ins) is added once it is known (openingMore). */
 function openingBegin (name, parts) {
-  OPENING.on = true; OPENING.t0 = performance.now(); OPENING.parts = parts; OPENING.marks = []
+  OPENING.on = true; OPENING.t0 = performance.now(); OPENING.parts = parts; OPENING.marks = []; OPENING.base = 0
   const el = $('loading')
   if (!el) return
-  $('ld-word').textContent = LANG_WORDS('opening'); $('ld-name').textContent = String(name); $('ld-fill').style.width = '0'; $('ld-what').textContent = ''
+  $('ld-word').textContent = LANG_WORDS('opening'); $('ld-name').textContent = String(name); $('ld-fill').style.width = '0'; $('ld-what').textContent = parts.length ? LANG_WORDS(parts[0][0]) : ''
   el.style.left = Math.round((W - 340) / 2) + 'px'; el.style.top = Math.round((H - 96) / 2) + 'px'
-  clearTimeout(OPENING.show); OPENING.show = setTimeout(() => { if (OPENING.on) el.hidden = false }, 300)
+  clearTimeout(OPENING.show); el.hidden = false
   ldNote()
 }
-/* part: which part is under way (its place in `parts`: [name, how many things]); done: how many of its things are done; what: the thing being done now */
-function openingSay (part, done, what) {
+/* the rest of what there is to do, once the project has been read: its parts are said from here on by their own places */
+function openingMore (parts) { OPENING.base = OPENING.parts.length; OPENING.parts = OPENING.parts.concat(parts) }
+/* the card drawn on the screen before anything holds the page up (a big project read and taken apart in one go) */
+const openingShown = () => new Promise(r => { let done = false; const go = () => { if (!done) { done = true; r() } }; requestAnimationFrame(() => setTimeout(go, 0)); setTimeout(go, 60) })
+/* part: which part is under way (its place among those added last: [name, how many things]); done: how many of its things
+   are done; what: the thing being done now. openingAt: the same by its place among all of them. */
+function openingSay (part, done, what) { openingAt(OPENING.base + part, done, what) }
+function openingAt (part, done, what) {
   if (!OPENING.on) return
   const ps = OPENING.parts, all = ps.reduce((n, p) => n + Math.max(1, p[1]), 0), before = ps.slice(0, part).reduce((n, p) => n + Math.max(1, p[1]), 0), p = ps[part]
   if (!p) return
@@ -281,6 +294,7 @@ function openingEnd (ok) {
   const el = $('loading'); if (el) el.hidden = true
   const now = performance.now(), ms = OPENING.marks, took = OPENING.parts.map((p, i) => { if (!ms[i]) return null; let j = i + 1; while (j < ms.length && !ms[j]) j++; return `${p[0]} ${p[1]} in ${(((ms[j] || now) - ms[i]) / 1000).toFixed(1)} s` }).filter(Boolean)
   if (NAT) NAT.call('log', { text: `${ok ? 'opened' : 'would not open'} in ${((now - OPENING.t0) / 1000).toFixed(1)} s: ${took.join(', ')}` })
+  OPENING.last = { ok, ms: Math.round(now - OPENING.t0), took }                         // (the last opening, as the check reads it)
 }
 /* key: the project, as projKey says it. json: the song as it was at another time (a copy put aside), opened in this project's place */
 /* ── a print under way (the mix or stems handed off, a bounce in place): the same card says what is being printed and how
@@ -319,6 +333,7 @@ function printDraw () {
 }
 function printEnd () { if (!PRINT.on) return; PRINT.on = false; PRINT.stopping = false; removeEventListener('keydown', printKey, true); const el = $('loading'); if (el && !OPENING.on) el.hidden = true }
 async function loadProject (key, json) {
+  if (!OPENING.on) { openingBegin(projNameOf(key), [['reading', 1]]); await openingShown() }
   PROJ.hold++
   let ok = false
   try { ok = await loadProjectNow(key, json); return ok } finally { PROJ.hold--; openingEnd(ok) }
@@ -329,6 +344,7 @@ async function loadProject (key, json) {
 const DISTRUST = new Set()
 const LOAD = { bare: false, left: [] }
 async function loadProjectNow (key, json) {
+  openingAt(Math.max(0, OPENING.parts.findIndex(p => p[0] === 'reading')), 0)
   const r = json ? { ok: true, json, saved: Date.now() } : await NAT.call('projLoad', { name: key })
   if (!r || !r.ok) return false
   let d
@@ -337,7 +353,7 @@ async function loadProjectNow (key, json) {
   /* how much there is to do: its sounds, its plug-ins (those of the stereo out too), and the stretched sounds at the end */
   { const fs = new Set(); for (const t of d.tracks) for (const L of [t].concat(t.alts || [])) for (const q of L.regs || []) if (!q.loop && q.file) fs.add(q.file)
     const plugs = d.tracks.reduce((n, t) => n + (t.inserts || []).filter(i => !i.out).length, 0) + ((d.out && d.out.inserts) || []).filter(i => !i.out).length
-    openingBegin(projNameOf(key), [['sounds', fs.size], ['plug-ins', plugs], ['getting ready', 1]]) }
+    openingMore([['sounds', fs.size], ['plug-ins', plugs], ['getting ready', 1]]) }
   openingSay(0, 0)
   resetSession()
   await NAT.call('session', { tempo: S.tempo, end: SONG_END, tracks: [] })                           // everything out of the engine first, plug-ins too
@@ -407,7 +423,9 @@ async function reloadAudio () {
 }
 async function newProject () {
   if (!NAT) return
-  await saveNow(true)
+  const ans = typeof leaveFirst === 'function' ? await leaveFirst() : 'same'              // (the song that is open is closed: asked first, as on quitting — doors.js)
+  if (ans === 'cancel') return
+  if (ans === 'dont') await leavePutBack(); else if (!(await saveNow(true, ans === 'save')) && ans === 'save') { say('the song could not be written'); return }
   PROJ.hold++
   try { await newProjectNow() } finally { PROJ.hold-- }
 }
@@ -499,7 +517,23 @@ async function openProjectMenu () {
   if (!PROJ.list.length) { say('no project to open'); return }
   openMenu(Math.round(RX / 2 - 110), TY + 10, PROJ.list.slice(0, 24).map(p => Object.assign({ t: p.name, v: p.key, on: p.key === projKey() }, p.in ? { k: fit(String(p.in).toLowerCase(), 84, 9.5) } : {})), it => openProject(it.v), { w: 220 })
 }
-async function openProject (key) { if (key === projKey() && !START.on) return; await saveNow(true); if (!(await loadProject(key))) say('that project would not open'); else await takesBack() }      // (while the start page is up no project is open, whatever the song standing in is called)
+/* another project opened: the one that is open is closed first — asked, as on quitting, when it is not as it was last
+   saved (doors.js); answered, the card is up at once, and saving it is the card's first part */
+async function openProject (key) {
+  if (key === projKey() && !START.on) return                                             // (while the start page is up no project is open, whatever the song standing in is called)
+  const ans = typeof leaveFirst === 'function' && !START.on ? await leaveFirst() : 'same'
+  if (ans === 'cancel') return
+  const save = !START.on && ans !== 'dont'
+  openingBegin(projNameOf(key), save ? [['saving', 1], ['reading', 1]] : [['reading', 1]])
+  await openingShown()
+  let ok = false
+  try {
+    if (save) { openingAt(0, 0); if (!(await saveNow(true, ans === 'save')) && ans === 'save') { say('the song could not be written'); return } }
+    else if (ans === 'dont') await leavePutBack()
+    ok = await loadProject(key)
+  } finally { openingEnd(ok) }
+  if (!ok) say('that project would not open'); else await takesBack()
+}
 /* a take that was being recorded when the app last stopped: its file was made whole on disk as it went, and it is put where
    it was being played — on its track when that is still there */
 async function takesBack () {

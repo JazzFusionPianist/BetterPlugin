@@ -510,13 +510,56 @@ async function runSelfTest (mode) {
     const played = S.playing, pos = +curPos().toFixed(3)
     await NAT.call('testPlugWindows', { space: 1 }); await sleep(350)
     const stopped = !S.playing
+    /* the same as the Mac hands a key to the app (past the app's own watch, before the plug-in sees it): the space bar plays
+       and stops; period and comma move the playhead a bar on and back (his ask, 2026-10-19) */
+    jumpTo(4); await sleep(150)
+    const p0 = +curPos().toFixed(3)
+    const q47 = await NAT.call('testPlugWindows', { space: 1, code: 47, post: 1 }); await sleep(300)
+    const pOn = +curPos().toFixed(3), seen47 = { windows: (q47.windows || []).length, sent: q47.sent }
+    await NAT.call('testPlugWindows', { space: 1, code: 43, post: 1 }); await sleep(300)
+    const pBack = +curPos().toFixed(3)
+    await NAT.call('testPlugWindows', { space: 1, code: 49, post: 1 }); await sleep(450)
+    const postedPlays = S.playing
+    await NAT.call('testPlugWindows', { space: 1, code: 49, post: 1 }); await sleep(350)
+    const postedStops = !S.playing
     await NAT.call('closeEditors'); await sleep(200)
     const closed = await NAT.call('testPlugWindows', { space: 1 }); await sleep(250)
     const stillStopped = !S.playing
     await NAT.call('remove', { track: t.id, uid: r.uid }); halt(true)
-    return { windows: up.windows, was, played, pos, stopped, afterClosing: (closed.windows || []).length, stillStopped }
+    return { windows: up.windows, was, played, pos, stopped, posted: { p0, pOn, pBack, plays: postedPlays, stops: postedStops, seen47 }, afterClosing: (closed.windows || []).length, stillStopped }
   })
 
+  /* the mixer's slots (design/mixer inserts draft 1, his pick 2026-10-19): three strips chosen, a plug-in picked from the
+     list an empty slot opens goes on all three; one of them turned, and pulled with option onto another strip, it is there
+     with the same settings; taken off again */
+  await step('mixFx', async () => {
+    halt(false)
+    const res = {}, ts = ['kick', 'snare', 'hats'].map(track), keys = track('keys'), all = ts.concat([keys]), n0 = new Map(all.map(t => [t, t.inserts.length]))
+    S.panel.on = true; S.panel.tab = 'mixer'; setView(true); flush()
+    leadTrack(S.tracks.indexOf(ts[0])); S.selT = ts.map(t => t.id); uiDirty('dock', 'head'); flush()
+    const q = stripGeom(BY + PH, S.panel.h - PH, false); res.rows = { fx: q.nf, sends: q.ns, fader: Math.round(q.fh) }
+    S.picker.at = { x: 200, y: 400 }; await openPicker('fx'); await sleep(400)
+    res.head = document.getElementById('pk-head').textContent
+    $('pk-q').value = 'audelay'; $('pk-q').dispatchEvent(new Event('input')); drawPicker(); await sleep(100)
+    const row = [...document.querySelectorAll('#pk-list .pk-row')].find(el => /^audelay$/i.test(el.querySelector('b').textContent))      // (pressed as a hand presses it: the list the room shows)
+    res.row = !!row
+    if (row) row.click(); await sleep(1500); await NAT.call('closeEditors')
+    res.listShut = !S.picker.open
+    res.onAll = ts.map(t => t.inserts.length - n0.get(t))
+    res.slots = ts.map(t => fxItems(t).map(x => x.t))
+    res.wired = ts.map(t => { const w = wallOf(t), nd = w.nodes.find(n => n.ins && /audelay/i.test(n.ins.name)); return !!nd && w.wires.some(e => e.to === nd.id) && w.wires.some(e => e.from === nd.id) })      // (in the way, not standing loose: it is heard)
+    const kick = ts[0], ins = kick.inserts[kick.inserts.length - 1]
+    await NAT.call('paramSet', { track: kick.id, uid: ins.uid, index: 0, v: .77 }); await sleep(100)
+    S.selT = []; leadTrack(S.tracks.indexOf(keys)); flush()
+    await fxUp({ i: S.tracks.indexOf(kick), k: fxItems(kick).findIndex(x => x.ins === ins), moved: true, alt: true, to: [S.tracks.indexOf(keys)] }); await sleep(400)
+    const copied = keys.inserts[keys.inserts.length - 1], pl = copied ? await NAT.call('params', { track: keys.id, uid: copied.uid }) : null
+    res.copy = { added: keys.inserts.length - n0.get(keys), name: copied && copied.name, firstControl: pl && pl[0] ? +(+pl[0][2]).toFixed(2) : null, window: ((await NAT.call('testPlugWindows', { space: 0 })).windows || []).length }
+    for (const t of all) { const w = wallOf(t), extra = t.inserts.slice(n0.get(t)); for (const nd of w.nodes.filter(nd => nd.k === 'plug' && extra.includes(nd.ins))) wallRemove(t, nd); for (const x of t.inserts.slice(n0.get(t))) { NAT.call('remove', { track: t.id, uid: x.uid }); t.inserts.splice(t.inserts.indexOf(x), 1) } }
+    await sleep(200)
+    res.back = all.every(t => t.inserts.length === n0.get(t))
+    S.panel.tab = 'patch'; flush()
+    return res
+  })
   /* a take: the tone that stands in for the microphone, three seconds of it from bar 5, with a bar of count-in */
   await step('record', async () => {
     halt(false)
@@ -1355,6 +1398,142 @@ async function runSelfTest (mode) {
   })
   /* the command line's one grammar in the app (test/grammar.mjs has the rest): a plug-in's control named in a line of
      words — its controls asked of the app first, its travel read in its own unit — and a bent ramp told to the app */
+  /* how tracks sound over a stretch, as numbers (Engine::listen, Source/Listen.h): each asked-for track heard alone, after its
+     fader — every third of an octave, every 43 ms — for the command line's ways (design/choices draft 1) to be chosen by */
+  await step('listen', async () => {
+    const pick = S.tracks.filter(t => t.kind === 'audio' && t.regs.some(r => !r.mute)).slice(0, 3), a0 = 4, a1 = 8, t0 = performance.now()
+    const r = await NAT.call('listen', { a0, a1, tracks: pick.map(t => t.id) })
+    const res = { ok: r && r.ok, ms: Math.round(performance.now() - t0), hop: r && +(+r.hop).toFixed(4), centres: r && r.centres && r.centres.length, tracks: [] }
+    for (const h of (r && r.tracks) || []) {
+      const t = byId(h.id), fr = h.bands || [], mean = (fr[0] || []).map((_, b) => +(fr.reduce((s, f) => s + f[b], 0) / fr.length).toFixed(1)), top = mean.indexOf(Math.max(...mean))
+      res.tracks.push({ name: t && t.name, frames: fr.length, loudest: r.centres[top] + ' hz', meanLevel: +(h.level.reduce((s, v) => s + v, 0) / h.level.length).toFixed(1), side: +(h.side.reduce((s, v) => s + v, 0) / h.side.length).toFixed(1), low: mean.slice(2, 10) })
+    }
+    res.expectFrames = Math.floor((a1 - a0) * SPB() / r.hop)
+    return res
+  })
+  /* the Mac's own band eq (AUNBandEQ, on every Mac): its controls, as the command line's ways would set them */
+  /* the planner (plan.js): requests other than two apart, each answered by ways that differ in how, each turned until it
+     gives what was asked; closed, the tracks are as they were */
+  await step('plan', async () => {
+    const keys = S.tracks.find(x => /keys/i.test(x.name)), hum = S.tracks.find(x => /hum/i.test(x.name)), res = {}
+    if (!keys || !hum || !NAT) return { skipped: 'no keys or hum' }
+    const nodes = t => (wallOf(t).nodes || []).map(n => n.k === 'plug' ? 'plug:' + String(n.ins && n.ins.name).toLowerCase() : n.k).join(' ')
+    const state = t => JSON.stringify({ n: nodes(t), v: t.vol, p: t.patch, i: t.inserts.length })
+    const before = { keys: state(keys), hum: state(hum) }
+    for (const line of (window.PLAN_ONLY || [`${keys.name} further back`, `${keys.name} wider`, `${hum.name} more transparent`, `${hum.name} more embedded`, `${keys.name} brighter`]).map(l => l.replace('$keys', keys.name).replace('$hum', hum.name))) {
+      const t0 = performance.now()
+      await runCommand(line)
+      for (let k = 0; k < 900 && (!WAYS.on || WAYS.busy); k++) await sleep(100)
+      res[line] = { ms: Math.round(performance.now() - t0), busy: WAYS.busy, targets: (WAYS.targets || []).map(tg => planSaid(tg, tg.amount)), ways: WAYS.ways.map(w => ({ letter: w.letter, name: w.name, gave: (WAYS.targets || []).map((tg, j) => w.left.includes(tg) ? 'left' : planSaid(tg, w.gave[j] || 0)), out: w.out, why: w.why || '', steps: w.steps.map(st => Object.assign({}, st, { plug: undefined })), trace: w.trace, drives: w.drives.map(d => d.move) })) }
+      if (line.includes('transparent')) await snap('selftest-plan.png')
+      if (WAYS.ways.length) { await waysHear(1); res[line].heardA = { keys: nodes(keys), hum: nodes(hum) } }
+      S.panel.on = false; setView(); flush(); for (let k = 0; k < 50 && WAYS.on; k++) await sleep(100)
+      S.panel.on = true; setView(); flush()
+    }
+    res.back = { keys: state(keys) === before.keys, hum: state(hum) === before.hum }
+    return res
+  })
+  /* the room's ears (ears.js): a change made on purpose moves its own line, by about what was done, and the others little */
+  await step('ears', async () => {
+    const t = S.tracks.find(x => /keys/i.test(x.name)) || S.tracks.find(x => x.regs && x.regs.length && !x.theirs), kick = S.tracks.find(x => /kick/i.test(x.name)), bass = S.tracks.find(x => /bass/i.test(x.name))
+    if (!t || !NAT) return { skipped: 'no track' }
+    const res = { track: t.name }, a0 = 4, a1 = 8, snap = waysSnap([t.id]), vol0 = t.vol, pan0 = t.pan || 0, patch0 = JSON.stringify(t.patch)
+    const hear = async as => { const r = await earsListen([t.id], a0, a1, as); return r && r[t.id] }
+    const t0 = performance.now(), base = await hear('own'); res.ms = Math.round(performance.now() - t0)
+    res.base = Object.assign({}, base); delete res.base.spectrum
+    t.vol = vol0 - 6; pushTrack(t); await sleep(100); res.fader6 = earsMoved(base, await hear()); t.vol = vol0; pushTrack(t)
+    t.pan = -.8; pushTrack(t); await sleep(100); res.panLeft = earsMoved(base, await hear()); t.pan = pan0; pushTrack(t)
+    const eq = await eqPut(t, { kind: 'eq', track: t.id, plug: MAC_EQ, plugName: 'mac eq', bands: [{ f: 6000, g: 9, q: .7 }] })
+    res.bright = eq.ok ? earsMoved(base, await hear()) : eq.why; await waysBack(snap)
+    setPrint(t, 'space', 70); applyAll(); flush(); await wallPush(t); await sleep(100)                // (the wall takes a print set from outside it as the room draws it: drawn by hand, the check's window is not drawn by the frame)
+    res.spaceState = { wall: (wallOf(t).nodes || []).map(n => n.k), wires: (wallOf(t).wires || []).length, space: patchNow(t).space }
+    res.space = earsMoved(base, await hear()); t.patch = JSON.parse(patch0); applyAll(); flush(); await wallPush(t)
+    res.again = earsMoved(base, await hear())                                                     // (all taken off: nothing moves)
+    const mix = await earsListen([0], a0, a1), rest = await earsListen([t.id], a0, a1, 'rest'), solo = await earsListen([t.id], a0, a1, 'solo')
+    res.loud = { own: base.loud, solo: solo && solo[t.id].loud, rest: rest && rest[t.id].loud, mix: mix && mix[0].loud }
+    if (kick && bass) { const both = await earsListen([kick.id, bass.id], a0, a1), f = id => both.res.tracks.find(x => x.id === id); res.pair = { kickUnderBass: earsPair(f(kick.id), f(bass.id), both.res), bassUnderKick: earsPair(f(bass.id), f(kick.id), both.res), kick: { punch: both[kick.id].punch, tail: both[kick.id].tail, hits: both[kick.id].hits }, bass: { low: both[bass.id].low, hits: both[bass.id].hits } } }
+    res.back = { vol: t.vol === vol0, pan: (t.pan || 0) === pan0, ins: t.inserts.length, patch: JSON.stringify(t.patch) === patch0 }
+    return res
+  })
+  /* plug-ins learnt by what they do (probe.js): Apple's eqs and compressor (on every Mac), and FabFilter's where they are
+     on this Mac; a learnt eq then set to a bell and measured: it gives what was asked */
+  await step('learn', async () => {
+    const t = S.tracks.find(x => /keys/i.test(x.name)) || S.tracks.find(x => x.regs && x.regs.length && !x.theirs)
+    if (!t || !NAT) return { skipped: 'no track' }
+    const res = {}, snap = waysSnap([t.id]), list = (await NAT.call('plugins')) || [], ti = S.tracks.indexOf(t)
+    const find = re => (list.find(p => re.test(String(p.name)) && !p.inst) || {}).id
+    /* (only Apple's: a plug-in from outside may stop to ask the Mac for its folders as it opens — Pro-Q 4 waits for leave
+       to read Documents, and the check's own copy of the app has never been given it) */
+    const want = [['mac eq', MAC_EQ, 'eq'], ['mac parametric', 'AudioUnit:Effects/aufx,pmeq,appl', 'eq'], ['mac dynamics', 'AudioUnit:Effects/aufx,dcmp,appl', 'comp']]
+    for (const [label, id, kind] of want) {
+      if (!id) { res[label] = 'not on this Mac'; continue }
+      const r = await natInsert(ti, id)
+      if (!(r && r.ok)) { res[label] = 'would not open: ' + ((r && r.error) || ''); continue }
+      const ins = t.inserts.find(i => i.uid === r.uid), t0 = performance.now(), calls0 = PROBE.calls || 0
+      const map = await learnPlug(t, ins, kind)
+      const out = { ms: Math.round(performance.now() - t0), kind: map.kind, why: map.why || '', name: map.name }
+      if (map.kind === 'eq') {
+        Object.assign(out, { bands: map.bands.length, band1: map.bands[0], shapes: map.shapes, f: map.maps.f, g: map.maps.g.filter((_, i) => i % 2 === 0), q: map.maps.q })
+        const asked = { f: 300, g: 6, q: 1.4 }, rest = await probeRun(t, ins, 'noise')
+        await learntBell(t, ins, map, 0, asked); await sleep(50)
+        const got = await probeRun(t, ins, 'noise')                                                   // (against the plug-in as it was put on)
+        out.set = { asked, got: got && got.ok && rest && rest.ok ? tfShape(got.tf, rest.tf) : null }
+        if (rest) out.restFlat = tfShape(rest.tf).shape
+      } else if (map.kind === 'comp') Object.assign(out, { rest: map.rest, thr: map.thr, ratio: map.ratio, makeup: map.makeup, input: map.input, attack: map.attack, release: map.release, maps: map.maps })
+      res[label] = out
+      await waysBack(snap)
+    }
+    res.kept = Object.keys(await learntAll()).length
+    { await learntKeep(learntKey({ id: MAC_EQ }), null)                                              // learnt where nothing of the song is (the settings' first choices learn so): the song's tracks untouched
+      const before = S.tracks.map(x => x.inserts.length).join(','), t0 = performance.now(), m = await learnById(MAC_EQ, 'eq')
+      res.onItsOwn = { kind: m.kind, bands: m.bands && m.bands.length, ms: Math.round(performance.now() - t0), song: S.tracks.map(x => x.inserts.length).join(',') === before, gone: await NAT.call('params', { track: LEARN_TRACK, uid: 9999 }) } }
+    return res
+  })
+  await step('nbeq', async () => {
+    const t = S.tracks.find(x => x.kind === 'audio' && !x.theirs), ti = S.tracks.indexOf(t), list = await NAT.call('plugins'), eq = (list || []).find(p => /nbandeq|n-band|aunbandeq/i.test(p.name + ' ' + p.id))
+    if (!eq) return { found: false, names: (list || []).filter(p => /appl/i.test(p.id)).map(p => p.name + ' ' + p.id).slice(0, 30) }
+    const r = await natInsert(ti, eq.id), ins = t.inserts.find(x => x.uid === r.uid), pl = await NAT.call('params', { track: t.id, uid: ins.uid })
+    const res = { found: true, id: eq.id, name: eq.name, count: (pl || []).length, params: (pl || []).slice(0, 24).map(p => [p[0], p[1], p[2], p[3]]) }
+    res.scales = {}
+    for (const i of [0, 1, 2, 3, 4, 5]) { const sc = await NAT.call('paramScale', { track: t.id, uid: ins.uid, index: i }); res.scales[i] = sc && sc.texts ? [sc.unit, sc.texts[0], sc.texts[25], sc.texts[50], sc.texts[75], sc.texts[100]] : null }
+    await NAT.call('remove', { track: t.id, uid: ins.uid }); t.inserts = t.inserts.filter(x => x.uid !== ins.uid); await natSession()
+    return res
+  })
+  /* a request by its sound (ways.js, design/choices draft 1): "kick and bass sound apart" — heard, three ways made, each heard
+     on the tracks, one used and taken back and brought again in one step each */
+  await step('ways', async () => {
+    const kick = S.tracks.find(t => /kick/i.test(t.name)), bass = S.tracks.find(t => /bass/i.test(t.name)), res = {}
+    if (!kick || !bass) return { skipped: 'no kick and bass in the check' }
+    const nodes = t => (wallOf(t).nodes || []).map(n => n.k === 'plug' ? 'plug:' + String(n.ins && n.ins.name).toLowerCase() : n.k).join(' ')
+    res.before = { bass: nodes(bass), kick: nodes(kick), side: bass.sideFrom || 0, vol: bass.vol }
+    const t0 = performance.now()
+    await runCommand(`${kick.name} and ${bass.name} sound apart`)
+    for (let k = 0; k < 600 && (!WAYS.on || WAYS.busy); k++) await sleep(100)
+    res.ms = Math.round(performance.now() - t0); res.busy = WAYS.busy
+    const hd = WAYS.heard
+    res.heard = hd && { a: byId(hd.a).name, b: byId(hd.b).name, fA: hd.fA, fB: hd.fB, lo: hd.lo, hi: hd.hi, hits: hd.hits, covered: hd.covered, range: WAYS.range, fastHits: hd.fastHits && hd.fastHits.length, near: !!hd.B0 }
+    res.ways = WAYS.ways.map(w => ({ letter: w.letter, name: w.name, gave: w.gave, out: w.out, why: w.why || '', steps: w.steps.map(s => Object.assign({}, s, { bands: s.bands })) })); res.mix = hd && hd.mix; res.master0 = WAYS.master0
+    await snap('selftest-ways.png')
+    res.heard_as = {}
+    for (const i of [1, 2, 3]) { await waysHear(i); res.heard_as['ABC'[i - 1]] = { hear: WAYS.hear, bass: nodes(bass), kick: nodes(kick), side: bass.sideFrom ? byId(bass.sideFrom).name : '', vol: bass.vol, master: S.master } }
+    await waysHear(0); res.as_it_is = { bass: nodes(bass), kick: nodes(kick), side: bass.sideFrom || 0, vol: bass.vol, master: S.master }
+    { await waysHear(2)                                                                            // a depth typed over as it is written (−1.5): heard again, and turned until it gives that
+      waysEdit(2, 0, 'depth'); await sleep(50); const el = document.getElementById('ways-edit'), shownAt = !!document.querySelector('[data-a="ways-edit"][data-f="depth"]')
+      res.depthField = { value: el.value, open: el.style.display !== 'none', cell: shownAt }; el.value = '-1.5'; await waysEditDone(true)
+      res.depth = { depth: WAYS.ways[1].steps[0].depth, gave: WAYS.ways[1].gave, hear: WAYS.hear, bass: nodes(bass) }
+      el.style.display = 'none'; WAYS.ways[1].steps[0].depth = 4; delete WAYS.ways[1].steps[0].fix; await waysMeasure(2); await waysHear(0) }
+    const u0 = UNDO.length
+    await waysUse(3); res.used = { used: WAYS.used, bass: nodes(bass), steps: UNDO.length - u0, master: S.master }
+    undoEdit(); await sleep(800); res.undone = { bass: nodes(bass), side: bass.sideFrom || 0, vol: bass.vol }
+    redoEdit(); await sleep(800); res.redone = { bass: nodes(bass), side: bass.sideFrom ? byId(bass.sideFrom).name : '' }
+    undoEdit(); await sleep(800); await waysClose(); res.after = { bass: nodes(bass), kick: nodes(kick) }
+    { await runCommand(`${kick.name} and ${bass.name} sound apart`)                                 // asked again, a way heard, and the panel shut by the hand: the way comes off, the out comes back
+      for (let k = 0; k < 600 && (!WAYS.on || WAYS.busy); k++) await sleep(100)
+      await waysHear(3); const heardC = nodes(bass)
+      S.panel.on = false; setView(); uiDirty("dock"); flush(); for (let k = 0; k < 50 && WAYS.on; k++) await sleep(100)      // (flush by hand: a window the check hides is not drawn by the frame)
+      res.shut = { heard: heardC, on: WAYS.on, bass: nodes(bass), side: bass.sideFrom || 0, master: S.master, master0: WAYS.master0 } }
+    return res
+  })
   await step('grammar', async () => {
     const t = S.tracks.find(x => x.kind === 'audio' && !x.theirs), ti = S.tracks.indexOf(t), was = t.name, ap0 = t.ap, auto0 = S.auto, n0 = UNDO.length, res = {}
     t.name = 'serum 2'; SAY.vocab = null; dirtyAll(); flush()
@@ -1771,6 +1950,89 @@ async function runSelfTest (mode) {
     res.dontSave = { fileAsLastSaved: disk.json === kept, copiesMore: ((await NAT.call('projBackups', { name: projKey() })) || []).length - copies0, gone: !S.leave }
     await loadProject(projKey()); await sleep(700)
     res.reopened = { tracksAsSaved: S.tracks.length === n0, nothingToAsk: !leaveChanged() }
+    return res
+  })
+  /* a big project, like his: forty stereo takes of a minute and a half at 44.1 khz (the device runs at another rate, so
+     each is brought to it), one to a track. How long its sounds take the first time (decoded into the cache) and when it is
+     opened again (the cache is there), part by part. */
+  await step('openBig', async () => {
+    halt(false)
+    const res = {}, here = projKey(), n = 40, sec = 90, name = 'open big', made = [], rate = window.OPEN_BIG_RATE || 44100
+    res.rate = rate
+    for (let k = 0; k < n; k++) { const f = await NAT.call('testFile', { project: name, name: `take ${k + 1}`, sec, ch: 2, rate }); made.push(f.file) }
+    PROJ.name = name
+    const t1 = performance.now(), tracks = []
+    for (let k = 0; k < n; k++) {
+      const d = await NAT.call('audioLoad', { project: name, file: made[k] })
+      const t = mkTrack(`take ${k + 1}`, null, null, null, null, -12, [], NO_PATCH()); t.patch0 = copy(t.patch)
+      if (d && d.ok) t.regs.push(mkReg({ a: 1, b: 1 + d.sec / SPB(), key: d.key, file: d.file, peaksAll: d.peaks, loop: false, rate: 1, sec: d.sec, srcBars: d.sec / SPB(), name: 'take' }))
+      tracks.push(t)
+    }
+    res.firstTimeMs = Math.round(performance.now() - t1)
+    S.tracks = tracks; S.sel = 0; SONG_END = 72; SCENES = []; repaint(); setView(true); await natSession(); applyAll()
+    await saveNow(false, true)
+    for (let k = 0; k < n; k++) await NAT.call('testFile', { project: name, name: `take ${k + 1}`, sec, ch: 2, rate })      // (written again: new to the cache, as a project opened for the first time)
+    const t3 = performance.now(); res.openedFirst = await loadProject(name); res.openFirstMs = Math.round(performance.now() - t3); res.partsFirst = OPENING.last
+    const t2 = performance.now(); res.opened = await loadProject(name); res.openAgainMs = Math.round(performance.now() - t2); res.parts = OPENING.last
+    res.sounds = S.tracks.filter(t => t.regs.some(r => r.key && !r.missing)).length
+    if (rate !== 48000 && !window.OPEN_BIG_RATE) {                                                 // (the same at the device's own rate: nothing to bring to it)
+      for (let k = 0; k < n; k++) await NAT.call('testFile', { project: name, name: `take ${k + 1}`, sec, ch: 2, rate: 48000 })
+      const t4 = performance.now(); await loadProject(name); res.openFirstSameRateMs = Math.round(performance.now() - t4); res.partsSameRate = OPENING.last
+    }
+    await loadProject(here); res.back = projKey() === here
+    return res
+  })
+  /* another project opened while this one is changed: the same question first (his ask, 2026-10-18); cancel stays; don't
+     save opens the other with the card up at once, the first left on disk as it was last saved; back again, nothing asked */
+  /* zooming by the hand on a full screen (his users, 2026-10-19: "트랙 패드로 horizontal 줌인 줌 아웃 … 스무스하게 잘 안된다"):
+     what a step of a pinch costs here, in WebKit — the lanes drawn again at every step, as they were, against stretched
+     while the hand goes and drawn for real once it rests (zoomLive) */
+  await step('zoomFeel', async () => {
+    halt(false)
+    const keep = S.tracks, sel = S.sel, px = PXB, vx = VX, src = S.tracks.filter(t => t.kind === 'audio' && t.regs.length)
+    if (!src.length) return { skipped: 'no regions' }
+    const many = []
+    for (let k = 0; many.length < 32; k++) { const s0 = src[k % src.length], t = mkTrack(`${s0.name} ${k + 1}`, null, null, null, s0.buf0, s0.vol, [], copy(s0.patch)); t.regs = s0.regs.map(r => cloneReg(r)); many.push(t) }
+    S.tracks = many; S.sel = 0; setView(true); dirtyAll(); flush()
+    const lay = () => document.getElementById('g-lanes').getBBox().width                        // (the drawing laid out, as a frame would)
+    const at = VX + (X1 - X0) / PXB / 3, p0 = PXB, out = {}
+    const run = (name, stepOf) => {
+      PXB = p0; VX = vx; viewSettle(); dirtyAll(); flush(); lay()
+      const ms = []
+      for (let k = 0; k < 60; k++) { const f = k < 30 ? 1.025 : 1 / 1.025, t0 = performance.now(); stepOf(PXB * f); flush(); lay(); ms.push(performance.now() - t0) }
+      viewSettle(); flush()
+      ms.sort((a, b) => a - b)
+      out[name] = { median: +ms[30].toFixed(2), p90: +ms[54].toFixed(2), worst: +ms[59].toFixed(2), regions: many.reduce((q, t) => q + t.regs.length, 0) }
+    }
+    run('drawnEachStep', pxb => { const k = (at - VX) * PXB; PXB = clamp(pxb, fitPXB(), maxPXB()); VX = clamp(at - k / PXB, 0, maxVX()); uiDirty('lanes', 'ruler', 'scenes', 'play', 'info') })
+    run('stretched', pxb => zoomLive(pxb, at))
+    S.tracks = keep; S.sel = sel; PXB = px; VX = vx; setView(true); dirtyAll(); flush()
+    return out
+  })
+  await step('openAsk', async () => {
+    halt(false)
+    const res = {}, here = projKey(), key = (code, k) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k, code, bubbles: true, cancelable: true }))
+    await saveNow(true); await sleep(150)
+    const kept = LEAVE.kept, n0 = S.tracks.length, cur = (await NAT.call('projLoad', { name: here })) || {}, test0 = PROJ.test
+    await NAT.call('projSave', { name: 'open ask other', json: cur.json }); await saveNow(false, true)
+    PROJ.test = false                                                                             // (the check's own song is never asked about: here it is, as one of his would be)
+    newTracks({ kind: 'audio', n: 1, out: 0 }); await natSession(); await sleep(300)
+    res.changed = leaveChanged()
+    let p = openProject('open ask other'); await sleep(150); flush()
+    res.asked = { up: !!S.leave, cardNotYet: !OPENING.on, drawn: /save before closing/.test(document.getElementById('g-leave').textContent) }
+    key('Escape', 'Escape'); await p; await sleep(200)
+    res.cancelled = { gone: !S.leave, stillHere: projKey() === here, changeKept: S.tracks.length === n0 + 1 }
+    p = openProject('open ask other'); await sleep(150); flush()
+    const t0 = performance.now()
+    key('KeyD', 'd'); await sleep(20)
+    res.cardAtOnce = { on: OPENING.on, shown: !document.getElementById('loading').hidden, says: document.getElementById('ld-what').textContent, ms: Math.round(performance.now() - t0) }
+    await p; await sleep(300)
+    res.opened = { other: /open ask other/.test(projKey()), firstAsLastSaved: ((await NAT.call('projLoad', { name: here })) || {}).json === kept }
+    const t1 = performance.now(); p = openProject(here); await sleep(10)
+    res.backCard = { on: OPENING.on, shown: !document.getElementById('loading').hidden, says: document.getElementById('ld-what').textContent, asked: !!S.leave, ms: Math.round(performance.now() - t1) }
+    await p; await sleep(300)
+    res.back = { here: projKey() === here, tracks: S.tracks.length === n0 }
+    PROJ.test = test0
     return res
   })
   /* folders among the projects, in the app's own place: one is made (a second of the same name is not), a project is put in

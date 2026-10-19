@@ -172,8 +172,11 @@ const laneAt = y => { const L = rowTops(), v = y - TY + VY; let k = 0; while (k 
 const maxVY = () => Math.max(0, rowTops().all - LANES_H)
 function showRow (i) { const L = rowTops(), k = L.r.indexOf(i); if (k < 0) return; const y = L.tops[k], h = rowH(i); if (y < VY) VY = y; else if (y + h > VY + LANES_H) VY = y + h - LANES_H; VY = clamp(VY, 0, maxVY()) }
 /* a fader: −∞ at the bottom, +6 at the top, most of its travel given to the last 30 dB */
-const volF = db => db <= -47.5 ? 0 : db <= -24 ? (db + 48) / 24 * .25 : .25 + (db + 24) / 30 * .75
-const fVol = f => { const v = f <= .25 ? -48 + f / .25 * 24 : -24 + (f - .25) / .75 * 30; return v <= -47.5 ? -48 : Math.abs(v) < .35 ? 0 : Math.round(v * 10) / 10 }
+/* a fader's travel and its db: most of it where a mix is made (his ask, 2026-10-19: a little pull took the level down too
+   far) — −12 to 0 db nearly half the fader, 0 db at four fifths of the way up, as on Logic's; below −24 the last part */
+const VOL_DB = [-48, -24, -12, 0, 6], VOL_F = [0, .15, .35, .8, 1]
+const volF = db => { if (db <= -47.5) return 0; for (let i = 1; i < VOL_DB.length; i++) if (db <= VOL_DB[i]) return VOL_F[i - 1] + (db - VOL_DB[i - 1]) / (VOL_DB[i] - VOL_DB[i - 1]) * (VOL_F[i] - VOL_F[i - 1]); return 1 }
+const fVol = f => { let v = 6; for (let i = 1; i < VOL_F.length; i++) if (f <= VOL_F[i]) { v = VOL_DB[i - 1] + (f - VOL_F[i - 1]) / (VOL_F[i] - VOL_F[i - 1]) * (VOL_DB[i] - VOL_DB[i - 1]); break } return v <= -47.5 ? -48 : Math.abs(v) < .35 ? 0 : Math.round(v * 10) / 10 }
 const patchNow = t => { const { A, B, x } = t.patch; return { tape: lerp(A.tape, B.tape, x), space: lerp(A.space, B.space, x), delay: lerp(A.delay, B.delay, x), share: lerp(A.share, B.share, x) } }
 /* is a print on a track's patch: it is when it is turned up at all, or a line is drawn for it along the song */
 const PRINTS3 = ['tape', 'space', 'delay'], PRINT_START = { tape: 24, space: 30, delay: 20 }

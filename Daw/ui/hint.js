@@ -162,6 +162,7 @@ function wordKind (tok) {
     case 'color': case 'shade': return 'colour'
     case 'howhat': case 'fmt': case 'hoprint': case 'horange': return 'hand off'
     case 'printname': return 'print'
+    case 'want': return 'sound'
     case 'what': return 'value'
     case 'plug': return 'plug-in'
     case 'ctlname': return 'control'

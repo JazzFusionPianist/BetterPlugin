@@ -63,7 +63,7 @@ LANG.lists.ko = {
   'fit, or what is chosen': '전체 보기, 또는 선택한 것', 'taller, shorter rows': '줄 높게, 낮게', 'taller, lower waveforms': '파형 크게, 작게',
   'add': '추가', 'remove': '제거', 'sure?': '정말?', 'bypass': '바이패스', 'wet only': '웨트만', 'off': '끔', 'blends': '섞음', 'adds': '더함', 'amount': '양', 'nothing on this patch yet': '이 패치에는 아직 아무것도 없습니다', 'the wall is full': '벽이 가득 찼습니다', 'left out': '빠짐', 'threshold': '스레숄드', 'depth': '깊이', 'drive': '드라이브', 'hold': '홀드', 'keep': '남김', 'pass': '패스', 'slope': '기울기', 'moves': '움직임', 'decay': '길이', 'feedback': '피드백', 'step': '스텝', 'scale': '스케일', 'interval': '음정', 'cents': '센트', 'engine': '엔진', 'size': '크기', 'spray': '퍼짐', 'scatter': '흩음', 'freeze': '프리즈', 'ratio': '비율', 'attack': '어택', 'release': '릴리즈', 'knee': '니', 'makeup': '메이크업', 'from': '부터', 'learn': '학습', 'smooth': '부드럽게', 'bands': '밴드', 'blur': '번짐', 'clock': '클럭', 'feel': '느낌', 'detector': '디텍터', 'phase': '위상', 'slur': 'slur',
   'before its fader': '페이더 앞', 'stacks do not go deeper than that': '스택은 그보다 깊이 들어가지 않습니다',
-  'sounds # of #': '소리 # / #', 'plug-ins # of #': '플러그인 # / #', 'getting ready': '준비 중', 'sounds': '소리',
+  'sounds # of #': '소리 # / #', 'plug-ins # of #': '플러그인 # / #', 'getting ready': '준비 중', 'saving': '저장 중', 'reading': '읽는 중', 'sounds': '소리',
   'printing the mix': '믹스 프린트 중', 'printing stems': '스템 프린트 중', 'bouncing': '바운스 중', 'file # of #': '파일 # / #',
   'bringing in': '가져오는 중', '# files': '파일 #개',
   'no stem is chosen': '고른 스템이 없습니다',

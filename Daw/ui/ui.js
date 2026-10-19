@@ -681,6 +681,7 @@ function pLanes () {
 function pLanesIn () {
   const root = $('g-lanes')
   if (!$('ln-rows')) { root.innerHTML = `<g id="ln-back"></g><g id="ln-clip"${LN}><g id="ln-grid"></g><g id="ln-rows"></g><g id="ln-over"></g></g><g id="ln-edge"></g>`; LANES.rows.clear() }
+  if (typeof ZOOM !== 'undefined') { ZOOM.pxb = 0; for (const id of ['ln-grid', 'ln-rows', 'ln-over']) $(id).removeAttribute('transform') }      // (drawn for real: no longer stretched — viewLive)
   const L = rowTops(), sel = new Set(S.selR), xEnd = bx(SONG_END + 1), vis = L.r, span = (X1 - X0) / PXB
   const put = (id, html) => { if (LANES[id] !== html) { LANES[id] = html; $(id).innerHTML = html } }
   let alt = ''
@@ -842,6 +843,8 @@ function pMixer (y, h) {
   const q = stripGeom(y, h, false)
   const con = typeof SKIN === 'object' && SKINS.strip[SKIN.k.mixer]                    // (a theme's strip without the room's meters has no scale beside the out's either: skins.js)
   if (!con || con.meters) for (const db of DBS) s += T(mx + 12, q.yOf(db) + 3, db === -48 ? '∞' : String(Math.abs(db)), { size: 8.5, a: db === 0 ? .66 : .36, anchor: 'end' })
+  /* a slot pulled with option: in the hand, beside the pointer, what goes and a plus (a copy) */
+  if (drag && drag.a === 'mfx' && drag.alt && drag.moved && drag.word) { const w = Math.round(tw(drag.word, 9) + 26), x = drag.px + 10, yy = drag.py - 2; s += R(x, yy, w, 16, { rx: 2, fill: K3 }) + R(x + .5, yy + .5, w - 1, 15, { rx: 2, stroke: INK, sa: .5 }) + T(x + 6, yy + 11.5, drag.word, { size: 9, a: .95 }) + T(x + w - 6, yy + 11.5, '+', { size: 10, w: 500, a: drag.to.length ? .9 : .3, anchor: 'end' }) }
   return s
 }
 function pDock () {
@@ -863,6 +866,7 @@ function placePicker () {
   const inside = pickerIn(), what = S.picker.what
   el.classList.toggle('in', inside)
   if (inside) { const w = pickerW(); el.style.left = n(RX - SIDE - w) + 'px'; el.style.top = n(BY + PH) + 'px'; el.style.width = w + 'px'; el.style.height = n(Math.max(96, S.panel.h - PH)) + 'px' }
+  else if (S.picker.at && what === 'fx') { el.style.left = clamp(S.picker.at.x, 12, Math.max(12, W - 330)) + 'px'; el.style.top = clamp(S.picker.at.y, TY + 8, Math.max(TY + 8, H - 360)) + 'px'; el.style.width = ''; el.style.height = '' }      // (a strip's empty slot: the list beside it)
   else { el.style.left = (what === 'new' ? 302 : what === 'inst' ? 12 : clamp(RX - SIDE - 316, 12, Math.max(12, RX - 316))) + 'px'; el.style.top = (what === 'new' ? TOOL_Y + TOOL_H + 2 : Math.max(TY + 8, BY - 344)) + 'px'; el.style.width = ''; el.style.height = '' }
 }
 async function openPicker (what) {
@@ -877,7 +881,7 @@ async function openPicker (what) {
   drawPicker(); q.focus()
   setTimeout(() => { if (S.picker.open && document.activeElement !== q) q.focus() }, 0)      // (the press that opened it takes the keys to the board when it ends: they are the search field's)
 }
-function closePicker () { if (!S.picker.open) return; S.picker.open = false; $('picker').hidden = true; uiDirty('dock') }
+function closePicker () { if (!S.picker.open) return; S.picker.open = false; S.picker.at = null; $('picker').hidden = true; uiDirty('dock') }
 function drawPicker () {
   const t = S.tracks[S.sel], q = $('pk-q').value.trim().toLowerCase(), full = (t.inserts || []).length >= MAX_INS, fresh = S.picker.what === 'new', voice = S.picker.what === 'inst' || fresh
   const prints0 = voice ? [] : PRINTS3.filter(k => !printOn(t, k) && (!q || k.includes(q)))
@@ -900,7 +904,8 @@ function drawPicker () {
   /* (a vst3 that does not say what it is, is listed as an effect; looked for by name it is offered as an instrument too, and opening it tells) */
   /* for a track of notes: the instruments from outside first, by name, then the room's own — each of the synth's sounds, the kit, the sampler */
   const own = voice ? Object.keys(SYNTH_SOUNDS).map(k => [k, 'synth', 'synth']).concat([['kit', 'drums', 'drums'], ['sampler', 'sampler', 'sampler']]).filter(o => !q || (o[0] + ' ' + o[1]).includes(q)) : []
-  $('pk-head').innerHTML = `<b>${voice ? 'instrument' : 'add'}</b><span>${prints.length + own.length + list.length}</span>`
+  const many = voice ? 0 : pickTracks().length
+  $('pk-head').innerHTML = many > 1 ? `<b>on ${many} tracks</b><span>${esc(pickTracks().map(i => S.tracks[i].name).join(' '))}</span>` : `<b>${voice ? 'instrument' : 'add'}</b><span>${prints.length + own.length + list.length}</span>`
   const box = $('pk-list')
   box.textContent = ''
   const row = (name, maker, kind, pick, mark) => {
@@ -917,18 +922,25 @@ function drawPicker () {
   if (voice) ownRows()
 }
 /* a print put on the chosen track's patch: it comes on at a moderate amount, to be pulled from there */
-function addPrint (k) { const t = S.tracks[S.sel]; setPrint(t, k, PRINT_START[k]); touchPatch(t); closePicker(); uiDirty('dock') }
+function addPrint (k) { for (const i of pickTracks()) { const t = S.tracks[i]; if (!printOn(t, k)) { setPrint(t, k, PRINT_START[k]); touchPatch(t) } } closePicker(); uiDirty('dock') }      // (on every chosen track)
 async function pickPlugin (p) {
   const t = S.tracks[S.sel], voice = S.picker.what === 'inst'
   if ((!voice && (t.inserts || []).length >= MAX_INS) || S.picker.busy) return
   S.picker.busy = p.id
   $('pk-head').innerHTML = `<b>opening</b><span>${esc(p.name.toLowerCase())}</span>`
+  /* with several tracks chosen, it goes on every one of them (his pick of design/mixer inserts draft 1); the leading one's
+     window opens, the others' do not */
+  const also = voice ? [] : pickTracks().filter(i => i !== S.sel && (S.tracks[i].inserts || []).length < MAX_INS)
   const r = voice ? await setInstPlug(t, p) : await natInsert(S.sel, p.id)
+  let more = 0
+  if (r && r.ok) for (const i of also) { const q = await natInsert(i, p.id, { show: false }); if (q && q.ok) more++ }
   S.picker.busy = null
-  if (r && r.ok) closePicker(); else $('pk-head').innerHTML = `<b>would not open</b><span>${esc(String((r && r.error) || '').toLowerCase())}</span>`
+  if (r && r.ok) { closePicker(); if (more) say(`${p.name.toLowerCase()} put on ${more + 1} tracks`) } else $('pk-head').innerHTML = `<b>would not open</b><span>${esc(String((r && r.error) || '').toLowerCase())}</span>`
 }
-async function natInsert (trackIndex, id) {
-  const t = S.tracks[trackIndex], r = await NAT.call('insert', { track: t.id, id })
+/* the tracks a pick from the list goes on: the leading one, and those chosen with it (not a stack: it holds no patch) */
+const pickTracks = () => { const ids = chosenIds(); return S.tracks.map((t, i) => [t, i]).filter(([t, i]) => (i === S.sel || ids.has(t.id)) && t.kind !== 'stack' && !t.theirs).map(([, i]) => i) }
+async function natInsert (trackIndex, id, o = {}) {                                      // o: { state (its settings, as a song keeps them), show: false (its window not opened) }
+  const t = S.tracks[trackIndex], r = await NAT.call('insert', Object.assign({ track: t.id, id }, o.state ? { state: o.state } : {}, o.show === false ? { show: 0 } : {}))
   if (r && r.ok) { t.inserts.push({ uid: r.uid, name: r.name, fmt: r.fmt, id, sc: !!r.key }); uiDirty('dock') }
   return r
 }
@@ -1329,6 +1341,8 @@ function onDown (e) {
     case 'mpan': drag = { a, i, x0: +el.dataset.x, w: +el.dataset.pw, v0: tr.pan || 0, others: others(i, 'pan') }; if (e.shiftKey) { drag.pv = tr.pan || 0; drag.lx = p.x } else stripPanX(drag, p.x, e); break      // (with shift it is not thrown to the pointer first: it moves finely from where it is)
     case 'msend': drag = { a, i, k: +el.dataset.k, x0: +el.dataset.x, w: +el.dataset.pw, px: p.x, moved: false, f: e.shiftKey && tr.sends[+el.dataset.k] ? volF(tr.sends[+el.dataset.k].db) : null, lx: p.x }; break
     case 'msendadd': openSendMenu(tr, tr.sends.length, p.x - 10, p.y + 10); break
+    case 'mfx': drag = { a, i, k: +el.dataset.k, x0: p.x, y0: p.y, alt: e.altKey, moved: false, to: [] }; break      // (let go where pressed: opened; pulled with option: copied — fxUp)
+    case 'mfxadd': if (!isChosen(i)) leadTrack(i); else S.sel = i; S.picker.at = { x: p.x - 20, y: p.y + 12 }; openPicker('fx'); uiDirty('head', 'lanes', 'dock'); break
     case 'mout': openOutMenu(tr, p.x - 10, p.y + 10); break
     case 'min': openInputMenu(tr, p.x - 10, p.y + 10); break
     case 'audiokey': if (NAT) NAT.call('audioSettings'); break
@@ -1393,12 +1407,13 @@ function onDown (e) {
 }
 function zoomDrag (d, x) {
   const f = clamp((x - d.x0) / 52, 0, 1)
-  if (d.a === 'zoomx') { const fitP = fitPXB(); setZoom(fitP * Math.pow(640 / fitP, f)) } else setRowH(20 + f * 100)
+  if (d.a === 'zoomx') { const fitP = fitPXB(); zoomLive(fitP * Math.pow(640 / fitP, f)) } else setRowH(20 + f * 100)      // (the zoom bar pulled: live, as a pinch)
   uiDirty('info')
 }
 /* what a pull has added up to since the hand came: a fifth as fast while shift is held */
 const pulled = (d, y, per, e) => { d.acc += (d.ly - y) * per * fine(e); d.ly = y; return d.acc }
-function stripVolY (d, y, e) { const t = S.tracks[d.i]; volSet(t, fVol(clamp(d.f0 + pulled(d, y, 1 / d.g.fh, e), 0, 1))); carry(d, 'vol', t.vol); uiDirty('dock', 'head') }
+const FADER_PULL = .6                                                                     // (a fader goes a little slower than the hand: on a short one a small pull was a big change)
+function stripVolY (d, y, e) { const t = S.tracks[d.i]; volSet(t, fVol(clamp(d.f0 + pulled(d, y, FADER_PULL / d.g.fh, e), 0, 1))); carry(d, 'vol', t.vol); uiDirty('dock', 'head') }
 function stripPanX (d, x, e) {
   const t = S.tracks[d.i]
   let p = clamp((x - d.x0) / d.w, 0, 1) * 2 - 1
@@ -1406,7 +1421,7 @@ function stripPanX (d, x, e) {
   d.pv = p; d.lx = x
   t.pan = Math.abs(p) < .06 ? 0 : Math.round(p * 64) / 64; pushTrack(t); carry(d, 'pan', t.pan); uiDirty('dock')
 }
-function masterY (y, e) { S.master = fVol(clamp(drag.f0 + pulled(drag, y, 1 / drag.g.fh, e), 0, 1)); pushMaster(); uiDirty('top', 'dock') }
+function masterY (y, e) { S.master = fVol(clamp(drag.f0 + pulled(drag, y, FADER_PULL / drag.g.fh, e), 0, 1)); pushMaster(); uiDirty('top', 'dock') }
 /* the hand going on across the rows from an m or an s: each row it passes is set the way the first one went */
 function swipeMove (e) {
   const d = drag, el = under(e), t = el && el.dataset.a === d.what && el.dataset.i != null ? S.tracks[+el.dataset.i] : null
@@ -1427,6 +1442,11 @@ function onMove (e) {
   else if (drag.a === 'mmaster') masterY(p.y, e)
   else if (drag.a === 'swipe') swipeMove(e)
   else if (drag.a === 'scene') sceneMove(p)
+  else if (drag.a === 'mfx') {
+    const d = drag
+    if (!d.moved && Math.hypot(p.x - d.x0, p.y - d.y0) > 4) d.moved = true
+    if (d.moved && d.alt) { const it = fxItems(S.tracks[d.i])[d.k]; d.word = it ? asGiven(it.t) : ''; d.to = fxTargets(d.i, p); d.px = p.x; d.py = p.y; uiDirty('dock') }
+  }
   else if (drag.a === 'msend') {
     const d = drag, tk = S.tracks[d.i], sd = tk.sends[d.k]
     if (Math.abs(p.x - d.px) > 2) d.moved = true
@@ -1477,6 +1497,8 @@ function onUp () {
   else if (d.a === 'scene') sceneUp()
   else if ((d.a === 'vol' || d.a === 'mvol') && d.before) commit(d.before)          // the fader moved a line drawn along the song
   else if (d.a === 'msend' && !d.moved) openSendMenu(S.tracks[d.i], d.k, S.px - 10, S.py + 10)       // a press that moved nothing asks where it goes
+  else if (d.a === 'msend') uiDirty('dock')                                               // (let go: the send says its bus again)
+  else if (d.a === 'mfx') fxUp(d)
   else if (d.a === 'rgain' && d.moved) commit(d.before)
   else if (d.a === 'rsens') sensUp(d)
   else if (d.a === 'rtr' && d.moved) { commit(d.before); rewarp(selRegs().map(x => x[0])) }
@@ -1496,9 +1518,33 @@ function onWheel (e) {
   }
   if (p.x > X1 || p.y < MK_Y || p.y > BY) return
   e.preventDefault()
-  if (e.altKey || e.ctrlKey) { if (p.x >= X0) setZoom(PXB * Math.exp(-e.deltaY * .0035), barAt(p.x)); return }   // option + wheel (or a pinch) zooms on the pointer
-  if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) { const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY; if (dx && p.x >= X0) scrollBy(dx / PXB) }
+  if (e.altKey || e.ctrlKey) { if (p.x >= X0 && !ZOOM.pinch) zoomLive(PXB * Math.exp(-e.deltaY * .0035), barAt(p.x)); return }   // option + wheel (or a pinch told as a wheel) zooms on the pointer — not twice over while the same pinch is told as a gesture too
+  if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) { const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY; if (dx && p.x >= X0) viewLive(PXB, clamp(VX + dx / PXB, 0, maxVX())) }
   else if (e.deltaY && maxVY() > 0) { VY = clamp(VY + e.deltaY, 0, maxVY()); uiDirty('lanes', 'head') }
+}
+/* ── the view moved by the hand: a pinch, option and the wheel, two fingers along the song ──
+   Every lane drawn again at every step of a pinch was too slow for a big song (his users, 2026-10-19: "트랙 패드로 horizontal
+   줌인 줌 아웃 … 스무스하게 잘 안된다"). While the hand moves, the lanes as they were last drawn are stretched and slid to the
+   new view (one transform: nothing is drawn again) and the bars, the markers and the playhead follow at once; the lanes
+   are drawn again for real four times a second, and when the hand stops. */
+const ZOOM = { pxb: 0, vx: 0, timer: 0, last: 0, pinch: false }
+function viewLive (pxb, vx) {
+  if (!ZOOM.pxb) { ZOOM.pxb = PXB; ZOOM.vx = VX; ZOOM.last = performance.now() }       // (the lanes as last drawn)
+  PXB = pxb; VX = vx
+  const s = PXB / ZOOM.pxb, e = X0 * (1 - s) + (ZOOM.vx - VX) * PXB, m = `matrix(${s} 0 0 1 ${e} 0)`
+  for (const id of ['ln-grid', 'ln-rows', 'ln-over']) { const el = $(id); if (el) el.setAttribute('transform', m) }
+  uiDirty('ruler', 'scenes', 'play', 'info')
+  clearTimeout(ZOOM.timer); ZOOM.timer = setTimeout(viewSettle, 120)
+  if (performance.now() - ZOOM.last > 250) viewSettle()
+}
+function viewSettle () { clearTimeout(ZOOM.timer); if (ZOOM.pxb) { ZOOM.pxb = 0; uiDirty('lanes', 'ruler', 'scenes', 'info') } }
+/* a zoom about a bar (as setZoom does), live */
+function zoomLive (pxb, aroundBar) {
+  if (!isFinite(pxb) || (aroundBar != null && !isFinite(aroundBar))) return
+  pxb = clamp(pxb, fitPXB(), maxPXB())
+  const at = aroundBar == null ? VX + (X1 - X0) / PXB / 2 : aroundBar, k = (at - VX) * PXB, p0 = PXB
+  PXB = pxb; const vx = clamp(at - k / pxb, 0, maxVX()); PXB = p0
+  viewLive(pxb, vx)
 }
 /* what lies under the pointer */
 function under (e) {
@@ -1548,6 +1594,7 @@ function onContext (e) {
   else if (a === 'scenebar') openMenu(p.x, p.y, [{ t: 'new marker here', v: 1 }], () => addScene(Math.round(barAt(p.x)) + 1))
   else if (a === 'sel' || a === 'vol' || a === 'msel') { if (groupOf(i).length > 1) { S.sel = i; S.focus = 'tracks'; uiDirty('head', 'lanes', 'dock') } else chooseTrack(i); openTrackMenu(i, p.x, p.y) }
   else if (a === 'msend') openSendMenu(S.tracks[i], +el.dataset.k, p.x, p.y)
+  else if (a === 'mfx') fxMenu(i, +el.dataset.k, p.x, p.y)
   else if (a === 'loan') openKeyMenu(S.tracks[S.sel], i, p.x, p.y)                     // a plug-in: what it listens to (its key)
   else if (a === 'lanes') openToolMenu(p.x, p.y)
   else if (a === 'menu-close') { S.menu = null; uiDirty('menu') }
@@ -1815,9 +1862,9 @@ async function boot () {
   svg.addEventListener('wheel', onWheel, { passive: false })
   /* a pinch on the trackpad (WebKit tells it as a gesture): zoom about where the fingers are */
   let pinch = null
-  addEventListener('gesturestart', e => { e.preventDefault(); const p = pt(e); pinch = p.x >= X0 && p.x <= X1 && p.y >= MK_Y && p.y <= BY ? { pxb: PXB, bar: barAt(p.x) } : null })
-  addEventListener('gesturechange', e => { e.preventDefault(); if (pinch) setZoom(pinch.pxb * e.scale, pinch.bar) })
-  addEventListener('gestureend', e => { e.preventDefault(); pinch = null })
+  addEventListener('gesturestart', e => { e.preventDefault(); const p = pt(e); pinch = p.x >= X0 && p.x <= X1 && p.y >= MK_Y && p.y <= BY ? { pxb: PXB, bar: barAt(p.x) } : null; ZOOM.pinch = !!pinch })
+  addEventListener('gesturechange', e => { e.preventDefault(); if (pinch) zoomLive(pinch.pxb * e.scale, pinch.bar) })
+  addEventListener('gestureend', e => { e.preventDefault(); pinch = null; ZOOM.pinch = false; viewSettle() })
   svg.addEventListener('contextmenu', onContext)
   const cmd = $('cmd')
   cmd.addEventListener('focus', () => cmd.select())

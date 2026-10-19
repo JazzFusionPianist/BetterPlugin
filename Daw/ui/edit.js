@@ -1076,7 +1076,8 @@ const act = {
   del () {
     if (S.focus === 'marker') { const sc = SCENES.find(x => x.a === S.selM); if (sc) { removeScene(sc.i); return } S.focus = 'lanes'; S.selM = null }      // (the marker that was pressed is no longer there)
     if (S.selX && S.focus === 'lanes' && !S.selR.length && !S.marq) { const [A, t] = regOf(S.selX[0]), B = regOf(S.selX[1])[0]; S.selX = null; if (A && B) edit(() => { let any = false; for (const [a, b] of [[A, B]].concat(joinMates(A, B, t))) any = uncross(a, b) || any; return any }); uiDirty('lanes', 'dock'); return }
-    if ((S.auto || S.selP.length) && S.focus !== 'tracks' && !S.marq) { edit(() => autoDelete()); return }      // (with a marquee up it is the marquee's stretch that goes, lines showing or not)
+    if (S.auto && (S.selP.length || S.marq || S.focus !== 'tracks')) { edit(() => autoDelete()); return }      // the lines up: a delete is the lines' — the chosen points, else those in the marquee's stretch — and never the sound (his ask, 2026-10-19)
+    if (S.selP.length && S.focus !== 'tracks' && !S.marq) { edit(() => autoDelete()); return }      // (the lines away: a marquee up is the marquee's stretch that goes)
     if (S.marq || S.selR.length) {
       edit(() => {
         const m = S.marq, mts = m ? marqTracks().filter(t => t.kind === 'audio') : null

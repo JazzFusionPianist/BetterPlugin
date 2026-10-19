@@ -52,9 +52,9 @@ function plugBody () {
   if (PG.group == null && !finding) PG.group = groups[0]
   const lines = PG.lines = (finding ? [null] : []).concat(groups)    // (while something is typed: everything found, first)
   PG.gMax = Math.max(0, lines.length - PG_GROUPS); PG.gs = Math.max(0, Math.min(PG.gs, PG.gMax))
-  let y = 130
+  let y = PG.y0 || 130                                                                   // (y0: room above the groups for one of another page's: firstpage.js)
   for (const grp of lines.slice(PG.gs, PG.gs + PG_GROUPS)) {
-    const its = grp == null ? pool : pool.filter(p => pgIn(p) === grp), n = its.length, o = its.filter(p => !pgShown(p)).length, on = grp === PG.group
+    const its = grp == null ? pool : pool.filter(p => pgIn(p) === grp), n = its.length, o = its.filter(p => !pgShown(p)).length, on = grp === PG.group && !PG.away
     if (on) b += R(PTX, y, PTW, 20, { rx: 2, fill: INK })
     if (PG.drag && PG.drag.to === grp) b += R(PTX + .5, y + .5, PTW - 1, 19, { rx: 2, stroke: INK, sa: .7 }) + R(PTX, y, PTW, 20, { rx: 2, fill: INK, fa: .08 })      // (where a row carried would go)
     b += T(PTX + 10, y + 13.6, fit(grp == null ? 'everything found' : pgWord(grp), PTW - 70, 10, on ? 500 : 400), { size: 10, w: on ? 500 : 400, c: on ? K1 : INK, a: on ? 1 : .72 })

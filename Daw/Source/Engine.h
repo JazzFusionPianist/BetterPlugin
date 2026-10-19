@@ -12,6 +12,8 @@
 #include "Instruments.h"
 #include "host/Plug.h"
 #include "Meter.h"
+#include "Listen.h"
+#include "Probe.h"
 #include <sys/sysctl.h>
 #include <AudioToolbox/AudioToolbox.h>
 #include <mach/mach_time.h>
@@ -55,7 +57,9 @@ inline void logLine (const String& s)
     {
         auto dir = juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Logs/Slur");
         dir.createDirectory();
-        auto f = dir.getChildFile ("daw.log");
+        bool check = false;                                            // (the check keeps a log of its own: it must not wipe the one of the app he is working in)
+        for (auto& a : juce::JUCEApplicationBase::getCommandLineParameterArray()) if (a.startsWith ("--selftest")) check = true;
+        auto f = dir.getChildFile (check ? "daw-selftest.log" : "daw.log");
         f.deleteFile();
         return f;
     }();
@@ -133,7 +137,9 @@ struct PluginWindow final : juce::DocumentWindow
         toFront (true);
     }
     void closeButtonPressed() override { if (onClose) onClose(); }
-    /* the space bar, return and v, when nothing of the plug-in's wanted them, are the room's: play and stop, to the beginning, the plug-ins' windows away */
+    /* the space bar, return and v, comma and period, when nothing of the plug-in's wanted them, are the room's: play and
+       stop, to the beginning, the plug-ins' windows away, the playhead a bar back and on (the space bar is caught before
+       the plug-in sees it as well: host/Window.mm) */
     bool keyPressed (const juce::KeyPress& k) override
     {
         const auto m = k.getModifiers();
@@ -141,6 +147,8 @@ struct PluginWindow final : juce::DocumentWindow
         {
             const int c = k.getKeyCode();
             const bool space = c == juce::KeyPress::spaceKey, ret = c == juce::KeyPress::returnKey, v = ! space && ! ret && ! m.isShiftDown() && (c == 'v' || c == 'V' || slur::PlugWindow::keyCodeNow() == 9);
+            const bool comma = slur::PlugWindow::keyCodeNow() == 43, period = slur::PlugWindow::keyCodeNow() == 47;      // (the playhead a bar back, a bar on)
+            if (comma || period) return slur::PlugWindow::key (comma ? "Comma" : "Period", m.isShiftDown());
             if (space || ret || v) return slur::PlugWindow::keyRepeats() || slur::PlugWindow::key (space ? "Space" : ret ? "Enter" : "KeyV", m.isShiftDown());
         }
         return DocumentWindow::keyPressed (k);
@@ -783,6 +791,8 @@ public:
         recs.clear();
         for (auto& t : tracks) t->eachPlug ([] (Insert& i) { i.shut(); i.letGo(); });
         tracks.clear();
+        if (learnTrack != nullptr) learnTrack->eachPlug ([] (Insert& i) { i.shut(); i.letGo(); });
+        learnTrack.reset();
     }
 
     /** `saved`: the device setup as it was left last time (see deviceState). */
@@ -2071,6 +2081,17 @@ public:
         juce::var meta;
         if (snd.existsAsFile() && about.existsAsFile()) meta = juce::JSON::parse (about);
         auto fits = [&] { return meta.isObject() && juce::roundToInt ((double) meta["rate"]) == juce::roundToInt (sr) && (int) meta["frames"] > 1 && snd.getSize() == kSoundHead + (juce::int64) (int) meta["channels"] * (juce::int64) (int) meta["frames"] * 4; };
+        /* one file made ready by one thread at a time: two asking for the same sound at once (several are made ready together
+           when a project opens) wait for each other, and the second finds it made */
+        struct Making
+        {
+            String name;
+            static juce::CriticalSection& cs() { static juce::CriticalSection c; return c; }
+            static std::set<String>& on() { static std::set<String> s; return s; }
+            explicit Making (const String& n) : name (n) { for (;;) { { const juce::ScopedLock sl (cs()); if (on().insert (name).second) return; } juce::Thread::sleep (15); } }
+            ~Making() { const juce::ScopedLock sl (cs()); on().erase (name); }
+        } making (name);
+        if (! fits() && snd.existsAsFile() && about.existsAsFile()) meta = juce::JSON::parse (about);      // (made meanwhile by the one that was waited for)
         if (fits()) about.setLastModificationTime (juce::Time::getCurrentTime());      // (what was last used when: for tidying up)
         else
         {
@@ -2634,6 +2655,120 @@ public:
         });
     }
 
+    /** How each asked-for track sounds over a stretch, as numbers (daw::Listen): one offline pass a track, after its fader
+        and through its patch and plug-ins — what is heard of it — with only what feeds it sounding, as a stem is printed.
+        Nothing is written. {a0, a1 (bars from zero), tracks: [id] (0: the whole mix), band: [lo, hi] hz (asked for: near),
+        as: own | solo | rest} → {ok, hop and fast (seconds), centres (hz), tracks: [{id, bands, level, kl, side, corr,
+        fast, peak, ltas, mid, sideBands, lr, near}]}. As: `own` the track after its fader (what flows into it sounding);
+        `solo` the track as the stereo out has it — through the buses it plays into and what it sends to, alone in them
+        (how far back its sends put it); `rest` the stereo out without it (what it has to be heard against). The command
+        line's ways are chosen and measured by it (design/choices draft 1, ui/ears.js). */
+    void listen (const juce::var& opts, std::function<void (juce::var)> done)
+    {
+        if (recording.load() || bouncing.exchange (true)) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); o->setProperty ("error", "busy"); done (juce::var (o)); return; }
+        playing.store (false);
+        startPrint (done, [this, opts] (PrintEnd& end)
+        {
+            juce::ScopedNoDenormals noDenormals;
+            { const juce::ScopedLock sl (lock); printBufs = bufs; }
+            const double a0 = (double) opts["a0"], a1 = (double) opts["a1"], barS = barSamples();
+            const juce::int64 s0 = (juce::int64) std::llround (a0 * barS), s1 = (juce::int64) std::llround (a1 * barS);
+            for (auto& tp : tracks) tp->eachPlug ([] (Insert& i) { i.offline (true); });
+            measureLatency();
+            juce::Array<juce::var> heard;
+            bool ok = s1 > s0;
+            const auto* band = opts["band"].getArray();
+            const String as = opts["as"].toString();
+            const double lo = band != nullptr && band->size() == 2 ? (double) (*band)[0] : 0.0, hi = band != nullptr && band->size() == 2 ? (double) (*band)[1] : 0.0;
+            if (auto* list = opts["tracks"].getArray())
+                for (auto& tv : *list)
+                {
+                    if (leaving.load()) { ok = false; break; }
+                    const int id = (int) tv;                                   // (0: the whole mix, as it goes to the stereo out before its own fader — for levels to be matched by)
+                    auto* t = id != 0 ? find (id) : nullptr;
+                    if (id != 0 && t == nullptr) continue;
+                    Tap tapOne;
+                    Tap* tap = nullptr;
+                    if (t != nullptr && as == "solo")                          // (no track kept: the stereo out is heard, with only these in it)
+                    {
+                        tapOne.only = upstream (t);
+                        for (auto* d : downstream (t)) tapOne.only.insert (d);
+                        tap = &tapOne;
+                    }
+                    else if (t != nullptr && as == "rest") { for (auto& tp : tracks) if (tp.get() != t) tapOne.only.insert (tp.get()); tap = &tapOne; }
+                    else if (t != nullptr) { tapOne.t = t; tapOne.buf.setSize (2, maxBlock); tapOne.buf.clear(); tapOne.only = upstream (t); tap = &tapOne; }
+                    daw::Listen ear (sr, lo, hi);
+                    for (auto& tp : tracks) { tp->gainSm = dbGainOf (*tp, a0); tp->panSm = tp->pan.load(); quietNotes (*tp); }
+                    for (juce::int64 k = 0; k < (juce::int64) (sr * 1.5) && ! leaving.load(); k += maxBlock) renderGraph (s0, maxBlock, false, true, nullptr, a1, tap);      // (old tails die away first, as for a print)
+                    measureLatency();
+                    int lead = 0; for (auto& tp : tracks) lead = juce::jmax (lead, tp->ahead.load());
+                    for (juce::int64 p = s0 - lead; p < s0 && ! leaving.load(); ) { const int n = (int) juce::jmin ((juce::int64) maxBlock, s0 - p); renderGraph (p, n, true, true, nullptr, a1, tap); p += n; }
+                    for (juce::int64 p = s0; p < s1 && ! leaving.load(); p += maxBlock)
+                    {
+                        const int n = (int) juce::jmin ((juce::int64) maxBlock, s1 - p);
+                        renderGraph (p, n, true, true, nullptr, a1, tap);
+                        const auto& got = tap != nullptr && tap->t != nullptr ? tap->buf : mix;
+                        ear.push (got.getReadPointer (0), got.getReadPointer (1), n);
+                    }
+                    auto v = ear.result();
+                    if (auto* d = v.getDynamicObject()) d->setProperty ("id", id);
+                    heard.add (v);
+                }
+            end.finish();
+            auto* o = new juce::DynamicObject();
+            juce::Array<juce::var> cs; for (int b = 0; b < daw::Listen::BANDS; ++b) cs.add (daw::Listen::centres()[b]);
+            o->setProperty ("ok", ok && ! leaving.load()); o->setProperty ("hop", (double) daw::Listen::HOP / sr); o->setProperty ("fast", (double) daw::Listen::FAST / sr); o->setProperty ("centres", cs); o->setProperty ("tracks", heard);
+            logLine ("listen: " + String (heard.size()) + " tracks, bars " + String (a0 + 1.0, 2) + " to " + String (a1 + 1.0, 2));
+            end.answer (juce::var (o));
+        });
+    }
+
+    /** A plug-in learnt by what it does (Source/Probe.h, ui/probe.js): sound of a known kind through one plug-in on a
+        track — and nothing else — offline, with some of its controls set for the while; then its controls as they were,
+        and its tails let go. {track, uid, sig, set: [[index, v]], hz, db} → {ok, lat (samples), what the signal answers} */
+    void probe (const juce::var& opts, std::function<void (juce::var)> done)
+    {
+        if (recording.load() || bouncing.exchange (true)) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); o->setProperty ("error", "busy"); done (juce::var (o)); return; }
+        playing.store (false);
+        startPrint (done, [this, opts] (PrintEnd& end)
+        {
+            juce::ScopedNoDenormals noDenormals;
+            Insert* ins = nullptr;
+            const int uid = (int) opts["uid"];
+            if (auto* t = find ((int) opts["track"])) t->eachPlug ([&ins, uid] (Insert& i) { if (i.uid == uid) ins = &i; });
+            juce::var res;
+            if (ins == nullptr || ! ins->there()) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); o->setProperty ("error", "no such plug-in"); res = juce::var (o); }
+            else
+            {
+                ins->offline (true);
+                auto valueOf = [ins] (int k) -> float
+                {
+                    if (ins->own != nullptr) return k >= 0 && k < ins->own->controls() ? ins->own->control (k) : -1.0f;
+                    const auto& ps = ins->inst->getParameters();
+                    return k >= 0 && k < ps.size() ? ps.getUnchecked (k)->getValue() : -1.0f;
+                };
+                std::vector<std::pair<int, float>> was;                // (what each control stood at, to be put back)
+                if (auto* list = opts["set"].getArray())
+                    for (auto& sv : *list)
+                    {
+                        const int k = (int) sv[0]; const float v = (float) (double) sv[1];
+                        was.push_back ({ k, valueOf (k) });
+                        float told = -1.0f; ins->setParam (k, v, told);
+                    }
+                auto clear = [ins] { if (ins->own != nullptr) ins->own->reset(); else if (ins->inst != nullptr) ins->inst->reset(); };
+                clear();
+                daw::Probe pr (sr, maxBlock, [ins] (float* L, float* R, int n) { ins->process (L, R, n); });
+                pr.lat = ins->latencyNow();
+                res = pr.measure (opts["sig"].toString(), opts.getProperty ("hz", 1000.0), opts.getProperty ("db", -12.0));
+                if (auto* d = res.getDynamicObject()) { if (! d->hasProperty ("error")) d->setProperty ("ok", true); d->setProperty ("lat", ins->latencyNow()); }
+                for (auto it = was.rbegin(); it != was.rend(); ++it) if (it->second >= 0.0f) { float told = -1.0f; ins->setParam (it->first, it->second, told); }
+                clear();
+            }
+            end.finish();
+            end.answer (res);
+        });
+    }
+
     /** A print played through in real time (his ask, 2026-10-16: "realtime" beside "offline", as Logic has them; drawn for
         him in design/realtime bounce draft 1): the song plays from a0 as it always does — heard, and drawn by the page —
         and what it prints is written as it goes; the files are made into what was asked for once the range and its tail
@@ -2947,7 +3082,21 @@ public:
     void testAdoptRate (double r) { if (testInput) adoptRate (r); }
     void testHole() { if (testInput) lastBlockTick.store ((juce::int64) mach_continuous_time() - (juce::int64) (2.0 / tickSeconds)); }      // the check: as if the device had given no block for two seconds
 
-    Track* find (int id) { for (auto& t : tracks) if (t != nullptr && t->id == id) return t.get(); return nullptr; }
+    Track* find (int id)
+    {
+        if (id == kLearnTrack)                                         // (made the first time a plug-in is opened to be learnt; message thread)
+        {
+            if (learnTrack == nullptr) { learnTrack = std::make_unique<Track>(); learnTrack->id = kLearnTrack; learnTrack->work.setSize (2, maxBlock); learnTrack->sideBuf.setSize (2, maxBlock); learnTrack->share = -1.0f; }
+            return learnTrack.get();
+        }
+        for (auto& t : tracks) if (t != nullptr && t->id == id) return t.get();
+        return nullptr;
+    }
+    /** Plug-ins opened only to be learnt (ui/probe.js: settings > plug-ins, first choices): they sit on a track of their own
+        that is in no song and never played — `tracks` does not hold it — so nothing of the song changes, and nothing is
+        heard; Engine::probe plays sound through them, and they are taken off again (op remove) once they are learnt. */
+    static constexpr int kLearnTrack = -7;
+    std::unique_ptr<Track> learnTrack;
     int trackCount() const { return (int) tracks.size(); }
     int chainCount() const { int n = 0; for (auto& t : tracks) if (t->chain != nullptr) ++n; return n; }
 
@@ -3371,6 +3520,20 @@ private:
         if (! alone) lock.exit();
     }
 
+    /** The buses a track's sound goes on through, by where it plays into and what it sends to, all the way to the out. */
+    std::set<const Track*> downstream (const Track* t) const
+    {
+        std::set<const Track*> s;
+        std::vector<const Track*> todo { t };
+        while (! todo.empty())
+        {
+            const Track* x = todo.back(); todo.pop_back();
+            auto go = [&] (const Track* d) { if (d != nullptr && s.insert (d).second) todo.push_back (d); };
+            go (x->out);
+            for (auto& sd : x->sends) go (sd.dst);
+        }
+        return s;
+    }
     /** A track and everything that flows into it — and whatever a plug-in on one of those listens to, with all that
         flows into that: it has to sound for the plug-in to hear it (a print of one track plays these, and no others). */
     std::set<const Track*> upstream (const Track* t) const

@@ -338,15 +338,47 @@ const PRINTS = [['tape', CREAM], ['space', SPACE], ['delay', MINT]]
 const DBS = [6, 0, -6, -12, -24, -48]
 const SHORT = { 'stereo out': 'st out' }
 const MASTER = () => ({ id: 'M', name: 'stereo out', kind: 'out', vol: S.master, pan: 0, c: oklch(.8, .004, 90), sends: [], inserts: [] })
+/* A strip's rows: its patch as a column of slots (fx), its sends, where it goes. As many slots as the strip with most on
+   it needs, and one more, and as many sends — three of each at least — as long as the fader keeps a hundred pixels; it
+   gave two rows to them (his ask, 2026-10-19: "볼륨 페이더의 높이를 조금만 줄여서 fx랑 send를 넣을 자리를"). */
+const MIX_FADER_MIN = 80
+let MIX_N = { key: '', nf: 3, ns: 3 }
+function mixCounts (h, wide) {
+  const key = h + '|' + (wide ? 1 : 0) + '|' + S.tracks.map(t => `${t.wall ? t.wall.nodes.length : 0},${(t.inserts || []).length},${(t.sends || []).length},${PRINTS3.filter(k => printOn(t, k)).length}`).join(';')
+  if (MIX_N.key === key) return MIX_N
+  const most = Math.max(0, ...S.tracks.map(t => fxItems(t).length)), sends = Math.max(0, ...S.tracks.map(t => (t.sends || []).length))
+  let nf = clamp(most + 1, 3, 8), ns = clamp(sends + 1, 3, 6)
+  const room = h - (7 + 9 + 14 + 67) - 16 * (wide ? 2 : 1) - MIX_FADER_MIN
+  while ((nf + ns) * 16 > room && (nf > 2 || ns > 2)) { if ((nf > ns && nf > 2) || ns <= 2) nf--; else ns-- }
+  MIX_N = { key, nf, ns }
+  return MIX_N
+}
 function stripGeom (y, h, wide) {
-  const sp = 16, sh = 14, rws = wide ? ['in', 'patch', 'send', '', '', 'out'] : ['patch', 'send', '', '', 'out']
+  const sp = 16, sh = 14, { nf, ns } = mixCounts(h, wide)
+  const rws = (wide ? ['in'] : []).concat(Array.from({ length: nf }, (_, k) => 'fx' + k), ['send'], Array(ns - 1).fill(''), ['out'])
   const y0 = y + 7, panY = y0 + rws.length * sp + 9, ft = panY + 14, fb = Math.max(ft + 24, y + h - 67)
-  return { sp, sh, rows: rws, y0, panY, ft, fb, fh: fb - ft, yOf: db => fb - (fb - ft) * volF(db) }
+  return { sp, sh, rows: rws, nf, ns, y0, panY, ft, fb, fh: fb - ft, yOf: db => fb - (fb - ft) * volF(db) }
+}
+/* what is on a track's patch, in order: the prints and plug-ins on its wall (a key's side is not a slot), else — no wall
+   made yet — its prints and then its plug-ins */
+const MIX_PRINT_C = { tape: CREAM, space: SPACE, delay: MINT }
+const plugShort = name => String(name || '').replace(/^(fabfilter|uadx?|uaudio|waves)\s+/i, '').toLowerCase()
+function fxItems (t) {
+  const out = [], plug = ins => ({ kind: 'plug', ins, t: plugShort(ins.name), off: !!(ins.off || ins.out || ins.dead) })
+  const w = t.wall
+  if (w && Array.isArray(w.nodes)) {
+    for (const nd of w.nodes) { if (nd.k === 'side') continue; if (nd.k === 'plug') { if (nd.ins) out.push(plug(nd.ins)) } else out.push({ kind: 'print', k: nd.k, node: nd.id, t: nd.k, c: MIX_PRINT_C[nd.k] }) }
+    for (const ins of t.inserts || []) if (!out.some(o => o.ins === ins)) out.push(plug(ins))      // (put on a moment ago: not on the wall yet)
+  } else {
+    for (const k of PRINTS3) if (printOn(t, k)) out.push({ kind: 'print', k, t: k, c: MIX_PRINT_C[k] })
+    for (const ins of t.inserts || []) out.push(plug(ins))
+  }
+  return out
 }
 function stripGutter (x, w, y, h, wide) {
   const q = stripGeom(y, h, wide)
   let s = ''
-  q.rows.forEach((l, i) => { if (l) s += T(x + w - 6, q.y0 + i * q.sp + q.sh / 2 + 3.2, l, { size: 9, a: .4, anchor: 'end' }) })
+  q.rows.forEach((l, i) => { const said = l === 'fx0' ? 'fx' : /^fx\d/.test(l) ? '' : l; if (said) s += T(x + w - 6, q.y0 + i * q.sp + q.sh / 2 + 3.2, said, { size: 9, a: .4, anchor: 'end' }) })
   s += T(x + w - 6, q.panY + 4, 'pan', { size: 9, a: .4, anchor: 'end' })
   if (!(typeof SKIN === 'object' && SKINS.strip[SKIN.k.mixer] && !SKINS.strip[SKIN.k.mixer].meters)) for (const db of DBS) s += T(x + w - 6, q.yOf(db) + 3, db === -48 ? '∞' : String(Math.abs(db)), { size: 8.5, a: db === 0 ? .66 : .36, anchor: 'end' })      // (a console's knobs carry their own scale)
   return s
@@ -367,8 +399,11 @@ function strip (x, y, w, h, t, i, o = {}) {
     const db = shown(t, 'send' + k), f = volF(db), id = 'sd' + (++UID), b = byId(sd.to)
     s += `<clipPath id="${id}"><rect x="${n(sx)}" y="${n(yy)}" width="${n(sw)}" height="${q.sh}" rx="1.5"/></clipPath>`
     s += G(R(sx, yy, sw, q.sh, { fill: K0, fa: .7 }) + R(sx, yy, sw * f, q.sh, { fill: INK, fa: .3 }), '', ` clip-path="url(#${id})"`) + R(sx + .5, yy + .5, sw - 1, q.sh - 1, { rx: 1.5, stroke: INK, sa: autoPts(t, 'send' + k).length ? .5 : .16 })
-    s += word(b ? b.name : 'send', sw - (wide ? 34 : 7))
-    if (wide) s += T(sx + sw - 5, yy + q.sh / 2 + fs * .35, db <= -47.5 ? '−∞' : String(Math.round(db)).replace('-', '−'), { size: 9, a: .66, anchor: 'end' })
+    const pulling = drag && drag.a === 'msend' && drag.moved && S.tracks[drag.i] === t && drag.k === k      // (while it is pulled it says how much goes, to a tenth of a db: his ask, 2026-10-19)
+    const much = db <= -47.5 ? '−∞' : (pulling ? db.toFixed(1) : String(Math.round(db))).replace('-', '−')
+    if (pulling && !wide) s += word(`${much} db`, sw - 7)
+    else s += word(b ? b.name : 'send', sw - (wide ? 34 : 7))
+    if (wide) s += T(sx + sw - 5, yy + q.sh / 2 + fs * .35, much, { size: 9, a: pulling ? .95 : .66, anchor: 'end' })
     hits += hit(sx, yy, sw, q.sh, 'msend', `${di} data-k="${k}" data-x="${n(sx)}" data-pw="${n(sw)}"`, 'ew-resize')
   }
   for (const r of q.rows) {
@@ -384,6 +419,20 @@ function strip (x, y, w, h, t, i, o = {}) {
       PRINTS.forEach(([k, c], j) => { const lx = l0 + j * lp; s += p[k] >= .5 ? R(lx, ly, ls, ls, { fill: c }) : R(lx + .5, ly + .5, ls - 1, ls - 1, { stroke: INK, sa: .16 }) })
       for (let j = 0; j < ln; j++) s += R(l0 + 2 * lp + ls + (wide ? 6 : 4) + j * (wide ? 6 : 4.5), ly, 3, ls, { fill: INK, fa: t.inserts[j].off || t.inserts[j].out ? .3 : .85 })
       hits += hit(sx, yy, sw, q.sh, 'm-patch', di)
+    } else if (/^fx\d+$/.test(r)) {
+      /* a slot: what is on the patch there — a plug-in's name, a print's beside its colour (dim where it is off) — or the
+         empty one after them, which opens the list; where there is more than there are slots the last says how much more */
+      const k = +r.slice(2), items = fxItems(t), more = items.length > q.nf && k === q.nf - 1, it = more ? null : items[k]
+      const fd = drag && drag.a === 'mfx' && drag.alt && drag.moved ? drag : null
+      if (more) { s += R(sx, yy, sw, q.sh, { rx: 1.5, fill: K0, fa: .55 }) + word(`+${items.length - k} more`, sw - 7, false, .5); hits += hit(sx, yy, sw, q.sh, 'm-patch', di) }
+      else if (it) {
+        const held = fd && fd.i === i && fd.k === k
+        s += R(sx, yy, sw, q.sh, { rx: 1.5, fill: K3 }) + (held ? R(sx + .5, yy + .5, sw - 1, q.sh - 1, { rx: 1.5, stroke: INK, sa: .9 }) : '')
+        if (it.c) s += R(sx + 3, yy + q.sh / 2 - 2, 4, 4, { fill: it.c, fa: it.off ? .4 : 1 })
+        s += T(sx + (it.c ? 10 : 4), yy + q.sh / 2 + fs * .35, fit(asGiven(it.t), sw - (it.c ? 13 : 7), fs - .5), { size: fs - .5, a: it.off ? .4 : .9 })
+        hits += hit(sx, yy, sw, q.sh, 'mfx', `${di} data-k="${k}"`)
+      } else if (k === items.length && fd && fd.to && fd.to.includes(i)) s += R(sx, yy, sw, q.sh, { rx: 1.5, fill: K0, fa: .9 }) + R(sx + .5, yy + .5, sw - 1, q.sh - 1, { rx: 1.5, stroke: INK, sa: .7, dash: '2 2' }) + word(fd.word, sw - 7)      // (where a copy pulled with option would go)
+      else { s += R(sx, yy, sw, q.sh, { rx: 1.5, fill: K0, fa: .55 }); if (k === items.length && !t.theirs) { s += T(sx + sw / 2, yy + q.sh / 2 + 3, '+', { size: 9, a: .4, anchor: 'middle' }); hits += hit(sx, yy, sw, q.sh, 'mfxadd', di) } else if (k === items.length) hits += hit(sx, yy, sw, q.sh, 'm-patch', di) }      // (another program's track takes no plug-in here: its slot opens its patch)
     } else if (r === 'send' || r === '') { const k = si++, sd = (t.sends || [])[k]; if (sd) send(sd, k); else well(k === (t.sends || []).length ? 'msendadd' : null) }
     else if (r === 'out') full(short(outName(t)), false, 'mout')
     yy += q.sp
@@ -495,4 +544,75 @@ async function bounceInPlace (live) {                                           
   })
   say(`bounced ${res.placed.length}`)
   refreshPool()
+}
+
+/* ── a strip's slot taken hold of (ui.js: 'mfx') ──
+   Let go where it was pressed: a plug-in's window opens, a print opens the patch on it. Pulled with option onto another
+   strip: copied there — a plug-in with its settings, a print with its amounts — and onto one of several chosen strips, to
+   every one of them (design/mixer inserts draft 1, 2). */
+function fxTargets (from, p) {
+  const vis = rows(), k = Math.floor((p.x - NGUT) / NSTRIP) + S.panel.mx, i = vis[k]
+  if (i == null || i === from || p.x < NGUT || p.x > RX - 8 - MSTRIP - 8) return []
+  const t = S.tracks[i]
+  if (!t || t.kind === 'stack' || t.theirs) return []
+  if (isChosen(i) && chosen().length > 1) return pickTracks().filter(j => j !== from)
+  return [i]
+}
+async function fxUp (d) {
+  const t = S.tracks[d.i], it = t && fxItems(t)[d.k]
+  uiDirty('dock')
+  if (!it) return
+  if (!d.moved) {
+    if (it.kind === 'plug') { if (NAT && it.ins.uid && !it.ins.out) NAT.call('editor', { track: t.id, uid: it.ins.uid }) }
+    else { if (!isChosen(d.i)) leadTrack(d.i); else S.sel = d.i; S.panel.tab = 'patch'; if (it.node != null && typeof WALL !== 'undefined') WALL.sel = { t: t.id, node: it.node }; uiDirty('head', 'lanes', 'dock', 'top') }
+    return
+  }
+  if (!d.alt || !d.to.length) return
+  let done = 0
+  if (it.kind === 'plug') {
+    const st = NAT ? await NAT.call('pluginStates') : null, state = st && it.ins.uid ? st['u' + it.ins.uid] : it.ins.state
+    for (const i of d.to) { if ((S.tracks[i].inserts || []).length >= MAX_INS) continue; const r = await natInsert(i, it.ins.id, { state, show: false }); if (r && r.ok) { done++; const ni = S.tracks[i].inserts.find(x => x.uid === r.uid); if (ni && it.ins.off) { ni.off = true; NAT.call('bypass', { track: S.tracks[i].id, uid: ni.uid, off: 1 }) } } }
+  } else if (PRINTS3.includes(it.k)) {
+    const v = patchNow(t)[it.k]
+    for (const i of d.to) { const u = S.tracks[i]; setPrint(u, it.k, v); touchPatch(u); pushTrack(u); done++ }
+  } else {
+    const src = t.wall && t.wall.nodes.find(n => n.id === it.node)
+    for (const i of d.to) {
+      const u = S.tracks[i], w = wallOf(u), n0 = w.nodes.length
+      wallAdd(u, it.k)
+      const nd = w.nodes.length > n0 ? w.nodes[w.nodes.length - 1] : null
+      if (!nd) continue
+      if (src) { nd.amount = src.amount; if (src.aux) nd.aux = src.aux.slice(); if (src.variant != null) nd.variant = src.variant }
+      wallAppend(w, nd.id); await wallPush(u); done++
+    }
+  }
+  if (done) say(`${it.t} copied to ${done} track${done === 1 ? '' : 's'}`)
+  uiDirty('dock', 'head')
+}
+/* a slot pressed with the other button: open it, turn it off or on, take it off */
+function fxMenu (i, k, x, y) {
+  const t = S.tracks[i], it = t && fxItems(t)[k]
+  if (!it) return
+  const node = () => { const w = wallOf(t); return it.kind === 'plug' ? w.nodes.find(n => n.ins === it.ins) : w.nodes.find(n => n.id === it.node || n.k === it.k) }
+  const items = [{ t: 'open', v: 'open' }].concat(it.kind === 'plug' ? [{ t: it.ins.off ? 'turn on' : 'turn off', v: 'off' }] : [], [{ t: 'take off', v: 'remove' }])
+  openMenu(x, y, items, m => {
+    if (m.v === 'open') fxUp({ i, k, moved: false })
+    else if (m.v === 'off') { it.ins.off = !it.ins.off; if (NAT && it.ins.uid) NAT.call('bypass', { track: t.id, uid: it.ins.uid, off: it.ins.off ? 1 : 0 }); uiDirty('dock') }
+    else if (m.v === 'remove') { const nd = node(); if (nd) wallRemove(t, nd); else if (it.kind === 'plug') { if (NAT && it.ins.uid && !it.ins.out) NAT.call('remove', { track: t.id, uid: it.ins.uid }); t.inserts.splice(t.inserts.indexOf(it.ins), 1) } else { setPrint(t, it.k, 0); pushTrack(t) } uiDirty('dock') }
+  }, { w: 140 })
+}
+
+/* a print of the room's picked from the list a strip's slot opened (or with several tracks chosen): on every chosen track,
+   at the end of its way */
+function fxPrintOn (k) {
+  for (const i of pickTracks()) {
+    const u = S.tracks[i]
+    if (WALL_LEGACY[k]) { if (!printOn(u, k)) { setPrint(u, k, PRINT_START[k]); touchPatch(u); pushTrack(u); wallOf(u); wallPush(u) } continue }
+    const w = wallOf(u), n0 = w.nodes.length
+    if (wallFree(w) < 0) continue
+    wallAdd(u, k)
+    const nd = w.nodes.length > n0 ? w.nodes[w.nodes.length - 1] : null
+    if (nd) { wallAppend(w, nd.id); wallPush(u) }
+  }
+  uiDirty('dock', 'head')
 }

@@ -110,10 +110,11 @@ const at = (frac, dy = 0) => ev(`flush(); const t = S.tracks[${bi}], g = autoGeo
   await ev(`undoEdit(); flush()`)
   bi = await ev(`return S.tracks.findIndex(t => t.kind === 'bus')`); ai = await ev(`return S.tracks.findIndex(t => t.kind === 'audio' && !t.parent)`) }
 
-/* with the lines shown it is still its line, in its colour, and other tracks show theirs in ink */
+/* with the lines shown it is still its line, in its colour; a track with no points shows no dashed line (his ask, 2026-10-19:
+   a line only where one is pressed) */
 { await ev(`toggleAuto(); flush()`)
   const s = await seen(bi), a = await ev(`flush(); const el = LANES.rows.get(S.tracks[${ai}].id).el; return [...el.querySelectorAll(':scope > path')].some(p => p.getAttribute('stroke-dasharray'))`)
-  ok('with the lines shown the bus keeps its line in its colour, and a track shows its own dashed one', !!s.line && !!s.ground && a === true, [s.line, a])
+  ok('with the lines shown the bus keeps its line in its colour, and a track without points no dashed one', !!s.line && !!s.ground && a === false, [s.line, a])
   await ev(`toggleAuto(); flush()`)
   ok('…put away, the track’s is gone and the bus’s stays', !!(await seen(bi)).line && !(await ev(`flush(); const el = LANES.rows.get(S.tracks[${ai}].id).el; return [...el.querySelectorAll(':scope > path')].some(p => p.getAttribute('stroke-dasharray'))`))) }
 

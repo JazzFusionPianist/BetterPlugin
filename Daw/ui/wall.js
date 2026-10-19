@@ -541,11 +541,12 @@ function wallAdd (t, k) {
   wallPush(t); uiDirty('dock')
 }
 async function wallPick (p) {
-  const t = wallTrack(), w = wallOf(t)
+  const t = wallTrack(), w = wallOf(t), slot = S.panel.tab === 'mixer'
   if (S.picker.busy || wallFree(w) < 0) return
   S.picker.busy = p.id
   $('pk-head').innerHTML = `<b>opening</b><span>${esc(p.name.toLowerCase())}</span>`
-  WALL.loose = t.id
+  WALL.loose = slot ? null : t.id                                                          // (from a strip's slot: at the end of the way, wired, as the slot says)
+  const also = t === OUT || typeof pickTracks !== 'function' ? [] : pickTracks().filter(i => i !== S.sel && wallFree(wallOf(S.tracks[i])) >= 0)
   let r
   if (t === OUT) {                                                                       // the stereo out: the engine holds it as a bus from now on, and the plug-in is opened on that
     OUT.opening = true; await wallPushOut()
@@ -556,7 +557,9 @@ async function wallPick (p) {
   S.picker.busy = null
   if (r && r.ok) wallOf(t)
   WALL.loose = null
-  if (r && r.ok) { const nw = wallOf(t), node = nw.nodes.find(x => x.ins && x.ins.uid === r.uid); if (node) { WALL.sel = { t: t.id, node: node.id }; S.focus = 'wall' } wallPush(t); drawPicker(); uiDirty('dock') }
+  let more = 0
+  if (r && r.ok) for (const i of also) { const q = await natInsert(i, p.id, { show: false }); if (q && q.ok) more++ }      // (on the others chosen with it: their windows stay shut)
+  if (r && r.ok) { const nw = wallOf(t), node = nw.nodes.find(x => x.ins && x.ins.uid === r.uid); if (node && !slot) { WALL.sel = { t: t.id, node: node.id }; S.focus = 'wall' } wallPush(t); if (slot || more) closePicker(); else drawPicker(); if (more) say(`${p.name.toLowerCase()} put on ${more + 1} tracks`); uiDirty('dock') }
   else $('pk-head').innerHTML = `<b>would not open</b><span>${esc(String((r && r.error) || '').toLowerCase())}</span>`
 }
 
@@ -614,7 +617,8 @@ async function wallPick (p) {
       el.append(nm, k); el.onclick = () => { S.picker.cat = c; drawPicker(); $('pk-list').scrollTop = 0; $('pk-q').focus() }
       cb.append(el)
     }
-    $('pk-head').innerHTML = `<b>${full ? 'the wall is full' : 'add'}</b><span>${full ? 'sixteen things' : prints.length + list.length}</span>`
+    const many = t === OUT || typeof pickTracks !== 'function' ? 0 : pickTracks().length      // (several tracks chosen: it goes on all of them — mix.js)
+    $('pk-head').innerHTML = full ? `<b>the wall is full</b><span>sixteen things</span>` : many > 1 ? `<b>on ${many} tracks</b><span>${esc(pickTracks().map(i => S.tracks[i].name).join(' '))}</span>` : `<b>add</b><span>${prints.length + list.length}</span>`
     const row = (name, maker, kind, pick, mark) => {
       const el = document.createElement('button'), nm = document.createElement('b'), mk = document.createElement('span'), f = document.createElement('i')
       el.type = 'button'; el.className = 'pk-row'; if (mark) el.dataset.print = mark
@@ -622,12 +626,12 @@ async function wallPick (p) {
       el.append(nm, mk, f); el.onclick = pick
       box.append(el)
     }
-    for (const k of prints) row(k, 'slur', 'print', () => { wallAdd(t, k); drawPicker() }, k)
+    for (const k of prints) row(k, 'slur', 'print', () => { if (t !== OUT && (S.panel.tab === 'mixer' || pickTracks().length > 1)) { fxPrintOn(k); closePicker() } else { wallAdd(t, k); drawPicker() } }, k)
     for (const p of list.slice(0, 500)) row(p.name.toLowerCase(), (p.maker || '').toLowerCase(), p.fmt, () => wallPick(p))
   }
   /* a plug-in opened on a track is on its wall, and the engine told, before whoever asked for it goes on (it plays nothing
      until the engine knows its place) */
-  { const ni0 = natInsert; natInsert = async function (trackIndex, id) { const r = await ni0(trackIndex, id), t = S.tracks[trackIndex]; if (r && r.ok && t) { wallOf(t); await wallPush(t) } return r } }
+  { const ni0 = natInsert; natInsert = async function (trackIndex, id, ...more) { const r = await ni0(trackIndex, id, ...more), t = S.tracks[trackIndex]; if (r && r.ok && t) { wallOf(t); await wallPush(t) } return r } }
   /* the walls are told to the engine when the room is (a project opened, the device changed) */
   if (typeof natSession === 'function') { const ns0 = natSession; natSession = async function (...a) { const r = await ns0(...a); WALL.sent.clear(); WALL.outTold = !!wallOutTrack(); wallPushAll(); return r } }
 }

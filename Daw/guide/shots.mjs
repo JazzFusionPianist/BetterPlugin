@@ -194,6 +194,25 @@ const SHOTS = {
     await key(b, '/'); await b.ev(`const e = document.activeElement; if (e && 'value' in e) { e.value = ''; e.dispatchEvent(new Event('input', { bubbles: true })) } return 1`); await b.type('kick mute'); await key(b, '↩'); await b.sleep(400)
     await b.pic('prompt-ask', [370, H - 22 - 316 + 92, W - 370, 56], 1.5)
   },
+  /* a request made by its sound: the prompt page answers with three ways. In a browser no app listens, so what was heard
+     is set by hand, in numbers like the app's own on the demo song (they meet at 36 to 140 hz, both lows at 50 hz, the bass
+     over every hit of the kick); A is being heard, and its gain is being typed over */
+  async ways (b) {
+    await key(b, '/'); await b.type('kick and bass sound apart'); await key(b, '↩'); await b.sleep(400)
+    await b.ev(`document.getElementById('cmd').blur()
+      const T = __daw.S.tracks, kick = T.find(t => t.name === 'kick'), bass = T.find(t => t.name === 'bass')
+      const C = [20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000]
+      const kickM = [-62, -46, -31, -13, -6, -6.5, -7.5, -9, -12, -17, -22, -25, -27, -29, -31, -33, -35, -36, -37, -38, -39, -40, -41, -42, -44, -46, -48, -50, -53, -56, -60]
+      const bassM = [-62, -45, -29, -13.5, -5, -5.5, -7, -9.5, -14, -16, -18, -21, -24, -26.5, -28, -30, -32, -34, -36, -38, -40, -42, -44, -46, -48, -50, -52, -54, -56, -58, -60]
+      const hd = { centres: C, hop: 2048, a: kick.id, b: bass.id, A: { id: kick.id, mean: kickM, mx: -4, hits: [] }, B: { id: bass.id, mean: bassM, mx: -5, hits: [] }, fA: 50, fB: 50, lo: 36, hi: 140, loB: 3, hiB: 8, hits: 32, covered: 32, longer: true }
+      WAYS.heard = hd; WAYS.range = [4, 12]; WAYS.ways = waysMake(hd)
+      WAYS.ways.forEach((w, i) => { w.gave = [-2.9, -4.1, -4.0][i]; w.out = [.4, .6, .3][i] })
+      WAYS.hear = 1; WAYS.busy = ''; uiDirty('dock'); __daw.redraw(); return 1`)
+    await b.sleep(200)
+    await b.hit('ways-edit', 2); await b.type('-1.5')                                     // (A's gain, −3 db, typed over)
+    console.log('ways', await b.names())
+    const L = await b.lay(); await b.pic('ways', [0, L.BY + 2, L.W, L.H - 22 - L.BY - 2], 1.5)
+  },
 }
 const SIZE = { ways: { w: 1440, h: 900 } }                                                 // (the ways page as it was drawn and approved: three cards need the width)
 async function standIn () {

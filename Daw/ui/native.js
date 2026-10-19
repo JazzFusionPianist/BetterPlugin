@@ -137,7 +137,7 @@ if (NAT) {
     uiDirty('hand')
   }
   /* the space bar, return or v, pressed while a plug-in's window had the keys and wanted by nothing in it: the room's, as if pressed here */
-  NAT.on('dawPlugKey', d => { const key = d && { Space: ' ', Enter: 'Enter', KeyV: 'v' }[d.code]; if (key) dispatchEvent(new KeyboardEvent('keydown', { code: d.code, key, shiftKey: !!d.shift, bubbles: true, cancelable: true })) })
+  NAT.on('dawPlugKey', d => { const key = d && { Space: ' ', Enter: 'Enter', KeyV: 'v', Comma: ',', Period: '.' }[d.code]; if (key) dispatchEvent(new KeyboardEvent('keydown', { code: d.code, key, shiftKey: !!d.shift, bubbles: true, cancelable: true })) })
   NAT.on('dawBounce', d => { printTell(d); if (S.ho.state === 'busy' && d && d.done >= 0) { S.ho.done = d.done; uiDirty('hand') } })
   /* a file longer than twenty minutes that the disk has no room to keep ready: only its beginning is held, and that is said */
   NAT.on('dawCut', d => { if (d && d.name) say(`only the first ${Math.round(d.held / 60)} of ${Math.round(d.whole / 60)} minutes of ${String(d.name).toLowerCase().slice(0, 28)} are held${d.disk ? ': the disk has no room for the rest' : ''}`) })

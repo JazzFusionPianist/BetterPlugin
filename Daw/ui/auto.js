@@ -109,17 +109,23 @@ const shownKey = t => S.auto ? apOf(t) : 'vol'
 const autoGeom = (t, y, rh) => { const k = shownKey(t), A = AUTO[k], m = Math.min(6, Math.max(3, rh * .16)), ly = y + m, lh = rh - 2 * m; return { k, A, ly, lh, yOf: v => ly + lh - A.f(v) * lh, vOf: yy => A.inv(clamp((ly + lh - yy) / lh, 0, 1)) } }
 function autoLane (t, y, rh, xEnd = X1) {
   const { k, A, yOf } = autoGeom(t, y, rh), pts = autoPts(t, k), own = lineOwn(t), ink = own ? t.c : INK, pale = own && !heard(t) ? .45 : 1, xe = Math.min(xEnd, X1)
-  if (!pts.length) return own ? (xe > X0 ? P(`M${X0} ${n(yOf(A.now(t))) + .5}H${n(xe)}`, { stroke: ink, sa: OWN_LINE * pale }) : '') : P(`M${X0} ${n(yOf(A.now(t)))}H${X1}`, { stroke: INK, sa: .5, dash: '5 4' })
+  if (!pts.length) return own ? (xe > X0 ? P(`M${X0} ${n(yOf(A.now(t))) + .5}H${n(xe)}`, { stroke: ink, sa: OWN_LINE * pale }) : '') : ''      // (no line until one is made: his ask, 2026-10-19 — the dashed one is gone)
   let d = `M${X0 - 2} ${n(yOf(pts[0].v))}`, dots = ''
   for (const [b, v] of autoBent(pts)) d += `L${n(bx(b + 1))} ${n(yOf(v))}`
   d += `L${n(own ? Math.max(xe, bx(pts[pts.length - 1].b + 1)) : Math.max(X1, bx(pts[pts.length - 1].b + 1)) + 2)} ${n(yOf(pts[pts.length - 1].v))}`
+  /* each point, small, and its value beside it (his ask, 2026-10-19: how far a point takes it could not be seen) — said
+     where there is room for it: a word that would run into the last one is left out */
+  let words = '', free = -Infinity
+  const top = y + 2, bottom = y + rh - 2
   for (const q of pts) {
     const x = bx(q.b + 1)
     if (x < X0 - 5 || x > X1 + 5) continue
-    const on = S.selP.includes(q.id)
-    dots += Cc(x, yOf(q.v), on ? 3.6 : 2.8, { fill: on ? ink : K0, stroke: ink, sw: 1.3 })
+    const on = S.selP.includes(q.id), py = yOf(q.v)
+    dots += Cc(x, py, on ? 2.6 : 2, { fill: on ? ink : K0, stroke: ink, sw: 1 })
+    const said = A.fmt(q.v), w = tw(said, 8.5)
+    if (rh >= 18 && x + 5 >= free && x + 5 + w < X1) { words += T(x + 5, clamp(py + 3, top + 7, bottom), said, { size: 8.5, c: ink, a: on ? .95 : .62 }); free = x + 5 + w + 6 }      // (right of it, at its height)
   }
-  return P(d, { stroke: K0, sa: .55, sw: 3 }) + P(d, { stroke: ink, sa: pale, sw: 1.2 }) + dots
+  return P(d, { stroke: K0, sa: .55, sw: 2.2 }) + P(d, { stroke: ink, sa: pale, sw: .9 }) + dots + words
 }
 const OWN_LINE = .75
 /* is the pointer on such a row's own line, or on one of its points (the lines not shown) */
@@ -157,7 +163,10 @@ function autoDown (e, p, tool) {
       /* on the line, away from its points. Let go where it was pressed: a point there. Pulled: that stretch of the line
          goes up or down whole (autoSeg says which stretch), and nothing of it moves along the song. */
       drag = { a: 'apt', seg: true, ti, k: g.k, x0: p.x, y0: p.y, pos, at: clamp(snapPos(pos, e), 0, SONG_END), lineV, before, lead: null, orig: new Map() }
-    } else { if (!e.shiftKey) S.selP = []; drag = { a: 'aband', x0: p.x, y0: p.y, base: S.selP.slice() }; S.band = null }
+    } else if (!pts.length) {                                                            // a lane with no line yet: pressed, a point there, at the height pressed (the line begins with it)
+      const nq = addPoint(t, g.k, clamp(snapPos(pos, e), 0, SONG_END), g.vOf(p.y))
+      S.selP = [nq.id]; S.marq = null; startDrag(nq); drag.moved = true
+    } else { if (!e.shiftKey) S.selP = []; S.marq = null; drag = { a: 'aband', x0: p.x, y0: p.y, base: S.selP.slice() }; S.band = null }      // (a band of points: the marquee that was up is let go — a delete is the points', not its sound)
   }
   uiDirty('lanes', 'head', 'dock')
 }
@@ -180,7 +189,8 @@ function autoMove (e, p) {
   if (d.seg && d.lead == null) { if (Math.hypot(p.x - d.x0, p.y - d.y0) < 3) return; autoSeg(d, t) }      // a stretch of the line taken hold of: it is pulled only once the hand has moved
   const pts = autoPts(t, d.k), lead = d.orig.get(d.lead)
   const db = d.seg ? 0 : clamp(snapPos(lead.b + (barAt(p.x) - barAt(d.x0)), e), 0, SONG_END) - lead.b, df = -(p.y - d.y0) / g.lh
-  for (const q of pts) { const o = d.orig.get(q.id); if (!o) continue; q.b = clamp(o.b + db, 0, SONG_END); q.v = g.A.inv(clamp(g.A.f(o.v) + df, 0, 1)); delete q.e }      // (a point an edit of the song's time made is whoever moves it's from then on)
+  const lv = g.A.inv(clamp(g.A.f(lead.v) + df, 0, 1)), dv = lv - lead.v                   // (the hand moves the first by so much of the lane; all the others go by as much of their own unit — a stretch of a volume line goes down by the same db all along)
+  for (const q of pts) { const o = d.orig.get(q.id); if (!o) continue; q.b = clamp(o.b + db, 0, SONG_END); q.v = o === lead ? lv : g.A.inv(clamp(g.A.f(o.v + dv), 0, 1)); delete q.e }      // (a point an edit of the song's time made is whoever moves it's from then on)
   sortPts(pts)
   d.moved = true
   uiDirty('lanes', 'head', 'dock')
@@ -265,4 +275,12 @@ function nudgePoints (dir) {
     return up0()
   } }
 { const nudge0 = act.nudge
-  act.nudge = function (dir) { if (S.selP.length && !S.marq) { nudgePoints(dir); return } return nudge0.call(act, dir) } }      // (as up and down already are the points' while any is chosen)
+  act.nudgeRegs = nudge0                                                                   // (the regions' own, for what names regions — the command line)
+  act.nudge = function (dir) {
+    if (S.selP.length) { nudgePoints(dir); return }                                       // (as up and down already are the points' while any is chosen — a marquee up or not)
+    if (S.auto) { if (S.marq) return nudge0.call(act, dir); jumpTo(clamp(curPos() + nudgeBars() * dir, 0, SONG_END)); uiDirty('scenes'); return }      // (the lines up: no region moves — the marquee, else the playhead)
+    return nudge0.call(act, dir)
+  }
+  const len0 = act.nudgeLen
+  act.nudgeLenRegs = len0
+  act.nudgeLen = function (dir) { if (S.auto && !S.marq) return; return len0.call(act, dir) } }      // (the lines up: no region is made longer or shorter)

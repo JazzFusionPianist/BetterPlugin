@@ -167,7 +167,8 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
       ['a plug-in’s own presets chosen from the room (a whole patch is kept as a preset)', '앱 안에서 플러그인 자체 프리셋 고르기(패치 전체는 프리셋으로 저장됨)'],
       ['writing automation by moving a control', '컨트롤을 움직여 오토메이션 쓰기'],
       ['undo for mixer moves made by hand', '손으로 한 믹서 조작의 실행 취소'],
-      ['a clip light on the mixer’s strips that stays lit', '믹서 스트립에 계속 켜져 있는 클립 표시등']) +
+      ['a clip light on the mixer’s strips that stays lit', '믹서 스트립에 계속 켜져 있는 클립 표시등'],
+      ['requests made by the sound other than two tracks apart (wider, further back…)', '두 트랙 떼어 놓기 말고 소리로 하는 다른 요청(wider, further back…)']) +
     h('the app', '앱') +
     list(
       ['a way back to the start page without quitting; more than one project open', '종료 없이 시작 화면으로 돌아가기. 프로젝트 여러 개 동시에 열기'],

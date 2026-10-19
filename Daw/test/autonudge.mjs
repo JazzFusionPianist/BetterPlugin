@@ -17,7 +17,7 @@ const ids = await ev(`setView(true); const ti = S.tracks.findIndex(t => t.regs.l
 const pts = () => ev(`return S.tracks[${ids.ti}].autos.vol.map(q => [+q.b.toFixed(6), +q.v.toFixed(6), q.id])`)
 const reg = () => ev(`const [r] = regOf(${ids.r}); return [r.a, r.b, +curPos().toFixed(6)]`)
 // where the chosen point is drawn (the one dot of the row drawn larger)
-const dot = () => ev(`flush(); const c = [...document.querySelectorAll('#g-lanes circle')].filter(c => +c.getAttribute('r') > 3.2); return c.map(c => +c.getAttribute('cx'))`)
+const dot = () => ev(`flush(); const c = [...document.querySelectorAll('#g-lanes circle')].filter(c => +c.getAttribute('r') > 2.3); return c.map(c => +c.getAttribute('cx'))`)
 const beat = await ev('return 1 / BEATS()'), pxb = await ev('return PXB')
 
 const p0 = await pts(), r0 = await reg(), d0 = await dot()
@@ -50,11 +50,16 @@ ok('the region still has not moved', JSON.stringify(await reg()) === JSON.string
 await key('ArrowUp', 'ArrowUp', 38, ALT)
 const p5 = await pts()
 ok('option up: their value, not their place', p5[0][1] > p4[0][1] && p5[0][0] === 0 && p5[1][0] === 1, p5)
-// with no point chosen the keys are the regions' again
+// with the lines up and no point chosen, nothing of the sound moves (his ask, 2026-10-19): the playhead goes on instead
 await ev(`S.selP = []; uiDirty('lanes'); flush()`)
 await key('ArrowRight', 'ArrowRight', 39, ALT)
 const r5 = await reg()
-ok('no point chosen: the region is nudged, as before', r5[0] === r0[0] + 1 && r5[1] === r0[1] + 1 && JSON.stringify((await pts()).map(q => q[0])) === JSON.stringify([0, 1, 4]), r5)
+ok('lines up, no point chosen: the region stays, the playhead goes a bar on', r5[0] === r0[0] && r5[1] === r0[1] && Math.abs(r5[2] - (r0[2] + 1)) < 1e-6 && JSON.stringify((await pts()).map(q => q[0])) === JSON.stringify([0, 1, 4]), [r0, r5])
+// the lines away: the keys are the regions' again
+await ev(`S.auto = false; uiDirty('lanes'); flush()`)
+await key('ArrowRight', 'ArrowRight', 39, ALT)
+const r6 = await reg()
+ok('lines away: the region is nudged, as before', r6[0] === r0[0] + 1 && r6[1] === r0[1] + 1, r6)
 
 console.log(out.join('\n')); console.log(bad.length ? `\n${bad.length} FAILED` : '\nall passed')
 if (b.errors.length) console.log('page errors:', b.errors.slice(0, 5))

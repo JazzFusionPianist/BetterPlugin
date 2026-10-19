@@ -161,7 +161,7 @@ await click('[data-a="tab-mixer"]'); ok('the tab turns the panel', await st(`S.p
 await click('[data-a="msel"][data-i="1"]'); ok('a strip pressed by its name: chosen', await st('S.sel === 1'))
 const mv0 = await st('S.tracks[3].vol'); await drag('[data-a="mvol"][data-i="3"]', 0, -24); ok('a narrow strip’s fader', (await st('S.tracks[3].vol')) > mv0, await st('S.tracks[3].vol')); await dbl('[data-a="mvol"][data-i="3"]')
 await click('[data-a="mute"][data-i="4"]'); ok('m on a strip', await st('S.tracks[4].mute')); await click('[data-a="mute"][data-i="4"]')
-await click('[data-a="m-patch"][data-i="6"]'); ok('a strip’s patch row goes to its patch', await st(`S.sel === 6 && S.panel.tab === 'patch'`))
+await click('[data-a="m-patch"][data-i="6"]'); ok('a strip’s patch goes to its patch (another program’s track: its empty slot)', await st(`S.sel === 6 && S.panel.tab === 'patch'`))
 await key('z', 'KeyZ', 90, 4); await key('z', 'KeyZ', 90, 4); await key('b', 'KeyB', 66); await settle()
 
 // ── the foot ──
@@ -236,10 +236,10 @@ await click('[data-a="sheet"]'); ok('keys opens the sheet', await st('!!S.sheet'
   { const now = await lane(), put = now.filter(r => r[0] >= far + 1 - 1e-6), len = g.b - g.a
     ok('a region copied as a region: put down twice, end to end, the last one chosen', put.length === 2 && Math.abs(put[1][0] - put[0][1]) < 1e-6 && Math.abs(put[0][1] - put[0][0] - len) < 1e-6 && put[1][2] === 1 && put[0][2] === 0 && await st('!S.marq'), now) }
   await ev(`while (UNDO.length) undoEdit(); S.selR = []; jumpTo(0); __daw.redraw()`)
-  // with the lines showing, the delete key still takes the marquee's stretch
+  // with the lines showing, the delete key takes the lines' points in the marquee's stretch and never the sound (his ask, 2026-10-19)
   await ev(`pickTool('marquee'); S.auto = true; __daw.redraw()`); await b.dragTo(g.x1, g.y, g.x3, g.y, 8); await b.sleep(60)
   await key('Backspace', 'Backspace', 8)
-  { const now = await lane(); ok('with the lines showing, a marquee and the delete key take the stretch', now.length === was.length + 1 && !now.some(r => r[0] > g.a + 1 - 1e-6 && r[1] < g.a + 3 + 1e-6), now) }
+  { const now = await lane(); ok('with the lines showing, a marquee and the delete key leave the sound', JSON.stringify(now) === JSON.stringify(was), [was, now]) }
   await ev(`while (UNDO.length) undoEdit(); S.auto = false; S.selR = []; S.marq = null; pickTool('pointer'); __daw.redraw()`)
   await ev(`S.selR = []; __daw.redraw()`)
 }

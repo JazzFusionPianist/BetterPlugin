@@ -62,7 +62,7 @@ public:
     void closeButtonPressed() override { setVisible (false); }
     juce::WebBrowserComponent& page() { return *web; }
 
-    static constexpr int kWidth = 700, kHeight = 440;                  // the draft's window, less its bar (which is the Mac's)
+    static constexpr int kWidth = 1100, kHeight = 692;                 // display's window (ui/display.js DISP_W, DISP_H), less its bar (which is the Mac's): every part is shown at this one size
 private:
     std::unique_ptr<juce::WebBrowserComponent> web;
     juce::String asked;

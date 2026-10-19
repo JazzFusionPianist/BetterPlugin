@@ -28,17 +28,33 @@ function quitAsked () {
   if (!NAT || PROJ.test || START.on || S.rec || !leaveChanged()) { saveNow(true).then(() => leaveCall('quit'), () => leaveCall('quit')); return }
   leaveAsk()
 }
-function leaveAsk () {
-  leaveCall('quitWait')                                                                  // the app waits for the answer instead of closing by itself
+/* another project opened, or a new one made: the one that is open is closed — asked first in the same way when it is not
+   as it was last saved (his ask, 2026-10-18). Answered with 'save', 'dont' or 'cancel' ('same': nothing to ask); what the
+   answer means is the asker's to do, at once, with the opening card up (project.js) */
+function leaveFirst () {
+  if (!NAT || PROJ.test || START.on || S.rec || !leaveChanged()) return Promise.resolve('same')
+  if (S.leave) return Promise.resolve('cancel')
+  return new Promise(res => leaveAsk(res))
+}
+/* "don't save": the file as it was when it was last saved (what was written quietly since stays among its earlier copies) */
+async function leavePutBack () {
+  if (LEAVE.kept == null) return true
+  const r = await leaveCall('projSave', { name: projKey(), json: LEAVE.kept, backup: 1 })
+  if (r && r.ok) { PROJ.last = LEAVE.kept; PROJ.saved = true }
+  return !!(r && r.ok)
+}
+function leaveAsk (then) {
+  if (!then) leaveCall('quitWait')                                                       // the app waits for the answer instead of closing by itself
   if (S.playing) halt(false)
   PROJ.hold++                                                                            // nothing is written quietly while the question stands
   const d = new Date(LEAVE.at), at = `${d.getHours()}:${pad2(d.getMinutes())}`
-  S.leave = { name: PROJ.name, since: LEAVE.how === 'saved' ? `last saved ${at}` : LEAVE.how === 'made' ? 'not saved since it was made' : `not saved since it was opened ${at}` }
+  S.leave = { name: PROJ.name, since: LEAVE.how === 'saved' ? `last saved ${at}` : LEAVE.how === 'made' ? 'not saved since it was made' : `not saved since it was opened ${at}`, then }
   S.menu = null; uiDirty('leave', 'menu')
 }
 /* the answer: 'save', 'dont', 'cancel'. (stay: the app is not closed afterwards — the check asks for that) */
 async function leaveAnswer (k, stay) {
   if (!S.leave || S.leave.busy) return
+  if (S.leave.then) { const then = S.leave.then; S.leave = null; PROJ.hold--; uiDirty('leave'); flush(); then(k); return }      // (another project is opening: the answer is its to carry out)
   if (k === 'cancel') { S.leave = null; PROJ.hold--; uiDirty('leave'); return }
   S.leave.busy = k; uiDirty('leave')
   let ok = true

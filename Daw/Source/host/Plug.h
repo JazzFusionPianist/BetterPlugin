@@ -130,7 +130,7 @@ public:
     /** Where on the keyboard the key being handled now sits (the Mac's number for it: 9 is v, whatever the keyboard is set to), or -1. */
     static int keyCodeNow();
     /** For the self-test: how the plug-ins' windows stand, as JSON; pressSpace: the space bar is sent to the first, the Mac's way. */
-    static std::string check (bool pressSpace);
+    static std::string check (bool pressSpace, int keyCode = 49, bool posted = false);      // (keyCode: 49 space, 47 period, 43 comma; posted: as the Mac hands a key in — through the app, past its watch)
 };
 
 } // namespace slur

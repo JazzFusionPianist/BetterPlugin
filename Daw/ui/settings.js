@@ -1,20 +1,21 @@
 /* ── the settings window ──
    A window of the Mac's (Source/Settings.h) with this page in it: the parts of the settings named down the left, the
    chosen part on the right — a name on the left of each row, the thing itself against the right edge. A change is
-   taken at once; nothing is confirmed. General, display, audio, key commands and plug-ins are there: the others are named and cannot
-   be picked yet. Drawn with the room's kit, at the sizes of the draft (design/settings draft 1); display and plug-ins
-   are larger, and the window grows for them (display.js, design/display draft 2; plugpage.js, design/plugins draft 1). */
-let PAGE_W = 700, PAGE_H = 440
-const SIDE = 164, PX = 28, PR = 700 - SIDE - 28
+   taken at once; nothing is confirmed. General, display, audio and plug-ins are there: the others are named and cannot
+   be picked yet. Drawn with the room's kit, at the sizes of the draft (design/settings draft 1). The window is display's
+   size whatever part is shown (his ask, 2026-10-16: it changed size from part to part; display, the largest, stays). */
+let PAGE_W = 0, PAGE_H = 0
+const SIDE = 164, PX = 28
+let PR = 700 - SIDE - 28
 const PARTS = ['general', 'display', 'audio', 'recording', 'editing', 'notes', 'key commands', 'plug-ins', 'command line', 'slur', 'hand off', 'storage']
 const THERE = new Set(['general', 'display', 'audio', 'key commands', 'plug-ins'])        // the parts that are made
 /* what a part reads as it is opened */
 function partOpened (p) { if (p === 'display') displayRead(); else if (p === 'plug-ins' && !PG.list) plugRead(); else if (p === 'key commands') keyRead() }
-/* the page's size for a part: display has the room's every part in it, and is larger */
+/* the page's size: display's, for every part (display has the room's every part in it); the rows reach its right edge */
 function setPage () {
-  const [w, h] = V.part === 'display' || V.part === 'plug-ins' || V.part === 'key commands' ? [DISP_W, DISP_H] : [700, 440]
+  const w = DISP_W, h = DISP_H
   if (w === PAGE_W && h === PAGE_H) return
-  PAGE_W = w; PAGE_H = h
+  PAGE_W = w; PAGE_H = h; PR = w - SIDE - 28
   const svg = document.getElementById('svg')
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`); svg.setAttribute('width', w); svg.setAttribute('height', h)
   if (NAT) NAT.call('settingsSize', { w, h })

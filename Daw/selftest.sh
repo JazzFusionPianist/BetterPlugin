@@ -8,6 +8,7 @@
 #   ./selftest.sh realtime  only a realtime print: the mix, two stems, a bounce in place, and one stopped (the room drawn as it plays)
 #   ./selftest.sh menus     only the menu bar: every menu there, which keys it takes and leaves, a line pressed, its tick
 #   ./selftest.sh display   only settings > display: the room wearing a look, and slur turning light with its ground (needs the net)
+#   ./selftest.sh themes    only the themes: console, score and phosphor pressed in settings > display, the room wearing each, and back
 #   ./selftest.sh keys      only settings > key commands: as logic pro, his own logic set read from this Mac, a key given by hand and undone
 #   ./selftest.sh plugins   only settings > plug-ins: every plug-in on the Mac in it, the delays left out of the room's lists and back,
 #                           the mac's delay called a reverb by hand and given back

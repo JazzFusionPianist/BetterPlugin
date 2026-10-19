@@ -137,6 +137,18 @@ Object.assign(LANG.lists.ko, {
   'the panel': '패널', 'slur, beside the lanes': '레인 옆의 slur', 'its look': '모습', 'by the ground': '바탕에 따라', 'dark': '어둡게', 'light': '밝게',
   'light when the ground is lighter than': '바탕이 이보다 밝으면 밝게', 'on': '켬',
 })
+/* themes (theme.js, display.js): the six built in, type, grounds */
+Object.assign(LANG.lists.ko, {
+  'theme': '테마', 'built in': '내장', 'keep as my own…': '내 테마로 간직…', 'open .sst…': '.sst 열기…', 'share as .sst…': '.sst로 공유…', 'that file holds no theme': '테마가 담긴 파일이 아님',
+  'console': '콘솔', 'cassette': '카세트', 'score': '악보', 'bauhaus': '바우하우스', 'blueprint': '청사진', 'phosphor': '인광',
+  'type': '글자', 'the words': '방의 글자', 'every word of the room': '방의 모든 글자', 'face': '서체', 'letters': '글자 모양', 'as written': '쓴 그대로', 'capitals': '대문자',
+  'space between letters': '글자 사이', 'names': '이름', 'what someone named: tracks, regions, markers, the song': '누군가 붙인 이름: 트랙, 리전, 마커, 곡', 'as the words': '방의 글자대로',
+  'background': '배경', 'under the lanes': '레인 아래', 'a pattern on the lanes’ ground': '레인 바탕의 무늬', 'pattern': '무늬', 'its colour': '그 색',
+  'over the window': '창 위', 'a texture over everything': '모든 것 위의 질감', 'texture': '질감',
+  'tape': '테이프', 'ruled': '줄', 'paper': '종이', 'dots': '점', 'grain': '입자', 'brushed': '헤어라인', 'scanlines': '주사선',
+  'their ground': '레인 바탕', 'the deepest tone': '가장 깊은 톤', 'the lanes alone': '레인에만', 'marks on them': '레인 위의 표시', 'every mark drawn on the lanes': '레인에 그려지는 모든 표시',
+  'more, a scroll away': '더 있음, 스크롤해서 보기',
+})
 /* settings > key commands (keypage.js, keymap.js): every key of the room, as it comes or as another program has them */
 Object.assign(LANG.lists.ko, {
   'key commands': '단축키', 'as #': '# 방식', '# commands, # with a key': '명령 #개, 키가 있는 것 #개', 'keys like': '키 방식', 'held': '누른 채로', 'no key': '없음',

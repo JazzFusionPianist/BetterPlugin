@@ -31,8 +31,37 @@ function hexOklch (hex) {
 const pigHex = e => oklch(e[1], e[2], e[0])
 const famHex = (f, end) => pigHex(COME.pig[f][end])
 
+/* the faces a theme may give the room (theme.js carries them) and the grounds */
+const LOOK_FACES = ['instrument sans', 'plex condensed', 'archivo', 'archivo wide', 'garamond', 'jost', 'plex mono', 'courier']
 /* ── every part and every quality ── [group, [[part, say (what it reaches), [[head, [quality…]]…]]…]] */
 const LOOK_TREE = [
+  ['type', [
+    ['the words', 'every word of the room', [
+      ['', [
+        ['type.face', 'face', 'p', { items: LOOK_FACES, d: 'instrument sans' }],
+        ['type.size', 'size', 'n', { d: 100, unit: '%', min: 85, max: 120, step: 1 }],
+        ['type.case', 'letters', 'p', { items: ['as written', 'capitals'], d: 'as written' }],
+        ['type.space', 'space between letters', 'n', { d: 0, unit: 'px', min: 0, max: 3, step: .1 }],
+      ]],
+    ]],
+    ['names', 'what someone named: tracks, regions, markers, the song', [
+      ['', [['type.names', 'face', 'p', { items: ['as the words', 'courier', 'garamond italic', 'plex mono', 'jost', 'archivo'], d: 'as the words' }]]],
+    ]],
+  ]],
+  ['background', [
+    ['under the lanes', 'a pattern on the lanes’ ground', [
+      ['', [
+        ['ground.lanes', 'pattern', 'p', { items: ['none', 'tape', 'ruled', 'paper', 'grid', 'dots'], d: 'none' }],
+        ['ground.lanesC', 'its colour', 'c', { d: COME.ink, a: 6 }],
+      ]],
+    ]],
+    ['over the window', 'a texture over everything', [
+      ['', [
+        ['ground.over', 'texture', 'p', { items: ['none', 'grain', 'brushed', 'scanlines'], d: 'none' }],
+        ['ground.overA', 'strength', 'n', { d: 100, unit: '%', min: 0, max: 300, step: 10 }],
+      ]],
+    ]],
+  ]],
   ['the window', [
     ['its tones', 'every page of the room', [
       ['', [
@@ -86,6 +115,8 @@ const LOOK_TREE = [
       ['', [
         ['lanes.alt', 'every other lane', 'c', { d: COME.ink, a: 0 }],
         ['lanes.chosen', 'the chosen lane', 'c', { d: COME.ink, a: 3.5 }],
+        ['lanes.ground', 'their ground', 'c', { by: 'the deepest tone', show: () => K0, note: 'the lanes alone' }],
+        ['lanes.ink', 'marks on them', 'c', { by: 'the ink', show: () => INK, note: 'every mark drawn on the lanes' }],
       ]],
     ]],
     ['the grid', 'bars and beats down the lanes', [
@@ -194,6 +225,7 @@ function applyLook (v) {
   for (const k in COME.shapes) SHAPES[k] = (byKind ? COME.shapes[k] : COME.shapes.plain).map(c => c[0] === 'sq' && r > 0 ? ['round', r] : c.slice())
   if (typeof GRID_A === 'object') { if (!applyLook.grid) applyLook.grid = Object.assign({}, GRID_A); const g = lkN('lanes.grid') / 100; for (const k in applyLook.grid) GRID_A[k] = applyLook.grid[k] * g }
   LOOK_STAMP++
+  if (typeof themeWear === 'function') themeWear()                             // (the type and the grounds: theme.js)
   const st = document.documentElement.style
   st.setProperty('--k1', K1); st.setProperty('--k2', K2); st.setProperty('--ink', INK)
   if (typeof repaint === 'function' && typeof S === 'object' && S.tracks) repaint()

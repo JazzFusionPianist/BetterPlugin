@@ -169,7 +169,7 @@ document.getElementById('svg').addEventListener('pointerdown', async e => {
 })
 addEventListener('pointermove', e => { displayMove(e); if (V.part === 'plug-ins') plugMove(e) })
 addEventListener('pointerup', () => { displayUp(); plugUp() })
-addEventListener('wheel', e => { if (V.part === 'plug-ins') plugWheel(e); else if (V.part === 'key commands') keyWheel(e) }, { passive: true })
+addEventListener('wheel', e => { if (V.part === 'plug-ins') plugWheel(e); else if (V.part === 'key commands') keyWheel(e); else if (V.part === 'display') displayWheel(e) }, { passive: true })
 addEventListener('keydown', e => {
   if (V.part === 'key commands' && keyRecord(e)) return                // (a command waits for its key: every key is its)
   if (V.part === 'key commands' && e.metaKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); kpUndo(); return }

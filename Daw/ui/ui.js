@@ -655,7 +655,15 @@ function laneRow (i, sel, xEnd) {
 /* the lanes keep what the browser has of each lane (by the track's id): the drawing it was last given, and its place */
 const LANES = { rows: new Map() }
 const SVG_NS = 'http://www.w3.org/2000/svg'
+/* the lanes in a ground and an ink of their own, where a look gives them (a dark tape under light walls: theme.js): all
+   that is drawn on them while they are drawn takes those as the deepest tone and the ink */
 function pLanes () {
+  const k0 = K0, ink = INK, g = lk('lanes.ground'), i = lk('lanes.ink')
+  if (!g.c && !i.c) return pLanesIn()
+  K0 = g.c || K0; INK = i.c || INK
+  try { return pLanesIn() } finally { K0 = k0; INK = ink }
+}
+function pLanesIn () {
   const root = $('g-lanes')
   if (!$('ln-rows')) { root.innerHTML = `<g id="ln-back"></g><g id="ln-clip"${LN}><g id="ln-grid"></g><g id="ln-rows"></g><g id="ln-over"></g></g><g id="ln-edge"></g>`; LANES.rows.clear() }
   const L = rowTops(), sel = new Set(S.selR), xEnd = bx(SONG_END + 1), vis = L.r, span = (X1 - X0) / PXB
@@ -663,7 +671,7 @@ function pLanes () {
   let alt = ''
   const al = lk('lanes.alt')
   if (al.a > 0) vis.forEach((i, k) => { const y = TY + L.tops[k] - VY; if (k % 2 && y + rowH(i) > TY && y < BY) alt += R(X0, Math.max(TY, y), X1 - X0, Math.min(BY, y + rowH(i)) - Math.max(TY, y), { fill: al.c, fa: al.a / 100 }) })      // every other lane, washed when the look says so
-  put('ln-back', R(X0, TY, X1 - X0, LANES_H, { fill: K0 }) + alt)
+  put('ln-back', R(X0, TY, X1 - X0, LANES_H, { fill: K0 }) + (typeof themeLanesGround === 'function' ? themeLanesGround(X0, TY, X1 - X0, LANES_H) : '') + alt)      // (a theme's pattern under the lanes: theme.js)
   if (typeof RTB !== 'undefined' && RTB.on) { put('ln-edge', ''); return rtbLanes() }      // a realtime print: its own picture of the lanes (realtime.js)
   if (typeof rtbLanesOff === 'function') rtbLanesOff()
   let grid = '', g2 = ''

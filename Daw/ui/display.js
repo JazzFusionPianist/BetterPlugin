@@ -10,6 +10,33 @@
 const DISP_W = 1100, DISP_H = 692
 const D = { group: 'regions', part: 'a region', open: new Set(['regions']), find: '', hist: [], base: null, looks: {}, menu: null, drag: null, ready: false, said: '' }
 const DX0 = 260, DTX = 28, DTW = 196
+/* the row of themes over the parts: how much lower everything under it stands */
+const TH_ROW = 96, TH_W = 92, TH_H = 57.5
+function displayThemes (PR) {
+  const list = [['', 'as it comes', 'as-it-comes']].concat((typeof THEME_ORDER === 'object' ? THEME_ORDER : []).map(k => [k, k, k]), Object.keys(D.looks).sort().map(k => [k, asGiven(k), null]))
+  const at = (document.currentScript ? '' : '') + 'themes/'
+  let b = '', x = 28
+  const y = 66
+  for (const [v, word, pic] of list) {
+    if (x + TH_W > PR) break
+    const on = (v || null) === (D.base || null)
+    if (on) b += R(x - 3.5, y - 3.5, TH_W + 7, TH_H + 7, { rx: 4, stroke: INK, sa: .9, sw: 1.4 })
+    if (pic) b += `<image href="${at}${pic}.png" x="${x}" y="${y}" width="${TH_W}" height="${TH_H}" preserveAspectRatio="xMidYMid slice"/>`
+    else { const L = D.looks[v] || {}, g = (k, d) => L[k] && L[k].c || d; b += R(x, y, TH_W, TH_H, { fill: g('win.k1', COME.k1) }) + R(x + TH_W * .22, y + 10, TH_W * .78, TH_H - 10, { fill: g('lanes.ground', g('lanes.k0', COME.k0)) }) + [0, 1, 2, 3].map(i => R(x + TH_W * .28 + i * 9, y + 16 + i * 8, 26, 5, { rx: 1, fill: g(`fam.${PIG_ORDER[i]}.0`, famHex(PIG_ORDER[i], 0)) })).join('') + R(x, y, TH_W, 9, { fill: g('win.k2', COME.k2) }) }
+    b += R(x + .5, y + .5, TH_W - 1, TH_H - 1, { rx: 2, stroke: INK, sa: .16 })
+    b += T(x, y + TH_H + 15, fit(word, TH_W - (pic && v ? 30 : 0), 10.5), { size: 10.5, w: on ? 500 : 400, a: on ? 1 : .72 })
+    if (pic && v) b += T(x + TH_W, y + TH_H + 15, 'built in', { size: 8, a: .32, anchor: 'end' })
+    b += hit(x - 4, y - 4, TH_W + 8, TH_H + 24, 'd-wear', ` data-v="${esc(v).replace(/"/g, '&quot;')}"`)
+    x += TH_W + 14
+  }
+  return b + hline(28, PR, 66 + TH_ROW - 6, .1)
+}
+/* the qualities of a part, more than the window holds: a scroll moves them */
+function displayWheel (e) {
+  if (e.clientX < SIDE + DX0 - 20 || e.clientY < 66 + TH_ROW) return
+  D.qs = Math.max(0, Math.min(D.qsMax || 0, (D.qs || 0) + e.deltaY))
+  draw()
+}
 
 /* the parts of a group, and the part itself by its two names */
 const groupOf = g => LOOK_TREE.find(x => x[0] === g)
@@ -18,10 +45,13 @@ const sameLook = (a, b) => JSON.stringify(a || {}) === JSON.stringify(b || {})
 const lookDiff = (a, b) => { a = a || {}; b = b || {}; return [...new Set(Object.keys(a).concat(Object.keys(b)))].filter(k => QUAL.has(k) && JSON.stringify(a[k]) !== JSON.stringify(b[k])).length }
 const clean = v => { const o = {}; for (const k in v || {}) if (QUAL.has(k)) o[k] = v[k]; return o }
 
-/* what the look is now, in words: as it comes or a kept one's name, and the changes since */
+/* a theme by its name: one kept by him, or one of the six built in (theme.js) */
+const builtIn = v => typeof THEMES === 'object' && Object.prototype.hasOwnProperty.call(THEMES, v)
+const lookOf = v => !v ? {} : D.looks[v] ? D.looks[v] : builtIn(v) ? THEMES[v] : null
+/* what the theme is now, in words: as it comes, a built-in one's or a kept one's name, and the changes since */
 function lookWord () {
-  const from = D.base && D.looks[D.base] ? D.looks[D.base] : {}, k = lookDiff(LOOK, from), name = D.base && D.looks[D.base] ? asGiven(D.base) : 'as it comes'
-  return asGiven(`${inWords('look')}: ${inWords(name)}` + (k ? `, ${inWords(k === 1 ? 'one change' : '# changes').replace('#', k)}` : ''))      // (put into words piece by piece: a kept look's name is never put into other words)
+  const base = lookOf(D.base), from = base || {}, k = lookDiff(LOOK, from), name = base && D.base ? (builtIn(D.base) && !D.looks[D.base] ? D.base : asGiven(D.base)) : 'as it comes'
+  return asGiven(`${inWords('theme')}: ${inWords(name)}` + (k ? `, ${inWords(k === 1 ? 'one change' : '# changes').replace('#', k)}` : ''))      // (put into words piece by piece: a kept look's name is never put into other words)
 }
 
 /* ── a quality's thing, against the right edge x ── */
@@ -43,14 +73,16 @@ function displayBody () {
   const PR = DISP_W - SIDE - 28
   let b = T(28, 34, 'display', { size: 13, w: 500, a: .94 })
   let kx = PR
-  for (const [t, a] of [['share…', 'd-share'], ['open…', 'd-open'], ['keep as…', 'd-keep']]) { const w = keyW(t, { size: 10, pad: 10 }); kx -= w; b += key(kx, 20, t, { h: 20, size: 10, pad: 10, a })[0]; D.at = D.at || {}; D.at[a] = kx; kx -= 8 }
+  for (const [t, a] of [['share as .sst…', 'd-share'], ['open .sst…', 'd-open'], ['keep as my own…', 'd-keep']]) { const w = keyW(t, { size: 10, pad: 10 }); kx -= w; b += key(kx, 20, t, { h: 20, size: 10, pad: 10, a })[0]; D.at = D.at || {}; D.at[a] = kx; kx -= 8 }
   const lw = menuKey(108, 21, lookWord(), { h: 18, size: 9.5, a: 'd-looks' })
   b += lw[0]; D.lookW = lw[1]
   b += hline(28, PR, 54, .1)
+  /* the themes: as it comes, the six built in, and his own; pressed, worn */
+  b += displayThemes(PR)
   /* the parts, down the left */
   const f = D.find.trim().toLowerCase(), hits = (g, p) => !f || g.toLowerCase().includes(f) || p[0].toLowerCase().includes(f) || p[2].some(([h, qs]) => h.toLowerCase().includes(f) || qs.some(q => q[1].toLowerCase().includes(f)))
-  b += R(DTX + .5, 66.5, DTW - 1, 21, { rx: 2, stroke: INK, sa: D.finding ? .5 : .22 }) + (D.find || D.finding ? '' : T(DTX + 9, 80.6, 'find a part', { size: 10, a: .36 })) + (D.finding ? '' : D.find ? T(DTX + 9, 80.6, asGiven(D.find), { size: 10, a: .9 }) : '') + hit(DTX, 66, DTW, 22, 'd-find', '', 'text')
-  let y = 98
+  b += R(DTX + .5, 66.5 + TH_ROW, DTW - 1, 21, { rx: 2, stroke: INK, sa: D.finding ? .5 : .22 }) + (D.find || D.finding ? '' : T(DTX + 9, 80.6 + TH_ROW, 'find a part', { size: 10, a: .36 })) + (D.finding ? '' : D.find ? T(DTX + 9, 80.6, asGiven(D.find), { size: 10, a: .9 }) : '') + hit(DTX, 66 + TH_ROW, DTW, 22, 'd-find', '', 'text')
+  let y = 98 + TH_ROW
   for (const [grp, parts] of LOOK_TREE) {
     const shown = parts.filter(p => hits(grp, p))
     if (!shown.length) continue
@@ -68,11 +100,12 @@ function displayBody () {
       y += 20
     }
   }
-  b += vline(DTX + DTW + 16, 62, DISP_H - 10, .1)
+  b += vline(DTX + DTW + 16, 62 + TH_ROW, DISP_H - 10, .1)
   /* the chosen part: every quality, as values */
   const part = partOf(D.group, D.part)
   if (part) {
-    let ry = 64
+    const b0 = b; b = ''                                                  // (the column is drawn apart, to be cut where it is scrolled)
+    let ry = 64 + TH_ROW - (D.qs || 0)
     const many = groupOf(D.group)[1].length > 1
     if (many) { const gw = tw(D.group, 9.5); b += T(DX0, ry + 18, D.group, { size: 9.5, a: .4 }) + T(DX0 + gw + 6, ry + 18, '›', { size: 9.5, a: .3 }) + T(DX0 + gw + 16, ry + 18, part[0], { size: 12, w: 500, a: .95 }) }
     else b += T(DX0, ry + 18, part[0], { size: 12, w: 500, a: .95 })
@@ -92,6 +125,9 @@ function displayBody () {
         ry += 28
       }
     }
+    D.qsMax = Math.max(0, ry + (D.qs || 0) - DISP_H + 24); if ((D.qs || 0) > D.qsMax) D.qs = D.qsMax
+    b = b0 + `<clipPath id="dq-cut"><rect x="${DX0 - 30}" y="${60 + TH_ROW}" width="${PR - DX0 + 40}" height="${DISP_H - 60 - TH_ROW}"/></clipPath>` + G(b, '', ' clip-path="url(#dq-cut)"')
+    if (D.qsMax && D.qs < D.qsMax) b += T(PR, DISP_H - 8, 'more, a scroll away', { size: 8.5, a: .32, anchor: 'end' })
     if (D.said) b += T(DX0, DISP_H - 18, D.said, { size: 9.5, a: .6 })
   }
   return b
@@ -99,11 +135,11 @@ function displayBody () {
 /* the list under the look: as the room comes, and every look kept by name */
 function displayMenu () {
   if (!D.menu) return ''
-  const items = [{ t: 'as it comes', v: '' }].concat(Object.keys(D.looks).sort().map(k => ({ t: asGiven(k), v: k })))
+  const items = [{ t: 'as it comes', v: '' }].concat((typeof THEME_ORDER === 'object' ? THEME_ORDER : []).map(k => ({ t: k, v: k })), Object.keys(D.looks).sort().map(k => ({ t: asGiven(k), v: k })))
   const rowH = 20, w = Math.max(220, D.lookW || 0), h = items.length * rowH + 12, x = SIDE + 108, y = 42
   let s = hit(0, 0, DISP_W, DISP_H, 'd-close', '', 'default') + R(x, y, w, h, { rx: 3, fill: K2 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 3, stroke: INK, sa: .28 }), ry = y + 6
   for (const it of items) {
-    const on = (it.v || null) === (D.base || null) && sameLook(LOOK, it.v ? D.looks[it.v] : {})
+    const on = (it.v || null) === (D.base || null) && sameLook(LOOK, lookOf(it.v) || {})
     if (on) s += R(x + 5, ry, w - 10, rowH, { rx: 2, fill: INK })
     s += T(x + 13, ry + 13.6, fit(it.t, w - 26, 10.5), { size: 10.5, w: on ? 500 : 400, c: on ? K1 : INK, a: on ? 1 : .84 }) + hit(x + 5, ry, w - 10, rowH, 'd-wear', ` data-v="${esc(it.v)}"`)
     ry += rowH
@@ -115,7 +151,7 @@ function displayMenu () {
 let dSending = null
 function dSend () {                                                   // the room is told once a frame, however fast a drag goes
   if (dSending) return
-  dSending = requestAnimationFrame(() => { dSending = null; if (NAT) NAT.call('settingsSet', { what: 'look', value: LOOK }) })
+  dSending = setTimeout(() => { dSending = null; if (NAT) NAT.call('settingsSet', { what: 'look', value: LOOK }) }, 16)      // (a timer, not a frame: a window out of sight draws no frames, and a theme pressed there must still reach the room)
 }
 function dSet (key, value, keepHist) {
   const q = QUAL.get(key)
@@ -165,8 +201,8 @@ cw.addEventListener('input', () => { if (cw.dataset.k) dSet(cw.dataset.k, { c: c
 async function displayPress (el, e) {
   const a = el.dataset.a, k = el.dataset.k
   D.said = ''
-  if (a === 'd-group') { const g = el.dataset.g, G = groupOf(g); if (G[1].length > 1) { if (D.open.has(g) && D.group === g) D.open.delete(g); else { D.open.add(g); if (D.group !== g) { D.group = g; D.part = G[1][0][0] } } } else { D.group = g; D.part = G[1][0][0] } draw() }
-  else if (a === 'd-part') { D.group = el.dataset.g; D.part = el.dataset.p; draw() }
+  if (a === 'd-group') { const g = el.dataset.g, G = groupOf(g); if (G[1].length > 1) { if (D.open.has(g) && D.group === g) D.open.delete(g); else { D.open.add(g); if (D.group !== g) { D.group = g; D.part = G[1][0][0] } } } else { D.group = g; D.part = G[1][0][0] } D.qs = 0; draw() }
+  else if (a === 'd-part') { D.group = el.dataset.g; D.part = el.dataset.p; D.qs = 0; draw() }
   else if (a === 'd-reset') dSet(k, undefined)
   else if (a === 'd-pick') dSet(k, el.dataset.v)
   else if (a === 'd-num') { const q = QUAL.get(k), f = el.dataset.f; D.drag = { key: k, f, y0: e.clientY, v0: f === 'a' ? lk(k).a : lkN(k), moved: false, el }; draw() }
@@ -178,10 +214,10 @@ async function displayPress (el, e) {
   else if (a === 'd-find') { const r = el.getBoundingClientRect(); D.finding = true; draw(); dType(r.left + 1, r.top + 1, DTW - 2, D.find, t => { D.find = t }, { live: t => { D.find = t; draw() }, bare: true }) }
   else if (a === 'd-looks') { D.menu = !D.menu; draw() }
   else if (a === 'd-close') { D.menu = null; draw() }
-  else if (a === 'd-wear') { const v = el.dataset.v; D.menu = null; D.hist.push(JSON.stringify(LOOK)); LOOK = v ? clean(D.looks[v]) : {}; D.base = v || null; dSend(); dKeepBase(); draw() }
+  else if (a === 'd-wear') { const v = el.dataset.v; D.menu = null; D.hist.push(JSON.stringify(LOOK)); LOOK = clean(lookOf(v) || {}); D.base = v || null; D.qs = 0; dSend(); dKeepBase(); draw() }
   else if (a === 'd-keep') {
     const r = el.getBoundingClientRect()
-    dType(r.left - 120, r.top, 200, D.base || '', async t => {
+    dType(r.left - 120, r.top, 200, D.base && !builtIn(D.base) ? D.base : '', async t => {
       const name = t.trim().slice(0, 40)
       if (!name) return
       D.looks[name] = clean(LOOK); D.base = name
@@ -189,14 +225,14 @@ async function displayPress (el, e) {
       dKeepBase(); D.said = asGiven(`${inWords('kept as')} ${name}`); draw()
     })
   }
-  else if (a === 'd-share') { if (NAT) { const r = await NAT.call('lookShare', { name: D.base || 'a look', json: JSON.stringify({ slurLook: 1, name: D.base || '', look: LOOK }, null, 1) }); D.said = r && r.ok ? 'written' : '' } draw() }
+  else if (a === 'd-share') { if (NAT) { const r = await NAT.call('lookShare', { name: D.base || 'my theme', json: JSON.stringify({ slurTheme: 1, name: D.base || '', theme: LOOK }, null, 1) }); D.said = r && r.ok ? 'written' : '' } draw() }
   else if (a === 'd-open') {
     if (!NAT) return
     const r = await NAT.call('lookOpen')
     if (!r || !r.ok) return
     let got = null
-    try { const j = JSON.parse(r.json); got = j && j.look && typeof j.look === 'object' ? clean(j.look) : null } catch (err) {}
-    if (!got) { D.said = 'that file holds no look'; draw(); return }
+    try { const j = JSON.parse(r.json), v = j && (j.theme || j.look); got = v && typeof v === 'object' ? clean(v) : null } catch (err) {}      // (a .sst holds a theme; an older .slurlook a look: the same values)
+    if (!got) { D.said = 'that file holds no theme'; draw(); return }
     const name = String(r.name || 'a look').slice(0, 40)
     D.hist.push(JSON.stringify(LOOK)); LOOK = got; D.looks[name] = got; D.base = name
     await NAT.call('prefSet', { key: 'looks', value: D.looks })
@@ -235,7 +271,7 @@ async function displayRead () {
   if (!NAT) { D.ready = true; return }
   const p = await NAT.call('prefGet')
   LOOK = clean(p && p.look); D.looks = p && p.looks && typeof p.looks === 'object' ? p.looks : {}
-  D.base = p && p.lookBase && D.looks[p.lookBase] ? p.lookBase : null
+  D.base = p && p.lookBase && lookOf(p.lookBase) ? p.lookBase : null
   D.ready = true
   draw()
 }

@@ -39,16 +39,29 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
     note('{{display}} and {{plug-ins}} have pages of their own, next. The parts drawn dim down the left (recording, editing, notes, command line, slur, hand off, storage) are not made yet.', '{{display}}와 {{plug-ins}}는 다음 쪽부터 따로 설명합니다. 왼쪽에 흐리게 그려진 항목(recording, editing, notes, command line, slur, hand off, storage)은 아직 만들어지지 않았습니다.'),
     art: fig('settings', { w: 140, calls: [[1, [1072, 117], 'r'], [2, [1072, 161], 'r'], [3, [1072, 240], 'r'], [4, [1072, 285], 'r', -2], [5, [1072, 314], 'r', 3], [6, [1072, 377], 'r'], [7, [1050, 410], 'b']] }) }),
 
+  page(t('themes: a whole room at once', '테마: 방 전체를 한 번에'), { kind: 'split', tw: 104, txt:
+    lead('Over the parts of Settings › {{display}} stand the themes: the room as it comes, six built in, and your own. Clicking one puts it on at once: every colour, the type, the grounds.', '설정 › {{display}}의 맨 위에 테마가 있습니다. 처음 그대로의 방, 내장 테마 여섯 개, 그리고 내가 만든 테마. 클릭하면 바로 입혀집니다. 모든 색, 글자, 바탕이 함께 바뀝니다.') +
+    table([['theme', '테마'], ['what it is', '무엇인가']],
+      ['{{console}}', ['a tape room of the seventies: bone panels, oxide tape, labels typed', '70년대 테이프 룸: 상아색 패널, 산화철 테이프, 타자로 친 라벨']],
+      ['{{cassette}}', ['a tape deck of the eighties: card, the label’s stripes, pills of colour', '80년대 카세트 데크: 카드지, 라벨의 줄무늬, 색 알약']],
+      ['{{score}}', ['an engraved page: paper and ink, the sound in ink, a red pencil', '인쇄된 악보: 종이와 잉크, 잉크로 그린 소리, 빨간 연필']],
+      ['{{bauhaus}}', ['a poster of primary colours, the sound cut out of flat fields', '원색 포스터, 평면에서 오려 낸 소리']],
+      ['{{blueprint}}', ['a drawing: cyanotype, a grid, everything in outline', '설계도: 청사진, 격자, 모두 윤곽선']],
+      ['{{phosphor}}', ['a terminal on an amber screen: one colour, one face of fixed width', '호박색 화면의 터미널: 한 가지 색, 고정폭 글꼴 하나']]) +
+    p('A theme is every quality of the room, so any of it can be changed after: {{type}} (the face of the words and of names, their size, capitals, the space between letters) and {{background}} (a pattern under the lanes, a texture over the window) stand with the colours. {{keep as my own…}} keeps it by a name; {{share as .sst…}} and {{open .sst…}} write and read a .sst file (Slur Studio / Themes), to hand a theme to someone.', '테마는 방의 모든 속성이라 그 뒤에 어느 것이든 바꿀 수 있습니다. 색과 함께 {{type}}(방의 글자와 이름의 서체, 크기, 대문자, 글자 사이)과 {{background}}(레인 아래의 무늬, 창 위의 질감)가 있습니다. {{keep as my own…}}는 이름 붙여 간직하고, {{share as .sst…}}와 {{open .sst…}}는 .sst 파일을 쓰고 읽습니다(Slur Studio / Themes 폴더). 테마를 다른 사람에게 건넬 수 있습니다.') +
+    note('Where the transport stands, a level as a VU meter, the mixer as a console and the other parts that change their shape come in a later version.', '트랜스포트의 위치, VU 미터로 보는 레벨, 콘솔 모양의 믹서처럼 모양이 바뀌는 부분은 다음 버전에 들어옵니다.'),
+    art: fig('theme-console', { w: 150, cap: ['the room in {{console}}', '{{console}} 테마를 입은 방'] }) }),
+
   page(t('display: every part, every quality', 'display: 모든 부분, 모든 속성'), { kind: 'split', tw: 104, txt:
     lead('Settings › {{display}} lists every part of the room and every quality of it as plain values. Nothing is chosen for you: the room as it comes is the one starting point, and a look is only what you changed.', '설정 › {{display}}는 방의 모든 부분과 그 모든 속성을 값 그대로 보여 줍니다. 미리 정해 둔 것은 없습니다. 처음 그대로의 방이 유일한 출발점이고, 모습(look)은 바꾼 것만으로 이루어집니다.') +
     legend(
-      [1, '{{look}} the look in use: {{as it comes}} or one you kept, and how many changes since. Click it to wear another', '{{look}} 지금 쓰는 모습. {{as it comes}} 또는 간직한 모습과, 그 뒤로 바뀐 곳의 수. 클릭해서 다른 모습을 입힙니다'],
+      [1, '{{theme}} the theme in use: {{as it comes}}, a built-in one or one you kept, and how many changes since. Click it to wear another', '{{theme}} 지금 쓰는 테마. {{as it comes}}, 내장 테마 또는 간직한 테마와, 그 뒤로 바뀐 곳의 수. 클릭해서 다른 테마를 입힙니다'],
       [2, '{{find a part}} by its name, or by the name of one of its qualities', '{{find a part}} 부분의 이름이나 그 속성의 이름으로 찾습니다'],
       [3, 'the parts of the room. One with a caret opens into smaller parts', '방의 부분들. 꺾쇠가 있는 것은 더 작은 부분으로 열립니다'],
       [4, 'a colour: its well opens the Mac’s colour panel, its value can be typed as #rrggbb, and the % is how much of it', '색. 색 칸은 Mac의 색상 패널을 열고, 값은 #rrggbb로 직접 칠 수 있으며, %는 그 색의 세기입니다'],
       [5, 'a number: drag it up or down ([[⇧]] for finer steps), or click it and type', '숫자. 위아래로 드래그하거나([[⇧]]를 누르면 더 잘게) 클릭해서 칩니다'],
       [6, 'a dot before a quality: it is not as the room comes. Click the dot to put it back', '속성 앞의 점: 처음 그대로가 아니라는 뜻입니다. 점을 클릭하면 되돌아갑니다'],
-      [7, '{{keep as…}} keeps the look by a name. {{open…}} and {{share…}} read and write a .slurlook file, to hand a look to someone', '{{keep as…}}는 모습을 이름 붙여 간직합니다. {{open…}}과 {{share…}}는 .slurlook 파일을 읽고 써서 모습을 다른 사람에게 건넵니다']) +
+      [7, '{{keep as my own…}} keeps the theme by a name. {{open .sst…}} and {{share as .sst…}} read and write a .sst file, to hand a theme to someone', '{{keep as my own…}}는 테마를 이름 붙여 간직합니다. {{open .sst…}}와 {{share as .sst…}}는 .sst 파일을 읽고 써서 테마를 다른 사람에게 건넵니다']) +
     p('The room wears every change at once. [[⌘Z]] in the window takes the last one back. The Settings window itself always stays as the room comes, so whatever a look does, it can be undone from there.', '방은 바뀐 것을 바로 입습니다. 창에서 [[⌘Z]]를 누르면 마지막 변경이 되돌아갑니다. 설정 창 자체는 언제나 처음 그대로라서, 모습이 무엇을 하든 거기서 되돌릴 수 있습니다.'),
     art: fig('display', { w: 150, calls: [[1, 'd-looks', 't'], [7, 'd-keep', 't'], [2, 'd-find', 'l'], [3, 'd-group', 'l'], [6, 'd-reset:reg.corners', 'l'], [4, 'd-well:reg.fill', 'r', 0, { fx: .5 }], [5, 'd-num:reg.corners', 'r']] }) }),
 

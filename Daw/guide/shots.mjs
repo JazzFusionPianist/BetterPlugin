@@ -232,6 +232,12 @@ async function others () {
     await d.sleep(400); await d.ev(`LOOK = { 'reg.corners': 4, 'reg.line': { c: null, a: 35 }, 'reg.shape': 'off' }; draw(); return 1`)
     await d.pic('display', [0, 0, 1100, 692], 1.2); await d.close()
   }
+  if (!want.length || want.includes('theme-console')) {                              // the room in the console theme (theme.js)
+    const t = await room({}); await t.sleep(800)
+    await t.ev(`for (const tr of S.tracks) { if (tr.theirs === 'jun') tr.theirs = 'theo'; if (tr.theirs === 'minseo') tr.theirs = 'mina' } S.panel.on = true; S.panel.tab = 'mixer'; setView(true); applyLook(JSON.parse(JSON.stringify(THEMES.console))); return 1`)
+    await t.sleep(1200); await t.ev(`flush(); return 1`)
+    await t.pic('theme-console'); await t.close()
+  }
   if (!want.length || want.includes('keycommands')) {                                // settings > key commands, with the room's own commands, as logic pro with a change or two
     const r0 = await room({}); await r0.sleep(800)
     const cat = await r0.ev(`return kcCatalog().map(c => ({ id: c.id, menu: c.menu, name: c.name, keys0: c.keys0, shown: c.shown, loose: !!c.loose }))`); await r0.close()
@@ -249,7 +255,7 @@ async function others () {
   }
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  if (!want.length || want.includes('start') || want.includes('settings') || want.includes('folders') || want.includes('display') || want.includes('plugins') || want.includes('keycommands')) await others()
+  if (!want.length || want.includes('start') || want.includes('settings') || want.includes('folders') || want.includes('display') || want.includes('plugins') || want.includes('keycommands') || want.includes('theme-console')) await others()
   if (!want.length || want.includes('keys')) { const b = await room(); writeFileSync(join(here, 'keys.json'), JSON.stringify(await b.ev(`return SHEET`), null, 1)); await b.close(); console.log('took keys.json') }       // the app's own sheet of keys: the guide's last chapter is set from it
   for (const [name, fn] of Object.entries(SHOTS)) {
     const b = await fresh(SIZE[name])

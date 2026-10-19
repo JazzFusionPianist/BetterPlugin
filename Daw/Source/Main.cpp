@@ -504,14 +504,15 @@ private:
         if (op == "keysList" || op == "keysExport" || op == "keysImport" || op == "keysFind" || op == "keysForeign" || op == "keysRead") { keysFiles (op, d, std::move (done)); return; }
         if (op == "lookShare")                                                 // a look written to a file of its own, to be handed to someone (ui/settings.js)
         {
-            const auto json = d["json"].toString(), name = juce::File::createLegalFileName (d["name"].toString().isNotEmpty() ? d["name"].toString() : juce::String ("a look"));
+            const auto json = d["json"].toString(), name = juce::File::createLegalFileName (d["name"].toString().isNotEmpty() ? d["name"].toString() : juce::String ("my theme"));
             if (selfTestMode().isNotEmpty()) { done (okVar (false)); return; }
-            chooser = std::make_unique<juce::FileChooser> ("Share Look", juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile (name + ".slurlook"), "*.slurlook");
+            const auto themes = daw::musicRoot().getChildFile ("Themes"); themes.createDirectory();      // (a theme is a .sst file: Slur Studio theme)
+            chooser = std::make_unique<juce::FileChooser> ("Share Theme", themes.getChildFile (name + ".sst"), "*.sst");
             chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting, [done, json] (const juce::FileChooser& fc)
             {
                 auto f = fc.getResult();
                 if (f == juce::File()) { done (okVar (false)); return; }
-                if (! f.hasFileExtension ("slurlook")) f = f.withFileExtension ("slurlook");
+                if (! f.hasFileExtension ("sst")) f = f.withFileExtension ("sst");
                 done (okVar (f.replaceWithText (json)));
             });
             return;
@@ -519,7 +520,8 @@ private:
         if (op == "lookOpen")                                                  // a look someone handed over: its name and what is in it
         {
             if (selfTestMode().isNotEmpty()) { done (okVar (false)); return; }
-            chooser = std::make_unique<juce::FileChooser> ("Open Look", juce::File::getSpecialLocation (juce::File::userDocumentsDirectory), "*.slurlook");
+            const auto themes = daw::musicRoot().getChildFile ("Themes"); themes.createDirectory();
+            chooser = std::make_unique<juce::FileChooser> ("Open Theme", themes, "*.sst;*.slurlook");      // (a look written before themes were: the same values)
             chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles, [done] (const juce::FileChooser& fc)
             {
                 const auto f = fc.getResult();

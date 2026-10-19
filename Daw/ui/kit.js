@@ -11,7 +11,10 @@ const PAPER = '#FBFAF7'
 let LINE = null, LINE_K = 1
 /* the prints' own colours (never changed) */
 const CREAM = '#ECE2C8', SPACE = '#7896FF', MINT = '#5CE0A8', AMBER = '#FFA848'
-const FONT = "'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', system-ui, sans-serif"
+let FONT = "'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', system-ui, sans-serif"      // (let: a theme gives the room another face — theme.js)
+/* the type a theme gives the room (theme.js): the face of what someone named, capitals for the room's own words, the
+   space between letters, a scale of every size, a wider cut */
+let TF = { names: null, namesIt: false, caps: false, space: 0, scale: 1, stretch: '' }
 let UID = 0
 
 const cv = document.createElement('canvas').getContext('2d')
@@ -23,13 +26,18 @@ const n = v => +(+v).toFixed(2)
 const NAMED = '\u2063'
 const asGiven = s => NAMED + String(s == null ? '' : s)
 const inWords = (s, it) => { s = String(s); return s.charCodeAt(0) === 0x2063 ? s.slice(1) : !it && typeof window.LANG_WORDS === 'function' ? window.LANG_WORDS(s) : s }
-function tw (s, size = 10, w = 400, it = false) { cv.font = `${it ? 'italic ' : ''}${w} ${size}px ${FONT}`; return cv.measureText(inWords(s, it)).width }
+/* how a string is set: its face, its letters, its space (a name someone gave keeps its letters, in the face of names) */
+function typeset (s, it) {
+  const named = it || String(s).charCodeAt(0) === 0x2063, said = inWords(s, it)
+  if (named) return { t: said, face: TF.names || FONT, it: it || (TF.namesIt && !!TF.names), space: 0, stretch: TF.names ? '' : TF.stretch }
+  return { t: TF.caps ? said.toUpperCase() : said, face: FONT, it, space: TF.space, stretch: TF.stretch }
+}
+function tw (s, size = 10, w = 400, it = false) { const f = typeset(s, it); cv.font = `${f.it ? 'italic ' : ''}${w} ${f.stretch ? f.stretch + ' ' : ''}${size * TF.scale}px ${f.face}`; return cv.measureText(f.t).width + f.space * f.t.length }
 function T (x, y, s, o = {}) {
   const { size = 10, w = 400, c = INK, a = 1, anchor = 'start', it = false, x: extra = '' } = o
-  s = inWords(s, it)
-  const wd = anchor === 'start' ? 0 : tw(s, size, w, it)
+  const f = typeset(s, it), wd = anchor === 'start' ? 0 : tw(s, size, w, it)
   const xx = anchor === 'middle' ? x - wd / 2 : anchor === 'end' ? x - wd : x
-  return `<text x="${n(xx)}" y="${n(y)}" font-family="${FONT}" font-size="${size}" font-weight="${w}"${it ? ' font-style="italic"' : ''} fill="${c}"${a < 1 ? ` fill-opacity="${a}"` : ''}${extra}>${esc(s)}</text>`
+  return `<text x="${n(xx)}" y="${n(y)}" font-family="${f.face}" font-size="${n(size * TF.scale)}" font-weight="${w}"${f.it ? ' font-style="italic"' : ''}${f.space ? ` letter-spacing="${f.space}"` : ''}${f.stretch ? ` font-stretch="${f.stretch}"` : ''} fill="${c}"${a < 1 ? ` fill-opacity="${a}"` : ''}${extra}>${esc(f.t)}</text>`
 }
 /* a string cut to a width, with a mark that it was */
 const fit = (s, maxW, size = 10, w = 400, it = false) => {

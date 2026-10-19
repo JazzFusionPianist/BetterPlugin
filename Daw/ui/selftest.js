@@ -242,6 +242,26 @@ async function runSelfTest (mode) {
     await note('page', { errors: window.__errs || [] })
     await NAT.call('testDone'); return
   }
+  if (mode === 'themes') {                                                         // only this: a theme pressed in settings > display (display.js), the room wearing it (theme.js): its type, its grounds
+    await step('themes', async () => {
+      const res = {}, there = js => NAT.call('testSettingsJs', { js })
+      await NAT.call('settings', { part: 'display' }); await sleep(1500)
+      res.cards = await there(`JSON.stringify({ cards: document.querySelectorAll('[data-a="d-wear"]').length })`)
+      for (const name of ['console', 'score', 'phosphor']) {
+        await there(`displayPress(document.querySelector('[data-a="d-wear"][data-v="${name}"]'), {}); '{}'`); await sleep(2200); flush()
+        const lanes = document.querySelector('#ln-back rect'), pat = document.querySelector('#ln-back rect[fill^="url(#th-"]'), over = document.querySelector('#g-theme-over rect')
+        res[name] = { font: FONT.split(',')[0], loaded: document.fonts.check(`500 10px ${FONT.split(',')[0]}`), k1: K1, lanes: lanes && lanes.getAttribute('fill'), pattern: pat ? pat.getAttribute('fill') : null, over: over ? over.getAttribute('fill') : null, caps: TF.caps, names: TF.names && TF.names.split(',')[0], word: await there(`JSON.stringify({ w: lookWord() })`) }
+        await NAT.call('testSnap', { name: `selftest-theme-${name}.png` }); await sleep(600)
+      }
+      await NAT.call('testSettings', { name: 'selftest-themes.png' }); await sleep(600)
+      await there(`displayPress(document.querySelector('[data-a="d-wear"][data-v=""]'), {}); '{}'`); await sleep(1500); flush()
+      res.back = { font: FONT.split(',')[0], k1: K1, plain: looksChanged() === 0, over: !!document.querySelector('#g-theme-over rect') }
+      await NAT.call('settingsClose')
+      return res
+    })
+    await note('page', { errors: window.__errs || [] })
+    await NAT.call('testDone'); return
+  }
   if (mode === 'keys') {                                                           // only this: settings > key commands (keypage.js), the room wearing a set of keys (commands.js)
     await step('keys', async () => {
       const res = {}, there = js => NAT.call('testSettingsJs', { js })

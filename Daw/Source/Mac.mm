@@ -616,8 +616,8 @@ bool slurSetMenus (const char* json)
         NSString* title = menus[i][@"t"], *en = menus[i][@"en"] ?: title;      // (en: which menu it is, whatever the language)
         NSMenu* m = slurBuildMenu (title, menus[i][@"sub"]);
         slurAddMenu (bar, m);
-        if ([title isEqualToString: @"Window"]) [NSApp setWindowsMenu: m];
-        if ([title isEqualToString: @"Help"]) [NSApp setHelpMenu: m];
+        if ([en isEqualToString: @"Window"]) [NSApp setWindowsMenu: m];
+        if ([en isEqualToString: @"Help"]) [NSApp setHelpMenu: m];
     }
     return true;
 }

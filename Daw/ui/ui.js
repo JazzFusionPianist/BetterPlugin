@@ -927,17 +927,25 @@ function redrawTracks (list) {
 }
 function pMixer (y, h) {
   if (typeof SKIN === 'object' && SKINS.mixer[SKIN.k.mixer]) { MGEOM = null; return SKINS.mixer[SKIN.k.mixer](y, h) }      // (a theme's mixer of its own: skins.js)
-  const vis = rows(), mx = RX - 8 - MSTRIP, room = mx - 8 - NGUT, fitN = Math.max(1, Math.floor(room / NSTRIP))
-  S.panel.mx = clamp(S.panel.mx, 0, Math.max(0, vis.length - fitN))
-  const shownT = vis.slice(S.panel.mx, S.panel.mx + fitN)
+  const vis = rows(), mx = RX - 8 - MSTRIP, room = mx - 8 - NGUT
   MGEOM = stripGeom(y, h, false)
+  /* a strip is a column wide, and a column more for each further column of its sends (sendCols: his word, 2026-10-21) */
+  const wOf = i => NSTRIP * sendCols(S.tracks[i], MGEOM.ns)
+  let last = vis.length, used = 0
+  while (last > 0 && used + wOf(vis[last - 1]) <= room) { used += wOf(vis[last - 1]); last-- }      // (how far the row may be turned: until its last strips just fill it)
+  S.panel.mx = clamp(S.panel.mx, 0, Math.max(0, last))
+  const shownT = []
+  for (let k = S.panel.mx, tot = 0; k < vis.length; k++) { const w = wOf(vis[k]); if (shownT.length && tot + w > room) break; shownT.push(vis[k]); tot += w }
+  const fitN = shownT.length
   let s = stripGutter(0, NGUT, y, h, false) + vline(NGUT - .5, y, y + h, .06)
   STRIP_AT.clear()
+  let x = NGUT
   shownT.forEach((i, k) => {
-    const t = S.tracks[i], x = NGUT + k * NSTRIP, nx = S.tracks[shownT[k + 1]], o = { sel: isChosen(i) }
-    if (isChosen(i)) s += R(x, y, NSTRIP, h, { fill: INK, fa: .07 })
-    STRIP_AT.set(t.id, [x, y, NSTRIP, h, i, o])
-    s += G(strip(x, y, NSTRIP, h, t, i, o), '', ` id="sg-${t.id}"`) + vline(x + NSTRIP - .5, y, y + h, t.kind === 'stack' || (nx && !nx.parent && t.parent) ? .1 : .05)
+    const t = S.tracks[i], w = wOf(i), nx = S.tracks[shownT[k + 1]], o = Object.assign({ sel: isChosen(i) }, w > NSTRIP ? { col: NSTRIP } : {})
+    if (isChosen(i)) s += R(x, y, w, h, { fill: INK, fa: .07 })
+    STRIP_AT.set(t.id, [x, y, w, h, i, o])
+    s += G(strip(x, y, w, h, t, i, o), '', ` id="sg-${t.id}"`) + vline(x + w - .5, y, y + h, t.kind === 'stack' || (nx && !nx.parent && t.parent) ? .1 : .05)
+    x += w
   })
   if (fitN < vis.length) s += R(NGUT + 4 + (room - 8) * S.panel.mx / vis.length, y + h - 4, Math.max(18, (room - 8) * fitN / vis.length), 3, { rx: 1.5, fill: INK, fa: .22 })
   s += R(mx - 8, y, RX - mx + 8, h, { fill: K2, fa: .7 }) + vline(mx - 8.5, y, y + h, .1)

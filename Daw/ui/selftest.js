@@ -496,7 +496,7 @@ async function runSelfTest (mode) {
     const empty = document.querySelectorAll('#g-dock [data-a="print"], #g-dock [data-a="wall"][data-k="node"]').length === 0
     tap('[data-a="plugs"]'); await sleep(700)                                                                         // the place to add: the list of prints and plug-ins
     const offered = ['tape', 'space', 'delay'].filter(k => document.querySelector('#pk-list .pk-row[data-print="' + k + '"]'))      // (they are in the list, among the rest of patch on slur's prints)
-    { const row = document.querySelector('#pk-list .pk-row[data-print="tape"]'); if (row) row.click() } await sleep(150); flush()
+    { const row = document.querySelector('#pk-list .pk-row[data-print="tape"]'); if (row) { row.click(); row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })) } } await sleep(150); flush()      // (pressed twice, as the list asks: once only lights it)
     if (S.picker.open) { closePicker(); flush() }
     { const [x, y] = mid(typeof wallOf === 'function' ? '#g-dock [data-a="wall"][data-k="node"]' : '[data-a="print"][data-k="tape"]'); fire('pointerdown', x, y); fire('pointermove', x, y - 40, window); fire('pointerup', x, y - 40, window) }   // tape is on it now (on its wall): pulled up
     tap('[data-a="loop"]'); tap('[data-a="click"]')                                                                   // the cycle, the click
@@ -632,7 +632,7 @@ async function runSelfTest (mode) {
     $('pk-q').value = 'audelay'; $('pk-q').dispatchEvent(new Event('input')); drawPicker(); await sleep(100)
     const row = [...document.querySelectorAll('#pk-list .pk-row')].find(el => /^audelay$/i.test(el.querySelector('b').textContent))      // (pressed as a hand presses it: the list the room shows)
     res.row = !!row
-    if (row) row.click(); await sleep(1500); await NAT.call('closeEditors')
+    if (row) { row.click(); row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })) } await sleep(1500); await NAT.call('closeEditors')      // (twice, as the list asks)
     res.listShut = !S.picker.open
     res.onAll = ts.map(t => t.inserts.length - n0.get(t))
     res.slots = ts.map(t => fxItems(t).map(x => x.t))
@@ -1963,7 +1963,7 @@ async function runSelfTest (mode) {
     if (!r) return { error: 'the file made no region' }
     const was = { a: r.a, b: r.b, sec: r.sec, rate: r.rate || 1, fx: !!r.fx }
     const toolWas = S.tool, flexWas = S.flex; S.tool = 'pointer'; S.flex = false
-    leadTrack(S.tracks.indexOf(t)); showRow(S.sel); VX = Math.max(0, r.a - 4); relayout(); dirtyAll(); flush(); await sleep(80)
+    leadTrack(S.tracks.indexOf(t)); showRow(S.sel); PXB = clamp((X1 - X0) / 12, fitPXB(), maxPXB()); VX = Math.max(0, r.a - 4); relayout(); dirtyAll(); flush(); await sleep(80)
     const y = rowY(S.sel) + S.rh * .7, x0 = bx(r.b) - 2, x1 = bx(r.a + (r.b - r.a) * 1.5)
     /* held, half way: the page has drawn the region longer already (nothing asked it to but the hand), with its sound stretched in it */
     const lanes0 = document.getElementById('g-lanes').innerHTML, alt = { altKey: true }
@@ -1984,7 +1984,7 @@ async function runSelfTest (mode) {
     /* notes */
     const n = S.tracks.find(isInst) || newInstTrack('synth', 'e piano'); await natSession()
     const nr = notesOn(n, 40, 41, [[0, 1, 60], [2, 1, 64]]); await natSession()
-    leadTrack(S.tracks.indexOf(n)); showRow(S.sel); VX = Math.max(0, nr.a - 4); relayout(); dirtyAll(); flush(); await sleep(80)
+    leadTrack(S.tracks.indexOf(n)); showRow(S.sel); PXB = clamp((X1 - X0) / 12, fitPXB(), maxPXB()); VX = Math.max(0, nr.a - 4); relayout(); dirtyAll(); flush(); await sleep(80)      // (the region and twice its length in sight, however wide the lanes are: the inspector takes some of them)
     { const y2 = rowY(S.sel) + S.rh * .7; await pull(bx(nr.b) - 2, y2, bx(nr.a + (nr.b - nr.a) * 2), y2, { altKey: true }) }
     const g2 = (nr.b - nr.a)
     res.notes = { grew: +g2.toFixed(4), at: nr.notes.map(q => [+q.t.toFixed(3), +q.d.toFixed(3)]), sounding: regSound(nr).map(x => +x.a.toFixed(3)) }

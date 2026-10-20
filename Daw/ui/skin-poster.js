@@ -176,3 +176,121 @@ SKINS.strip.poster = {
   cells: (sx, sw, y, its, i) => { let s = '', x = sx + (sw - its.length * 13 + 5) / 2; for (const it of its) { s += bhShape(it.t, x, y + 4, 8, it.on, it.t === 's' ? BH.blue : BH.black) + hit(x - 3, y, 14, 16, it.a, ` data-i="${i}"`); x += 13 } return s },
   name: (x, w, sx, sw, yb, t, sel) => T(sx + 4, yb - 9, fit(asGiven(t.name), sw - 6, 11, 600), { size: 11, w: sel ? 700 : 600 }),
 }
+
+/* ── the mixer (his pick of design/bauhaus mixer draft 2, 2026-10-21): every track in sight ──
+   A strip a column of a poster, no rules between them; the strips share the width so that every track is in sight. The
+   chosen tracks stand open: their number large in their colour (on a black block) and their name, their pan a ring with a
+   needle, what is on their patch as squares of colour with names, a red disc to put one on; the level, the largest part: a bar of their colour as high as they sound, a black rule, a red disc on it and its
+   figure beside, and right of it their sends as round knobs, how much under each; their buttons as shapes and where
+   they go. The others close to their number, their name turned up the
+   strip, the bar and the red disc, mute and solo. Pressed, a closed strip opens (it is chosen). Only past what the width
+   holds do the strips scroll, and a row of the numbers over them goes to any one. The out at the right: a blue bar for
+   each side, a black disc on the rule, its figure large. */
+const BMX = { v: new Map() }
+const BMX_WIDE = 148, BMX_MIN = 15, BMX_SENDS = 3                                 // (BMX_SENDS: as many sends as the engine has for a track — Engine.h SendSlot)
+function bhMixer (y, h) {
+  const vis = rows(), mw = 150, gutter = 14, room = RX - mw - gutter * 2
+  const nOpen = Math.min(vis.filter(i => isChosen(i)).length, Math.floor(room / BMX_WIDE))
+  let wide = BMX_WIDE, slim = 0, list = vis, over = false
+  if (vis.length * 104 <= room) { wide = clamp(Math.floor(room / vis.length), 104, BMX_WIDE); slim = wide }
+  else {
+    slim = Math.floor((room - nOpen * BMX_WIDE) / Math.max(1, vis.length - nOpen))
+    if (slim < BMX_MIN) {
+      over = true; slim = BMX_MIN
+      const fitN = nOpen + Math.floor((room - nOpen * BMX_WIDE) / BMX_MIN), at = vis.indexOf(S.sel)
+      if (at >= 0 && (at < S.panel.mx || at >= S.panel.mx + fitN)) S.panel.mx = at - Math.floor(fitN / 2)      // (the track chosen elsewhere is brought into sight)
+      S.panel.mx = clamp(S.panel.mx, 0, Math.max(0, vis.length - fitN)); list = vis.slice(S.panel.mx, S.panel.mx + fitN)
+    }
+    slim = Math.min(slim, 100)
+  }
+  /* how many lines the open strips' patches and sends take: the level starts under the longest */
+  const lines = t => { const f = fxItems(t).length; return Math.min(f, 3) + (f > 3 ? 1 : 0) + (t.theirs ? 0 : 1) }
+  const most = Math.max(3, ...list.filter(i => isChosen(i) || slim >= 104).map(i => lines(S.tracks[i])))
+  const top = y + (over ? 26 : 10), foot = y + h - 10, lt = top + 46 + most * 13, lb = foot - 40, lh = Math.max(30, lb - lt)
+  const yOf = db => lb - lh * volF(db)
+  BMX.v.clear()
+  let s = R(0, y, RX, h, { fill: K1 })
+  if (over) {
+    const cw = Math.min(22, (RX - 2 * gutter) / vis.length)
+    vis.forEach((i, k) => { const t = S.tracks[i], x = gutter + k * cw; s += T(x + cw / 2, y + 16, String(i + 1), { size: 8, w: 700, c: bhInk(bhCol(t)), a: list.includes(i) ? 1 : .45, anchor: 'middle' }) + hit(x, y + 4, cw, 16, 'msel', ` data-i="${i}"`) })
+  }
+  let x = gutter
+  for (const i of list) {
+    const t = S.tracks[i], di = ` data-i="${i}"`, sel = isChosen(i), c = bhCol(t), ink = bhInk(c), vol = shown(t, 'vol'), sw = sel || slim >= 104 ? wide : slim
+    const num = pad2(i + 1)
+    BMX.v.set(t.id, [lt, lh])
+    if (sw >= 104) {
+      const nw = tw(num, 26, 700), pan = shown(t, 'pan') || 0
+      if (sel) s += R(x - 4, top - 2, nw + 8, 30, { fill: BH.black })
+      s += T(x, top + 23, num, { size: 26, w: 700, c: sel ? BH.paper : ink }) + T(x + nw + 8, top + 22, fit(asGiven(t.name), sw - nw - 44, 12, 600), { size: 12, w: 600, a: heard(t) ? 1 : .5 }) + hit(x - 4, top - 2, sw - 30, 32, 'msel', di)
+      const pcx = x + sw - 26, pcy = top + 14, a = pan * 2.4
+      s += Cc(pcx, pcy, 9, { stroke: BH.black, sw: 1.3 }) + P(`M${n(pcx)} ${n(pcy)}L${n(pcx + 9 * Math.sin(a))} ${n(pcy - 9 * Math.cos(a))}`, { stroke: BH.black, sw: 1.6 }) + hit(pcx - 16, pcy - 13, 32, 26, 'mpan', `${di} data-x="${n(pcx - 30)}" data-pw="60"`, 'ew-resize')
+      /* its patch, a red disc to put one on */
+      const its = fxItems(t)
+      let yy = top + 46
+      its.slice(0, 3).forEach((it, j) => { s += R(x, yy - 7, 7, 7, { fill: it.c || BH.black, fa: it.off ? .35 : 1 }) + T(x + 11, yy, fit(asGiven(it.t), sw - 40, 9), { size: 9, a: it.off ? .45 : .9 }) + hit(x - 2, yy - 10, sw - 30, 13, 'mfx', `${di} data-k="${j}"`); yy += 13 })
+      if (its.length > 3) { s += T(x + 11, yy, `+${its.length - 3} more`, { size: 8, a: .5 }) + hit(x - 2, yy - 10, sw - 30, 13, 'm-patch', di); yy += 13 }
+      if (!t.theirs) s += Cc(x + 3.5, yy - 3.5, 4.5, { fill: BH.red }) + P(`M${n(x + 3.5)} ${n(yy - 6.5)}v6M${n(x + .5)} ${n(yy - 3.5)}h6`, { stroke: BH.paper, sw: 1.2 }) + hit(x - 3, yy - 10, 14, 13, 'mfxadd', di)
+      /* its sends: round knobs down the room right of the level, as many as there are and one more to give another (his
+         word on draft 2: knobs as Logic Pro's sends, how much under each; sized so that six stand in a strip) */
+      const sends = t.sends || [], canAdd = !t.theirs && sends.length < BMX_SENDS, slots = Math.max(6, sends.length + (canAdd ? 1 : 0)), per = lh / slots, kr = clamp((per - 14) / 2, 5.5, 11), kx = x + sw - 22
+      const knob = (cy, f) => { const a0 = -135 * Math.PI / 180, a1 = a0 + f * 270 * Math.PI / 180, at = (r, q) => `${n(kx + r * Math.sin(q))} ${n(cy - r * Math.cos(q))}`; return Cc(kx, cy, kr, { fill: BH.paper, stroke: BH.black, sw: 1.2 }) + (f > .004 ? P(`M${at(kr + 2.6, a0)}A${n(kr + 2.6)} ${n(kr + 2.6)} 0 ${f > 2 / 3 ? 1 : 0} 1 ${at(kr + 2.6, a1)}`, { stroke: BH.red, sw: 2.4 }) : '') + P(`M${n(kx)} ${n(cy)}L${at(kr - 1, a1)}`, { stroke: BH.black, sw: 1.6 }) }
+      sends.forEach((sd, k) => {
+        const cy = lt + per * k + kr + 3
+        s += knob(cy, volF(sd.db)) + T(kx, cy + kr + 9, fmtDb(sd.db), { size: 7.5, w: 600, a: .8, anchor: 'middle' })
+        s += hit(kx - kr - 5, cy - kr - 5, 2 * kr + 10, 2 * kr + 16, 'msend', `${di} data-k="${k}" data-rel="1" data-x="${n(kx - 60)}" data-pw="120"`, 'ns-resize')
+      })
+      if (canAdd) { const cy = lt + per * sends.length + kr + 3; s += Cc(kx, cy, kr, { stroke: BH.black, sw: 1, dash: '2 2', sa: .5 }) + P(`M${n(kx)} ${n(cy - 4)}v8M${n(kx - 4)} ${n(cy)}h8`, { stroke: BH.black, sw: 1.2, sa: .6 }) + hit(kx - kr - 4, cy - kr - 4, 2 * kr + 8, 2 * kr + 8, 'msendadd', di) }
+      /* the level */
+      const bw = 16, rx0 = x + bw + 16, fy = yOf(vol)
+      s += R(x, lt, bw, lh, { fill: BH.black, fa: .05 }) + R(x, lb, bw, 0, { fill: c, x: ` id="bmx-${t.id}"` })
+      for (const db of [6, 0, -6, -12, -24]) s += R(rx0 - 5, yOf(db) - .4, 3, .8, { fill: BH.black, fa: .4 })
+      s += R(rx0 - .9, lt, 1.8, lh, { fill: BH.black }) + Cc(rx0, fy, 7, { fill: BH.red, fa: heard(t) ? 1 : .5 }) + T(rx0 + 12, fy + 4, fmtDb(vol), { size: 11, w: 700 })
+      s += hit(x - 2, lt - 8, sw - 38, lh + 16, 'mvol', `${di} data-w="0"`, 'ns-resize')      // (short of the sends' knobs)
+      let cx = x
+      for (const it of cellsOf(t)) { s += bhShape(it.t, cx, foot - 26, 9, it.on, it.t === 's' ? BH.blue : BH.black) + hit(cx - 3, foot - 30, 15, 17, it.a, di); cx += 17 }
+      s += T(x, foot - 2, '→ ' + fit(asGiven(outName(t)), sw - 46, 8.5), { size: 8.5, a: .6 }) + hit(x - 2, foot - 12, sw - 30, 13, 'mout', di)
+    } else {
+      const cxm = x + (sw - 6) / 2, fy = yOf(vol)
+      s += T(cxm, top + 18, sw >= 30 ? num : String(i + 1), { size: sw >= 30 ? 15 : 10, w: 700, c: ink, anchor: 'middle' })
+      s += `<text x="${n(cxm + 3.5)}" y="${n(lt - 10)}" transform="rotate(-90 ${n(cxm + 3.5)} ${n(lt - 10)})" font-family="${FONT}" font-size="${n(9.5 * TF.scale)}" font-weight="500" fill="${BH.black}"${heard(t) ? '' : ' fill-opacity=".5"'}>${esc(fit(asGiven(t.name), lt - top - 34, 9.5))}</text>`
+      s += hit(x, top - 2, sw - 4, lt - top, 'msel', di)
+      const bw = Math.max(5, Math.min(12, sw * .3)), bx0 = cxm - bw - 1, rx0 = cxm + 4
+      s += R(bx0, lt, bw, lh, { fill: BH.black, fa: .05 }) + R(bx0, lb, bw, 0, { fill: c, x: ` id="bmx-${t.id}"` })
+      s += R(rx0 - .6, lt, 1.2, lh, { fill: BH.black }) + Cc(rx0, fy, sw >= 30 ? 5 : 4, { fill: BH.red, fa: heard(t) ? 1 : .5 })
+      s += hit(x, lt - 6, sw - 4, lh + 12, 'mvol', `${di} data-w="0"`, 'ns-resize')
+      cellsOf(t).filter(it => it.t === 'm' || it.t === 's').forEach((it, k) => { const yy = foot - 30 + k * 13; s += bhShape(it.t, cxm - 3.5, yy, 7, it.on, it.t === 's' ? BH.blue : BH.black) + hit(x, yy - 3, sw - 4, 13, it.a, di) })
+    }
+    x += sw
+  }
+  /* the out */
+  const ox = RX - mw - gutter + 18, fy = yOf(S.master), mr = ox + 50
+  BMX.v.set('M', [lt, lh])
+  s += T(ox, top + 23, 'out', { size: 26, w: 700, c: BH.blue }) + bhLab(ox + 52, top + 21, 'stereo') + hit(ox - 4, top - 2, mw - 20, 32, 'wall-out')
+  s += R(ox, lt, 12, lh, { fill: BH.black, fa: .05 }) + R(ox, lb, 12, 0, { fill: BH.blue, x: ' id="bmx-ML"' }) + R(ox + 15, lt, 12, lh, { fill: BH.black, fa: .05 }) + R(ox + 15, lb, 12, 0, { fill: BH.blue, x: ' id="bmx-MR"' })
+  for (const db of [6, 0, -6, -12, -24]) s += R(mr - 5, yOf(db) - .4, 3, .8, { fill: BH.black, fa: .4 }) + bhLab(mr - 9, yOf(db) + 2, db > 0 ? '+' + db : db, { anchor: 'end', size: 5 })
+  s += R(mr - .9, lt, 1.8, lh, { fill: BH.black }) + Cc(mr, fy, 9, { fill: BH.black }) + T(mr + 16, fy + 6, fmtDb(S.master), { size: 18, w: 700 })
+  s += hit(ox - 2, lt - 8, mw - 20, lh + 16, 'mmaster', '', 'ns-resize')
+  return s
+}
+SKINS.mixer.poster = bhMixer
+/* the panel's tabs: words, the open one on a black block */
+SKINS.tabs.poster = (x, y, h, items, o = {}) => {
+  let s = '', cx = x
+  items.forEach((it, k) => {
+    const w = tw(it.t, 11, it.on ? 600 : 500), cw = o.widths ? o.widths[k] : w + 16      // (as wide as the room's own tabs where it says: what follows them stays where it was)
+    s += (it.on ? R(cx, y, Math.max(cw, w + 12), h, { fill: BH.black }) : '') + T(cx + 6, y + h / 2 + 4, it.t, { size: 11, w: it.on ? 600 : 500, c: it.on ? BH.paper : BH.black, a: it.on ? 1 : .75 }) + hit(cx, y, cw, h, it.a)
+    cx += cw + (o.widths ? 0 : 4)
+  })
+  return [s, cx - x]
+}
+{ /* the mixer's bars, as loud as each track sounds now */
+  const frame0 = SKINS.frame.poster
+  SKINS.frame.poster = p => {
+    frame0(p)
+    if (typeof METERS !== 'object' || !BMX.v.size) return
+    const f = v => volF(Math.min(6, linDb(v)))
+    const bar = (id, g, v) => { const el = $(id); if (el && g) { const hh = g[1] * f(v); el.setAttribute('y', n(g[0] + g[1] - hh)); el.setAttribute('height', n(hh)) } }
+    for (const [key, g] of BMX.v) { if (key === 'M') { bar('bmx-ML', g, METERS.mm[0]); bar('bmx-MR', g, METERS.mm[1]) } else bar('bmx-' + key, g, METERS.now.get(key) || 0) }
+  }
+}

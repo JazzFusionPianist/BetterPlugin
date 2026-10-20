@@ -1480,7 +1480,7 @@ function onDown (e) {
     case 'm-patch': if (!isChosen(i)) leadTrack(i); else S.sel = i; S.panel.tab = 'patch'; uiDirty('head', 'lanes', 'dock', 'top'); break
     case 'mvol': tr.ghost = null; drag = { a, i, ly: p.y, f0: volF(shown(tr, 'vol')), acc: 0, v0: tr.vol, others: others(i, 'vol'), g: stripGeom(BY + PH, S.panel.h - PH, el.dataset.w === '1'), before: autoPts(tr, 'vol').length ? editState() : null }; break
     case 'mpan': drag = { a, i, v0: tr.pan || 0, pv: tr.pan || 0, lx: p.x, ly: p.y, others: others(i, 'pan') }; break      // (taken where it is: it moves by how far the hand goes, right or up for the right — never thrown to the pointer)
-    case 'msend': drag = { a, i, k: +el.dataset.k, x0: +el.dataset.x, w: +el.dataset.pw, px: p.x, moved: false, f: e.shiftKey && tr.sends[+el.dataset.k] ? volF(tr.sends[+el.dataset.k].db) : null, lx: p.x }; break
+    case 'msend': drag = { a, i, k: +el.dataset.k, x0: +el.dataset.x, w: +el.dataset.pw, px: p.x, moved: false, f: e.shiftKey && tr.sends[+el.dataset.k] ? volF(tr.sends[+el.dataset.k].db) : null, lx: p.x, rel: !!el.dataset.rel, py: p.y, f0: tr.sends[+el.dataset.k] ? volF(tr.sends[+el.dataset.k].db) : 0 }; break      // (rel: a knob, turned from where it stands, up and to the right — skin-poster.js)
     case 'msendadd': openSendMenu(tr, tr.sends.length, p.x - 10, p.y + 10); break
     case 'mfx': drag = { a, i, k: +el.dataset.k, x0: p.x, y0: p.y, alt: e.altKey, moved: false, to: [] }; break      // (let go where pressed: opened; pulled with option: copied — fxUp)
     case 'mfxadd': if (!isChosen(i)) leadTrack(i); else S.sel = i; S.picker.at = { x: p.x - 20, y: p.y + 12 }; openPicker('fx'); uiDirty('head', 'lanes', 'dock'); break
@@ -1591,8 +1591,8 @@ function onMove (e) {
   }
   else if (drag.a === 'msend') {
     const d = drag, tk = S.tracks[d.i], sd = tk.sends[d.k]
-    if (Math.abs(p.x - d.px) > 2) d.moved = true
-    if (d.moved && sd) { let f = clamp((p.x - d.x0) / d.w, 0, 1); if (e.shiftKey && d.f != null) f = clamp(d.f + (p.x - d.lx) / d.w * .2, 0, 1); d.f = f; d.lx = p.x; sd.db = fVol(f); pushTrack(tk); uiDirty('dock') }
+    if (Math.abs(p.x - d.px) > 2 || (d.rel && Math.abs(p.y - d.py) > 2)) d.moved = true
+    if (d.moved && sd) { let f = d.rel ? clamp(d.f0 + ((p.x - d.px) - (p.y - d.py)) / (e.shiftKey ? 600 : 160), 0, 1) : clamp((p.x - d.x0) / d.w, 0, 1); if (!d.rel && e.shiftKey && d.f != null) f = clamp(d.f + (p.x - d.lx) / d.w * .2, 0, 1); d.f = f; d.lx = p.x; sd.db = fVol(f); pushTrack(tk); uiDirty('dock') }
   }
   else if (drag.a === 'pgrip') { S.panel.h = Math.round(drag.h0 + (drag.y0 - p.y)); relayout(); dirtyAll() }
   else if (drag.a === 'rowh') { const h = clamp(Math.round(drag.h0 + (p.y - drag.y0)), ROW_MIN, ROW_MAX); for (const t of drag.who) t.h = h; VY = clamp(VY, 0, maxVY()); uiDirty('head', 'lanes') }

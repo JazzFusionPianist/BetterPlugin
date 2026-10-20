@@ -83,6 +83,7 @@ function oklch (L, C, h) {
 
 /* one outlined frame cut into cells; the chosen cell filled. An item: {t, k (the letter of its key), g (a drawing), on, c, dim, a (what a press does), more} */
 function cells (x, y, h, items, o = {}) {
+  if (typeof skinTabs === 'function' && items.length && /^tab-/.test(items[0].a || '')) { const r = skinTabs(x, y, h, items, o); if (r) return r }      // (the panel's tabs, as a theme draws them: skins.js)
   const { size = 9.5, pad = 9, widths, frame = .24, a = .62 } = o
   let cx = x, out = '', div = '', hits = ''
   const ws = items.map((it, i) => widths ? widths[i] : Math.round(tw(it.t || '', size, 500) + pad * 2 + (it.k ? tw(it.k, size - 1.5) + 7 : 0)))

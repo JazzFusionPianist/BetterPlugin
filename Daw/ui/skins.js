@@ -10,7 +10,7 @@ const SKIN = { k: {}, bridge: false, right: false, noTool: false, deck: false, h
 /* the bands a transport takes: over the room, over the foot, down the left */
 const SKIN_BANDS = { plain: [44, 0, 0], console: [0, 82, 0], cassette: [124, 70, 0], score: [84, 52, 0], poster: [0, 30, 212], blueprint: [64, 112, 0], terminal: [96, 30, 0] }
 /* what each theme's parts draw (filled by skin-*.js): top, foot, left (the transport's bands), head, scenes, cycle, play, lanes, strip */
-const SKINS = { top: {}, foot: {}, left: {}, head: {}, scenes: {}, cycle: {}, play: {}, rule: {}, lanes: {}, strip: {}, mixer: {}, sound: {}, frame: {} }
+const SKINS = { top: {}, foot: {}, left: {}, head: {}, scenes: {}, cycle: {}, play: {}, rule: {}, lanes: {}, strip: {}, mixer: {}, tabs: {}, sound: {}, frame: {} }
 const BRIDGE_H = 96
 let DECK_H = 0
 function skinRead () {
@@ -26,6 +26,8 @@ function skinRead () {
   SKIN.console = SKIN.k.mixer === 'console'
 }
 const skinHas = part => SKIN.k[part] && SKIN.k[part] !== 'plain'
+/* the panel's tabs as the theme of the mixer draws them (kit.js cells asks), or null: as they come */
+const skinTabs = (x, y, h, items, o = {}) => SKINS.tabs[SKIN.k.mixer] ? SKINS.tabs[SKIN.k.mixer](x, y, h, items, o) : null
 /* the window cut again (ui.js relayout asks first): the bands of the transport and the bridge of meters */
 const SKIN_NO_TOOL = new Set(['poster'])                                           // (transports that hold the tool row's things themselves: it folds away)
 function skinLayout () {

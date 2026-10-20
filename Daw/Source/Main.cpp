@@ -1,5 +1,6 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include <map>
+#include <copyfile.h>
 #include "Engine.h"
 #include "Settings.h"
 
@@ -24,6 +25,8 @@ std::string slurPanelUp (bool cancel);
 void slurStyleWindow (void* nsView);
 void slurProjectIcon (const char* folder);
 bool slurKeysToPage (void* nsView);
+bool slurDropsKnown (void* nsView);
+std::string slurDroppedPaths();
 std::string slurCommandKey (void* nsView, const char* letter, unsigned short keyCode);
 std::string slurCommandKeyOn();
 bool slurSetMenus (const char* json);
@@ -467,6 +470,7 @@ private:
         if (op == "hello")
         {
             if (! keysToPage && getPeer() != nullptr) keysToPage = slurKeysToPage (getPeer()->getNativeHandle());      // (the page is up: command x, c, v and a are its keys from here on)
+            if (! dropsKnown && getPeer() != nullptr) dropsKnown = slurDropsKnown (getPeer()->getNativeHandle());      // (and where a file let go on it lies is kept: op dropPaths)
             auto* o = new juce::DynamicObject();
             o->setProperty ("ok", true); o->setProperty ("sr", engine.sr);
             o->setProperty ("mp3", engine.lame.existsAsFile()); o->setProperty ("lame", engine.lame.getFullPathName()); o->setProperty ("mic", slurMicStatus()); o->setProperty ("ins", engine.inputCount());
@@ -1244,21 +1248,69 @@ private:
             if (! inside || name.isEmpty() || d["data"].toString().length() > (1 << 26) || ! juce::Base64::convertFromBase64 (mo, d["data"].toString())) { done (okVar (false)); return; }
             done (okVar (dir.getChildFile (name).replaceWithData (mo.getData(), mo.getDataSize()))); return;
         }
-        if (op == "import")
+        if (op == "importPick")                                                // the Mac's panel for sounds to bring in: where they lie (the page brings them in with audioBring)
         {
-            const auto project = d["project"].toString();
             chooser = std::make_unique<juce::FileChooser> ("Import Audio", juce::File::getSpecialLocation (juce::File::userMusicDirectory), "*.wav;*.aif;*.aiff;*.mp3;*.m4a;*.flac;*.ogg;*.caf");
-            chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::canSelectMultipleItems, [this, done, project] (const juce::FileChooser& fc)
+            chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::canSelectMultipleItems, [done] (const juce::FileChooser& fc)
             {
                 juce::Array<juce::var> out;
-                auto dir = audioDirOf (projectDir (project));
-                dir.createDirectory();
-                for (auto& src : fc.getResults())
-                {
-                    auto file = dir.getNonexistentChildFile (juce::File::createLegalFileName (src.getFileNameWithoutExtension()), src.getFileExtension(), false);
-                    if (src.copyFileTo (file)) out.add (withFile (engine.decodeFile (file), file.getFileName(), src.getFileNameWithoutExtension()));
-                }
+                for (auto& f : fc.getResults()) out.add (f.getFullPathName());
                 done (out);
+            });
+            return;
+        }
+        if (op == "dropPaths")                                                 // where the files last let go on the page lie (Mac.mm, slurDroppedPaths): [{path, name, size}]
+        {
+            juce::Array<juce::var> out;
+            for (auto& p : juce::StringArray::fromLines (juce::String::fromUTF8 (slurDroppedPaths().c_str())))
+            {
+                const juce::File f (p);
+                if (p.isEmpty() || ! f.existsAsFile()) continue;
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("path", p); o->setProperty ("name", f.getFileName()); o->setProperty ("size", (double) f.getSize());
+                out.add (juce::var (o));
+            }
+            done (out); return;
+        }
+        if (op == "audioBring")
+        {
+            /* sounds brought in by where they lie (let go from the Finder, or picked with Import Audio…): each copied into
+               the project's own sounds — a clone where the disk can make one, which takes no time and no room whatever
+               its length — on a thread of the pool, and said with its length, read from its head. Nothing is decoded
+               here: the page places them at once and asks for each with audioLoad, several at a time.
+               -> [{ok, file, name, sec}] in the order given */
+            const auto own = audioDirOf (projectDir (d["project"].toString()));
+            juce::StringArray paths;
+            if (auto* a = d["paths"].getArray()) for (auto& v : *a) paths.add (v.toString());
+            auto alive = decodeAlive;
+            decodePool.addJob ([this, alive, own, paths, done] () mutable
+            {
+                own.createDirectory();
+                juce::Array<juce::var> out;
+                for (auto& p : paths)
+                {
+                    auto* o = new juce::DynamicObject();
+                    juce::var v (o);
+                    const auto src = juce::File (p).getLinkedTarget();
+                    o->setProperty ("ok", false); o->setProperty ("name", src.getFileNameWithoutExtension());
+                    if (src.existsAsFile())
+                    {
+                        const bool ours = src.getParentDirectory() == own;      // (one of its own sounds already: taken as it lies)
+                        juce::File dst = src;
+                        bool made = ours;
+                        for (int tries = 0; ! made && tries < 4; ++tries)       // (another bringing in may have taken the name meanwhile)
+                        {
+                            dst = own.getNonexistentChildFile (juce::File::createLegalFileName (src.getFileNameWithoutExtension()), src.getFileExtension(), false);
+                            made = ::copyfile (src.getFullPathName().toRawUTF8(), dst.getFullPathName().toRawUTF8(), nullptr, COPYFILE_CLONE) == 0;
+                            if (! made && errno != EEXIST) { dst.deleteFile(); break; }  // (a copy that could not be finished — the disk full, say — leaves nothing half made)
+                        }
+                        const double sec = made ? engine.fileSeconds (dst) : 0.0;
+                        if (sec > 0.0) { o->setProperty ("ok", true); o->setProperty ("file", dst.getFileName()); o->setProperty ("sec", sec); }
+                        else if (made && ! ours) dst.deleteFile();             // (not a sound after all)
+                    }
+                    out.add (v);
+                }
+                juce::MessageManager::callAsync ([alive, done, out] () mutable { if (alive->load()) done (out); });
             });
             return;
         }
@@ -1449,7 +1501,7 @@ private:
                 }
             }
             auto* o = new juce::DynamicObject();
-            o->setProperty ("ok", ok); o->setProperty ("file", file.getFileName()); o->setProperty ("mb", (double) file.getSize() / 1048576.0);
+            o->setProperty ("ok", ok); o->setProperty ("file", file.getFileName()); o->setProperty ("mb", (double) file.getSize() / 1048576.0); o->setProperty ("path", file.getFullPathName());
             done (juce::var (o)); return;
         }
         if (op == "testMeasure") { engine.measure (d, [done] (juce::var r) { done (r); }); return; }
@@ -1697,7 +1749,7 @@ private:
     std::unique_ptr<juce::WebBrowserComponent> web, slur;
     bool slurLight = false;                                                    // slur's panel is light: the room's look asked for it (slurLook)
     juce::var keysCatalog;                                                     // the room's commands, for settings > key commands (keysCatalog)
-    bool keysToPage = false;                                                   // (command x, c, v and a go to the page as keys: see slurKeysToPage)
+    bool keysToPage = false, dropsKnown = false;                                                   // (command x, c, v and a go to the page as keys: see slurKeysToPage)
     std::unique_ptr<SettingsWindow> settings;
     std::map<juce::String, std::unique_ptr<MeterWindow>> meters;      // the meters' faces, by track and node
     juce::String lang { "en" };

@@ -8,6 +8,9 @@
 #import <WebKit/WebKit.h>
 #import <objc/runtime.h>
 #include <string>
+#include <deque>
+#include <vector>
+#include <algorithm>
 #include <mach/mach.h>
 #include <sys/sysctl.h>
 #include <sys/time.h>
@@ -119,6 +122,86 @@ void slurAacClose (void* handle)
     if (a == nullptr) return;
     ExtAudioFileDispose (a->file);
     delete a;
+}
+
+/*  A sound taken to another rate by the Mac's own converter, at its best (mastering, the highest quality): what is above
+    the new rate's half is filtered away first, so a print at 22.05k or 8k from a 48k song does not fold its highs back
+    down. It is fed in pieces and gives back what it can each time; told that the sound has ended, the rest. Nothing comes
+    out late: the first sample out stands where the first sample in did. Interleaved floats in and out. */
+struct SlurSrc
+{
+    AudioConverterRef conv = nullptr;
+    int ch = 2;
+    std::deque<std::vector<float>> in;            // pieces not yet wholly taken (a piece handed over stays where it is until the converter asks again)
+    size_t at = 0;                                // how far into the first piece it has taken
+    bool handed = false, last = false;
+};
+
+static OSStatus slurSrcFeed (AudioConverterRef, UInt32* packets, AudioBufferList* io, AudioStreamPacketDescription**, void* user)
+{
+    auto* s = static_cast<SlurSrc*> (user);
+    if (s->handed && ! s->in.empty() && s->at >= s->in.front().size()) { s->in.pop_front(); s->at = 0; }      // asked again: what it was handed last is its own now
+    s->handed = false;
+    while (! s->in.empty() && s->at >= s->in.front().size()) { s->in.pop_front(); s->at = 0; }
+    io->mNumberBuffers = 1;
+    io->mBuffers[0].mNumberChannels = (UInt32) s->ch;
+    if (s->in.empty())
+    {
+        *packets = 0; io->mBuffers[0].mData = nullptr; io->mBuffers[0].mDataByteSize = 0;
+        return s->last ? noErr : 'more';                                            // the end: it gives out what it holds. Otherwise: it waits for more
+    }
+    auto& p = s->in.front();
+    const UInt32 n = (UInt32) std::min<size_t> (*packets, (p.size() - s->at) / (size_t) s->ch);
+    io->mBuffers[0].mData = p.data() + s->at;
+    io->mBuffers[0].mDataByteSize = n * 4u * (UInt32) s->ch;
+    s->at += (size_t) n * (size_t) s->ch;
+    s->handed = true;
+    *packets = n;
+    return noErr;
+}
+
+void* slurSrcOpen (double fromRate, double toRate, int channels)
+{
+    AudioStreamBasicDescription a = {};
+    a.mFormatID = kAudioFormatLinearPCM; a.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked;
+    a.mChannelsPerFrame = (UInt32) channels; a.mBitsPerChannel = 32; a.mBytesPerFrame = (UInt32) (4 * channels); a.mFramesPerPacket = 1; a.mBytesPerPacket = a.mBytesPerFrame;
+    auto b = a;
+    a.mSampleRate = fromRate; b.mSampleRate = toRate;
+    AudioConverterRef c = nullptr;
+    if (AudioConverterNew (&a, &b, &c) != noErr || c == nullptr) return nullptr;
+    UInt32 cx = kAudioConverterSampleRateConverterComplexity_Mastering, q = kAudioConverterQuality_Max;
+    AudioConverterSetProperty (c, kAudioConverterSampleRateConverterComplexity, sizeof (cx), &cx);
+    AudioConverterSetProperty (c, kAudioConverterSampleRateConverterQuality, sizeof (q), &q);
+    auto* s = new SlurSrc();
+    s->conv = c; s->ch = channels;
+    return s;
+}
+
+/** Hands it `frames` more (none: only asks), and the end of the sound when `last`; writes up to `cap` frames into `out`.
+    Returns how many were written: as many as `cap` means there may be more to ask for. */
+int slurSrcRun (void* handle, const float* interleaved, int frames, bool last, float* out, int cap)
+{
+    auto* s = static_cast<SlurSrc*> (handle);
+    if (s == nullptr || cap <= 0) return 0;
+    if (frames > 0) s->in.emplace_back (interleaved, interleaved + (size_t) frames * (size_t) s->ch);
+    if (last) s->last = true;
+    AudioBufferList list;
+    list.mNumberBuffers = 1;
+    list.mBuffers[0].mNumberChannels = (UInt32) s->ch;
+    list.mBuffers[0].mDataByteSize = (UInt32) (cap * 4 * s->ch);
+    list.mBuffers[0].mData = out;
+    UInt32 got = (UInt32) cap;
+    const OSStatus e = AudioConverterFillComplexBuffer (s->conv, slurSrcFeed, s, &got, &list, nullptr);
+    if (e != noErr && e != 'more') return 0;
+    return (int) got;
+}
+
+void slurSrcClose (void* handle)
+{
+    auto* s = static_cast<SlurSrc*> (handle);
+    if (s == nullptr) return;
+    AudioConverterDispose (s->conv);
+    delete s;
 }
 
 /*  The self-test's stand-in for a file dragged in from the Finder: the web
@@ -436,6 +519,46 @@ bool slurKeysToPage (void* nsView)
         return true;
     }
     return false;
+}
+
+/** Files let go on the page from the Finder. WebKit tells the page of them as files without a place: it may read them,
+    piece by piece, but never learns where they lie — so a sound used to cross to the app in pieces of three megabytes,
+    written in base64, before it could be made ready (his testers, 2026-10-20: bringing sound in was slow). Where they lie
+    is kept here on the way past, for the page to ask (op dropPaths): the app then copies each into the project itself
+    (a clone, where the disk can make one: at once, whatever its length) and nothing goes over in pieces. */
+static IMP slurWebKitsDrop = nullptr;
+static NSMutableArray<NSString*>* slurDropped = nil;
+static BOOL slurDropTo (id self, SEL sel, id<NSDraggingInfo> info)
+{
+    NSArray<NSURL*>* urls = [info.draggingPasteboard readObjectsForClasses: @[ NSURL.class ] options: @{ NSPasteboardURLReadingFileURLsOnlyKey: @YES }];
+    slurDropped = [NSMutableArray array];
+    for (NSURL* u in urls) if (u.isFileURL && u.path != nil) [slurDropped addObject: u.path];
+    typedef BOOL (*Way) (id, SEL, id<NSDraggingInfo>);
+    return ((Way) slurWebKitsDrop) (self, sel, info);
+}
+bool slurDropsKnown (void* nsView)
+{
+    if (slurWebKitsDrop != nullptr) return true;
+    NSView* v = (__bridge NSView*) nsView;
+    if (v == nil || v.window == nil) return false;
+    WKWebView* web = findWeb (v.window.contentView != nil ? v.window.contentView : v);
+    if (web == nil) return false;
+    const SEL sel = @selector (performDragOperation:);
+    const Class k = object_getClass (web);
+    const Method m = class_getInstanceMethod (k, sel);
+    if (m == nullptr) return false;
+    slurWebKitsDrop = method_getImplementation (m);                              // (WebKit's, as the page's web view has it now)
+    if (! class_addMethod (k, sel, (IMP) slurDropTo, method_getTypeEncoding (m)))  // (its own class has one already: that one is wrapped instead)
+        slurWebKitsDrop = method_setImplementation (class_getInstanceMethod (k, sel), (IMP) slurDropTo);
+    return true;
+}
+/** Where the files of the last drop lie, a line each; forgotten once asked. */
+std::string slurDroppedPaths()
+{
+    std::string out;
+    for (NSString* p in slurDropped) { out += p.UTF8String; out += "\n"; }
+    slurDropped = nil;
+    return out;
 }
 
 /** For the self-test: a key with command held, sent the way the Mac sends one to an app — to the window first (its views:

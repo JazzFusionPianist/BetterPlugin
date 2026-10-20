@@ -41,7 +41,7 @@ export default () => chapter('tracks', t('tracks', '트랙'),
       [1, 'the triangle of a stack: open, closed', '스택의 삼각형: 열림, 닫힘'],
       [2, 'the name of its group, in the group’s colour: pressed, the group’s card', '그룹 이름(그룹 색): 누르면 그룹 카드'],
       [3, '{{r}} record, {{i}} hear the input, {{m}} mute, {{s}} solo. A track of notes has no {{i}}; a bus, a stack and someone else’s track have only {{m}} and {{s}}', '{{r}} 녹음, {{i}} 입력 듣기, {{m}} 뮤트, {{s}} 솔로. 노트 트랙에는 {{i}}가 없고, 버스, 스택, 남의 트랙에는 {{m}}과 {{s}}만 있습니다'],
-      [4, 'the level, with a thin meter under it. Click or drag; [[⇧]] drag is fine; double-click is 0 dB', '레벨과 그 아래의 가는 미터. 클릭하거나 드래그. [[⇧]] 드래그는 미세하게. 더블 클릭하면 0 dB'],
+      [4, 'the level and its meter; under the name on a tall row. Click or drag; [[⇧]] drag is fine; double-click is 0 dB', '레벨과 미터. 높은 줄에서는 이름 아래. 클릭하거나 드래그. [[⇧]] 드래그는 미세하게. 더블 클릭하면 0 dB'],
       [5, 'the level in dB. Double-click to type it', '레벨 dB 값. 더블 클릭하면 입력'],
       [6, 'solo, lit yellow', '솔로, 노란 불'],
       [7, 'armed (red) and heard through (orange)', '녹음 대기(빨강)와 입력 듣기(주황)'],
@@ -58,7 +58,7 @@ export default () => chapter('tracks', t('tracks', '트랙'),
       [['[[⌥]] click {{s}}', '{{s}} [[⌥]] 클릭'], ['solo only this one', '이 트랙만 솔로']],
       [['drag across {{m}} or {{s}}', '{{m}}이나 {{s}} 위로 드래그'], ['each row passed is set the same way', '지나가는 줄마다 같은 상태로']]) +
     note('When several tracks are chosen, the fader, the pan, [[⌥]] click, {{m}}, {{s}}, {{r}} and {{i}} of one act on all of them.', '여러 트랙을 선택했을 때 한 트랙의 페이더, 팬, [[⌥]] 클릭, {{m}}, {{s}}, {{r}}, {{i}}는 모두에게 적용됩니다.'),
-    art: fig('heads', { w: 104, calls: [[1, [34, 30], 't'], [2, 'grp-chip', 't'], [3, [185, 53], 't'], [4, [243, 30], 't', -2], [5, [281, 28], 't', 3], [6, [206, 119], 'r'], [7, [162, 169], 'r'], [8, [191, 219], 'r'], [9, [86, 144], 'l'], [10, [72, 244], 'l']] }) }),
+    art: fig('heads', { w: 104, calls: [[1, [34, 30], 't'], [2, 'grp-chip', 't'], [3, 'mute#2', 't'], [4, 'vol#1', 't', -2], [5, 'volnum#1', 't', 3], [6, 'solo#4', 'r'], [7, 'arm#4', 'r'], [8, 'mute#8', 'r'], [9, [86, 144], 'l'], [10, [72, 244], 'l']] }) }),
 
   page(t('the track menu and delete', '트랙 메뉴와 삭제'), { kind: 'split', tw: 124, txt:
     p('Right-click a track’s name, on its head or on its strip in the mixer, for the track menu. Its lines show their keys.', '헤드나 믹서 스트립에서 트랙 이름을 오른쪽 클릭하면 트랙 메뉴가 열립니다. 줄마다 단축키가 적혀 있습니다.') +

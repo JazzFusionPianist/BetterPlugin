@@ -108,9 +108,9 @@ const key = (x, y, t, o = {}) => {
   return [(armed ? R(x, y, w, h, { rx: 2, fill: c || INK }) : R(x + .5, y + .5, w - 1, h - 1, { rx: 2, stroke: INK, sa: dim ? .14 : .24 })) + T(x + pad, y + h / 2 + size * .35, t, { size, w: armed ? 500 : 400, c: armed ? K1 : INK, a: armed ? 1 : dim ? .32 : .8 }) + (a ? hit(x, y, w, h, a, more) : ''), w]
 }
 /* a key that opens a list: what is chosen, and a small mark that it opens */
-function menuKey (x, y, word, o = {}) {
-  const { h = 18, size = 9.5, a, more = '', dim } = o, w = Math.round(tw(word, size) + 26)
-  return [R(x + .5, y + .5, w - 1, h - 1, { rx: 2, stroke: INK, sa: .2 }) + T(x + 8, y + h / 2 + size * .35, word, { size, a: dim ? .4 : .88 }) + caret(x + w - 9.5, y + h / 2, .45) + (a ? hit(x, y, w, h, a, more) : ''), w]
+function menuKey (x, y, word, o = {}) {                                                // o.w: a width of its own (the word fitted into it)
+  const { h = 18, size = 9.5, a, more = '', dim } = o, w = o.w || Math.round(tw(word, size) + 26)
+  return [R(x + .5, y + .5, w - 1, h - 1, { rx: 2, stroke: INK, sa: .2 }) + T(x + 8, y + h / 2 + size * .35, o.w ? fit(word, w - 26, size) : word, { size, a: dim ? .4 : .88 }) + caret(x + w - 9.5, y + h / 2, .45) + (a ? hit(x, y, w, h, a, more) : ''), w]
 }
 /* a word and its value, side by side; with `a` the value can be taken hold of */
 function field (x, y, label, v, o = {}) {

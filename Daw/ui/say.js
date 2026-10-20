@@ -790,7 +790,7 @@ function sayDo (a, out) {
     ho.open = true; ho.done = 0; ho.note = ''; uiDirty('top', 'hand')
     const f = hoFmt(), pl = hoPlan()
     if (ho.what !== 'mix' && !pl.list.length) { out.push({ k: 'word', text: `hand off set, but no stem sounds in ${ho.range === 'song' ? 'the song' : ho.range === 'cycle' ? 'the cycle' : pl.sc.name || 'this part'}` }); return true }
-    out.push({ k: 'word', text: `hand off set: ${ho.what === 'mix' ? 'the mix' : `${pl.list.length} stem${pl.list.length === 1 ? '' : 's'}`} · ${f.fmt}${f.kbps ? ' ' + f.kbps : f.bits ? ' ' + f.bits + ' bit' : ''} · ${f.rate / 1000} khz — press hand off` })
+    out.push({ k: 'word', text: `hand off set: ${ho.what === 'mix' ? 'the mix' : `${pl.list.length} stem${pl.list.length === 1 ? '' : 's'}`}, ${f.fmt}${f.kbps ? ' ' + f.kbps + ' kbps' : f.bits ? ' ' + f.bits + ' bit' : ''} ${f.rate / 1000} khz, press hand off` })
     return true
   }
   if (a.do === 'time' && (a.op === 'room' || a.op === 'cut')) {                                  // bars put in, or taken out of the song (the song's time keys)

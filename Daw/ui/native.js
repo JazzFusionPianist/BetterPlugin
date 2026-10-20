@@ -110,7 +110,7 @@ if (NAT) {
   sendStems = async () => {
     const ho = S.ho
     if (ho.state === 'busy' || ho.asking || S.rec) return
-    const pl = hoPlan(), f = hoFmt()
+    const pl = hoPlan(), f = hoFmt(), files = hoFiles()
     if (!pl.mix && !pl.list.length) { ho.note = pl.cands.length ? 'no stem is chosen' : 'nothing sounds in this range'; uiDirty('hand'); return }
     ho.asking = true
     const at = await NAT.call('bouncePick', Object.assign({ name: `${PROJ.name} ${pl.name} ${pl.mix ? 'mix' : 'stems'}`, panel: ho.panel ? 1 : 0, project: projKey() }, pl.mix ? { ext: f.fmt } : null))      // (the mix is one file: the panel asks for that file, of the kind picked; stems go into a folder)
@@ -123,6 +123,7 @@ if (NAT) {
       kind: pl.mix ? 'mix' : 'stems', a0: pl.a0, a1: pl.a1, modes: pl.modes.map(m => m === 'dry' ? 'dry' : 'wet'),
       tracks: pl.list.map(t => ({ id: t.id, name: `${String(S.tracks.indexOf(t) + 1).padStart(2, '0')} ${t.name}` })),
       dir: at.dir, name: at.name, fmt: f.fmt, rate: f.rate, bits: f.bits, kbps: f.kbps || 320, single: at.single ? 1 : 0,
+      outs: files.map(o => ({ fmt: o.fmt, rate: o.rate, bits: o.bits, kbps: o.kbps || 320, tag: o.tag, sub: o.sub })),      // (every file asked for: one pass printed, each made from it)
     }
     let r
     if (live) { ho.open = false; uiDirty('hand', 'top'); r = await rtbRun(opts) }          // realtime: played through, the room a picture of it (realtime.js)
@@ -131,7 +132,7 @@ if (NAT) {
       r = await NAT.call('bounce', opts)
     }
     ho.state = 'idle'; printEnd()
-    if (r && r.ok) { ho.done = ho.total; ho.note = 'saved as'; ho.at = at.single ? `${at.name}.${f.fmt}` : at.name } else {      // (what is printed is the sound and nothing else: wav picked, a wav; the notes, a page about the song, the patches and the project are not laid beside it any more)
+    if (r && r.ok) { ho.done = ho.total; ho.note = 'saved as'; ho.at = files.length > 1 ? `${at.name}, ${files.length} ${pl.mix ? 'files' : 'kinds'}` : at.single ? `${at.name}.${f.fmt}` : at.name } else {      // (what is printed is the sound and nothing else: wav picked, a wav; the notes, a page about the song, the patches and the project are not laid beside it any more)
     ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render'; if (r && r.error === 'stopped') say('stopped: nothing was kept') }
     resync(); applyAll()
     uiDirty('hand')

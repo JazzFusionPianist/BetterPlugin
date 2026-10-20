@@ -63,7 +63,7 @@ export default () => chapter('start', t('the start page and projects', '시작 �
       h('what it does not', '기억하지 않는 것') +
       list(
         ['low latency mode: it starts off each time', '로우 레이턴시 모드. 매번 꺼진 채 시작합니다'],
-        ['the tool and the second tool', '도구와 두 번째 도구'],
+        ['the tool', '도구'],
         ['undo history: it starts empty each time a project opens', '실행 취소 기록. 프로젝트를 열 때마다 비어서 시작합니다'],
         ['open plug-in windows', '열려 있던 플러그인 창']) + `</div>` }),
 
@@ -83,7 +83,7 @@ export default () => chapter('start', t('the start page and projects', '시작 �
         ['{{no earlier copy of this song yet}}', ['nothing to revert to yet', '아직 되돌아갈 사본이 없음']]) + `</div>` }),
 
   page(t('bringing sound in', '소리 가져오기'), { kind: 'split', tw: 106, mid: true, txt:
-    lead('Drag files from the Finder onto the window, or press [[⌘I]]. Either way each file is copied into the project; while dragged files come in, a card shows how far along it is.', 'Finder에서 파일을 창으로 끌어다 놓거나 [[⌘I]]를 누릅니다. 어느 쪽이든 파일은 프로젝트 안으로 복사됩니다. 끌어다 놓은 파일이 들어오는 동안에는 카드가 진행 상황을 보여줍니다.') +
+    lead('Drag files from the Finder onto the window, or press [[⌘I]]. Either way each file is copied into the project and is on its lane at once, as an outline with its name; its sound fills in as it is made ready, several at a time. When that takes a while, a card shows how far along it is.', 'Finder에서 파일을 창으로 끌어다 놓거나 [[⌘I]]를 누릅니다. 어느 쪽이든 파일은 프로젝트 안으로 복사되고, 이름이 적힌 테두리로 바로 레인에 놓입니다. 소리는 여러 개씩 동시에 준비되는 대로 채워집니다. 시간이 걸리면 카드가 진행 상황을 보여줍니다.') +
     table(null,
       [['kinds', '종류'], ['wav, aif, aiff, mp3, m4a, flac, ogg, caf. A dropped .mid file becomes tracks of notes', 'wav, aif, aiff, mp3, m4a, flac, ogg, caf. .mid 파일을 떨어뜨리면 노트 트랙이 됩니다']],
       [['dragged', '드래그'], ['Lands at the bar under the pointer. Over an audio lane the first file goes on that lane and the others on new tracks below; anywhere else each file gets a new track. A dashed frame shows where it will land', '포인터 아래 마디에 놓입니다. 오디오 레인 위라면 첫 파일은 그 레인에, 나머지는 아래 새 트랙에. 다른 곳이면 파일마다 새 트랙. 점선 테두리가 놓일 자리를 보여 줍니다']],

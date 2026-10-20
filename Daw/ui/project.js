@@ -121,9 +121,12 @@ async function placeFile (i) {
 
 /* ── files in ── */
 /* what comes in lands at one bar: the first file on the lane it was let go over (clearing what was under it), each further file on a track of its own right below */
+/* coming: its sound is still being made ready (bringPaths) — placed now as it will lie, filled in when it comes; the regions
+   placed are kept in placeDecoded.made */
 function placeDecoded (list, lane, bar) {
   const before = editState(), good = list.filter(d => d && d.ok !== false && d.sec > 0), own = t => t && t.kind === 'audio' && !t.theirs && !t.inst
   let last = lane != null && own(S.tracks[lane]) ? S.tracks[lane] : null, any = false
+  placeDecoded.made = []
   good.forEach((d, k) => {
     const base = String(d.name || 'audio'), nums = [...base.matchAll(/(?<![0-9a-z])(\d{2,3})(\s?bpm)?(?![0-9])/gi)].map(x => ({ v: +x[1], tag: !!x[2] })).filter(x => x.v >= 60 && x.v <= 200), bpm = (nums.find(x => x.tag) || nums[0] || { v: 0 }).v
     const rate = bpm >= 60 && bpm <= 200 && Math.abs(S.tempo / bpm - 1) <= .08 ? S.tempo / bpm : 1, sec = d.sec / rate, len = sec / SPB()
@@ -136,22 +139,73 @@ function placeDecoded (list, lane, bar) {
       normalizeOrder()
     }
     if (!t) return
-    if (!t.tone && !t.regs.length) { const tone = readTone(d); if (tone) t.tone = tone }       // how its first sound moves: read when its name says nothing
+    const first = !t.tone && !t.regs.length
+    if (first && !d.coming) { const tone = readTone(d); if (tone) t.tone = tone }        // how its first sound moves: read when its name says nothing
     carve(t, bar - 1, bar - 1 + len)
     const nr = mkReg({ a: bar, b: bar + len, buf: d.buf || null, key: d.key, file: d.file, peaksAll: d.peaks, loop: false, rate, sec, srcBars: len, name: base.toLowerCase() })
+    if (d.coming) { nr.missing = true; nr.wait = true }
     if (bpm) nr.bpm = bpm                                                                // its name says how fast it goes; else the app listens (and says what it heard)
-    else if (NAT && d.sec > 2) ensureTempo(nr).then(heard => { if (heard) say(`${base.toLowerCase().slice(0, 28)} goes at ${+heard.toFixed(1)}`) })
+    else if (NAT && d.sec > 2 && !d.coming) heardTempo(nr, base)
     t.regs.push(nr)
+    placeDecoded.made.push({ r: nr, t, first, base })
     last = t; any = true
   })
   if (any) { birthAll(); commit(before); refreshPool(); if (S.flex) for (const t of S.tracks) for (const r of t.regs) ensureTransients(r) }
   return any
+}
+const heardTempo = (r, base) => ensureTempo(r).then(heard => { if (heard) say(`${base.toLowerCase().slice(0, 28)} goes at ${+heard.toFixed(1)}`) })
+/* sounds brought in by where they lie: let go from the Finder (the app kept where they lie: Mac.mm, slurDroppedPaths) or
+   picked with import audio. The app copies them into the project's own sounds at once (a clone, where the disk can);
+   they are placed straight away as they will lie, as outlines with their names, and each is filled in as it is made
+   ready, eight at a time (his testers, 2026-10-20: bringing sound in was slow — each used to cross to the app in pieces,
+   one after another, and be made ready with the window standing still). The card comes up only if it takes a while. */
+async function bringPaths (paths, lane, bar) {
+  const gen = SOUNDS.gen, project = projKey()
+  const got = await NAT.call('audioBring', { project, paths })
+  if (gen !== SOUNDS.gen) return false
+  const all = Array.isArray(got) ? got : [], list = all.filter(d => d && d.ok)
+  for (const d of all) if (!d || !d.ok) say(`couldn’t open ${fit(String((d && d.name) || 'a file'), 160, 9.5)}`)
+  if (!list.length) return false
+  placeDecoded(list.map(d => ({ ok: true, coming: true, sec: d.sec, file: d.file, name: d.name })), lane, bar)
+  const made = placeDecoded.made, names = [...new Set(list.map(d => d.file))]
+  let done = 0, shown = false                                                           // (the card is this one's only if a print did not have it already)
+  const card = setTimeout(() => { if (done < names.length && !PRINT.on && !OPENING.on) { printBegin('bringing in', names.length === 1 ? list[0].name : `${names.length} files`, names.length); shown = PRINT.on; if (shown) printTell({ done }) } }, 300)
+  try {
+    let next = 0
+    const one = async () => {
+      while (next < names.length && gen === SOUNDS.gen) {
+        const name = names[next++], f = await NAT.call('audioLoad', { project, file: name })
+        if (gen !== SOUNDS.gen) { if (f && f.key) { NAT.call('dropBuffer', { key: f.key }); NAT.keys.delete(f.key) } return }
+        SOUNDS.ready.set(name, f || { ok: false }); soundsFill()
+        for (const m of made) if (m.r.file === name && m.r.key) {                        // what was left for its sound: how it moves, how fast it goes, where it begins
+          if (m.first && !m.t.tone) { const tone = readTone(f); if (tone) { m.t.tone = tone; uiDirty('head', 'lanes') } }
+          if (!m.r.bpm && f.sec > 2) heardTempo(m.r, m.base)
+          if (S.flex) ensureTransients(m.r)
+        }
+        done++; if (shown) printTell({ done })
+        clearTimeout(SOUNDS.settle); SOUNDS.settle = setTimeout(soundsSettle, 150)
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(8, names.length) }, one))
+  } finally { clearTimeout(card); if (shown) printEnd() }
+  if (gen === SOUNDS.gen) { clearTimeout(SOUNDS.settle); soundsSettle(); refreshPool() }
+  return true
 }
 async function dropFiles (files, lane, bar) {
   const list = [], onto = lane != null ? S.tracks[lane] : null
   /* sound let go on the window: while it is brought in (each file goes over to the app piece by piece and is made ready
      there), the card in the middle of the window says which file of how many, and how far along it is */
   const isSound = f => /^audio\//.test(f.type) || /\.(wav|aiff?|mp3|m4a|ogg|flac|caf)$/i.test(f.name), sounds = files.filter(f => !/\.midi?$/i.test(f.name) && isSound(f))
+  /* from the Finder: where each lies is known (the same name and size), and they are brought in by it — the notes files
+     as ever. A sound let go from somewhere that says nothing of where it lies still comes over in pieces */
+  if (NAT && sounds.length && !(onto && onto.inst && onto.inst.kind === 'sampler' && files.length === 1)) {
+    const known = (await NAT.call('dropPaths')) || [], paths = []
+    for (const f of sounds) { const i = known.findIndex(k => k.name === f.name && k.size === f.size); if (i < 0) break; paths.push(known.splice(i, 1)[0].path) }
+    if (paths.length === sounds.length) {
+      for (const f of files) if (/\.midi?$/i.test(f.name)) { try { placeMidi(new Uint8Array(await f.arrayBuffer()), f.name, Math.max(1, Math.floor(bar + 1e-6))) } catch (err) { say(`couldn’t read ${fit(f.name, 160, 9.5)}`) } }
+      return bringPaths(paths, lane, bar)
+    }
+  }
   let nth = 0
   if (NAT && sounds.length) printBegin('bringing in', sounds.length === 1 ? sounds[0].name.replace(/\.[^.]+$/, '') : `${sounds.length} files`, sounds.length)
   const told = p => printTell({ part: p * .9 })                                          // (the last tenth of a file's share: the app making it ready once all of it is there)
@@ -172,7 +226,7 @@ async function dropFilesNow (files, lane, bar, list, onto, told, one) {
 }
 async function importAudio () {
   const cur = S.tracks[S.sel], at = Math.max(0, snapPos(curPos(), null)) + 1, lane = cur && cur.kind === 'audio' && !cur.theirs && !cur.inst ? S.sel : null
-  if (NAT) { const list = await NAT.call('import', { project: projKey() }); if (Array.isArray(list)) placeDecoded(list, lane, at); return }
+  if (NAT) { const paths = await NAT.call('importPick'); if (Array.isArray(paths) && paths.length) await bringPaths(paths, lane, at); return }
   const inp = document.createElement('input')
   inp.type = 'file'; inp.accept = 'audio/*'; inp.multiple = true
   inp.onchange = () => dropFiles([...inp.files], lane, at)
@@ -361,7 +415,7 @@ function openingEnd (ok, n) {
 const PRINT = { on: false, total: 1, done: 0, part: 0 }
 function printBegin (word, name, total) {
   if (OPENING.on) return
-  PRINT.on = true; PRINT.total = Math.max(1, total || 1); PRINT.done = 0; PRINT.part = 0
+  PRINT.on = true; PRINT.total = Math.max(1, total || 1); PRINT.done = 0; PRINT.part = 0; PRINT.word = word
   const el = $('loading')
   if (!el) return
   $('ld-word').textContent = LANG_WORDS(word); $('ld-name').textContent = String(name)
@@ -371,7 +425,7 @@ function printBegin (word, name, total) {
 }
 /* esc while a print is under way: it stops, and nothing of it is kept (Engine::printStop) */
 function printKey (e) {
-  if (!PRINT.on || e.code !== 'Escape') return
+  if (!PRINT.on || e.code !== 'Escape' || PRINT.word === 'bringing in') return              // (sound brought in is not stopped by it)
   e.preventDefault(); e.stopImmediatePropagation()
   if (PRINT.stopping) return
   PRINT.stopping = true
@@ -387,7 +441,7 @@ function printTell (d) {
 function printDraw () {
   const f = clamp((PRINT.done + (PRINT.done < PRINT.total ? PRINT.part : 0)) / PRINT.total, 0, 1), el = $('ld-fill'), w = $('ld-what')
   if (el) el.style.width = (f * 100).toFixed(1) + '%'
-  if (w && !PRINT.stopping) w.textContent = (PRINT.total > 1 ? LANG_WORDS(`file ${Math.min(PRINT.done + 1, PRINT.total)} of ${PRINT.total}`) + '   ' : '') + Math.round(f * 100) + '%' + '   ' + LANG_WORDS('esc stops it')
+  if (w && !PRINT.stopping) w.textContent = (PRINT.total > 1 ? LANG_WORDS(`file ${Math.min(PRINT.done + 1, PRINT.total)} of ${PRINT.total}`) + '   ' : '') + Math.round(f * 100) + '%' + (PRINT.word === 'bringing in' ? '' : '   ' + LANG_WORDS('esc stops it'))
 }
 function printEnd () { if (!PRINT.on) return; PRINT.on = false; PRINT.stopping = false; removeEventListener('keydown', printKey, true); const el = $('loading'); if (el && !OPENING.on) el.hidden = true }
 async function loadProject (key, json) {

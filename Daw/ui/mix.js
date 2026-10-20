@@ -394,27 +394,32 @@ const panKnob = (cx, cy, r, pan, sw = 3) => {
   const d = pan * 135, [tx, ty] = at(r - sw - 2, d)
   return P(arc(-135, 135), { stroke: INK, sa: .16, sw, cap: 'round' }) + P(arc(0, d), { stroke: INK, sa: .95, sw, cap: 'round' }) + R(cx - .5, cy - r - sw / 2 - 3, 1, 3, { fill: INK, fa: .4 }) + P(`M${n(cx)} ${n(cy)}L${n(tx)} ${n(ty)}`, { stroke: INK, sa: .9, sw: Math.max(1, sw * .6), cap: 'round' })
 }
+/* …and thin, as in his picture of a strip (2026-10-20): a travel, a tick at the middle, filled from it in the track's colour, a bar for a handle */
+const panThin = (x, y, w, pan, c) => { const cx = x + w / 2, px = cx + pan * (w / 2 - 1.2); return R(x, y, w, 3, { fill: INK, fa: .12 }) + R(Math.min(cx, px), y, Math.abs(px - cx), 3, { fill: c, fa: .9 }) + R(cx - .5, y - 3, 1, 9, { fill: INK, fa: .3 }) + R(px - 1.2, y - 4, 2.4, 11, { fill: INK }) }
 /* left or right of the middle: a line that fills from its centre */
 const panBar = (x, y, w, pan) => { const cx = x + w / 2, px = cx + pan * w / 2; return R(x, y, w, 2, { fill: INK, fa: .12 }) + R(Math.min(cx, px), y, Math.abs(px - cx), 2, { fill: INK, fa: .7 }) + R(cx - .5, y - 2, 1, 6, { fill: INK, fa: .3 }) + R(px - 1, y - 3, 2, 8, { fill: INK }) }
 /* what plays into a bus, or sits in a stack: said where a track says its input */
 const feedsOf = t => S.tracks.filter(x => x !== t && (x.sends || []).some(sd => sd.to === t.id)).length
 function strip (x, y, w, h, t, i, o = {}) {
-  const wide = !!o.wide, q = stripGeom(y, h, wide, !!o.knob), pad = wide ? 5 : 4, sx = x + pad, sw = w - pad * 2, fs = wide ? 9.5 : 9, sel = !!o.sel, tx = sx + (wide ? 6 : 4), di = ` data-i="${i}"`
+  const wide = !!o.wide, q = stripGeom(y, h, wide, !!o.knob), pad = wide ? 5 : 4, sx = x + pad, sw = w - pad * 2, fs = wide ? 9.5 : 9, sel = !!o.sel, tx = sx + (wide ? 6 : 2), di = ` data-i="${i}"`      // (tx: where everything in the strip begins, one edge from its colour down to its name)
   let s = '', yy = q.y0, si = 0, hits = ''
   const short = v => wide ? v : (SHORT[v] || v)
   const word = (txt, room, it, a = .88) => T(tx, yy + q.sh / 2 + fs * .35, fit(txt, room, fs, 400, !!it), { size: fs, a, it: !!it })
-  const full = (txt, it, act) => { s += R(sx, yy, sw, q.sh, { rx: 1.5, fill: K3 }) + word(txt, sw - (wide ? 12 : 7), it); if (act) hits += hit(sx, yy, sw, q.sh, act, di) }
-  const well = act => { s += R(sx, yy, sw, q.sh, { rx: 1.5, fill: K0, fa: .55 }); if (act) hits += hit(sx, yy, sw, q.sh, act, di) }
-  /* a send is a button that fills from the left: the more is sent, the more of it is filled */
+  const full = (txt, it, act) => { s += word(txt, sw - (wide ? 12 : 7), it, .74); if (act) hits += hit(sx, yy, sw, q.sh, act, di) }
+  const plus = act => { s += T(tx, yy + q.sh / 2 + 3.5, '+', { size: 10, a: .4 }); hits += hit(sx, yy, sw, q.sh, act, di) }
+  /* a send: which one it is (a narrow strip says it by its letter, a wide one by where it goes), and a thin bar filled in the
+     track's colour as far as it sends */
   const send = (sd, k) => {
-    const db = shown(t, 'send' + k), f = volF(db), id = 'sd' + (++UID), b = byId(sd.to)
-    s += `<clipPath id="${id}"><rect x="${n(sx)}" y="${n(yy)}" width="${n(sw)}" height="${q.sh}" rx="1.5"/></clipPath>`
-    s += G(R(sx, yy, sw, q.sh, { fill: K0, fa: .7 }) + R(sx, yy, sw * f, q.sh, { fill: INK, fa: .3 }), '', ` clip-path="url(#${id})"`) + R(sx + .5, yy + .5, sw - 1, q.sh - 1, { rx: 1.5, stroke: INK, sa: autoPts(t, 'send' + k).length ? .5 : .16 })
+    const db = shown(t, 'send' + k), f = volF(db), b = byId(sd.to)
     const pulling = drag && drag.a === 'msend' && drag.moved && S.tracks[drag.i] === t && drag.k === k      // (while it is pulled it says how much goes, to a tenth of a db: his ask, 2026-10-19)
     const much = db <= -47.5 ? '−∞' : (pulling ? db.toFixed(1) : String(Math.round(db))).replace('-', '−')
     if (pulling && !wide) s += word(`${much} db`, sw - 7)
-    else s += word(b ? b.name : 'send', sw - (wide ? 34 : 7))
-    if (wide) s += T(sx + sw - 5, yy + q.sh / 2 + fs * .35, much, { size: 9, a: pulling ? .95 : .66, anchor: 'end' })
+    else {
+      const lab = wide ? (b ? b.name : 'send') : String.fromCharCode(97 + k), lw = wide ? Math.min(Math.round(sw * .42), Math.ceil(tw(lab, fs - 1)) + 8) : 10
+      const bx0 = tx + lw, bw = sx + sw - (wide ? 30 : 2) - bx0, by = yy + q.sh / 2 - 1.5
+      s += T(tx, yy + q.sh / 2 + 3.2, fit(lab, lw - 4, fs - 1), { size: fs - 1, a: .5 }) + R(bx0, by, bw, 3, { fill: INK, fa: .12 }) + R(bx0, by, bw * f, 3, { fill: t.c, fa: autoPts(t, 'send' + k).length ? 1 : .86 })
+    }
+    if (wide) s += T(sx + sw - 2, yy + q.sh / 2 + fs * .35, much, { size: 9, a: pulling ? .95 : .66, anchor: 'end' })
     hits += hit(sx, yy, sw, q.sh, 'msend', `${di} data-k="${k}" data-x="${n(sx)}" data-pw="${n(sw)}"`, 'ew-resize')
   }
   for (const r of q.rows) {
@@ -435,16 +440,17 @@ function strip (x, y, w, h, t, i, o = {}) {
          empty one after them, which opens the list; where there is more than there are slots the last says how much more */
       const k = +r.slice(2), items = fxItems(t), more = items.length > q.nf && k === q.nf - 1, it = more ? null : items[k]
       const fd = drag && drag.a === 'mfx' && drag.alt && drag.moved ? drag : null
-      if (more) { s += R(sx, yy, sw, q.sh, { rx: 1.5, fill: K0, fa: .55 }) + word(`+${items.length - k} more`, sw - 7, false, .5); hits += hit(sx, yy, sw, q.sh, 'm-patch', di) }
-      else if (it) {
+      if (more) { s += word(`+${items.length - k} more`, sw - 7, false, .5); hits += hit(sx, yy, sw, q.sh, 'm-patch', di) }
+      else if (it) {                                                                       // a square of its colour (a print's own, a plug-in's its track's) and its name
         const held = fd && fd.i === i && fd.k === k
-        s += R(sx, yy, sw, q.sh, { rx: 1.5, fill: K3 }) + (held ? R(sx + .5, yy + .5, sw - 1, q.sh - 1, { rx: 1.5, stroke: INK, sa: .9 }) : '')
-        if (it.c) s += R(sx + 3, yy + q.sh / 2 - 2, 4, 4, { fill: it.c, fa: it.off ? .4 : 1 })
-        s += T(sx + (it.c ? 10 : 4), yy + q.sh / 2 + fs * .35, fit(asGiven(it.t), sw - (it.c ? 13 : 7), fs - .5), { size: fs - .5, a: it.off ? .4 : .9 })
+        if (held) s += R(sx + .5, yy + .5, sw - 1, q.sh - 1, { stroke: INK, sa: .9 })
+        s += R(tx, yy + q.sh / 2 - 2.5, 5, 5, { fill: it.c || t.c, fa: it.off ? .4 : 1 })
+        s += T(tx + 9, yy + q.sh / 2 + fs * .35, fit(asGiven(it.t), sx + sw - tx - 10, fs - .5), { size: fs - .5, a: it.off ? .4 : .82 })
         hits += hit(sx, yy, sw, q.sh, 'mfx', `${di} data-k="${k}"`)
-      } else if (k === items.length && fd && fd.to && fd.to.includes(i)) s += R(sx, yy, sw, q.sh, { rx: 1.5, fill: K0, fa: .9 }) + R(sx + .5, yy + .5, sw - 1, q.sh - 1, { rx: 1.5, stroke: INK, sa: .7, dash: '2 2' }) + word(fd.word, sw - 7)      // (where a copy pulled with option would go)
-      else { s += R(sx, yy, sw, q.sh, { rx: 1.5, fill: K0, fa: .55 }); if (k === items.length && !t.theirs) { s += T(sx + sw / 2, yy + q.sh / 2 + 3, '+', { size: 9, a: .4, anchor: 'middle' }); hits += hit(sx, yy, sw, q.sh, 'mfxadd', di) } else if (k === items.length) hits += hit(sx, yy, sw, q.sh, 'm-patch', di) }      // (another program's track takes no plug-in here: its slot opens its patch)
-    } else if (r === 'send' || r === '') { const k = si++, sd = (t.sends || [])[k]; if (sd) send(sd, k); else well(k === (t.sends || []).length ? 'msendadd' : null) }
+      } else if (k === items.length && fd && fd.to && fd.to.includes(i)) s += R(sx + .5, yy + .5, sw - 1, q.sh - 1, { stroke: INK, sa: .7, dash: '2 2' }) + word(fd.word, sw - 7)      // (where a copy pulled with option would go)
+      else if (k === items.length && !t.theirs) plus('mfxadd')
+      else if (k === items.length) hits += hit(sx, yy, sw, q.sh, 'm-patch', di)      // (another program's track takes no plug-in here: its slot opens its patch)
+    } else if (r === 'send' || r === '') { const k = si++, sd = (t.sends || [])[k]; if (sd) send(sd, k); else if (k === (t.sends || []).length) plus('msendadd') }
     else if (r === 'out') full(short(outName(t)), false, 'mout')
     yy += q.sp
   }
@@ -460,7 +466,7 @@ function strip (x, y, w, h, t, i, o = {}) {
       s += panKnob(sx + sw / 2, cy, r, pan) + T(sx + sw / 2, cy + r + 14, panText(pan), { size: fs, a: lit, anchor: 'middle' })
       hits += hit(sx, q.panY - 8, sw, PAN_KNOB - 4, 'mpan', di, 'ns-resize')
     } else {                                                                               // a bar the strip's width, its value over it: taken anywhere on them, and moved by how far the hand goes (never thrown to where it is pressed)
-      s += T(sx + sw / 2, q.panY + 4, panText(pan), { size: fs, a: lit, anchor: 'middle' }) + panWide(sx, q.panY + 9, sw, 9, pan)
+      s += T(sx + sw / 2, q.panY + 4, panText(pan), { size: fs, a: lit, anchor: 'middle' }) + panThin(tx, q.panY + 12, sx + sw - 2 - tx, pan, t.c)
       hits += hit(sx, q.panY - 8, sw, PAN_BAR - 2, 'mpan', di, 'ew-resize')
     }
   }
@@ -470,23 +476,33 @@ function strip (x, y, w, h, t, i, o = {}) {
   const fy = q.yOf(vol)
   if (con) s += con.level(x, w, sx, sw, q, vol, muted, o.master ? null : t)
   else {
-    s += P(tk, { stroke: INK, sa: .26 }) + R(fx - 1, q.ft, 2, q.fh, { rx: 1, fill: INK, fa: .22 })      // (the fader and the meters drawn heavier: his ask, 2026-10-20)
-    if (!o.master && t.ghost != null) s += R(fx - 8, q.yOf(t.ghost) - .5, 16, 1, { fill: INK, fa: .4 })
-    s += R(fx - 8, fy - 4, 16, 8, { rx: 1.5, fill: INK, fa: muted ? .5 : 1 }) + P(`M${fx - 5.5} ${n(fy)}H${fx + 5.5}`, { stroke: K0, sa: .7, sw: 1.2 })
+    const cw = wide || o.master ? 24 : 20                                                   // (as in his picture of a strip, 2026-10-20: a flat square cap, its line dark)
+    s += P(tk, { stroke: INK, sa: .26 }) + R(fx - 1.5, q.ft, 3, q.fh, { fill: INK, fa: .16 })
+    if (!o.master && t.ghost != null) s += R(fx - cw / 2, q.yOf(t.ghost) - .5, cw, 1, { fill: INK, fa: .4 })
+    s += R(fx - cw / 2, fy - 4.5, cw, 9, { fill: INK, fa: muted ? .5 : 1 }) + R(fx - cw / 2 + 4, fy - .6, cw - 8, 1.2, { fill: K0, fa: .75 })
   }
-  const bw = wide || o.master ? 6 : 5, mx = fx + (wide || o.master ? 15 : 13)
+  const bw = wide || o.master ? 5 : 4, mx = fx + (wide || o.master ? 16 : 14)
   for (let c = 0; c < 2 && (!con || con.meters); c++) {
-    const x2 = mx + c * (bw + 1), ids = `${t.id}-${c}`
-    s += R(x2, q.ft, bw, q.fh, { fill: INK, fa: .1 }) + R(x2, q.fb, bw, 0, { fill: LEVEL, fa: .86, x: ` id="ms-${ids}"` }) + R(x2, q.fb, bw, 0, { fill: SOLO, x: ` id="mh-${ids}"` }) + R(x2, q.fb, bw, 1, { fill: INK, fa: 0, x: ` id="mk-${ids}"` })
+    const x2 = mx + c * (bw + (con ? 1 : 2)), ids = `${t.id}-${c}`
+    s += R(x2, q.ft, bw, q.fh, { fill: INK, fa: .1 }) + R(x2, q.fb, bw, 0, { fill: con ? LEVEL : o.master ? INK : t.c, fa: .9, x: ` id="ms-${ids}"` }) + R(x2, q.fb, bw, 0, { fill: SOLO, x: ` id="mh-${ids}"` }) + R(x2, q.fb, bw, 1, { fill: INK, fa: 0, x: ` id="mk-${ids}"` })
   }
   hits += con ? hit(sx, q.ft - 6, sw, q.fh + 12, o.master ? 'mmaster' : 'mvol', `${di} data-w="${wide ? 1 : 0}"`, 'ns-resize') : hit(fx - 12, q.ft - 6, mx + 2 * bw + 3 - (fx - 12), q.fh + 12, o.master ? 'mmaster' : 'mvol', `${di} data-w="${wide ? 1 : 0}"`, 'ns-resize')
   /* what it reads; its cells; its colour and its name */
-  const ns = wide ? 10 : 9.5
-  s += T(x + w / 2, y + h - 52, fmtDb(vol), { size: wide ? 10 : 9.5, a: sel || (!o.master && autoPts(t, 'vol').length) ? 1 : .72, anchor: 'middle' })
-  if (o.master || !autoPts(t, 'vol').length) hits += hit(sx, y + h - 60.5, sw, 13.5, 'volnum', di, 'default')                 // what it reads: pressed twice, a level can be typed
-  if (!o.master) { const its = cellsOf(t), cw = Math.min(wide ? 18 : 13, Math.floor(sw / its.length)); s += con ? con.cells(sx, sw, y + h - 44, its, i) : miniCells(sx + (sw - cw * its.length) / 2, y + h - 45, its, cw, 14, 9, i) }
-  s += R(sx, y + h - 24, sw, 2, { fill: t.c, fa: !o.master && t.mute ? .4 : 1 })
-  s += con ? con.name(x, w, sx, sw, y + h, t, sel) : T(x + w / 2, y + h - 9, fit(asGiven(t.name), sw, ns, sel ? 500 : 400), { size: ns, w: sel ? 500 : 400, a: !o.master && t.mute ? .42 : sel ? 1 : .84, anchor: 'middle' })
+  const ns = wide ? 11 : 10
+  if (con) {
+    s += T(x + w / 2, y + h - 52, fmtDb(vol), { size: wide ? 10 : 9.5, a: sel || (!o.master && autoPts(t, 'vol').length) ? 1 : .72, anchor: 'middle' })
+    if (o.master || !autoPts(t, 'vol').length) hits += hit(sx, y + h - 60.5, sw, 13.5, 'volnum', di, 'default')
+    if (!o.master) s += con.cells(sx, sw, y + h - 44, cellsOf(t), i)
+    s += R(sx, y + h - 24, sw, 2, { fill: t.c, fa: !o.master && t.mute ? .4 : 1 }) + con.name(x, w, sx, sw, y + h, t, sel)
+  } else {
+    /* as in his picture of a strip (2026-10-20): its colour along the top; what it reads large, from the left; record,
+       monitor, mute and solo as squares; its name at the foot, in the middle */
+    s += R(tx, y + 1.5, sx + sw - 2 - tx, 2.5, { fill: t.c, fa: !o.master && t.mute ? .4 : 1 })
+    s += T(tx, y + h - 50, fmtDb(vol), { size: wide ? 14 : 12, a: sel || (!o.master && autoPts(t, 'vol').length) ? 1 : .86 })      // (a little smaller, and further from the cells: his ask, 2026-10-20)
+    if (o.master || !autoPts(t, 'vol').length) hits += hit(sx, y + h - 63, sw, 16, 'volnum', di, 'default')                 // what it reads: pressed twice, a level can be typed
+    if (!o.master) { const gap = 1.5, cw = Math.min(wide ? 16 : 12, Math.floor((sx + sw - 2 - tx - gap * 3) / 4 * 10) / 10); s += squareCells(tx, y + h - 39, cellsOf(t), cw, wide ? 9 : 8.5, i, gap) }      // (as wide as four would be, in every strip: two are not larger than four)
+    s += T(x + w / 2, y + h - 11, fit(asGiven(t.name), sw, ns, sel ? 500 : 400), { size: ns, w: sel ? 500 : 400, a: !o.master && t.mute ? .42 : sel ? 1 : .86, anchor: 'middle' })      // (in the middle of its strip: his ask, 2026-10-20)
+  }
   if (con && con.box) s += con.box(x, y, w, h, sel, o.master ? null : t)
   if (!o.master) hits += hit(x, y + h - 27, w, 27, 'msel', di)
   else hits += hit(x, y + h - 27, w, 27, 'wall-out')                                      // (wall.js: the stereo out's own patch)

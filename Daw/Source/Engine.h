@@ -45,6 +45,9 @@
 void* slurAacOpen (const char* path, double sampleRate, int channels, int kbps);
 bool  slurAacWrite (void* handle, const float* interleaved, int frames);
 void  slurAacClose (void* handle);
+void* slurSrcOpen (double fromRate, double toRate, int channels);
+int   slurSrcRun (void* handle, const float* interleaved, int frames, bool last, float* out, int cap);
+void  slurSrcClose (void* handle);
 
 namespace daw
 {
@@ -557,6 +560,7 @@ public:
     /** Given up before its end (the app is going): nothing is encoded, and nothing of it stays on the disk. */
     void abandon()
     {
+        if (src != nullptr) { slurSrcClose (src); src = nullptr; }
         if (aac != nullptr) { slurAacClose (aac); aac = nullptr; }
         writer.reset();
         file.deleteFile();
@@ -568,13 +572,13 @@ public:
     String open (const juce::File& fileIn, const String& fmtIn, double fromRate, double toRate, int bitsIn, const juce::File& lameIn, int kbpsIn = 320)
     {
         file = fileIn; fmt = fmtIn; bits = bitsIn; lame = lameIn;
-        kbps = kbpsIn <= 128 ? 128 : kbpsIn <= 192 ? 192 : kbpsIn <= 256 ? 256 : 320;      // an mp3's rate: one of the four the page offers
+        kbps = 320; for (int k : { 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320 }) if (kbpsIn <= k) { kbps = k; break; }      // an mp3's rate: one LAME knows
         rate = toRate;
         if (fmt == "m4a" || fmt == "mp3") { rate = juce::jmin (48000.0, rate); bits = 16; }
         if (fmt == "aiff" || fmt == "flac") bits = juce::jmin (24, bits);
-        ratio = fromRate / rate;
-        resample = std::abs (ratio - 1.0) > 1.0e-9;
-        dropLeft = resample ? (int) std::llround ((double) juce::WindowedSincInterpolator::getBaseLatency() / ratio) : 0;
+        from = fromRate;
+        if (src != nullptr) { slurSrcClose (src); src = nullptr; }
+        if (std::abs (fromRate / rate - 1.0) > 1.0e-9 && (src = slurSrcOpen (fromRate, rate, 2)) == nullptr) return "that rate would not open";      // another rate: the Mac's own converter (Mac.mm)
         file.deleteFile();
         if (fmt == "m4a")
         {
@@ -602,20 +606,17 @@ public:
     {
         if (n <= 0 || (writer == nullptr && aac == nullptr)) return;
         totalIn += n;
-        if (! resample) { push (b, 0, n); return; }
-        for (int c = 0; c < 2; ++c) pend[c].insert (pend[c].end(), b.getReadPointer (c), b.getReadPointer (c) + n);
-        drain();
+        if (src == nullptr) { push (b, 0, n); return; }
+        srcIn.resize ((size_t) n * 2);
+        const float* l = b.getReadPointer (0); const float* r = b.getReadPointer (1);
+        for (int i = 0; i < n; ++i) { srcIn[(size_t) i * 2] = l[i]; srcIn[(size_t) i * 2 + 1] = r[i]; }
+        convert (srcIn.data(), n, false);
     }
 
     bool close()
     {
         if (writer == nullptr && aac == nullptr) return ok;
-        if (resample)
-        {
-            for (int c = 0; c < 2; ++c) pend[c].insert (pend[c].end(), 1024, 0.0f);      // what the interpolator is still holding
-            closing = true;
-            drain();
-        }
+        if (src != nullptr) { convert (nullptr, 0, true); slurSrcClose (src); src = nullptr; }      // what the converter still holds
         if (aac != nullptr) { slurAacClose (aac); aac = nullptr; }
         writer.reset();
         if (fmt == "mp3" && ok)
@@ -635,19 +636,24 @@ public:
     }
 
 private:
-    void drain()
+    /* frames handed to the converter (none: only asked), and what it gives back written, as much as there is; at the end
+       no more than the length the sound has at the new rate */
+    void convert (const float* in, int n, bool last)
     {
-        const int avail = (int) pend[0].size(), nOut = (int) std::floor ((double) (avail - 4) / ratio);
-        if (nOut <= 0) return;
-        rsBuf.setSize (2, nOut, false, false, true);
-        int used = 0;
-        for (int c = 0; c < 2; ++c) used = rs[c].process (ratio, pend[c].data(), rsBuf.getWritePointer (c), nOut);
-        for (int c = 0; c < 2; ++c) pend[c].erase (pend[c].begin(), pend[c].begin() + juce::jmin (used, (int) pend[c].size()));
-        const int skip = juce::jmin (nOut, dropLeft);
-        dropLeft -= skip;
-        int n = nOut - skip;
-        if (closing) n = (int) juce::jmin ((juce::int64) n, (juce::int64) std::llround ((double) totalIn / ratio) - wrote);
-        if (n > 0) push (rsBuf, skip, n);
+        constexpr int cap = 8192;
+        srcOut.resize ((size_t) cap * 2);
+        for (int got = slurSrcRun (src, in, n, last, srcOut.data(), cap); ; got = slurSrcRun (src, nullptr, 0, last, srcOut.data(), cap))
+        {
+            const int keep = last ? (int) juce::jlimit ((juce::int64) 0, (juce::int64) got, (juce::int64) std::llround ((double) totalIn * rate / from) - wrote) : got;
+            if (keep > 0)
+            {
+                rsBuf.setSize (2, keep, false, false, true);
+                float* l = rsBuf.getWritePointer (0); float* r = rsBuf.getWritePointer (1);
+                for (int i = 0; i < keep; ++i) { l[i] = srcOut[(size_t) i * 2]; r[i] = srcOut[(size_t) i * 2 + 1]; }
+                push (rsBuf, 0, keep);
+            }
+            if (got < cap) break;
+        }
     }
     void push (const juce::AudioBuffer<float>& b, int start, int n)
     {
@@ -674,17 +680,52 @@ private:
     juce::File file, tmp, lame;
     int kbps = 320;
     String fmt;
-    int bits = 24, dropLeft = 0;
-    double rate = 48000.0, ratio = 1.0;
-    bool resample = false, closing = false, ok = true;
+    int bits = 24;
+    double rate = 48000.0, from = 48000.0;
+    bool ok = true;
     juce::int64 totalIn = 0, wrote = 0;
     std::unique_ptr<juce::AudioFormatWriter> writer;
     void* aac = nullptr;
-    juce::WindowedSincInterpolator rs[2];
-    std::vector<float> pend[2], inter;
+    void* src = nullptr;                          // the converter to another rate (none: the song's own rate)
+    std::vector<float> inter, srcIn, srcOut;
     juce::AudioBuffer<float> rsBuf, dBuf;
     juce::Random rng { 20261006 };
 };
+
+/** One file a print makes: its kind, rate and depth (an mp3: its kbps), and, when it makes several at once (his ask,
+    2026-10-21: rates, kinds and depths chosen together, one pass printed and every file made from it), how this one is
+    told from the others: `tag` after the mix's name, `sub` the folder of its own that a set of stems goes into. */
+struct PrintOut { String fmt { "wav" }; double rate = 0.0; int bits = 24, kbps = 320; String tag, sub; };
+
+/** The files asked for: `outs` [{fmt, rate, bits, kbps, tag, sub}], or the one that fmt, rate, bits and kbps say. A bounce
+    in place is one wav at the song's rate. */
+static std::vector<PrintOut> printOuts (const juce::var& opts, bool place, double sr)
+{
+    std::vector<PrintOut> outs;
+    auto one = [&] (const juce::var& v)
+    {
+        PrintOut o;
+        o.fmt = place ? String ("wav") : v["fmt"].toString();
+        if (o.fmt.isEmpty()) o.fmt = "wav";
+        o.rate = place || (double) v["rate"] < 8000.0 ? sr : (double) v["rate"];
+        o.bits = place ? 24 : ((int) v["bits"] > 0 ? (int) v["bits"] : 24);
+        o.kbps = v.hasProperty ("kbps") ? (int) v["kbps"] : 320;
+        if (! place) { o.tag = v["tag"].toString(); o.sub = v["sub"].toString(); }
+        outs.push_back (o);
+    };
+    if (auto* a = opts["outs"].getArray(); a != nullptr && ! a->isEmpty() && ! place) for (auto& v : *a) one (v);
+    else one (opts);
+    return outs;
+}
+
+/** Where one of a print's files goes: the mix's beside the others in `dir`, its tag after its name; a stem under its own
+    name, in its kind's folder */
+static juce::File printFileOf (const juce::File& dir, const String& name, const PrintOut& o, bool mix)
+{
+    if (mix) return dir.getChildFile (juce::File::createLegalFileName (name + o.tag) + "." + o.fmt);
+    const auto in = o.sub.isNotEmpty() ? dir.getChildFile (juce::File::createLegalFileName (o.sub)) : dir;
+    return in.getChildFile (juce::File::createLegalFileName (name) + "." + o.fmt);
+}
 
 //==============================================================================
 /** For the app's own check: a plug-in with a second input and one control, as plain as one can be. Its sound goes through
@@ -776,7 +817,9 @@ public:
                 logLine ("quit: the print did not come back; the app goes without it");
                 {
                     const juce::ScopedLock sl (printFileLock);         // what it was writing is half a file: no file
-                    if (printFile != juce::File()) { printFile.deleteFile(); if (printTmp != juce::File()) printTmp.deleteFile(); printFile.getParentDirectory().deleteFile(); }      // (the folder too, if that leaves it empty: an empty one is all that call takes away)
+                    for (auto& f : printFiles) f.deleteFile();
+                    for (auto& f : printFiles) f.getParentDirectory().deleteFile();      // (the folder too, if that leaves it empty: an empty one is all that call takes away)
+                    for (auto& f : printFiles) f.getParentDirectory().getParentDirectory().deleteFile();      // (and the one around it, for stems in folders of their own)
                 }
                 stuckNote ((juce::uint64) (size_t) printThread.native_handle());
                 ::_exit (1);
@@ -2560,10 +2603,8 @@ public:
             auto halted = [this] { return leaving.load() || printCancel.load(); };
             std::vector<juce::File> written;                           // (what it has finished writing: taken away again if it is stopped)
             const double a0 = (double) opts["a0"], a1 = (double) opts["a1"], barS = barSamples();
-            String fmt = place ? String ("wav") : opts["fmt"].toString();
-            if (fmt.isEmpty()) fmt = "wav";
-            const double rate = place || (double) opts["rate"] < 8000.0 ? sr : (double) opts["rate"];
-            const int bits = place ? 24 : ((int) opts["bits"] > 0 ? (int) opts["bits"] : 24);
+            const auto outs = printOuts (opts, place, sr);           // every file the pass is written into (several: each made from the same sound as it goes)
+            const String fmt = outs.front().fmt;
             auto dir = opts.hasProperty ("dir") ? juce::File (opts["dir"].toString())
                                                 : musicRoot().getChildFile (opts["folder"].toString() + " " + juce::Time::getCurrentTime().formatted ("%H%M%S"));
             dir.createDirectory();
@@ -2578,15 +2619,22 @@ public:
             for (auto& tp : tracks) tp->eachPlug ([] (Insert& i) { i.offline (true); });
             measureLatency();
 
-            // one pass over the range: the whole graph runs; `tap` says which sound is kept
-            auto pass = [&] (Tap* tap, const juce::File& file, double tailSec)
+            // one pass over the range: the whole graph runs; `tap` says which sound is kept. It is written into every file
+            // asked for at once (one a kind, a rate, a depth), each converting it its own way
+            auto pass = [&] (Tap* tap, const std::vector<juce::File>& files, double tailSec)
             {
-                Sink sink;
-                sink.stop = &leaving;
-                const auto err = sink.open (file, fmt, sr, rate, bits, lame, opts.hasProperty ("kbps") ? (int) opts["kbps"] : 320);
-                if (err.isNotEmpty()) { ok = false; why = err; return; }
-                struct Making { Engine& e; Making (Engine& en, const juce::File& f, bool mp3) : e (en) { const juce::ScopedLock sl (e.printFileLock); e.printFile = f; e.printTmp = mp3 ? f.getSiblingFile (f.getFileNameWithoutExtension() + ".tmp.wav") : juce::File(); }
-                                ~Making() { const juce::ScopedLock sl (e.printFileLock); e.printFile = juce::File(); e.printTmp = juce::File(); } } making { *this, file, fmt == "mp3" };
+                std::vector<std::unique_ptr<Sink>> sinks;
+                for (size_t k = 0; k < outs.size(); ++k)
+                {
+                    auto sk = std::make_unique<Sink>();
+                    sk->stop = &leaving;
+                    files[k].getParentDirectory().createDirectory();
+                    const auto err = sk->open (files[k], outs[k].fmt, sr, outs[k].rate, outs[k].bits, lame, outs[k].kbps);
+                    if (err.isNotEmpty()) { sk->abandon(); for (auto& q : sinks) q->abandon(); ok = false; why = err; return; }
+                    sinks.push_back (std::move (sk));
+                }
+                struct Making { Engine& e; Making (Engine& en, const std::vector<juce::File>& fs) : e (en) { const juce::ScopedLock sl (e.printFileLock); e.printFiles.clear(); for (auto& f : fs) { e.printFiles.add (f); e.printFiles.add (f.getSiblingFile (f.getFileNameWithoutExtension() + ".tmp.wav")); } }
+                                ~Making() { const juce::ScopedLock sl (e.printFileLock); e.printFiles.clear(); } } making { *this, files };
                 const juce::int64 tail = (juce::int64) (sr * tailSec);
                 for (auto& tp : tracks) { tp->gainSm = dbGainOf (*tp, a0); tp->panSm = tp->pan.load(); quietNotes (*tp); }
                 for (juce::int64 k = 0; k < (juce::int64) (sr * 1.5) && ! halted(); k += maxBlock) renderGraph (s0, maxBlock, false, true, nullptr, a1, tap);   // let old tails die away
@@ -2610,25 +2658,27 @@ public:
                     const float part = (float) ((double) (p - s0 + n) / (double) juce::jmax ((juce::int64) 1, s1 + tail - s0));
                     printPart.store (part);
                     if (const auto nowMs = juce::Time::getMillisecondCounter(); nowMs - partTold > 90 || part - partWas >= 0.1f) { partTold = nowMs; partWas = part; juce::MessageManager::callAsync ([progress, part] { progress (-1, juce::roundToInt (part * 1000.0f)); }); }
-                    if (tap != nullptr) sink.write (tap->buf, n);
+                    if (tap != nullptr) for (auto& sk : sinks) sk->write (tap->buf, n);
                     else
                     {
                         const float* mL = mix.getReadPointer (0); const float* mR = mix.getReadPointer (1);
                         float* oL = outBuf.getWritePointer (0); float* oR = outBuf.getWritePointer (1);
                         const float mT = master.load(), ms = (mT - mSm) / (float) n;
                         for (int i = 0; i < n; ++i) { mSm += ms; float l = mL[i] * mSm, r = mR[i] * mSm; limit (l, r); oL[i] = l; oR[i] = r; }
-                        sink.write (outBuf, n);
+                        for (auto& sk : sinks) sk->write (outBuf, n);
                     }
                 }
-                if (halted()) { sink.abandon(); ok = false; if (why.isEmpty()) why = leaving.load() ? "the app was closed" : "stopped"; return; }      // the app is going, or esc was pressed: half a file is no file
-                if (! sink.close()) { ok = false; if (why.isEmpty()) why = "the file would not close"; }
-                written.push_back (file);
+                if (halted()) { for (auto& sk : sinks) sk->abandon(); ok = false; if (why.isEmpty()) why = leaving.load() ? "the app was closed" : "stopped"; return; }      // the app is going, or esc was pressed: half a file is no file
+                for (auto& sk : sinks) if (! sk->close()) { ok = false; if (why.isEmpty()) why = "the file would not close"; }
+                for (auto& f : files) written.push_back (f);
             };
+            auto filesOf = [&] (const String& name) { std::vector<juce::File> fs; for (auto& o : outs) fs.push_back (printFileOf (dir, name, o, mixdown)); return fs; };
+            auto emptySubs = [&] { if (! mixdown) for (auto& o : outs) if (o.sub.isNotEmpty()) { const auto d = dir.getChildFile (juce::File::createLegalFileName (o.sub)); if (d.isDirectory() && d.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0) d.deleteFile(); } };
 
             const String ext = "." + fmt;
             if (mixdown)
             {
-                pass (nullptr, dir.getChildFile (juce::File::createLegalFileName (opts["name"].toString()) + ext), 2.5);
+                pass (nullptr, filesOf (opts["name"].toString()), 2.5);
                 ++doneN;
                 juce::MessageManager::callAsync ([progress, doneN, total] { progress (doneN, total); });
             }
@@ -2648,9 +2698,10 @@ public:
                             tap.buf.clear();
                             tap.only = upstream (t);
                             const bool wet = ! tap.dry;
-                            auto file = place ? dir.getNonexistentChildFile (juce::File::createLegalFileName (tv["name"].toString()), ext, false)
-                                              : dir.getChildFile (juce::File::createLegalFileName (tv["name"].toString() + (modes.size() > 1 ? (wet ? " patch" : " dry") : String())) + ext);
-                            pass (&tap, file, place ? (double) opts["tail"] : (wet ? 2.5 : 0.05));
+                            const auto files = place ? std::vector<juce::File> { dir.getNonexistentChildFile (juce::File::createLegalFileName (tv["name"].toString()), ext, false) }
+                                                     : filesOf (tv["name"].toString() + (modes.size() > 1 ? (wet ? " patch" : " dry") : String()));
+                            const auto& file = files.front();
+                            pass (&tap, files, place ? (double) opts["tail"] : (wet ? 2.5 : 0.05));
                             if (place && ok)
                             {
                                 auto v = decodeFile (file);
@@ -2668,9 +2719,11 @@ public:
                 ok = false; why = "stopped";
                 for (auto& wf : written) wf.deleteFile();
                 placed.clear();
+                emptySubs();
                 if (! place && dir.isDirectory() && dir.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0) dir.deleteFile();
             }
             const bool single = (int) opts["single"] != 0;                 // the mix as one file in a folder that is the person's own (not one made for the print): that folder is never taken away, and the file is what is shown
+            if (! ok && ! place) emptySubs();
             if (! ok && ! place && ! single && dir.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0) dir.deleteFile();
             end.finish();
             auto* o = new juce::DynamicObject();
@@ -2679,7 +2732,7 @@ public:
             if (place) o->setProperty ("placed", placed);
             logLine ("print: " + kind + ", " + String (doneN) + " files in " + dir.getFullPathName() + (why.isNotEmpty() ? "  (" + why + ")" : String()));
             const bool show = ok && ! quiet && ! place;
-            const auto shown = single ? dir.getChildFile (juce::File::createLegalFileName (opts["name"].toString()) + "." + fmt) : dir;
+            const auto shown = single ? printFileOf (dir, opts["name"].toString(), outs.front(), true) : dir;
             end.answer (juce::var (o), show ? std::function<void()> ([shown] { shown.revealToUser(); }) : std::function<void()>());
         });
     }
@@ -4279,10 +4332,10 @@ private:
         playing.store (false);
         loop.store (liveLoopWas);
         auto done = std::move (liveDone); liveDone = nullptr;
-        const auto opts = liveOpts; const auto dir = liveDir; const auto fmt = liveFmt;
+        const auto opts = liveOpts; const auto dir = liveDir;
         const bool place = opts["kind"].toString() == "place";
         auto shared = std::make_shared<std::vector<std::unique_ptr<LiveOut>>> (std::move (outs));
-        juce::Thread::launch ([this, shared, keep, done, opts, dir, fmt, place]
+        juce::Thread::launch ([this, shared, keep, done, opts, dir, place]
         {
             bool ok = keep; String why = keep ? String() : String ("stopped");
             juce::Array<juce::var> placed;
@@ -4294,11 +4347,18 @@ private:
                 {
                     juce::AudioFormatManager fm; fm.registerBasicFormats();
                     std::unique_ptr<juce::AudioFormatReader> rd (fm.createReaderFor (lo->tmp));
-                    Sink sink; sink.stop = &leaving;
-                    const double rate = place || (double) opts["rate"] < 8000.0 ? sr : (double) opts["rate"];
-                    const int bits = place ? 24 : ((int) opts["bits"] > 0 ? (int) opts["bits"] : 24);
-                    const auto err = rd == nullptr ? String ("the print would not read") : sink.open (lo->file, fmt, sr, rate, bits, lame, opts.hasProperty ("kbps") ? (int) opts["kbps"] : 320);
-                    if (err.isNotEmpty()) { ok = false; why = err; }
+                    const auto outs = printOuts (opts, place, sr);           // every file asked for, each made from what was played
+                    std::vector<std::unique_ptr<Sink>> sinks;
+                    String err = rd == nullptr ? String ("the print would not read") : String();
+                    for (size_t k = 0; k < outs.size() && err.isEmpty(); ++k)
+                    {
+                        const auto f = place ? lo->file : printFileOf (dir, lo->file.getFileNameWithoutExtension(), outs[k], opts["kind"].toString() == "mix");
+                        f.getParentDirectory().createDirectory();
+                        auto sk = std::make_unique<Sink>(); sk->stop = &leaving;
+                        err = sk->open (f, outs[k].fmt, sr, outs[k].rate, outs[k].bits, lame, outs[k].kbps);
+                        if (err.isNotEmpty()) sk->abandon(); else sinks.push_back (std::move (sk));
+                    }
+                    if (err.isNotEmpty()) { for (auto& sk : sinks) sk->abandon(); ok = false; why = err; }
                     else
                     {
                         juce::AudioBuffer<float> b (2, 1 << 15);
@@ -4306,9 +4366,11 @@ private:
                         {
                             const int n = (int) juce::jmin ((juce::int64) b.getNumSamples(), rd->lengthInSamples - p);
                             rd->read (&b, 0, n, p, true, true);
-                            sink.write (b, n);
+                            for (auto& sk : sinks) sk->write (b, n);
                         }
-                        if (! sink.close()) { ok = false; why = "the file would not close"; }
+                        bool closed = true;
+                        for (auto& sk : sinks) closed = sk->close() && closed;
+                        if (! closed) { ok = false; why = "the file would not close"; }
                         else ++count;
                         if (place && ok)
                         {
@@ -4323,7 +4385,7 @@ private:
             const bool single = (int) opts["single"] != 0;
             if (! ok && ! place && ! single && dir.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0) dir.deleteFile();
             logLine ("realtime print: " + String (keep ? "kept, " : "stopped, ") + String (count) + " files" + (why.isNotEmpty() && keep ? "  (" + why + ")" : String()));
-            const auto shown = single ? dir.getChildFile (juce::File::createLegalFileName (opts["name"].toString()) + "." + fmt) : dir;
+            const auto shown = single ? printFileOf (dir, opts["name"].toString(), printOuts (opts, place, sr).front(), true) : dir;
             const bool show = ok && ! quiet && ! place;
             juce::MessageManager::callAsync ([done, ok, why, dir, count, placed, place, show, shown]
             {
@@ -4391,7 +4453,7 @@ private:
     std::atomic<bool> takeWriting { false };                   // the take that is running has had its first samples written (the count-in is over)
     const double tickSeconds = [] { mach_timebase_info_data_t tb {}; mach_timebase_info (&tb); return tb.denom != 0 ? (double) tb.numer / (double) tb.denom * 1.0e-9 : 1.0e-9; }();      // one tick of the clock that runs through sleep
     juce::CriticalSection printFileLock;                       // what a print is writing at this moment (its file, and the file an mp3 is made from): half-made, and taken away should the app have to go without the print
-    juce::File printFile, printTmp;
+    juce::Array<juce::File> printFiles;                        // (an mp3's own wav among them)
     juce::var printStates;                                     // every plug-in's state as it was when the print began (message thread)
     std::atomic<int> perfCalls { 0 }, perfOver { 0 }, perfHeld { 0 }, clicksBegun { 0 }, accentsBegun { 0 };
     //── the keys ──

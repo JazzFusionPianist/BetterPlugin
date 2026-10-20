@@ -313,7 +313,7 @@ function pMenu () {
   let s = hit(-lc, 0, W + lc, H, 'menu-close', '', 'default') + R(x, y, w, h, { rx: 3, fill: K2 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 3, stroke: INK, sa: .28 }), ry = y + 6
   m.items.forEach((it, i) => {
     if (it.sep) { s += P(`M${x + 1} ${ry + 3.5}H${x + w - 1}`, { stroke: INK, sa: .1 }); ry += 7 }
-    if (it.on) s += R(x + 5, ry, w - 10, rowH, { rx: 2, fill: INK })
+    if (it.on) s += R(x + 5, ry + (m.keep ? 1 : 0), w - 10, rowH - (m.keep ? 2 : 0), { rx: 2, fill: INK })      // (a list of which several are lit: each lit row by itself)
     s += T(x + 13, ry + 13.6, fit(it.t, w - 26 - (it.k ? tw(it.k, 9.5) + 10 : 0), 10.5), { size: 10.5, w: it.on ? 500 : 400, c: it.on ? K1 : INK, a: it.on ? 1 : it.dim ? .3 : .84 })
     if (it.k) s += T(x + w - 13, ry + 13.6, it.k, { size: 9.5, c: it.on ? K1 : INK, a: it.on ? .7 : .42, anchor: 'end' })
     if (!it.dim) s += hit(x + 5, ry, w - 10, rowH, 'pick', ` data-i="${i}"`)
@@ -337,13 +337,29 @@ function miniCells (x, y, items, cw, h, size, i) {
   })
   return s + P(div, { stroke: INK, sa: .15 }) + R(x + .5, y + .5, total - 1, h - 1, { rx: 1.5, stroke: INK, sa: .2 }) + hits
 }
+/* record, monitor, mute and solo as squares apart, framed when off and filled when on (his picture of a strip and a
+   track, 2026-10-20) */
+function squareCells (x, y, items, cw, size, i, gap = 2) {
+  let s = '', hits = ''
+  items.forEach((it, k) => {
+    const cx = x + k * (cw + gap)
+    s += it.on ? R(cx, y, cw, cw, { fill: it.c || INK }) : R(cx + .5, y + .5, cw - 1, cw - 1, { stroke: INK, sa: .9 })      // (its edge white, not grey: his ask, 2026-10-20)
+    s += T(cx + cw / 2, y + cw / 2 + size * .34, it.t, { size, w: it.on ? 500 : 400, c: it.on ? K0 : INK, a: it.on ? 1 : .82, anchor: 'middle' })
+    if (it.a) hits += hit(cx, y - 2, cw, cw + 4, it.a, ` data-i="${i}"`)
+  })
+  return s + hits
+}
+const squaresW = (k, cw, gap = 2) => k * cw + Math.max(0, k - 1) * gap
 /* what is someone else's, a bus and a stack are not recorded onto: they have no r and no i */
 const cellsOf = t => (t.kind !== 'audio' || t.theirs ? [] : t.inst ? [{ t: 'r', on: !!t.arm, c: REC, a: 'arm' }] : [{ t: 'r', on: !!t.arm, c: REC, a: 'arm' }, { t: 'i', on: !!t.mon, c: MON, a: 'mon' }]).concat([{ t: 'm', on: !!t.mute, a: 'mute' }, { t: 's', on: !!t.solo, c: SOLO, a: 'solo' }])
-const HEAD_FX = 224, HEAD_FW = 40
+/* a track's level in its head: under its name and longer on a row tall enough (HEAD_TWO: his picture of a track, 2026-10-20);
+   beside its name once the rows are zoomed shorter than that (his ask the same day). The cells stand at the right, square
+   and apart */
+const HEAD_FX = 138, HEAD_FW = 40, HEAD_TWO = 36, HEAD_FW2 = 110, HEAD_CW = 14, HEAD_DB = HEAD_W - 10 - squaresW(4, HEAD_CW) - 8
 function levelBar (x, y, w, t, vol) {                                                     // (the level and the meter in it drawn heavier: his ask, 2026-10-20)
   const fader = volF(vol)
-  return R(x, y - 1, w, 4, { rx: 1, fill: INK, fa: .12 }) + R(x, y - 1, 0, 4, { fill: LEVEL, fa: .86, x: ` id="mt-${t.id}"` }) + R(x + w * volF(0), y - 3, 1, 8, { fill: INK, fa: .3 })
-    + (t.ghost != null ? R(x + w * volF(t.ghost) - 1.5, y - 5, 3, 12, { fill: INK, fa: .28 }) : '') + R(x + w * fader - 1.5, y - 5, 3, 12, { rx: 1, fill: INK, fa: heard(t) ? 1 : .5 })
+  return R(x, y - 1, w, 4, { fill: INK, fa: .12 }) + R(x, y - 1, 0, 4, { fill: LEVEL, fa: .86, x: ` id="mt-${t.id}" data-w="${n(w)}"` }) + R(x + w * volF(0), y - 3, 1, 8, { fill: INK, fa: .3 })
+    + (t.ghost != null ? R(x + w * volF(t.ghost) - 1.2, y - 5, 2.4, 12, { fill: INK, fa: .28 }) : '') + R(x + w * fader - 1.2, y - 5, 2.4, 12, { fill: INK, fa: heard(t) ? 1 : .5 })
 }
 const triMark = (x, y, open, a = .6) => P(open ? `M${x - 3} ${y - 1.5}H${x + 3}L${x} ${y + 2.5}Z` : `M${x - 1.5} ${y - 3}V${y + 3}L${x + 2.5} ${y}Z`, { fill: INK, fa: a })
 /* A track in a stack is held by it, and looks it: the stack's own colour runs down the left edge of every row in it, one
@@ -366,31 +382,38 @@ function headRow (i) {
     for (let k = 1; k < deep; k++) { const more = !!nx && insideOf(nx, ups[k]); s += R(44 + (k - 1) * (HEAD_IN - 42), y, 3, more ? rh : rh - 1, { fill: ups[k].c, fa: ups[k].mute ? .4 : 1 }) }      // each stack inside it down its own line,
     s += R(44 + (deep - 1) * (HEAD_IN - 42), y + 5, 3, Math.max(4, rh - 10), { fill: t.c, fa: t.mute ? .4 : 1 })      // and its own mark
   }
+  const sk = typeof SKIN === 'object' && SKIN.heads                                  // (a theme's head: the name on label tape, lamps, a knob — skins.js)
+  const tab = !sk && !stack                                                          // a track by itself: its colour as a short tab, its number after it (his picture of a track, 2026-10-20)
+  const two = !sk && rh >= HEAD_TWO                                                  // a tall row: its level under its name
+  if (tab) { const ins = clamp(Math.round(rh * .22), 4, 11); s += R(10, y + ins, lkN('heads.mark'), rh - 2 * ins, { fill: t.c, fa: t.mute ? .4 : 1 }) }
   else s += R(0, y, lkN('heads.mark'), on ? rh : rh - 1, { fill: t.c, fa: t.mute ? .4 : 1 })
   let c = ''                                                                              // its buttons, its number, its fader: what a realtime print takes away (realtime.js)
-  if (lk('heads.num') === 'on') c += T(25, by - .4, pad2(i + 1), { size: 8.5, a: sel ? .8 : .32, anchor: 'end' })
+  const ny = two ? y + rh / 2 - 1.5 : by                                               // (the name's line: on a tall row, above the middle)
+  if (lk('heads.num') === 'on') c += tab ? T(18, ny - .4, pad2(i + 1), { size: 8.5, a: sel ? .8 : .32 }) : T(25, by - .4, pad2(i + 1), { size: 8.5, a: sel ? .8 : .32, anchor: 'end' })
   if (stack) s += triMark(deep ? x0 - 7 : 34, by - 4, t.open, .62)
-  const its = cellsOf(t), cw = 15, cx = 214 - its.length * cw
+  const its = cellsOf(t), cw = sk ? 15 : HEAD_CW, cx = sk ? 214 - its.length * cw : HEAD_W - 10 - squaresW(its.length, cw)
+  const room = sk ? cx - 8 : two ? cx - 12 : HEAD_FX - 10                              // (where the name must end)
   const grp = t.kind === 'audio' && t.grp ? t.grp : '', grpW = grp ? (typeof grpChipW === 'function' ? grpChipW(t) : tw(grp, 9, 500) + 7) : 0                 // the group it is in: its name after the track's (groups.js)
   const alt = t.kind === 'audio' && (t.alts || []).length ? `alt ${altName(t)}` : ''                      // which of its alternatives is on the lane, once it has more than one
   const tag = t.theirs || (t.kind === 'bus' ? 'bus' : alt), tagW = tag ? tw(tag, 9, 400, !!t.theirs) + 6 : 0, wt = stack || sel ? 500 : 400
-  const hs = lkN('heads.size'), nm = fit(asGiven(t.name), cx - 8 - x0 - tagW - grpW, hs, wt)      // (as large as the look says)
-  const sk = typeof SKIN === 'object' && SKIN.heads                                  // (a theme's head: the name on label tape, lamps, a knob — skins.js)
+  const hs = lkN('heads.size'), nm = fit(asGiven(t.name), room - x0 - tagW - grpW, hs, wt)      // (as large as the look says)
   if (sk) s += skTape(x0 - 4, y + rh / 2 - 8, Math.min(cx - 12 - x0, tw(nm, hs, 700) + 16), t.name, Math.min(hs, rh / 2 - 1))
-  else s += T(x0, by, nm, { size: hs, w: wt, a: t.mute ? .42 : sel ? 1 : .88 })
-  if (tag) s += T(x0 + tw(nm, hs, sk ? 700 : wt) + (sk ? 16 : 6), by, tag, { size: 9, it: !!t.theirs, a: .4 })
+  else s += T(x0, ny, nm, { size: hs, w: wt, a: t.mute ? .42 : sel ? 1 : .88 })
+  if (tag) s += T(x0 + tw(nm, hs, sk ? 700 : wt) + (sk ? 16 : 6), ny, tag, { size: 9, it: !!t.theirs, a: .4 })
   s += hit(0, y, cx - 4, rh, 'sel', ` data-i="${i}"`) + (stack ? hit(deep ? x0 - 13 : 27, y, 14, rh, 'fold', ` data-i="${i}"`) : '')      // from its number to its cells, a press chooses it
-  if (grp) s += typeof grpChip === 'function' ? grpChip(t, i, x0 + tw(nm, hs, wt) + 8 + tagW, by) : T(x0 + tw(nm, hs, wt) + 6 + tagW, by, grp, { size: 9, w: 500, a: S.grpOff ? .22 : .62 })      // (over the row's own press: it opens the group)
-  c += sk ? skinLamps(214 - its.length * 18 + 3, y + rh / 2 - 6.5, its, i) : miniCells(cx, y + rh / 2 - 7, its, cw, 14, 8.5, i)
+  if (grp) s += typeof grpChip === 'function' ? grpChip(t, i, x0 + tw(nm, hs, wt) + 8 + tagW, ny) : T(x0 + tw(nm, hs, wt) + 6 + tagW, ny, grp, { size: 9, w: 500, a: S.grpOff ? .22 : .62 })      // (over the row's own press: it opens the group)
+  c += sk ? skinLamps(214 - its.length * 18 + 3, y + rh / 2 - 6.5, its, i) : squareCells(cx, y + (rh - cw) / 2, its, cw, 8.5, i)
   const vol = shown(t, 'vol'), led = autoPts(t, 'vol').length > 0
+  /* where the level lies: on one line before the cells (a theme's, where it always was); on a tall row under the name */
+  const lx = sk ? 224 : two ? x0 : HEAD_FX, lw = two ? HEAD_FW2 : HEAD_FW, ly = two ? y + rh / 2 + 9 : y + rh / 2 - 1, dbx = sk ? HEAD_W - 8 : two ? lx + lw + 30 : HEAD_DB, dby = two ? ly + 3.6 : by - .4
   if (S.auto) {
-    const k = apOf(t)
-    c += R(219.5, y + rh / 2 - 6.5, 40, 13, { rx: 1.5, stroke: INK, sa: .22 }) + T(223, by - .6, fit(autoName(t, k), 34, 8.5), { size: 8.5, a: .8 }) + hit(218, y, 43, rh, 'ap', ` data-i="${i}"`)
-    c += T(HEAD_W - 6, by - .6, AUTO[k].fmt(shown(t, k)), { size: 8.5, a: autoPts(t, k).length ? .9 : .56, anchor: 'end' })
+    const k = apOf(t), bx0 = sk ? 219.5 : lx - .5
+    c += R(bx0, ly - 6, 40, 13, { rx: sk ? 1.5 : 0, stroke: INK, sa: .22 }) + T(bx0 + 3.5, ly + 3.4, fit(autoName(t, k), 34, 8.5), { size: 8.5, a: .8 }) + hit(bx0 - 1.5, ly - 7, 43, 15, 'ap', ` data-i="${i}"`)
+    c += T(sk ? HEAD_W - 6 : dbx, sk ? by - .6 : dby, AUTO[k].fmt(shown(t, k)), { size: 8.5, a: autoPts(t, k).length ? .9 : .56, anchor: 'end' })
   } else {
-    c += sk ? skinLevel(HEAD_FX + HEAD_FW / 2, y + rh / 2, t, vol, i) : levelBar(HEAD_FX, y + rh / 2 - 1, HEAD_FW, t, vol) + hit(HEAD_FX - 6, y + 1, HEAD_FW + 12, rh - 2, 'vol', ` data-i="${i}"`, 'ew-resize')
-    c += T(HEAD_W - 8, by - .4, fmtDb(vol), { size: 9, a: t.ghost != null || led || sel ? .9 : .56, anchor: 'end' })
-    if (!led) c += hit(HEAD_FX + HEAD_FW + 7, y + 1, HEAD_W - HEAD_FX - HEAD_FW - 8, rh - 2, 'volnum', ` data-i="${i}"`, 'default')      // what it reads: pressed twice, a level can be typed
+    c += sk ? skinLevel(lx + HEAD_FW / 2, y + rh / 2, t, vol, i) : levelBar(lx, ly, lw, t, vol) + hit(lx - 6, ly - 7, lw + 12, 16, 'vol', ` data-i="${i}" data-gx="${n(lx)}" data-gw="${n(lw)}"`, 'ew-resize')
+    c += T(dbx, dby, fmtDb(vol), { size: 9, a: t.ghost != null || led || sel ? .9 : .56, anchor: 'end' })
+    if (!led) c += hit(dbx - 30, ly - 7, 32, 16, 'volnum', ` data-i="${i}"`, 'default')      // what it reads: pressed twice, a level can be typed
   }
   const gone = typeof RTB !== 'undefined' ? rtbHideOf(i) : 0
   s += gone <= 0 ? c : gone < 1 ? G(c, `translate(${n(-16 * gone)} 0)`, ` opacity="${n(1 - gone)}"`) : ''
@@ -1009,12 +1032,51 @@ async function handOffRest (dir) {
 }
 /* hand off: what leaves the room. Stems or the mix, over a range, as a kind of file */
 const contentEnd = () => Math.max(1, ...S.tracks.flatMap(t => t.regs.map(r => r.b - 1)))
-const HO_FMT = ['wav', 'aiff', 'flac', 'm4a', 'mp3'], HO_RATE = [44100, 48000, 88200, 96000], HO_BITS = [16, 24, 32], HO_KBPS = [128, 192, 256, 320]
-/* what the file will really be: some kinds have no depth, or stop at 24 */
+const HO_FMT = ['wav', 'aiff', 'flac', 'm4a', 'mp3'], HO_BITS = [16, 24, 32]
+const HO_RATE = [8000, 11025, 16000, 22050, 24000, 32000, 44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000]      // (many rates, picked from a list: his ask, 2026-10-21)
+const HO_KBPS = [32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320]                                         // (an mp3's rates, as LAME has them)
+/* the kinds, rates, depths and mp3 rates chosen. Several can be chosen at once (his ask, 2026-10-21): S.ho.fmt, rate, bits
+   and kbps are each one value or a list of them; a rate of 0 is the song's own */
+const HO_PCM = f => f === 'wav' || f === 'aiff' || f === 'flac'
+function hoSet (k) {
+  const ho = S.ho, has = [].concat(ho[k] == null ? [] : ho[k])
+  if (k === 'fmt') { const v = HO_FMT.filter(f => has.includes(f) && (f !== 'mp3' || CAP.mp3)); return v.length ? v : ['wav'] }
+  if (k === 'rate') { const v = HO_RATE.filter(r => has.some(x => (+x || SND_SR) === r)); return v.length ? v : [HO_RATE.includes(SND_SR) ? SND_SR : 48000] }
+  if (k === 'bits') { const v = HO_BITS.filter(b => has.includes(b)); return v.length ? v : [24] }
+  const v = HO_KBPS.filter(b => has.includes(b)); return v.length ? v : [320]
+}
+/* a lossy file stops at 48k: one of the 44.1 family goes to 44.1 */
+const hoLossyRate = r => r <= 48000 ? r : r % 11025 === 0 ? 44100 : 48000
+/* the first file, which the rest are told from: the first kind chosen that keeps every sample (wav, aiff, flac), at the
+   song's own rate if that is chosen, 24 bit if that is; some kinds have no depth, or stop at 24 */
+function hoBase () {
+  const fmts = hoSet('fmt'), rates = hoSet('rate'), bits = hoSet('bits')
+  return { fmts, fmt: fmts.find(HO_PCM) || fmts[0], rate: rates.includes(SND_SR) ? SND_SR : rates[rates.length - 1], bits: bits.includes(24) ? 24 : bits[bits.length - 1], kbps: hoSet('kbps').slice(-1)[0] }
+}
 function hoFmt () {
-  const ho = S.ho, fmt = !NAT || (ho.fmt === 'mp3' && !CAP.mp3) ? 'wav' : ho.fmt, flat = fmt === 'm4a' || fmt === 'mp3'
-  const rate = NAT ? (flat ? Math.min(48000, ho.rate || SND_SR) : (ho.rate || SND_SR)) : SND_SR
-  return { fmt, rate, bits: !NAT ? 16 : flat ? 0 : fmt !== 'wav' && ho.bits === 32 ? 24 : ho.bits, kbps: fmt === 'mp3' ? (HO_KBPS.includes(ho.kbps) ? ho.kbps : 320) : 0 }      // (kbps: an mp3's rate, 320 unless another was picked)
+  if (!NAT) return { fmt: 'wav', rate: SND_SR, bits: 16, kbps: 0 }
+  const b = hoBase()
+  return hoOut(b.fmt, b.rate, b.bits, b.kbps)
+}
+const hoOut = (fmt, rate, bits, kbps) => HO_PCM(fmt) ? { fmt, rate, bits: fmt !== 'wav' && bits === 32 ? 24 : bits, kbps: 0 } : { fmt, rate: hoLossyRate(rate), bits: 0, kbps: fmt === 'mp3' ? kbps : 0 }
+/* every file a hand-off makes: the first, then one more for each other thing chosen — each rate, each depth, each kind, each
+   mp3 rate — that differs from the first in that alone (four rates and an mp3 chosen: five files). One pass of the song is
+   printed and every file made from it as it goes. Told apart by a tag after the mix's name and by a folder of their own
+   for stems */
+function hoFiles () {
+  const f0 = hoFmt()
+  if (!NAT) return [Object.assign({ tag: '', sub: '' }, f0)]
+  const { fmts, fmt, rate: r0, bits: b0, kbps: k0 } = hoBase(), pcm = fmts.find(HO_PCM)
+  const out = [], seen = new Set(), add = o => { const k = `${o.fmt} ${o.rate} ${o.bits} ${o.kbps}`; if (!seen.has(k)) { seen.add(k); out.push(o) } }
+  add(f0)
+  for (const r of hoSet('rate')) add(hoOut(fmt, r, b0, k0))
+  if (pcm) for (const b of hoSet('bits')) add(hoOut(pcm, r0, b, k0))
+  for (const f of fmts) add(hoOut(f, r0, b0, k0))
+  if (fmts.includes('mp3')) for (const k of hoSet('kbps')) add(hoOut('mp3', r0, 0, k))
+  const many = out.length > 1, rk = r => `${+(r / 1000).toFixed(3)}k`, depth = b => b === 32 ? '32 bit float' : `${b} bit`
+  const rated = f => new Set(out.filter(o => o.fmt === f).map(o => o.rate)).size > 1      // (an mp3 or m4a at two rates: the rate says which)
+  const words = o => HO_PCM(o.fmt) ? `${rk(o.rate)} ${depth(o.bits)}` : [rated(o.fmt) ? rk(o.rate) : '', o.fmt === 'mp3' ? `${o.kbps} kbps` : ''].filter(Boolean).join(' ')
+  return out.map(o => Object.assign(o, { tag: !many || !words(o) ? '' : ` ${words(o)}`, sub: !many ? '' : `${o.fmt} ${words(o)}`.trim() }))
 }
 function hoPlan () {
   const ho = S.ho, sc = sceneAt(curPos()), cyc = S.cycle.b - S.cycle.a >= 1 / 32, r0 = ho.range === 'cycle' && !cyc ? 'this scene' : ho.range, range = r0 === 'this scene' && !SCENES.length ? 'song' : r0, mix = NAT && ho.what === 'mix'
@@ -1223,8 +1285,9 @@ function carry (d, k, now) {
 }
 function setVolX (i, x, e) {
   const t = S.tracks[i], d = drag && drag.a === 'vol' ? drag : null
-  let f = clamp((x - HEAD_FX) / HEAD_FW, 0, 1)
-  if (d) { if (d.rel && d.f != null) f = clamp(d.f + (x - d.lx) / (e && e.shiftKey ? 600 : 160), 0, 1); else if (e && e.shiftKey && d.f != null) f = clamp(d.f + (x - d.lx) / HEAD_FW * .2, 0, 1); d.f = f; d.lx = x }
+  const gx = d && d.gx != null ? d.gx : HEAD_FX, gw = d && d.gw ? d.gw : HEAD_FW                // (where the level lies in its row: headRow says it on the press)
+  let f = clamp((x - gx) / gw, 0, 1)
+  if (d) { if (d.rel && d.f != null) f = clamp(d.f + (x - d.lx) / (e && e.shiftKey ? 600 : 160), 0, 1); else if (e && e.shiftKey && d.f != null) f = clamp(d.f + (x - d.lx) / gw * .2, 0, 1); d.f = f; d.lx = x }
   volSet(t, fVol(f))
   if (d && d.others.size) { carry(d, 'vol', t.vol); uiDirty('head') }
   else { const el = $('hd-' + i); if (el) el.innerHTML = headRow(i) }
@@ -1311,7 +1374,7 @@ function onDown (e) {
     case 'new-make': makeNewTracks(); break
     case 'toolmenu': if (S.menu) { S.menu = null; uiDirty('menu') } else openToolMenu(p.x - 10, TOOL_Y + TOOL_H + 2); break
     case 'tool2menu': if (S.menu) { S.menu = null; uiDirty('menu') } else openToolMenu(p.x - 10, TOOL_Y + TOOL_H + 2, true); break
-    case 'pick': { const m = S.menu, it = m && m.items[i]; S.menu = null; uiDirty('menu'); if (it) m.pick(it); break }
+    case 'pick': { const m = S.menu, it = m && m.items[i]; if (!(m && m.keep)) S.menu = null; uiDirty('menu'); if (it) m.pick(it); break }      // (keep: a list of which several are chosen stays up)
     case 'menu-close': S.menu = null; uiDirty('menu'); break
     case 'sheet-close': S.sheet = false; uiDirty('sheet', 'cmd'); syncSlur(); break
     case 'sheet': toggleSheet(); break
@@ -1373,7 +1436,7 @@ function onDown (e) {
       if (!only) drag = { a: 'swipe', what: a, to, seen: new Set(g.map(t => t.id)) }
       break
     }
-    case 'vol': S.tracks[i].ghost = null; drag = { a, i, v0: S.tracks[i].vol, others: others(i, 'vol'), before: autoPts(S.tracks[i], 'vol').length ? editState() : null, rel: !!el.dataset.rel, py: p.y }; if (e.shiftKey || drag.rel) { drag.f = volF(shown(S.tracks[i], 'vol')); drag.lx = p.x } else setVolX(i, p.x, e); break      // (rel: a knob — turned from where it stands, up and to the right: skins.js)
+    case 'vol': S.tracks[i].ghost = null; drag = { a, i, v0: S.tracks[i].vol, others: others(i, 'vol'), before: autoPts(S.tracks[i], 'vol').length ? editState() : null, rel: !!el.dataset.rel, py: p.y, gx: el.dataset.gx != null ? +el.dataset.gx : null, gw: +el.dataset.gw || 0 }; if (e.shiftKey || drag.rel) { drag.f = volF(shown(S.tracks[i], 'vol')); drag.lx = p.x } else setVolX(i, p.x, e); break      // (rel: a knob — turned from where it stands, up and to the right: skins.js)
     case 'print': drag = { a, k: pk(el.dataset.k), ly: p.y, acc: 0, v0: patchNow(cur)[pk(el.dataset.k)] }; break
     case 'ho': S.ho.open = !S.ho.open; S.ho.note = ''; S.ho.done = 0; uiDirty('top', 'hand'); break
     case 'ho-close': S.ho.open = false; uiDirty('top', 'hand'); break
@@ -1798,7 +1861,7 @@ function drawMeters () {
     const raw = Math.max(METERS.t.get(t.id) || 0, t.arm && !t.mon ? METERS.i : 0), v = Math.max(raw, (METERS.now.get(t.id) || 0) * fall)
     METERS.t.set(t.id, 0); METERS.now.set(t.id, v < 1e-4 ? 0 : v)
     const el = $('mt-' + t.id)
-    if (el) { el.setAttribute('width', n(HEAD_FW * volF(Math.min(6, linDb(v))))); el.setAttribute('fill', v > 1 || (t.arm && !t.mon) ? REC : LEVEL) }
+    if (el) { el.setAttribute('width', n((+el.getAttribute('data-w') || HEAD_FW) * volF(Math.min(6, linDb(v))))); el.setAttribute('fill', v > 1 || (t.arm && !t.mon) ? REC : LEVEL) }
     if (MGEOM && VIEW.p > .5) bars(t.id, v, MGEOM)
   }
   METERS.i = 0

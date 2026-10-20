@@ -30,11 +30,11 @@ async function findMissing () {
   say(!found ? `none of the ${names.length} was there` : found === names.length ? `found ${found === 1 ? 'it' : `all ${found}`}: back in the project` : `found ${found} of ${names.length}: ${names.length - found} still missing`)
 }
 /* a region not found, on its lane: an outline, the name of its sound, and that it was not found. One whose sound is still
-   being read as the project opens (wait: project.js, soundsRead): the outline unbroken and fainter, and only the name */
+   still being made ready (wait: project.js, soundsRead and bringPaths): the outline unbroken and fainter, and only its name */
 function missingLook (r, x, w, ly, lh, cx, cw, sh, on) {
   const wait = !!r.wait
   let q = P(shapePath(cx + .5, ly + .5, cw - 1, lh - 1, sh), { fill: K0, fa: .35, stroke: INK, sa: on ? .9 : wait ? .3 : .45, dash: wait ? undefined : '3 3' })
-  if (w > 44 && lh >= 14) q += T(Math.max(x, X0) + 6, ly + Math.min(lh / 2 + 3.5, 15), fit(wait ? r.file : `${r.file} — not found`, Math.min(w, X1 - Math.max(x, X0)) - 12, 9), { size: 9, a: wait ? .45 : .62 })
+  if (w > 44 && lh >= 14) q += T(Math.max(x, X0) + 6, ly + Math.min(lh / 2 + 3.5, 15), fit(wait ? r.name || r.file : `${r.file} — not found`, Math.min(w, X1 - Math.max(x, X0)) - 12, 9), { size: 9, a: wait ? .45 : .62 })
   return q
 }
 { const load0 = loadProject; loadProject = async function () { const ok = await load0.apply(this, arguments); missingTell(); return ok } }

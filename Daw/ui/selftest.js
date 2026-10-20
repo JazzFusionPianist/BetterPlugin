@@ -229,6 +229,13 @@ async function runSelfTest (mode) {
       const two = S.tracks.filter(t => t.kind === 'audio' && t.regs.some(x => !x.mute && x.a - 1 < 17 && x.b - 1 > 16)).slice(0, 2)
       const r2 = await rtbRun({ kind: 'stems', a0: 16, a1: 17, modes: ['wet'], tracks: two.map(t => ({ id: t.id, name: t.name })), folder: 'realtime stems', name: 'rt stems', fmt: 'wav', rate: 0, bits: 24 })
       res.stems = { ok: !!(r2 && r2.ok), dir: r2 && r2.dir, count: r2 && r2.count, error: r2 && r2.error, asked: two.length }
+      /* several files from one realtime pass (his ask, 2026-10-21): the mix at the song's rate and 44.1k and as an mp3; two
+         stems in two depths, a folder for each (looked at from outside) */
+      { const was = Object.assign({}, S.ho), outs = set => { Object.assign(S.ho, set); return hoFiles().map(o => ({ fmt: o.fmt, rate: o.rate, bits: o.bits, kbps: o.kbps || 320, tag: o.tag, sub: o.sub })) }
+        const r5 = await rtbRun({ kind: 'mix', a0: 16, a1: 17, modes: ['wet'], tracks: [], folder: 'realtime many', name: 'rt many', fmt: 'wav', rate: 0, bits: 24, outs: outs({ fmt: ['wav', 'mp3'], rate: [0, 44100], bits: 24, kbps: 192 }) })
+        const r6 = await rtbRun({ kind: 'stems', a0: 16, a1: 17, modes: ['wet'], tracks: two.map(t => ({ id: t.id, name: t.name })), folder: 'realtime many stems', name: 'rt many stems', fmt: 'wav', rate: 0, bits: 24, outs: outs({ fmt: 'wav', rate: 0, bits: [24, 16] }) })
+        Object.assign(S.ho, was)
+        res.many = { mix: { ok: !!(r5 && r5.ok), dir: r5 && r5.dir, error: r5 && r5.error }, stems: { ok: !!(r6 && r6.ok), dir: r6 && r6.dir, error: r6 && r6.error } } }
       const tp = S.tracks.find(t => t.kind === 'audio' && !t.midi && t.regs.some(x => !x.mute && !x.notes && x.b - x.a <= 4)), reg = tp && tp.regs.find(x => !x.mute && !x.notes && x.b - x.a <= 4)
       if (reg) { const n0 = S.tracks.length; S.selR = [reg.id]; S.focus = 'lanes'; await bounceInPlace(true); await sleep(300); const nt = S.tracks[S.tracks.indexOf(tp) + 1]; res.place = { from: tp.name, len: +(reg.b - reg.a).toFixed(2), tracks: S.tracks.length - n0, made: nt && nt.name, sec: nt && nt.regs[0] && +nt.regs[0].sec.toFixed(2), muted: !!reg.mute, said: S.last && S.last.say } }
       const p3 = rtbRun({ kind: 'mix', a0: 16, a1: 24, modes: ['wet'], tracks: [], folder: 'realtime stopped', name: 'rt stopped', fmt: 'wav', rate: 0, bits: 24 })
@@ -678,6 +685,16 @@ async function runSelfTest (mode) {
     res.ok = res.mp3 && /Contents\/Helpers\/lame$/.test(res.lame) && res.wav.note === 'saved as' && /\.wav$/.test(res.wavAt) && [128, 192, 320].every(k => res['mp3_' + k].note === 'saved as' && /\.mp3$/.test(res['at_' + k]))
     return res
   })
+  /* several files from one pass (his ask, 2026-10-21): four rates and an mp3 chosen, five files beside each other; stems in
+     two kinds and two depths, a folder for each (the files themselves are looked at from outside: their rates and depths) */
+  await step('exportMany', async () => {
+    const res = {}
+    res.mix = await send({ what: 'mix', range: 'cycle', fmt: CAP.mp3 ? ['wav', 'mp3'] : ['wav'], rate: [44100, 48000, 88200, 96000], bits: 24, kbps: 320 }); res.mixAt = S.ho.at; res.mixFiles = hoFiles().map(o => o.fmt + o.tag)
+    res.stems = await send({ what: 'stems', print: 'with patch', range: 'cycle', fmt: ['wav', 'flac'], rate: 0, bits: [24, 16] }); res.stemsAt = S.ho.at; res.stemKinds = hoFiles().map(o => o.sub)
+    res.ok = res.mix.note === 'saved as' && res.mixFiles.length === (CAP.mp3 ? 5 : 4) && res.stems.note === 'saved as' && res.stemKinds.length === 3
+    Object.assign(S.ho, { fmt: 'wav', rate: 0, bits: 24, kbps: 320 })
+    return res
+  })
   await snap('selftest-8-handoff.png')
   S.ho.open = false
   await step('bounceInPlace', async () => {
@@ -780,9 +797,14 @@ async function runSelfTest (mode) {
   await step('handsPanel', async () => {
     keyDown('KeyB', { metaKey: true }); flush(); await sleep(80)
     const cell = (k, v) => { const el = document.querySelector(`[data-a="ho-set"][data-k="${k}"][data-v="${v}"]`); if (!el) return false; const r = el.getBoundingClientRect(); el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 1, button: 0, buttons: 1, clientX: r.left + 3, clientY: r.top + 3 })); window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); flush(); return true }
-    const got = [cell('what', 'mix'), cell('fmt', 'aiff'), cell('rate', 96000), cell('bits', 16), cell('range', 'song')]
-    const f = hoFmt(), pl = hoPlan(), res = { got, what: S.ho.what, f, range: pl.range, a: [pl.a0, pl.a1], mp3Cell: !!document.querySelector('[data-a="ho-set"][data-v="mp3"]') }
-    Object.assign(S.ho, { what: 'stems', fmt: 'wav', rate: 0, bits: 24, range: 'this scene' })
+    HO2.more = true; uiDirty('hand'); flush()
+    const press = sel => { const el = document.querySelector(sel); if (!el) return false; const r = el.getBoundingClientRect(); el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 1, button: 0, buttons: 1, clientX: r.left + 3, clientY: r.top + 3 })); dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 })); flush(); return true }
+    /* several at once (his ask, 2026-10-21): aiff beside the wav, 96k from the list of rates beside the song's, 16 beside 24 */
+    const got = [cell('what', 'mix'), press('[data-a="ho-tog"][data-k="fmt"][data-v="aiff"]'), press('[data-a="ho-list"][data-k="rate"]'), !!S.menu && S.menu.keep, press(`[data-a="pick"][data-i="${HO_RATE.indexOf(96000)}"]`), !!S.menu, press('[data-a="menu-close"]'), press('[data-a="ho-tog"][data-k="bits"][data-v="16"]'), cell('range', 'song')]
+    const f = hoFmt(), pl = hoPlan(), files = hoFiles(), res = { got, what: S.ho.what, f, files: files.map(o => o.fmt + o.tag), range: pl.range, a: [pl.a0, pl.a1], mp3Cell: !!document.querySelector('[data-a="ho-tog"][data-v="mp3"]') }
+    res.ok = got.every(Boolean) && files.length === 4 && files.some(o => o.fmt === 'aiff') && files.some(o => o.rate === 96000) && files.some(o => o.bits === 16)
+    HO2.more = false
+    Object.assign(S.ho, { what: 'stems', fmt: 'wav', rate: 0, bits: 24, kbps: 320, range: 'this scene' })
     keyDown('Escape'); flush()
     return res
   })
@@ -886,6 +908,39 @@ async function runSelfTest (mode) {
     return { megabytes: +(bytes.length / 1048576).toFixed(1), pieces: Math.ceil(bytes.length / (3 << 20)), sec: +d.sec.toFixed(2), file: d.file, peaks: d.peaks.length, lastPeak: d.peaks[d.peaks.length - 1], firstPeak: d.peaks[0], ms }
   })
 
+  /* sound brought in, the old way and the new (his testers, 2026-10-20: "오디오 import가 좀 느리다"). Old: a file let go
+     from somewhere that says nothing of where it lies crosses to the app in pieces and is made ready there, one file after
+     another. New: eight files of three minutes brought in by where they lie (as from the Finder, or import audio) —
+     cloned into the project, placed at once, made ready eight at a time. How long until they are on the lanes, until
+     all are heard, and the longest the window stood still. */
+  await step('bringFeel', async () => {
+    halt(false)
+    const res = {}, sec = 180, n = 8, here = projKey(), u0 = UNDO.length, t0s = S.tracks.length
+    const srcs = []
+    for (let k = 0; k < n; k++) { const f = await NAT.call('testFile', { project: 'bring source', name: `stem ${k + 1}`, sec, ch: 2, rate: 44100 }); srcs.push(f) }
+    res.megabytesEach = +srcs[0].mb.toFixed(1)
+    /* the old way, two files of the same length in sixteen bits (what a page can make) */
+    { const sr = 44100, len = sr * sec, ab = new AudioBuffer({ length: len, sampleRate: sr, numberOfChannels: 2 })
+      for (let c = 0; c < 2; c++) { const d = ab.getChannelData(c); for (let i = 0; i < len; i++) d[i] = Math.sin(i * .0628 + c) * .3 * ((i % 14400) < 2000 ? 1 : .4) }
+      const bytes = wav16(ab)
+      await NAT.call('stalls'); const t0 = performance.now()
+      for (let k = 0; k < 2; k++) await decodeFile(new File([bytes], `old way ${k + 1}.wav`, { type: 'audio/wav' }))
+      res.old = { files: 2, megabytesEach: +(bytes.length / 1048576).toFixed(1), msEach: Math.round((performance.now() - t0) / 2), stallMs: (await NAT.call('stalls')).ms } }
+    /* the new way */
+    await NAT.call('stalls')
+    const t1 = performance.now(), names = srcs.map((f, k) => `stem ${k + 1}`)
+    const lane = S.tracks.findIndex(t => t.kind === 'audio' && !t.inst && !t.theirs), going = bringPaths(srcs.map(f => f.path), lane, 3)
+    let placedMs = null
+    while (placedMs == null && performance.now() - t1 < 20000) { if (names.every(nm => S.tracks.some(t => t.regs.some(r => r.name === nm)))) placedMs = Math.round(performance.now() - t1); else await sleep(5) }
+    await going
+    const regs = S.tracks.flatMap(t => t.regs).filter(r => names.includes(r.name))
+    res.new = { files: n, placedMs, allMs: Math.round(performance.now() - t1), stallMs: (await NAT.call('stalls')).ms, regions: regs.length, heard: regs.filter(r => r.key && !r.missing && !r.wait).length,
+      copies: regs.map(r => r.file).filter(f => /^stem \d+\.wav$/.test(f)).length, sec: +(regs[0] ? regs[0].sec : 0).toFixed(2) }
+    while (UNDO.length > u0) undoEdit()
+    res.undone = S.tracks.length === t0s
+    if (projKey() !== here) await loadProject(here)
+    return res
+  })
   /* a track like another, with its plug-ins as they are set; and four plug-ins on one track */
   await step('duplicate', async () => {
     const i = S.tracks.indexOf(track('kick')), n0 = S.tracks.length
@@ -2614,7 +2669,7 @@ async function runSelfTest (mode) {
     const st = await NAT.call('bounce', { kind: 'stems', a0: 0, a1: 8, modes: ['wet'], tracks: S.tracks.filter(sounding).slice(0, 2).map(x => ({ id: x.id, name: x.name })), folder: 'print card', name: 'card stems', fmt: 'wav', rate: 0, bits: 24 })
     await sleep(150); printTell = tell0; res.stems = { ok: !!(st && st.ok), done: PRINT.done, total: PRINT.total, steps: [...new Set(got)] }
     printEnd(); back()
-    res.ok = res.printed && res.parts >= 5 && res.rising && res.first < .5 && res.last > .8 && res.up && /%$/.test(res.text) && res.gone && res.stems.ok && res.stems.done === 2 && res.stems.steps.includes(1) && res.stems.steps.includes(2)
+    res.ok = res.printed && res.parts >= 5 && res.rising && res.first < .5 && res.last > .8 && res.up && /\d+%/.test(res.text) && res.gone && res.stems.ok && res.stems.done === 2 && res.stems.steps.includes(1) && res.stems.steps.includes(2)
     return res
   })
   /* the stereo out's own wall (wall.js): with nothing on it the song is printed as it was; a print on it changes the whole

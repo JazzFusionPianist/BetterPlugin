@@ -54,9 +54,9 @@ export default () => chapter('mixing', t('mixing', '믹싱'),
       h('where a track plays', '트랙이 나가는 곳') +
       p('Click the {{out}} row of a strip: {{stereo out}}, every bus and stack it may play into, and {{new bus}}. Picking a stack puts the track into that stack. There is one stereo out, on the device’s outputs 1 and 2.', '스트립의 {{out}} 줄을 클릭합니다. {{stereo out}}, 나갈 수 있는 모든 버스와 스택, 그리고 {{new bus}}. 스택을 고르면 트랙이 그 스택 안으로 들어갑니다. 스테레오 아웃은 하나이고 장치의 출력 1, 2로 나갑니다.') +
       h('sends', '센드') +
-      p('Three to a track. A new send comes in at −12 dB. [[⌥]] click sets it to 0 dB. Sends are after the fader and the pan; there is no pre-fader send. Removing a bus removes every send into it.', '트랙마다 세 개. 새 센드는 −12 dB로 들어옵니다. [[⌥]] 클릭하면 0 dB. 센드는 페이더와 팬 뒤에서 나가며, 프리 페이더 센드는 없습니다. 버스를 지우면 그리로 가는 센드도 모두 없어집니다.') +
+      p('Up to ten to a track. When a strip is too short to show more of them, it grows wider to the right by a column of sends. A new send comes in at −12 dB. [[⌥]] click sets it to 0 dB. Sends are after the fader and the pan; there is no pre-fader send. Removing a bus removes every send into it.', '트랙마다 열 개까지. 스트립의 높이에 더 들어가지 않으면 스트립이 오른쪽으로 센드 한 줄만큼 넓어집니다. 새 센드는 −12 dB로 들어옵니다. [[⌥]] 클릭하면 0 dB. 센드는 페이더와 팬 뒤에서 나가며, 프리 페이더 센드는 없습니다. 버스를 지우면 그리로 가는 센드도 모두 없어집니다.') +
       h('buses', '버스') +
-      p('A bus has a patch, a fader, a pan, three sends and an out of its own. It may play into another bus or a stack, as long as nothing comes back round to itself. Make one with [[⌃N]], or pick {{new bus}} in an out or send list.', '버스는 자체 패치, 페이더, 팬, 센드 세 개, 아웃을 가집니다. 다른 버스나 스택으로 나갈 수 있지만, 돌아서 자기 자신에게 오는 길은 만들 수 없습니다. [[⌃N]]으로 만들거나, 아웃이나 센드 목록에서 {{new bus}}를 고릅니다.'),
+      p('A bus has a patch, a fader, a pan, up to ten sends and an out of its own. It may play into another bus or a stack, as long as nothing comes back round to itself. Make one with [[⌃N]], or pick {{new bus}} in an out or send list.', '버스는 자체 패치, 페이더, 팬, 센드 열 개까지, 아웃을 가집니다. 다른 버스나 스택으로 나갈 수 있지만, 돌아서 자기 자신에게 오는 길은 만들 수 없습니다. [[⌃N]]으로 만들거나, 아웃이나 센드 목록에서 {{new bus}}를 고릅니다.'),
       h('mute and solo', '뮤트와 솔로') +
       list(
         ['Mute: the track is silent, and so are its sends.', '뮤트: 트랙이 조용해지고 센드도 함께 조용해집니다.'],

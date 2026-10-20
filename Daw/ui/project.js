@@ -48,7 +48,7 @@ function startRename (what, i, at) {
     const sc = SCENES[i]
     if (!sc) return
     put(clamp(bx(sc.a), X0, Math.max(X0, X1 - 112)) + 2, MK_Y + 2, 110, 18, '500 9px', sc.name)
-  } else if (typeof skinField === 'function' && skinField(what)) { const f = skinField(what); put(f.x, f.y, f.w, f.h, '500 12px', what === 'tempo' ? String(+S.tempo.toFixed(2)) : what === 'key' ? S.key : readout(curPos()), true) }      // (the deck at the foot: where it says it is — skins.js)
+  } else if (typeof skinField === 'function' && skinField(what)) { const f = skinField(what); put(f.x, f.y, f.w, f.h, '500 12px', what === 'tempo' ? String(+S.tempo.toFixed(2)) : what === 'key' ? S.key : what === 'smpte' ? smpte(curPos()) : readout(curPos()), true) }      // (the deck at the foot: where it says it is — skins.js)
   else if (what === 'tempo') put(DISP_X + 144, 11, 62, 22, '400 11.5px', String(+S.tempo.toFixed(2)), true)
   else if (what === 'key') put(DISP_X + 250, 11, 58, 22, '400 11.5px', S.key, true)
   else if (what === 'pos') put(DISP_X, 11, 78, 22, '500 12.5px', readout(curPos()), true)           // where the playhead is, typed: a bar, or bar beat sixteenth

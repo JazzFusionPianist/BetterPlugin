@@ -61,7 +61,8 @@ function relayout () {
   const deck = typeof DECK_H === 'number' ? DECK_H : 0
   const fold = typeof RTB !== 'undefined' && RTB.on ? rtbFold() : 0                 // a realtime print folds the heads, the tool row, the bars and the foot away: the bar, the markers and the sound are left (realtime.js)
   const right = typeof SKIN === 'object' && SKIN.right                              // (a theme's heads at the right of the lanes: skins.js)
-  X0 = right ? 0 : Math.round(HEAD_W * (1 - fold)); TOOL_Y = BAR_H; MK_Y = BAR_H + TOOL_H * (1 - fold); RU_Y = MK_Y + MK_H; TY = RU_Y + RU_H * (1 - fold)
+  const toolH = typeof SKIN === 'object' && SKIN.noTool ? 0 : TOOL_H                    // (a theme's transport may hold the tool row's things itself: skins.js)
+  X0 = right ? 0 : Math.round(HEAD_W * (1 - fold)); TOOL_Y = BAR_H; MK_Y = BAR_H + toolH * (1 - fold); RU_Y = MK_Y + MK_H; TY = RU_Y + RU_H * (1 - fold)
   for (const [id, a] of [['g-head', 0], ['g-info', 1], ['g-ruler', 1], ['g-cmd', 1]]) { const el = $(id); if (!el) continue; if (a) { el.style.opacity = fold ? String(1 - fold) : ''; el.style.visibility = fold >= 1 ? 'hidden' : '' } else el.setAttribute('transform', fold ? `translate(${n(-HEAD_W * fold)} 0)` : '') }
   if ($('cmd')) $('cmd').style.visibility = fold > 0 ? 'hidden' : ''
   S.panel.h = clamp(S.panel.h, MIN_PANEL, Math.max(MIN_PANEL, H - FOOT_H - deck - TY - 4 * 25))
@@ -148,6 +149,7 @@ const zoomF = () => { const f = fitPXB(); return clamp(Math.log(PXB / f) / Math.
 function pTool () {
   const y = TOOL_Y, by = y + 16.6
   if (typeof RTB !== 'undefined' && RTB.on) return rtbTool(y)                         // (a realtime print says only what is under way)
+  if (typeof SKIN === 'object' && SKIN.noTool) return ''                              // (folded away: the theme's own transport holds it — skins.js)
   let s = R(0, y, RX, TOOL_H, { fill: K1 })
   s += R(10.5, y + 4.5, 17, 17, { rx: 2, stroke: INK, sa: .24 }) + P(`M19 ${y + 9.5}V${y + 16.5}M15.5 ${y + 13}H22.5`, { stroke: INK, sa: .8 }) + hit(8, y + 2, 22, 22, 'addtrack')
   let x = 38
@@ -196,7 +198,8 @@ const LOOK_FAMS = PIG_ORDER.concat(['grey'])
 function pLook () {
   if (!S.look) return ''
   const rs = S.focus === 'tracks' ? [] : selRegs(), st = S.tracks[S.sel], r = rs.length ? rs[0][0] : null, own = r ? r : st, look = r ? regLook(r, rs[0][1]) : { c: st.c, outline: st.outline }
-  const cw = 19, rh = 15, w = 12 + 7 * cw - 2 + 12, x = clamp(LOOK_X, 8, RX - w - 8), y = TOOL_Y + TOOL_H + 2, y2 = y + 28 + 7 * rh + 10, h = y2 - y + 62
+  const at = typeof skinField === 'function' && skinField('look'), hh = 28 + 7 * 15 + 10 + 62      // (a theme's swatch low in the window: the card stands over it — skin-poster.js)
+  const cw = 19, rh = 15, w = 12 + 7 * cw - 2 + 12, x = clamp(at ? at.x : LOOK_X, 8, RX - w - 8), y = at ? Math.max(8, at.y - hh - 4) : TOOL_Y + TOOL_H + 2, y2 = y + 28 + 7 * rh + 10, h = y2 - y + 62
   let s = hit(0, 0, W, H, 'look-close', '', 'default') + R(x, y, w, h, { rx: 3, fill: K2 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 3, stroke: INK, sa: .26 }) + hit(x, y, w, h, 'look-pane', '', 'default')
   s += T(x + 12, y + 17.5, 'colour', { size: 9, a: .4 }) + T(x + w - 12, y + 17.5, r ? 'as the track' : 'as read', { size: 9, a: own.col ? .36 : .7, anchor: 'end' }) + (own.col ? hit(x + w - 80, y + 5, 74, 18, 'look-col', ' data-f="" data-s="0"') : '')
   LOOK_FAMS.forEach((fam, j) => {
@@ -1372,13 +1375,12 @@ function onDown (e) {
     case 'new-in': { const o = S.newT; openMenu(p.x - 10, p.y + 12, inputItems(o.inp), it => { if (it.v === 'set') NAT.call('audioSettings'); else { o.inp = it.v; uiDirty('new') } }); break }
     case 'new-out': { const o = S.newT; openMenu(p.x - 10, p.y + 12, [{ t: 'stereo out', v: 0, on: !o.out }].concat(S.tracks.filter(b => b.kind !== 'audio').map(b => ({ t: b.name, k: b.kind, v: b.id, on: o.out === b.id }))), it => { o.out = it.v; uiDirty('new') }); break }
     case 'new-make': makeNewTracks(); break
-    case 'toolmenu': if (S.menu) { S.menu = null; uiDirty('menu') } else openToolMenu(p.x - 10, TOOL_Y + TOOL_H + 2); break
-    case 'tool2menu': if (S.menu) { S.menu = null; uiDirty('menu') } else openToolMenu(p.x - 10, TOOL_Y + TOOL_H + 2, true); break
+    case 'toolmenu': { const at = typeof skinMenuAt === 'function' && skinMenuAt('toolmenu'); if (S.menu) { S.menu = null; uiDirty('menu') } else { openToolMenu(at ? at.x : p.x - 10, at ? at.y : TOOL_Y + TOOL_H + 2); if (at && at.up && S.menu) S.menu.up = true } break }
     case 'pick': { const m = S.menu, it = m && m.items[i]; if (!(m && m.keep)) S.menu = null; uiDirty('menu'); if (it) m.pick(it); break }      // (keep: a list of which several are chosen stays up)
     case 'menu-close': S.menu = null; uiDirty('menu'); break
     case 'sheet-close': S.sheet = false; uiDirty('sheet', 'cmd'); syncSlur(); break
     case 'sheet': toggleSheet(); break
-    case 'modemenu': if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(p.x - 10, TOOL_Y + TOOL_H + 2, MODES.map(m => ({ t: m, v: m, on: m === S.mode })), it => setMode(it.v), { w: 112 }); break
+    case 'modemenu': { const at = typeof skinMenuAt === 'function' && skinMenuAt('modemenu'); if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(at ? at.x : p.x - 10, at ? at.y : TOOL_Y + TOOL_H + 2, MODES.map(m => ({ t: m, v: m, on: m === S.mode })), it => setMode(it.v), { up: at && at.up, w: 112 }); break }
     case 'autokey': toggleAuto(); break
     case 'flexkey': toggleFlex(); break
     case 'qval': openQMenu(p.x - 10, TOOL_Y + TOOL_H + 2); break
@@ -1393,8 +1395,8 @@ function onDown (e) {
       }))
       break
     }
-    case 'zoomx': drag = { a, x0: X1 - 156 }; zoomDrag(drag, p.x); break
-    case 'zoomy': drag = { a, x0: X1 - 156 + 82 }; zoomDrag(drag, p.x); break
+    case 'zoomx': drag = { a, x0: el.dataset.x0 != null ? +el.dataset.x0 : X1 - 156, w: +el.dataset.w || 0 }; zoomDrag(drag, p.x); break      // (a theme's own rule says where it is and how long: skin-poster.js)
+    case 'zoomy': drag = { a, x0: el.dataset.x0 != null ? +el.dataset.x0 : X1 - 156 + 82, w: +el.dataset.w || 0 }; zoomDrag(drag, p.x); break
     case 'look': S.look = S.look ? null : true; uiDirty('look', 'info'); break
     case 'look-close': S.look = null; uiDirty('look', 'info'); break
     case 'look-col': setLook('col', el.dataset.f ? [el.dataset.f, +el.dataset.s] : null); break
@@ -1471,7 +1473,7 @@ function onDown (e) {
   if (drag) { try { svg.setPointerCapture(e.pointerId) } catch (err) {} e.preventDefault() }
 }
 function zoomDrag (d, x) {
-  const f = clamp((x - d.x0) / 52, 0, 1)
+  const f = clamp((x - d.x0) / (d.w || 52), 0, 1)
   if (d.a === 'zoomx') { const fitP = fitPXB(); zoomLive(fitP * Math.pow(640 / fitP, f)) } else setRowH(20 + f * 100)      // (the zoom bar pulled: live, as a pinch)
   uiDirty('info')
 }

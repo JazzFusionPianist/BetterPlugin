@@ -6,9 +6,9 @@
    the playhead as a tape head. As the room comes, none of them is on and nothing here draws.
    The materials (the meters' faces, the keys' plastic, chrome) are the parts' own; the panel, the ink and the meanings
    (recording, solo, listening) are the look's. */
-const SKIN = { k: {}, bridge: false, right: false, deck: false, heads: false, flags: false, pencil: false, tapehead: false, console: false }
+const SKIN = { k: {}, bridge: false, right: false, noTool: false, deck: false, heads: false, flags: false, pencil: false, tapehead: false, console: false }
 /* the bands a transport takes: over the room, over the foot, down the left */
-const SKIN_BANDS = { plain: [44, 0, 0], console: [0, 82, 0], cassette: [124, 70, 0], score: [84, 52, 0], poster: [0, 28, 196], blueprint: [64, 112, 0], terminal: [96, 30, 0] }
+const SKIN_BANDS = { plain: [44, 0, 0], console: [0, 82, 0], cassette: [124, 70, 0], score: [84, 52, 0], poster: [0, 30, 212], blueprint: [64, 112, 0], terminal: [96, 30, 0] }
 /* what each theme's parts draw (filled by skin-*.js): top, foot, left (the transport's bands), head, scenes, cycle, play, lanes, strip */
 const SKINS = { top: {}, foot: {}, left: {}, head: {}, scenes: {}, cycle: {}, play: {}, rule: {}, lanes: {}, strip: {}, mixer: {}, sound: {}, frame: {} }
 const BRIDGE_H = 96
@@ -27,8 +27,10 @@ function skinRead () {
 }
 const skinHas = part => SKIN.k[part] && SKIN.k[part] !== 'plain'
 /* the window cut again (ui.js relayout asks first): the bands of the transport and the bridge of meters */
+const SKIN_NO_TOOL = new Set(['poster'])                                           // (transports that hold the tool row's things themselves: it folds away)
 function skinLayout () {
   skinRead()
+  SKIN.noTool = SKIN_NO_TOOL.has(SKIN.k.transport)
   const b = SKIN_BANDS[SKIN.k.transport] || SKIN_BANDS.plain
   BAR_H = (SKIN.bridge ? BRIDGE_H : 0) + b[0]
   DECK_H = b[1]

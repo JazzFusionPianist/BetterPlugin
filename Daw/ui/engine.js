@@ -203,6 +203,7 @@ function reaches (a, b, depth = 0) {
 }
 /* solo keeps open what the soloed track plays into, and what plays into a soloed bus */
 const audible = t => {
+  if (t.disabled) return false                                                           // (switched off: trackoff.js — the engine does not work it at all)
   if (!anySolo()) return !t.mute
   if (t.solo) return true
   if (t.mute) return false

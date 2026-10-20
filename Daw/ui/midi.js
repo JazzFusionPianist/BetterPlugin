@@ -54,7 +54,8 @@ const instPickName = o => !o ? INST_FIRST.synth : o.kind === 'plug' ? String(o.n
 const instWord = t => { const I = t.inst; return !I ? '' : I.kind === 'plug' ? (I.out ? 'left out' : I.fmt || 'plug-in') : I.kind }
 /* the numbers the engine is given for one: its sound's, then whatever was turned by hand */
 const instParams = I => Object.assign({}, I.kind === 'synth' ? SYNTH_SOUNDS[I.sound] || {} : {}, I.p || {})
-const instCopy = (I, state) => { const c = copy(I); delete c.uid; delete c.busy; if (c.kind === 'plug' && state != null) c.state = state; return c }
+const instCopy = (I, state) => { const c = copy(I); delete c.uid; delete c.busy; delete c.out;      // (one that did not open here is not written as left out: on the Mac that has it, it opens again)
+  if (c.kind === 'plug' && state != null) c.state = state; return c }
 
 /* ── a region's notes as they sound ── */
 /* a place pulled to a grid of g quarter notes, `strength` of the way; with swing the off-beats of the grid lie later (at

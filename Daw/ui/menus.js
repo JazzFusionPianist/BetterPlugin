@@ -69,7 +69,7 @@ const MENU_BAR = () => [
   ]],
   ['Track', [
     ['New Tracks…', '⌥⌘KeyN', { id: 'newtracks' }], ['New Audio Track', '⌥⌘KeyA', { id: 'newaudio' }], ['New Instrument Track', '⌥⌘KeyS'], ['New Bus', '⌃KeyN', { id: 'newbus' }],
-    ['Create Reference Track', '⌥⌘KeyR'],
+    ['Create Reference Track', '⌥⌘KeyR'], ['Disable Track', null, { do: () => trackOffToggle(groupOf(S.sel)), on: () => !!(chosenTrack() && chosenTrack().disabled) }],
     '-',
     ['Duplicate', '⌘KeyD', { id: 'duptrack' }], ['Duplicate with Its Regions', '⌥⇧⌘KeyD'], ['Rename…', null, { id: 'renametrack', k: '⇧Enter' }], ['Delete', '⌘Backspace', { id: 'deltrack' }], ['Delete Empty Tracks', '⇧⌘Backspace'],
     '-',

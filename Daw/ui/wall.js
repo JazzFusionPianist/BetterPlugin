@@ -99,7 +99,7 @@ async function wallPushOut () {
 /* written into a project, and read from one (nothing written: nothing on it) */
 function wallOutSaved () {
   if (!OUT.wall || !OUT.wall.nodes.length) return undefined
-  return { wall: wallSaved(OUT), patch: copy(OUT.patch), inserts: OUT.inserts.filter(i => i.id).map(i => Object.assign({ id: i.id, name: i.name, fmt: i.fmt, state: i.state || '' }, i.off ? { off: true } : {}, i.out ? { out: true } : {})) }
+  return { wall: wallSaved(OUT), patch: copy(OUT.patch), inserts: OUT.inserts.filter(i => i.id).map(i => Object.assign({ id: i.id, name: i.name, fmt: i.fmt, state: i.state || '' }, i.off ? { off: true } : {})) }
 }
 async function wallOutLoad (d, step) {
   OUT.inserts = []; OUT.wall = null; OUT.patch = NO_PATCH(); OUT.used = false; OUT._told = null; WALL.out = false
@@ -109,6 +109,7 @@ async function wallOutLoad (d, step) {
   for (const ins of d.inserts || []) {
     const kept = { uid: 0, name: ins.name || 'plug-in', fmt: ins.fmt || '', id: ins.id, state: ins.state || '', off: !!ins.off, out: true }
     const bare = typeof LOAD !== 'undefined' && LOAD.bare, no = typeof DISTRUST !== 'undefined' && DISTRUST.has(ins.id)
+    delete ins.out                                                                     // (as a track's: tried again here — project.js)
     if (step && !ins.out) step(ins.name)
     const rr = !NAT || ins.out || bare || no ? null : await NAT.call('insert', { track: OUT_ID, id: ins.id, state: ins.state || '', show: 0 })
     if (rr && rr.ok) { OUT.inserts.push({ uid: rr.uid, name: rr.name, fmt: rr.fmt, id: ins.id, state: ins.state || '', off: !!ins.off, sc: !!rr.key }); if (ins.off) NAT.call('bypass', { track: OUT_ID, uid: rr.uid, off: 1 }) }

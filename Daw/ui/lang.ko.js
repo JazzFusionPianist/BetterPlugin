@@ -198,7 +198,7 @@ LANG.menuKo = {
   'Nudge': '넛지', 'Earlier': '앞으로', 'Later': '뒤로', 'Shorter': '짧게', 'Longer': '길게',
   'Tempo': '템포', 'Follow the Tempo': '템포 따라가기', 'Fit Region to Project Tempo': '리전을 프로젝트 템포에 맞추기', 'Set Project Tempo from Region': '리전에서 프로젝트 템포 가져오기',
   'Quantize': '퀀타이즈', 'Undo Quantize': '퀀타이즈 해제', 'Strip Silence': '무음 걷어내기', 'Group': '그룹', 'Ungroup': '그룹 해제', 'Colour and Outline…': '색과 모양…',
-  'Track': '트랙', 'New Tracks…': '새 트랙…', 'New Audio Track': '새 오디오 트랙', 'New Instrument Track': '새 악기 트랙', 'New Bus': '새 버스', 'Create Reference Track': '레퍼런스 트랙 만들기', 'Inspector': '인스펙터',
+  'Track': '트랙', 'New Tracks…': '새 트랙…', 'New Audio Track': '새 오디오 트랙', 'New Instrument Track': '새 악기 트랙', 'New Bus': '새 버스', 'Create Reference Track': '레퍼런스 트랙 만들기', 'Disable Track': '트랙 끄기', 'Inspector': '인스펙터',
   'Duplicate': '복제', 'Duplicate with Its Regions': '리전까지 복제', 'Delete Empty Tracks': '빈 트랙 삭제', 'Solo': '솔로', 'Record Enable': '녹음 대기', 'Hear the Input': '입력 듣기',
   'Stack': '스택', 'Make a Stack': '스택 만들기', 'Take the Stack Apart': '스택 풀기', 'Open the Stack': '스택 열기', 'Close the Stack': '스택 닫기',
   'Group for Editing': '편집 그룹 만들기', 'Suspend Groups': '그룹 잠시 끄기', 'Instruments': '악기', 'Typing Keyboard': '타이핑 키보드', 'Capture as Recording': '방금 연주를 녹음으로 담기', 'All Notes Off': '모든 노트 끄기',

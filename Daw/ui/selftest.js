@@ -2620,6 +2620,41 @@ async function runSelfTest (mode) {
   /* the stereo out's own wall (wall.js): with nothing on it the song is printed as it was; a print on it changes the whole
      song's print and leaves a single track's print alone; a plug-in on it that is late is made up for; taken off again, the
      engine no longer holds the stereo out as a bus and the song is printed as before. */
+  /* a project from another Mac keeps a VST3 by a path that is not here (another user's own plug-in folder): the plug-in
+     is found by its name in this Mac's folders and opens (his ask, 2026-10-20: an instrument did not open elsewhere) */
+  await step('vst3Elsewhere', async () => {
+    const list = (await NAT.call('plugins')) || [], all = (Array.isArray(list) ? list : list.list || []).filter(x => /\.vst3$/i.test(x.id || '')), p = all.find(x => /pro-q|pro-c|pro-l|eq|comp/i.test(x.name || '')) || all[0]      // (an effect, by its name: a vst3's kind is not in the list)
+    if (!p) return { skipped: 'no vst3 effect on this mac' }
+    const t = S.tracks.find(x => x.kind === 'audio'), i = S.tracks.indexOf(t), had = t.inserts.length
+    const away = '/Users/someone-else/Library/Audio/Plug-Ins/VST3/' + p.id.split('/').pop()
+    const r = await natInsert(i, away, { show: false })
+    const res = { asked: away, opened: !!(r && r.ok), name: r && r.name }
+    for (const ins of t.inserts.slice(had)) if (ins.uid) await NAT.call('remove', { track: t.id, uid: ins.uid })
+    t.inserts = t.inserts.slice(0, had); wallOf(t); WALL.sent.delete(t.id); wallPush(t)
+    return res
+  })
+  /* a track switched off (his ask, 2026-10-20: for the processor): with four reverbs on it, playing — it is heard and
+     costs; switched off, it is silent and its plug-ins are not worked, so the engine's load falls; on again, it is back */
+  await step('trackOff', async () => {
+    if (typeof trackOffToggle !== 'function') return { skipped: 'this page cannot switch a track off' }
+    const t = S.tracks.find(sounding)
+    if (!t) return { skipped: 'no track with sound on it' }
+    const i = S.tracks.indexOf(t), a0 = firstBar(t), res = { track: t.name }, had = t.inserts.length
+    for (let k = 0; k < 4; k++) await natInsert(i, 'AudioUnit:Effects/aufx,mrev,appl', { show: false })
+    res.plugins = t.inserts.length - had
+    await sleep(300)
+    const measure = async () => { await playFrom(a0 + .25); await NAT.call('testPerf'); const level = await listen(1200); const p = await NAT.call('testPerf'); halt(false); return { level, load: +(+p.load).toFixed(4) } }
+    res.on = await only(t, measure)
+    trackOffToggle([t]); await sleep(200)
+    res.off = await only(t, measure)
+    trackOffToggle([t]); await sleep(200)
+    res.again = await only(t, measure)
+    for (const ins of t.inserts.slice(had)) if (ins.uid) await NAT.call('remove', { track: t.id, uid: ins.uid })
+    t.inserts = t.inserts.slice(0, had); wallOf(t); WALL.sent.delete(t.id); wallPush(t)
+    res.silentWhenOff = res.off.level.peak === 0 && res.on.level.peak > 0 && res.again.level.peak > 0
+    res.cheaperWhenOff = res.off.load < res.on.load
+    return res
+  })
   /* the reference (his ask, 2026-10-20): heard only while it is the one chosen; heard straight out — the stereo out's fader
      all the way down and the tracks silenced, it is still heard; chosen again, the mix comes back; written with the song */
   await step('reference', async () => {

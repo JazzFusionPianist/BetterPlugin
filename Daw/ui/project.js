@@ -180,7 +180,7 @@ async function importAudio () {
 }
 
 /* ── the project on disk (the app only) ── */
-const KEEP_T = ['id', 'name', 'col', 'shape', 'tone', 'theirs', 'kind', 'vol', 'def', 'pan', 'mute', 'solo', 'inp', 'out', 'parent', 'open', 'h', 'sends', 'autos', 'ap', 'patch', 'midi', 'buf0', 'grp', 'alt', 'inst']
+const KEEP_T = ['id', 'name', 'col', 'shape', 'tone', 'theirs', 'kind', 'vol', 'def', 'pan', 'mute', 'solo', 'inp', 'out', 'parent', 'open', 'h', 'sends', 'autos', 'ap', 'patch', 'midi', 'buf0', 'grp', 'alt', 'inst', 'disabled']
 const KEEP_R = ['id', 'a', 'b', 'off', 'gain', 'mute', 'fi', 'fo', 'loop', 'rate', 'sec', 'srcBars', 'tag', 'name', 'file', 'tr', 'ft', 'flex', 'rev', 'fx', 'col', 'shape', 'fic', 'foc', 'grp', 'bpm', 'xo', 'sm', 'px', 'py', 'notes', 'ctl', 'q', 'qs', 'sw', 'vel', 'rep', 'chords']
 function serialize () {
   return JSON.stringify({
@@ -196,7 +196,7 @@ function serialize () {
       o.regs = kept(t.regs)
       if ((t.alts || []).length) o.alts = t.alts.map(a => ({ name: a.name, regs: kept(a.regs) }))
       if (t.wall && typeof wallSaved === 'function') o.wall = wallSaved(t)                 // (wall.js: how its patch is wired)
-      o.inserts = (t.inserts || []).filter(i => i.id).map(i => Object.assign({ id: i.id, name: i.name, fmt: i.fmt, state: i.state || '' }, i.off ? { off: true } : {}, i.out ? { out: true } : {}, i.key ? { key: i.key } : {}, i.n ? { n: i.n } : {}, i.pn ? { pn: i.pn } : {}))
+      o.inserts = (t.inserts || []).filter(i => i.id).map(i => Object.assign({ id: i.id, name: i.name, fmt: i.fmt, state: i.state || '' }, i.off ? { off: true } : {}, i.key ? { key: i.key } : {}, i.n ? { n: i.n } : {}, i.pn ? { pn: i.pn } : {}))
       return o
     }),
   })
@@ -428,6 +428,7 @@ async function loadProjectNow (key, json, free) {
     const t = Object.assign({ n: null, kind: 'audio', pan: 0, inp: 0, out: 0, parent: null, open: true, sends: [], autos: {}, ap: 'vol', arm: false, mon: false }, o, { inserts: [] })
     if (!(t.h >= ROW_MIN && t.h <= ROW_MAX)) delete t.h                                    // (a row's own height, when it was pulled to one)
     delete t.c; delete t.own                                                             // a project from before colours were read from what a track holds
+    if (t.inst) { t.inst = Object.assign({}, t.inst); delete t.inst.out }               // (an instrument written as left out — it did not open on another Mac — is tried again here)
     if (d.demo && MOCK_PATCH[t.name] && JSON.stringify(t.patch) === JSON.stringify(MOCK_PATCH[t.name])) t.patch = NO_PATCH()          // the first song's mock-up patch, exactly as it was put there and never touched: taken off
     const back = list => list.map(q => Object.assign({ off: 0, gain: 0, mute: false, fi: 0, fo: 0 }, q, q.file && !q.loop && !q.notes ? { missing: true, wait: true } : {})).filter(q => q.notes ? Array.isArray(q.notes) : q.loop ? LOOPS[q.buf] : q.key || q.missing)      // (its sound is still to come: soundsRead. One not found is never let go of: its region stays, says so, and is written back as it was — missing.js)
     t.regs = back(o.regs)
@@ -460,6 +461,7 @@ async function loadProjectNow (key, json, free) {
     const t = byId(d.tracks[i].id)
     if (gen !== SOUNDS.gen) return true
     if (!t) continue
+    delete ins.out                                                                     // (written as left out by an older version — it did not open on another Mac: tried again here)
     if (!ins.out) { c.pd = plugN++; c.what = ins.name; openingTell() }
     const kept = { uid: 0, name: ins.name || 'plug-in', fmt: ins.fmt || '', id: ins.id, state: ins.state || '', off: !!ins.off, key: ins.key || 0, n: ins.n || 0, pn: ins.pn || null, out: true }
     if (ins.out || LOAD.bare || DISTRUST.has(ins.id)) { t.inserts.push(kept); if (!ins.out) LOAD.left.push(kept.name); continue }

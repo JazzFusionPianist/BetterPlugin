@@ -455,6 +455,7 @@ struct Track
     std::vector<Auto> autos;
     std::atomic<float> vol { 1.0f }, gate { 1.0f }, pan { 0.0f }, tape { 0.0f }, space { 0.0f }, delay { 0.0f }, peak { 0.0f };
     std::atomic<bool> mon { false };
+    std::atomic<bool> dead { false };            // switched off (his ask, 2026-10-20: for the processor's sake): nothing of it is worked — no region read, no instrument, no plug-in, no patch — and it is silent
     std::atomic<int> ahead { 0 };                // how late its plug-ins hand sound over, and those of the buses on its longest way to the stereo out: its regions are read that much early
     std::atomic<int> early { 0 }, earlyIn { 0 }; // how much earlier than the playhead the sound is where it leaves the track (the lateness of the buses still to come), and where it goes into the track's patch (that, and its own): its lines are read as early, so that a line changes the sound at the bar it is drawn at
     std::atomic<int> input { 0 };                // 0..15: that input alone; 100 + p: inputs 2p+1 and 2p+2 as a pair
@@ -1022,6 +1023,7 @@ public:
         t->space.store (juce::jlimit (0.0f, 1.0f, (float) (double) tv["space"]));
         t->delay.store (juce::jlimit (0.0f, 1.0f, (float) (double) tv["delay"]));
         t->mon.store ((int) tv["mon"] != 0);
+        t->dead.store ((int) tv["dead"] != 0);
         t->input.store ((int) tv["input"]);
         t->live.store ((int) tv["live"] != 0);
         if (auto* sd = tv["sends"].getArray()) for (int k = 0; k < juce::jmin (3, sd->size()); ++k) t->sends[k].gain.store ((float) (double) (*sd)[k]["gain"]);
@@ -1406,6 +1408,22 @@ public:
     }
 
     /** `at`: where among the track's plug-ins it goes (-1: after the last). */
+    /** Where a VST3 lies on this Mac. A project keeps a VST3 by its path; on another Mac the same plug-in may lie in the
+        user's own folder instead of the system's (or the other way round), under another user's name, or in a folder of
+        its maker's: when the path is not there, it is looked for by its file's name in both plug-in folders. */
+    static String vst3Where (const String& ident)
+    {
+        const juce::File f (ident);
+        if (! ident.endsWithIgnoreCase (".vst3") || f.exists()) return ident;
+        const auto name = f.getFileName();
+        for (auto dir : { juce::File ("/Library/Audio/Plug-Ins/VST3"), juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Audio/Plug-Ins/VST3") })
+        {
+            if (dir.getChildFile (name).exists()) return dir.getChildFile (name).getFullPathName();
+            for (const auto& e : juce::RangedDirectoryIterator (dir, true, "*.vst3", juce::File::findDirectories))      // (in a folder of its maker's, a level or two down)
+                if (e.getFile().getFileName() == name) return e.getFile().getFullPathName();
+        }
+        return ident;
+    }
     void insertPlugin (int trackId, const String& ident, const String& state, bool show, std::function<void (juce::var)> done, int at = -1, bool asInst = false)
     {
         auto fail = [done] (const String& why) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); o->setProperty ("error", why); logLine ("insert failed: " + why); done (juce::var (o)); };
@@ -1445,7 +1463,9 @@ public:
         else
         {
             juce::OwnedArray<juce::PluginDescription> found;
-            for (auto* f : fm.getFormats()) if (f->getName() == "VST3") f->findAllTypesForFile (found, ident);
+            const auto where = vst3Where (ident);
+            if (where != ident) logLine ("insert: " + ident + " is not there; found at " + where);
+            for (auto* f : fm.getFormats()) if (f->getName() == "VST3") f->findAllTypesForFile (found, where);
             const juce::PluginDescription* pick = nullptr;
             for (auto* p : found) if (p->isInstrument == asInst) { pick = p; break; }
             if (pick == nullptr) { Marker::clear ("doing"); fail (found.isEmpty() ? "could not be read" : asInst ? "an effect, not an instrument" : "an instrument, not an effect"); return; }
@@ -3726,7 +3746,9 @@ private:
         const int n = st.n;
         float* L = t.work.getWritePointer (0); float* R = t.work.getWritePointer (1);
         const bool kept = tap != nullptr && tap->t == &t;
-        if (t.kind == 0)
+        const bool dead = t.dead.load (std::memory_order_relaxed);
+        if (dead) { juce::FloatVectorOperations::clear (L, n); juce::FloatVectorOperations::clear (R, n); }      // (what flowed into it — sends, a stack's tracks — goes no further)
+        if (t.kind == 0 && ! dead)
         {
             if (st.rolling) { const juce::int64 early = t.ahead.load(); for (auto& r : t.regs) addRegion (*st.bufs, r, st.pos + early, n, st.barS, L, R, st.endBar); }
             if (st.in != nullptr && t.mon.load())
@@ -3737,7 +3759,7 @@ private:
             }
             if (t.notes || t.built != nullptr || t.plug != nullptr) playNotes (t, st, L, R);
         }
-        if (! (kept && tap->dry)) renderTrack (t, st.pos, n, st.rolling, st.barS, st.rolling ? st.bar0 + (double) t.earlyIn.load() / st.barS : st.bar0);
+        if (! (kept && tap->dry) && ! dead) renderTrack (t, st.pos, n, st.rolling, st.barS, st.rolling ? st.bar0 + (double) t.earlyIn.load() / st.barS : st.bar0);
         if (kept && tap->pre) { tap->buf.copyFrom (0, 0, L, n); tap->buf.copyFrom (1, 0, R, n); }
         if (t.printLive != nullptr && t.printLive->pre && n <= t.printLive->buf.getNumSamples()) { t.printLive->buf.copyFrom (0, 0, L, n); t.printLive->buf.copyFrom (1, 0, R, n); }      // (a realtime print before the fader)
 

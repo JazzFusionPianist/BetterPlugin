@@ -1,6 +1,7 @@
 /* ── cassette: a tape deck of the eighties (design/themes draft 2, sheet 2) ──
    Over the room the deck: the cassette in its window (its reels turn as the song goes, the tape passes from one to the
-   other), an LCD with seven-segment figures, six piano keys, the maker's name and its switches as pills with lights;
+   other), an LCD with seven-segment figures, six piano keys, its switches as pills with lights (no name on it: neither the
+   song's nor the program's, his rule);
    under it the stripes. At its foot the out, lit as a deck's display is. The heads at the right, each a cassette's
    spine: its colour, its number, its name typed, a row of lights, pills for its buttons. The markers a J-card; the
    cycle a stripe; the mixer a slider and a column of lights to a strip. The deck's labels are set in the room's face,
@@ -85,8 +86,7 @@ SKINS.top.cassette = () => {
   s += R(wx - 2, wy - 2, ww + 4, wh + 4, { rx: 6, fill: '#BFB197' }) + R(wx, wy, ww, wh, { rx: 5, fill: 'url(#cs-win)' })
   s += R(kx, ky, kw, kh, { rx: 4, fill: '#2A2622', stroke: '#4A423B', sw: .7 }) + R(kx + 7, ky + 5, kw - 14, kh - 22, { rx: 2.5, fill: '#F2EADB' })
   ;[CS.orange, CS.amber, CS.teal].forEach((c, i) => { s += R(kx + 7, ky + 27 + i * 3.4, kw - 14, 3, { fill: c }) })
-  const name = typeof PROJ === 'object' && PROJ.name ? PROJ.name : 'untitled'
-  s += T(kx + 13, ky + 17, fit(asGiven(name), kw - 70, 10, 700), { size: 10, w: 700, c: '#2A2420' }) + csTx(kx + kw - 13, ky + 16, 'SIDE A', { anchor: 'end', c: CS.orange, size: 6.6 })
+  s += R(kx + 13, ky + 12, kw - 70, .7, { fill: '#2A2420', fa: .25 }) + R(kx + 13, ky + 19, kw - 70, .7, { fill: '#2A2420', fa: .25 }) + csTx(kx + kw - 13, ky + 16, 'SIDE A', { anchor: 'end', c: CS.orange, size: 6.6 })      // (the label left blank, ruled)
   const hy = ky + kh - 13
   CSX.reels = [kx + 57, kx + kw - 57, hy]
   s += R(kx + 44, hy - 12, kw - 88, 22, { rx: 11, fill: '#1A1512' }) + G(csReel(kx + 57, hy, 'cs-rl') + csReel(kx + kw - 57, hy, 'cs-rr'), '', ' clip-path="url(#cs-reelwin)"') + `<clipPath id="cs-reelwin"><rect x="${kx + 44}" y="${hy - 12}" width="${kw - 88}" height="22" rx="11"/></clipPath>`
@@ -108,15 +108,14 @@ SKINS.top.cassette = () => {
     s += t === 'REC' ? Cc(gx, gy, 3, { fill: c }) : t === 'REW' ? P(`M${gx} ${gy - 4}l-6 4l6 4zM${gx + 6} ${gy - 4}l-6 4l6 4z`, { fill: c }) : t === 'PLAY' ? P(`M${gx - 3} ${gy - 4.5}l7.5 4.5l-7.5 4.5z`, { fill: c }) : t === 'F.F' ? P(`M${gx - 6} ${gy - 4}l6 4l-6 4zM${gx} ${gy - 4}l6 4l-6 4z`, { fill: c }) : t === 'STOP' ? R(gx - 3, gy - 3, 6, 6, { fill: c }) : R(gx - 4, gy - 4, 2.6, 8, { fill: c }) + R(gx + 1.4, gy - 4, 2.6, 8, { fill: c })
     s += csTx(gx, y + 50, t, { size: 5.8, c, anchor: 'middle', ls: .5, a: .85 }) + hit(x, 16, bw, 66, a)
   })
-  /* the maker's name; the switches */
+  /* the switches */
   const kEnd = bx0 + 6 * (bw + 3), rx = Math.max(kEnd + 20, W - 330)
-  if (W - kEnd > 240) s += csTx(W - 20, 34, 'SLUR STUDIO', { size: 13, c: CS.dark, ls: 2.4, anchor: 'end' }) + csTx(W - 20, 48, 'ST-8 STEREO CASSETTE DECK', { size: 6.2, anchor: 'end' })
   const pills = [['CYCLE', S.cycle.on, CS.amber, 'loop', 64], ['CLICK', !!S.click, CS.amber, 'click', 60], [toolWord(S.tool).toUpperCase(), true, CS.teal, 'toolmenu', 72], [`GRID ${S.grid}`, null, null, 'grid', 72]]
   let px = rx
-  for (const [t, on, col, a, w] of pills) { if (px + w > W - 16) break; s += csBtn(px, 66, w, 13, t, on, col, a); if (a === 'grid') SKV.field.grid = { x: px, y: 66, w, h: 13 }; px += w + 4 }
+  for (const [t, on, col, a, w] of pills) { if (px + w > W - 16) break; s += csBtn(px, 38, w, 13, t, on, col, a); if (a === 'grid') SKV.field.grid = { x: px, y: 38, w, h: 13 }; px += w + 4 }
   const nw = `NUDGE ${S.nudge}`.toUpperCase(), ow = `OUT ${fmtDb(S.master)} DB`
-  s += csTx(rx, 96, nw, { size: 6.2 }) + hit(rx - 3, 86, 90, 14, 'nudge') + csTx(rx + 100, 96, ow, { size: 6.2 }) + hit(rx + 97, 86, 90, 14, 'master', '', 'ns-resize')
-  SKV.field.nudge = { x: rx - 3, y: 86, w: 90, h: 14 }
+  s += csTx(rx, 70, nw, { size: 6.2 }) + hit(rx - 3, 60, 90, 14, 'nudge') + csTx(rx + 100, 70, ow, { size: 6.2 }) + hit(rx + 97, 60, 90, 14, 'master', '', 'ns-resize')
+  SKV.field.nudge = { x: rx - 3, y: 60, w: 90, h: 14 }
   /* the stripes */
   ;[CS.orange, CS.amber, CS.teal, CS.navy].forEach((c, i) => { s += R(0, DH + i * 3, W, 3, { fill: c }) })
   return s

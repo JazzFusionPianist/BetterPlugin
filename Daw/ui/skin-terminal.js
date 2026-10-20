@@ -1,5 +1,6 @@
 /* ── terminal: the room as a terminal on a screen (design/themes draft 2, sheet 6) ──
-   Over the room the screen's first lines: its name inverse and its tabs, where the song is in large figures, the
+   Over the room the screen's first lines: its tabs (the open one inverse; no name: neither the song's nor the
+   program's, his rule), where the song is in large figures, the
    transport as words in brackets, its switches as words, the out in two rows of blocks. At its foot a status line,
    inverse. The tracks and the arrangement each in a frame with its title set into the line; a track a line of text, its
    level in blocks; a marker ├ and its name; the cycle in brackets, doubled; the playhead a ▼ and a line; the sound in
@@ -31,16 +32,14 @@ const tmSig = () => [W, H, X0, X1, RX, MK_Y, BY, VIEW.p > .5, S.panel.tab, S.pan
 SKINS.top.terminal = () => {
   const h = SKIN_BANDS.terminal[0], cw = tmCw(11), x0 = 22
   let s = R(0, 0, W, h, { fill: K1 })
-  /* the first line: the name, the tabs; at the right the song's name, tempo, metre, key */
-  s += tmInv(x0, 22, ' slur studio ')
-  let x = x0 + tw(' slur studio ', 11) + cw * 3
+  /* the first line: the tabs; at the right the tempo, metre, key */
+  let x = x0
   const now = !S.panel.on ? 'arrange' : S.panel.tab
   const tabs = [['arrange', 'arrange'], ['mixer', 'mixer'], ['patch', 'patch']].concat(typeof pRoll === 'function' ? [['notes', 'tab-notes']] : [], typeof pPrompt === 'function' ? [['prompt', 'tab-prompt']] : [])
-  tabs.forEach(([t, a], k) => { const w = `${k + 1}:${t}${now === t ? '*' : ''}`; s += tmT(x, 22, w, { a: now === t ? 1 : .75 }) + hit(x - 4, 8, tw(w, 11) + 8, 20, a); x += tw(w, 11) + cw * 2 })
+  tabs.forEach(([t, a], k) => { const w = ` ${k + 1}:${t} `; s += (now === t ? tmInv(x, 22, w) : tmT(x, 22, w, { a: .75 })) + hit(x - 4, 8, tw(w, 11) + 8, 20, a); x += tw(w, 11) + cw })
   let rx = W - 22
   const right = (w, a, field, al = .8) => { const ww = tw(w, 11); s += tmT(rx - ww, 22, w, { a: al }); if (a) { s += hit(rx - ww - 4, 8, ww + 8, 20, a); SKV.field[field || a] = { x: rx - ww - 4, y: 8, w: Math.max(60, ww + 8), h: 20 } } rx -= ww + cw * 3 }
   right(S.key || '—', 'key'); right(meterName(), 'meter'); right(`${(+S.tempo).toFixed(2)} bpm`, 'tempo')
-  if (typeof PROJ === 'object' && PROJ.name) right(fit(asGiven(PROJ.name), 240, 11), null, null, .6)
   /* where the song is, in large figures */
   const p = curPos(), c30 = tmCw(30), c20 = tmCw(20)
   s += tmT(x0, 66, readout(p), { size: 30, w: 500, x: ' xml:space="preserve" id="tm-pos"' }) + hit(x0 - 4, 38, c30 * 7.5, 34, 'pos')

@@ -1,5 +1,6 @@
 /* ── score: the song as an engraved page (design/themes draft 2, sheet 3) ──
-   Over the room, its title and the tempo as a metronome mark, where the playhead is as a bar number; at its foot the
+   Over the room the tempo as a metronome mark and, in the middle where a title would stand, where the playhead is as a
+   bar number (no name: neither the song's nor the program's, his rule); at its foot the
    transport as a line of type (circles for its keys, its words in italic). Each track a staff (the drums one line), its
    name in italic as a full score names its parts, its level as a dynamic; a region a phrase under a slur; the markers
    rehearsal marks; the cycle a pair of repeat barlines; the playhead a red pencil line. */
@@ -12,8 +13,6 @@ const scWordsOfMeter = () => S.meter[0] === 4 && S.meter[1] === 4 ? 'four in a b
 
 SKINS.top.score = () => {
   let s = R(0, 0, W, SKIN_BANDS.score[0], { fill: K1 })
-  const title = typeof PROJ === 'object' && PROJ.name ? PROJ.name : ''
-  s += T(W / 2, 40, asGiven(title), { size: 24, it: true, anchor: 'middle' }) + T(W / 2, 58, 'slur studio', { size: 9.5, w: 500, a: .6, anchor: 'middle' })
   /* the metronome mark: pressed, the tempo is typed */
   s += scNote(30, 46, .62) + T(40, 49, `= ${+(+S.tempo).toFixed(2)}`, { size: 13, w: 500 }) + hit(22, 28, 90, 26, 'tempo')
   SKV.field.tempo = { x: 52, y: 34, w: 60, h: 20 }
@@ -22,8 +21,8 @@ SKINS.top.score = () => {
   s += hit(150, 56, 60, 16, 'key'); SKV.field.key = { x: 150, y: 54, w: 60, h: 20 }
   /* where the playhead is: a bar, and the time */
   const p = curPos()
-  s += T(W - 30, 40, `bar ${Math.floor(p + 1e-6) + 1}`, { size: 15, it: true, anchor: 'end', x: ' id="sc-bar"' }) + T(W - 30, 58, scClock(p), { size: 10.5, a: .7, anchor: 'end', x: ' id="sc-time"' }) + hit(W - 130, 24, 104, 40, 'pos')
-  SKV.field.pos = { x: W - 130, y: 28, w: 100, h: 20 }
+  s += T(W / 2, 42, `bar ${Math.floor(p + 1e-6) + 1}`, { size: 22, it: true, x: ' text-anchor="middle" id="sc-bar"' }) + T(W / 2, 61, scClock(p), { size: 10.5, a: .7, x: ' text-anchor="middle" id="sc-time"' }) + hit(W / 2 - 80, 18, 160, 50, 'pos')
+  SKV.field.pos = { x: W / 2 - 50, y: 24, w: 100, h: 24 }
   return s + hline(0, W, SKIN_BANDS.score[0] - .5, .12)
 }
 const scClock = p => { const sec = p * SPB(), m = Math.floor(sec / 60), ss = Math.floor(sec % 60), t = Math.floor(sec * 10 % 10); return `${m}′ ${String(ss).padStart(2, '0')}″ ${t}` }

@@ -149,8 +149,6 @@ function skinBridge () {
   })
   const mx = W - 20 - mixW
   s += skVu(mx, 15, mw, mh, 'vu-L') + skVu(mx + mw + gap, 15, mw, mh, 'vu-R') + skEng(mx + mixW / 2, 87, 'mix   left   right', { anchor: 'middle', x: ' xml:space="preserve"' })
-  const plateX = 20 + Math.min(fits, list.length) * (mw + gap) + 16, plateW = mx - 24 - plateX
-  if (plateW > 160) s += R(plateX, 20, plateW, 40, { rx: 2, fill: '#1A140F' }) + `<text x="${plateX + 14}" y="38" font-family="${FONT}" font-size="10" font-weight="600" letter-spacing="3.2" fill="${lkC('win.k1', K1)}">SLUR STUDIO</text>` + `<text x="${plateX + 14}" y="52" font-family="${FONT}" font-size="7" font-weight="500" letter-spacing="2.2" fill="${SK.amber}">CONSOLE 8   SERIES II</text>` + (typeof PROJ === 'object' && PROJ.name ? T(plateX + plateW - 14, 46, fit(asGiven(PROJ.name), plateW - 150, 10), { size: 10, c: lkC('win.k1', K1), a: .8, anchor: 'end' }) : '')
   return s + hline(0, W, BRIDGE_H - .5, .25)
 }
 

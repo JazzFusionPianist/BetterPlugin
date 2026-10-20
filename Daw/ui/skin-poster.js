@@ -1,5 +1,6 @@
 /* ── poster: a composition of primary colours (design/themes draft 2, sheet 4: bauhaus) ──
-   Down the left a column that holds the transport as a poster would: where the song is in large figures, play a red
+   Down the left a column that holds the transport as a poster would (no name at its head: neither the song's nor the
+   program's, his rule): where the song is in large figures, play a red
    disc, stop a black square, record a red ring, the tempo a yellow disc, the metre a blue square, the cycle a yellow
    triangle, the out a ring filled as loud as the mix. At the foot a black band with the room's settings in it. A track
    its number large in its colour, its name, its buttons shapes (a square to mute, a circle to solo, a triangle to record);
@@ -22,21 +23,21 @@ const bhArc = (cx, cy, r, f) => { f = clamp(f, 0, .9999); const a = f * 2 * Math
 
 /* the column down the left (its x counted from the column's own edge: the room starts where it ends) */
 SKINS.left.poster = () => {
-  const CW = SKIN_BANDS.poster[2], p = curPos(), [bar, rest] = bhSplit(p), o = -CW
-  let s = R(0, 0, CW, H, { fill: K1 }) + R(CW - 3, 0, 3, H, { fill: BH.black })
-  s += T(20, 40, 'slur', { size: 28, w: 700 }) + T(22, 53, 'S T U D I O', { size: 7, w: 600, x: ' xml:space="preserve"' })
+  const CW = SKIN_BANDS.poster[2], p = curPos(), [bar, rest] = bhSplit(p), o = -CW, up = 40      // (up: the composition starts at the column's head)
+  const ground = R(0, 0, CW, H, { fill: K1 }) + R(CW - 3, 0, 3, H, { fill: BH.black })
+  let s = ''
   BHX.rest = 18 + tw(bar, 64, 700) + 2
   s += T(18, 132, bar, { size: 64, w: 700, x: ' id="bh-bar"' }) + T(BHX.rest, 132, rest, { size: 22, w: 600, c: BH.red, x: ' id="bh-rest"' }) + T(20, 154, clock(p), { size: 14, w: 500, x: ' id="bh-time"' }) + hit(14, 70, 170, 90, 'pos')
-  SKV.field.pos = { x: o + 18, y: 84, w: 150, h: 52 }
+  SKV.field.pos = { x: o + 18, y: 84 - up, w: 150, h: 52 }
   const play = S.playing && !S.rec
   s += Cc(42, 200, 22, { fill: BH.red }) + (play ? R(34, 190, 6, 20, { fill: BH.paper }) + R(45, 190, 6, 20, { fill: BH.paper }) : P('M35 189L35 211L53 200Z', { fill: BH.paper })) + hit(18, 176, 48, 48, 'play')
   s += R(78, 184, 32, 32, { fill: BH.black }) + R(88, 194, 12, 12, { fill: BH.paper }) + hit(74, 180, 40, 40, 'stop')
   s += (S.rec ? Cc(143, 200, 15, { fill: BH.red }) : Cc(143, 200, 13, { stroke: BH.red, sw: 4.5 })) + hit(124, 181, 38, 38, 'rec')
   s += R(18, 238, 2.5, 16, { fill: BH.black }) + P('M33 238L33 254L21 246Z', { fill: BH.black }) + T(40, 250, 'to the start', { size: 10 }) + hit(14, 234, 110, 24, 'tostart')
   s += Cc(42, 296, 22, { fill: BH.yellow }) + T(42, 301, String(Math.round(S.tempo * 100) / 100), { size: S.tempo >= 100 ? 14 : 17, w: 700, anchor: 'middle' }) + T(42, 312, 'B P M', { size: 5.5, w: 600, anchor: 'middle', x: ' xml:space="preserve"' }) + hit(18, 272, 48, 48, 'tempo')
-  SKV.field.tempo = { x: o + 14, y: 286, w: 60, h: 20 }
+  SKV.field.tempo = { x: o + 14, y: 286 - up, w: 60, h: 20 }
   s += R(78, 280, 32, 32, { fill: BH.blue }) + T(94, 300, meterName(), { size: 11, w: 600, c: BH.paper, anchor: 'middle' }) + hit(74, 276, 40, 40, 'meter')
-  SKV.field.meter = { x: o + 78, y: 280, w: 32, h: 32 }
+  SKV.field.meter = { x: o + 78, y: 280 - up, w: 32, h: 32 }
   const c = S.cycle
   s += P('M124 312L139 282L154 312Z', c.on ? { fill: BH.yellow } : { stroke: BH.yellow, sw: 3, x: ' stroke-linejoin="round"' }) + hit(120, 276, 40, 40, 'loop')
   s += T(20, 344, 'cycle', { size: 10, w: 600 }) + T(60, 344, c.on ? `bars ${Math.round(c.a + 1)} to ${Math.round(c.b)}` : 'off', { size: 10, a: .6 }) + hit(14, 332, 170, 16, 'loop')
@@ -44,13 +45,13 @@ SKINS.left.poster = () => {
   s += ring(364, !!S.click, `click ${S.click ? 'on' : 'off'}`, 'click') + ring(384, !!S.lowLat, `low latency ${S.lowLat ? 'on' : 'off'}`, 'lowlat')
   /* the out: a ring as loud as the mix, its level in the middle */
   if (H > 600) {
-    const mx = 98, my = Math.max(500, Math.min(540, H - 130))
+    const mx = 98, my = Math.max(500, Math.min(540, H - 130)) + up / 2
     BHX.donut = [mx, my]
     s += P(`M8 ${my - 110}L188 ${my + 100}`, { stroke: BH.black, sw: 2 }) + Cc(mx, my, 66, { fill: BH.blue }) + P('', { fill: BH.black, x: ' id="bh-donut"' })
     s += Cc(mx, my, 38, { fill: BH.paper }) + T(mx, my + 4, fmtDb(S.master), { size: 17, w: 700, anchor: 'middle' }) + T(mx, my + 16, 'O U T', { size: 6, w: 600, anchor: 'middle', x: ' xml:space="preserve"' }) + Cc(168, my - 88, 10, { fill: BH.red })
     s += hit(mx - 40, my - 40, 80, 80, 'master', '', 'ns-resize')
   } else BHX.donut = null
-  return G(s, `translate(${o} 0)`)
+  return G(ground + G(s, `translate(0 ${-up})`), `translate(${o} 0)`)
 }
 /* the foot: a black band, the room's settings in it */
 SKINS.foot.poster = y0 => {

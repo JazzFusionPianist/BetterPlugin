@@ -38,11 +38,10 @@ SKINS.foot.blueprint = y0 => {
   const bw = 430, bh = 92, bx0 = W - 26 - bw, by0 = y0 + 10
   s += R(bx0, by0, bw, bh, { fill: K2, fa: .6 }) + R(bx0 + .5, by0 + .5, bw - 1, bh - 1, { stroke: INK, sw: 1.2 })
   const cell = (x, y, w, h, k, v, big, a, id) => R(x + .5, y + .5, w - 1, h - 1, { stroke: INK, sw: .6, sa: .8 }) + T(x + 5, y + 9, k, { size: 5.8, a: .65 }) + T(x + 5, y + h - 6, v, { size: big ? 12 : 9, w: big ? 600 : 500, x: id ? ` id="${id}"` : '' }) + (a ? hit(x, y, w, h, a) : '')
-  const name = typeof PROJ === 'object' && PROJ.name ? PROJ.name : ''
-  s += cell(bx0, by0, 215, 30, 'project', asGiven(name.toUpperCase()), true) + cell(bx0 + 215, by0, 108, 30, 'drawn by', 'slur studio') + cell(bx0 + 323, by0, 107, 30, 'key', S.key ? asGiven(S.key.toUpperCase()) : '—', false, 'key')
-  const p = curPos()
-  s += cell(bx0, by0 + 30, 108, 30, 'bar', readout(p), true, 'pos', 'bp-bar') + cell(bx0 + 108, by0 + 30, 107, 30, 'time', clock(p), true, null, 'bp-time') + cell(bx0 + 215, by0 + 30, 108, 30, 'tempo', (+S.tempo).toFixed(2), false, 'tempo') + cell(bx0 + 323, by0 + 30, 107, 30, 'metre', meterName(), false, 'meter')
-  SKV.field.pos = { x: bx0 + 2, y: by0 + 38, w: 100, h: 20 }; SKV.field.tempo = { x: bx0 + 217, y: by0 + 38, w: 100, h: 20 }; SKV.field.key = { x: bx0 + 325, y: by0 + 8, w: 100, h: 20 }; SKV.field.meter = { x: bx0 + 323, y: by0 + 30, w: 107, h: 30 }
+  const p = curPos()                                                                 // (no name in it: neither the song's nor the program's, his rule)
+  s += cell(bx0, by0, 215, 30, 'bar', readout(p), true, 'pos', 'bp-bar') + cell(bx0 + 215, by0, 215, 30, 'time', clock(p), true, null, 'bp-time')
+  s += cell(bx0, by0 + 30, 108, 30, 'tempo', (+S.tempo).toFixed(2), false, 'tempo') + cell(bx0 + 108, by0 + 30, 107, 30, 'metre', meterName(), false, 'meter') + cell(bx0 + 215, by0 + 30, 108, 30, 'key', S.key ? asGiven(S.key.toUpperCase()) : '—', false, 'key') + cell(bx0 + 323, by0 + 30, 107, 30, 'grid', S.grid, false, 'grid')
+  SKV.field.pos = { x: bx0 + 2, y: by0 + 8, w: 200, h: 20 }; SKV.field.tempo = { x: bx0 + 2, y: by0 + 38, w: 100, h: 20 }; SKV.field.meter = { x: bx0 + 108, y: by0 + 30, w: 107, h: 30 }; SKV.field.key = { x: bx0 + 217, y: by0 + 38, w: 100, h: 20 }; SKV.field.grid = { x: bx0 + 323, y: by0 + 30, w: 107, h: 30 }
   s += R(bx0 + .5, by0 + 60.5, bw - 1, 31, { stroke: INK, sw: .6, sa: .8 }) + T(bx0 + 5, by0 + 69, 'transport', { size: 5.8, a: .65 })
   const tr = [['tostart', '⏮'], ['play', '▶'], ['stop', '■'], ['rec', '●']]
   tr.forEach(([a, g], k) => { const x = bx0 + 96 + k * 32, y = by0 + 77, on = a === 'play' ? S.playing && !S.rec : a === 'rec' ? !!S.rec : false; s += Cc(x, y, 9.5, on ? { fill: INK } : { stroke: INK, sw: .8 }) + `<text x="${x + (a === 'play' ? 1 : 0)}" y="${y + 3.2}" text-anchor="middle" font-size="8.5" fill="${on ? K1 : a === 'rec' ? BPR.red : INK}">${g}</text>` + hit(x - 12, y - 12, 24, 24, a) })
@@ -51,7 +50,7 @@ SKINS.foot.blueprint = y0 => {
   /* the rest of the drawing's notes, at the left */
   const note = (x, k, v, a) => { const t = `${k} ${v}`; SKV.field[a] = { x: x - 4, y: y0 + 22, w: tw(t, 8) + 8, h: 18 }; return T(x, y0 + 34, t, { size: 8, x: ' xml:space="preserve"' }) + (a ? hit(x - 4, y0 + 22, tw(t, 8) + 8, 18, a) : '') }
   let nx = 30
-  for (const [k, v, a] of [['grid', S.grid, 'grid'], ['nudge', S.nudge, 'nudge'], ['out', fmtDb(S.master) + ' db', 'master']]) { s += note(nx, k, v, a); nx += tw(`${k} ${v}`, 8) + 26 }
+  for (const [k, v, a] of [['nudge', S.nudge, 'nudge'], ['out', fmtDb(S.master) + ' db', 'master']]) { s += note(nx, k, v, a); nx += tw(`${k} ${v}`, 8) + 26 }
   s += T(30, y0 + 58, 'notes', { size: 6, a: .6 }) + T(30, y0 + 72, '1.  all regions shown hatched in section.', { size: 7.5, a: .7 }) + T(30, y0 + 86, '2.  the centre line in red is where the song is.', { size: 7.5, a: .7 })
   return s
 }

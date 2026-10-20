@@ -1398,6 +1398,7 @@ function onDown (e) {
     case 'new-out': { const o = S.newT; openMenu(p.x - 10, p.y + 12, [{ t: 'stereo out', v: 0, on: !o.out }].concat(S.tracks.filter(b => b.kind !== 'audio').map(b => ({ t: b.name, k: b.kind, v: b.id, on: o.out === b.id }))), it => { o.out = it.v; uiDirty('new') }); break }
     case 'new-make': makeNewTracks(); break
     case 'toolmenu': { const at = typeof skinMenuAt === 'function' && skinMenuAt('toolmenu'); if (S.menu) { S.menu = null; uiDirty('menu') } else { openToolMenu(at ? at.x : p.x - 10, at ? at.y : TOOL_Y + TOOL_H + 2); if (at && at.up && S.menu) S.menu.up = true } break }
+    case 'tool2menu': if (S.menu) { S.menu = null; uiDirty('menu') } else openToolMenu(p.x - 10, TOOL_Y + TOOL_H + 2, true); break
     case 'pick': { const m = S.menu, it = m && m.items[i]; if (!(m && m.keep)) S.menu = null; uiDirty('menu'); if (it) m.pick(it); break }      // (keep: a list of which several are chosen stays up)
     case 'menu-close': S.menu = null; uiDirty('menu'); break
     case 'sheet-close': S.sheet = false; uiDirty('sheet', 'cmd'); syncSlur(); break

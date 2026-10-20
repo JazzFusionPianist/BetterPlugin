@@ -2,8 +2,11 @@
    What stands on a patch — Patch on Slur's prints, drawn as it draws them (prints.js), and plug-ins from outside — stands
    on a wall and is wired from port to port, the way it is in Patch on Slur: an output goes to as many inputs as it is given
    wires, a `mix` takes any number of wires and a level rides each of them, and ways that run side by side are lined up by
-   the engine. A wall begins with `in` and `out` and nothing between them: the sound goes by untouched until something is
-   wired from in to out. Scrolling over the wall makes it nearer or further; its ground is pulled about by hand.
+   the engine. A wall begins with `in` far at the left and `out` far at the right and one wire between them (his ask,
+   2026-10-20: they stood too close, and the line was not there): the sound goes by untouched. What is picked from the
+   list is set on that line, at its end, to the right of what was there, and wired in. Scrolling over the wall makes it
+   nearer or further; its ground is pulled about with option held (a plain drag on it chooses what it passes over:
+   wallorg.js).
 
    A track keeps its wall as t.wall = { nodes, wires, z, ox, oy, in: {x, y}, out: {x, y} }.
      a node:  { id, k, x, y, … }   k is a print's name ('tape', 'comp', 'mix', …) or 'plug'
@@ -15,6 +18,7 @@
 
    This script is read after the room's own hands are made (it takes the patch's place on the panel, and the list's). */
 const WALL_IN = -1, WALL_OUT = -2, WALL_MAX = 16, WALL_R = 30, WALL_E = 39
+const WALL_SPAN = 880, WALL_STEP = 150                                                     // (how far apart in and out stand at the least; how far a thing set on the line stands from the one before it)
 /* ── the prints are Patch on Slur's ──
    What they are called, their families and flavours, where a new one rests, how its amount is said and read back, and
    every hand of its study come from the plug-in's own catalog: catalog.js, made from its printCatalog.ts on every build
@@ -71,6 +75,7 @@ function wallHands (k, node) {
   })
 }
 
+let PICK_HI = null                                                                        // (the row of the list pressed once: return puts it on)
 const WALL = { sel: null, drag: null, g: null, sent: new Map(), last: 0, lastId: null, bad: new Map(), loose: null, out: false, outTold: false }
 /* The stereo out has a wall too. It is not one of the song's tracks: it is kept here (OUT), and written into a project
    beside them. While something stands on its wall the engine is told of it as a bus that every track plays into on its
@@ -144,11 +149,22 @@ function wallOf (t) {
       const m = put(wallNew('mix')); w.wires.push({ from: a, to: m, gain: clamp(p.share / 100, 0, 1), port: 0 }, { from: b, to: m, gain: clamp(1 - p.share / 100, 0, 1), port: 0 }); last = [m]; x += 146
     } else if (on('space') || on('delay')) { const id = put(wallNew(on('space') ? 'space' : 'delay')); join(id); last = [id]; x += 146 }
     for (const ins of t.inserts) { const id = put({ k: 'plug', ins }); join(id); last = [id]; x += 100 }
-    if (w.nodes.length) for (const f of last) w.wires.push({ from: f, to: WALL_OUT, gain: 1, port: 0 })
+    for (const f of last) w.wires.push({ from: f, to: WALL_OUT, gain: 1, port: 0 })        // (nothing on it: in is wired straight to out)
     w.in = { x: 40, y: 0 }; w.out = { x: Math.max(260, x - (w.nodes.length ? 20 : 0)), y: 0 }
   }
   if (!w.in) w.in = { x: 40, y: 0 }
   if (!w.out) w.out = { x: 260, y: 0 }
+  /* once for every wall, an old one too: in and out stand far apart, round what is between them; a wall with nothing on
+     it and no wire is given the one from in to out */
+  if (!w.wide) {
+    const xs = w.nodes.map(q => q.x), lo = xs.length ? Math.min(...xs) : w.in.x, hi = xs.length ? Math.max(...xs) : w.out.x
+    w.in.x = Math.min(w.in.x, lo - WALL_STEP); w.out.x = Math.max(w.out.x, hi + WALL_STEP)
+    const more = WALL_SPAN - (w.out.x - w.in.x)
+    if (more > 0) { w.in.x -= more / 2; w.out.x += more / 2 }
+    w.in.x = Math.round(w.in.x); w.out.x = Math.round(w.out.x)
+    if (!w.nodes.length && !w.wires.length) w.wires.push({ from: WALL_IN, to: WALL_OUT, gain: 1, port: 0 })
+    w.wide = 1; w.z = 0
+  }
   w.v = typeof isInst === 'function' && isInst(t) ? 1 : 0                                 // (a track of notes: its instrument stands where in would, and the wires start at its side)
   /* a plug-in written into a project by its place among the track's plug-ins is found again as they are opened */
   const own = t.inserts.filter(i => i.id || i.uid)
@@ -157,9 +173,9 @@ function wallOf (t) {
      picked from the wall's own list it stands unwired, to be wired by hand (wallPick); put on the track any other way (a
      command, a copy of a track, the check) it joins the end of the way, as a plug-in always did */
   for (const n of w.nodes.slice()) if (n.k === 'plug' && n.ins && !t.inserts.includes(n.ins)) wallTake(w, n.id)
-  if (!w.nodes.some(n => n.k === 'plug' && !n.ins && n.p != null)) for (const ins of t.inserts) if (!w.nodes.some(n => n.ins === ins)) { const id = wallFree(w); if (id < 0) break; const at = wallSpot(w); w.nodes.push({ id, k: 'plug', ins, x: at.x, y: at.y }); if (WALL.loose !== t.id) wallAppend(w, id) }
+  if (!w.nodes.some(n => n.k === 'plug' && !n.ins && n.p != null)) for (const ins of t.inserts) if (!w.nodes.some(n => n.ins === ins)) { const id = wallFree(w); if (id < 0) break; const loose = WALL.loose === t.id, at = loose ? wallSpot(w) : wallNextSpot(w); w.nodes.push({ id, k: 'plug', ins, x: at.x, y: at.y }); if (!loose) wallAppend(w, id) }
   /* a print turned up from somewhere else (the command line, a template) while it has no place: it joins the way out */
-  if (t.patch) for (const k of PRINTS3) if (patchNow(t)[k] > .5 && !w.nodes.some(n => n.k === k)) { const id = wallFree(w); if (id < 0) break; const at = wallSpot(w); w.nodes.push(Object.assign(wallNew(k, at.x, at.y), { id })); wallAppend(w, id) }
+  if (t.patch) for (const k of PRINTS3) if (patchNow(t)[k] > .5 && !w.nodes.some(n => n.k === k)) { const id = wallFree(w); if (id < 0) break; const at = wallNextSpot(w); w.nodes.push(Object.assign(wallNew(k, at.x, at.y), { id })); wallAppend(w, id) }
   return w
 }
 /* a free place on the ground, near the middle of what stands there */
@@ -170,6 +186,16 @@ function wallSpot (w) {
     if (![w.in, w.out].concat(w.nodes).some(q => Math.hypot(q.x - x, q.y - y) < 84)) return { x, y }
   }
   return { x: cx, y: cy + 110 }
+}
+/* where a thing set at the end of the way stands: on the line, to the right of the last thing that plays into out (on in's
+   height when nothing does, or when several ways come into out side by side) — and out moves on to make room */
+function wallNextSpot (w) {
+  const feeds = w.wires.filter(e => e.to === WALL_OUT && !wallCtl(e) && e.from !== WALL_IN).map(e => wallNode(w, e.from)).filter(Boolean)
+  const last = feeds.slice().sort((a, b) => b.x - a.x)[0], y = feeds.length === 1 ? last.y : w.in.y
+  let x = last ? last.x + WALL_STEP : w.in.x + WALL_STEP
+  while (w.nodes.some(q => Math.hypot(q.x - x, q.y - y) < 84)) x += 40
+  if (x > w.out.x - WALL_STEP * .8) { w.out.x = Math.round(x + WALL_STEP); w.z = 0 }
+  return { x: Math.round(x), y }
 }
 /* a node put at the end of the way: everything that went to out goes through it (nothing did: in, the node, out) */
 function wallAppend (w, id) {
@@ -255,7 +281,7 @@ if (NAT) setInterval(wallPushAll, 500)
 function wallSaved (t) {
   if (!t.wall) return undefined
   const own = (t.inserts || []).filter(i => i.id || i.uid)
-  return { nodes: t.wall.nodes.map(n => { const o = Object.assign({}, n); if (n.k === 'plug') { delete o.ins; o.p = n.ins ? own.indexOf(n.ins) : n.p } return o }).filter(o => o.k !== 'plug' || o.p >= 0), wires: copy(t.wall.wires), z: t.wall.z, ox: t.wall.ox, oy: t.wall.oy, in: copy(t.wall.in), out: copy(t.wall.out) }
+  return { nodes: t.wall.nodes.map(n => { const o = Object.assign({}, n); if (n.k === 'plug') { delete o.ins; o.p = n.ins ? own.indexOf(n.ins) : n.p } return o }).filter(o => o.k !== 'plug' || o.p >= 0), wires: copy(t.wall.wires), z: t.wall.z, ox: t.wall.ox, oy: t.wall.oy, in: copy(t.wall.in), out: copy(t.wall.out), wide: t.wall.wide || 0 }
 }
 
 /* a track's wall as a file Patch on Slur opens (the hand-off): its prints and their wires — a plug-in from outside is not a
@@ -277,8 +303,9 @@ const wallRate = n => { const a = n.aux || []; return a[0] === 1 ? `${((a[3] || 
 const wallView = (w, g) => { if (!w.z) wallFit(w, g); return { z: w.z, tx: g.cx - w.ox * w.z, ty: g.cy - w.oy * w.z } }
 function wallFit (w, g) {
   const all = [w.in, w.out].concat(w.nodes), x0 = Math.min(...all.map(q => q.x)) - 70, x1 = Math.max(...all.map(q => q.x)) + 70, y0 = Math.min(...all.map(q => q.y)) - 60, y1 = Math.max(...all.map(q => q.y)) + 86
-  w.z = clamp(Math.min((g.w - 24) / (x1 - x0), (g.h - 40) / (y1 - y0)), .45, 1)
-  w.ox = (x0 + x1) / 2; w.oy = (y0 + y1) / 2
+  const left = typeof MAC_W !== 'undefined' && typeof macTrack === 'function' && macTrack() ? MAC_W : 0      // (the macros' column stands over the wall's left: what is fitted is fitted beside it)
+  w.z = clamp(Math.min((g.w - left - 24) / (x1 - x0), (g.h - 40) / (y1 - y0)), .45, 1)
+  w.ox = (x0 + x1) / 2 - left / 2 / w.z; w.oy = (y0 + y1) / 2
 }
 const wallToWorld = (w, g, p) => ({ x: (p.x - g.cx) / w.z + w.ox, y: (p.y - g.cy) / w.z + w.oy })
 const wallOutPort = (w, id, port) => { const q = wallPos(w, id); if (id === WALL_IN) return { x: q.x + (w.v ? WALL_E : 7), y: q.y }; const n = wallNode(w, id), N = wallOuts(n), gap = N > 2 ? 11 : 26; return { x: q.x + (wallPlays(n) ? WALL_E - 12 : WALL_E), y: q.y + (N > 1 ? ((port || 0) - (N - 1) / 2) * gap : 0) } }      // (a control print is smaller: its port comes in)
@@ -528,14 +555,18 @@ function wallWheel (e) {
   return true
 }
 
-/* ── the list of what can be added: every print of Patch on Slur and every plug-in, by kind; what is picked is set on the wall, unwired ── */
+/* ── the list of what can be added: every print of Patch on Slur and every plug-in, by kind. What is picked (twice: his
+   ask, 2026-10-20 — once opened one, and the habit of a double press opened two) is set at the end of the way and wired
+   in; a print that plays other prints' hands, or has no way in, stands by itself, to be wired by hand ── */
+const wallInline = k => !PC.isControlType(WALL_TYPE[k]) && !PC.noInputType(WALL_TYPE[k]) && k !== 'side'
 function wallAdd (t, k) {
   const w = wallOf(t), id = wallFree(w)
   if (id < 0) return
-  const at = wallSpot(w)
+  const inline = wallInline(k), at = inline ? wallNextSpot(w) : wallSpot(w)
   const node = Object.assign(wallNew(k, at.x, at.y), { id })
   if (k === 'macro') { const used = new Set(w.nodes.filter(x => x.k === 'macro').map(x => (x.aux || [])[0] || 0)); let m = 0; while (used.has(m) && m < 7) m++; node.aux = PC.auxOf(WALL_TYPE.macro, m).concat([0, 0, 0, 0, 0, 0, 0, 0]).slice(0, 8) }      // (macro 1, 2… as on Patch on Slur's wall)
   w.nodes.push(node)
+  if (inline) wallAppend(w, id)
   if (WALL_LEGACY[k]) { setPrint(t, k, PRINT_START[k]); if (t !== OUT) pushTrack(t) }
   WALL.sel = { t: t.id, node: id }; S.focus = 'wall'
   wallPush(t); uiDirty('dock')
@@ -545,7 +576,7 @@ async function wallPick (p) {
   if (S.picker.busy || wallFree(w) < 0) return
   S.picker.busy = p.id
   $('pk-head').innerHTML = `<b>opening</b><span>${esc(p.name.toLowerCase())}</span>`
-  WALL.loose = slot ? null : t.id                                                          // (from a strip's slot: at the end of the way, wired, as the slot says)
+  WALL.loose = null                                                                       // (at the end of the way, wired in, as from a strip's slot)
   const also = t === OUT || typeof pickTracks !== 'function' ? [] : pickTracks().filter(i => i !== S.sel && wallFree(wallOf(S.tracks[i])) >= 0)
   let r
   if (t === OUT) {                                                                       // the stereo out: the engine holds it as a bus from now on, and the plug-in is opened on that
@@ -623,12 +654,15 @@ async function wallPick (p) {
       const el = document.createElement('button'), nm = document.createElement('b'), mk = document.createElement('span'), f = document.createElement('i')
       el.type = 'button'; el.className = 'pk-row'; if (mark) el.dataset.print = mark
       nm.textContent = name; mk.textContent = maker; f.textContent = kind
-      el.append(nm, mk, f); el.onclick = pick
+      el.append(nm, mk, f)
+      el.onclick = () => { for (const o of box.querySelectorAll('.pk-row.on')) o.classList.remove('on'); el.classList.add('on'); PICK_HI = pick }      // once: it is the one lit (return puts it on)
+      el.ondblclick = e => { e.preventDefault(); PICK_HI = null; pick() }                                                                    // twice: on the wall
       box.append(el)
     }
     for (const k of prints) row(k, 'slur', 'print', () => { if (t !== OUT && (S.panel.tab === 'mixer' || pickTracks().length > 1)) { fxPrintOn(k); closePicker() } else { wallAdd(t, k); drawPicker() } }, k)
     for (const p of list.slice(0, 500)) row(p.name.toLowerCase(), (p.maker || '').toLowerCase(), p.fmt, () => wallPick(p))
   }
+  $('pk-q').addEventListener('keydown', e => { if (e.key === 'Enter' && PICK_HI && S.picker.what === 'fx') { e.preventDefault(); const p = PICK_HI; PICK_HI = null; p() } })
   /* a plug-in opened on a track is on its wall, and the engine told, before whoever asked for it goes on (it plays nothing
      until the engine knows its place) */
   { const ni0 = natInsert; natInsert = async function (trackIndex, id, ...more) { const r = await ni0(trackIndex, id, ...more), t = S.tracks[trackIndex]; if (r && r.ok && t) { wallOf(t); await wallPush(t) } return r } }

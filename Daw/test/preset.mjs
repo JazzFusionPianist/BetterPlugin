@@ -54,7 +54,7 @@ ok('a wall to keep: three prints, wired side by side, and a plug-in from outside
 { const before = await wall()
   await press('box'); await press('first'); await b.sleep(250)
   const w = await wall()
-  ok('initial: nothing on the wall, no plug-in on the track, the bar reads initial', w.nodes.length === 0 && w.wires.length === 0 && w.inserts.length === 0 && w.pre[0] === 'initial' && w.undo === before.undo + 1, w)
+  ok('initial: nothing on the wall but in wired to out, no plug-in on the track, the bar reads initial', w.nodes.length === 0 && JSON.stringify(w.wires) === '[[-1,-2,100]]' && w.inserts.length === 0 && w.pre[0] === 'initial' && w.undo === before.undo + 1, w)
   await ev(`undoEdit(); flush()`); await b.sleep(250)
   const back = await wall()
   ok('undo: the wall as it was — prints, amounts, wires, the plug-in and its settings, and its name', JSON.stringify(back.nodes) === JSON.stringify(before.nodes) && JSON.stringify(back.wires) === JSON.stringify(before.wires) && back.inserts[0][1] === 'c2V0dGluZ3M=' && back.pre[0] === 'Lead Vox Chain', [back.nodes, before.nodes])

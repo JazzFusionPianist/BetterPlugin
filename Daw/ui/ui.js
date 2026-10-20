@@ -188,7 +188,7 @@ function pTool () {
     const vx = zx + 82
     s += P(`M${vx - 10} ${zy - 4}V${zy + 4}M${vx - 12} ${zy - 2}L${vx - 10} ${zy - 4}L${vx - 8} ${zy - 2}M${vx - 12} ${zy + 2}L${vx - 10} ${zy + 4}L${vx - 8} ${zy + 2}`, { stroke: INK, sa: .45, cap: 'round' }) + R(vx, zy - 1, 54, 2, { fill: INK, fa: .14 }) + R(vx + 52 * fy, zy - 5, 2, 10, { fill: INK }) + hit(vx - 6, y + 2, 66, 22, 'zoomy', '', 'ew-resize')
   }
-  return s + hline(0, RX, y + TOOL_H - .5, .08) + vline(HEAD_W - .5, y, y + TOOL_H, .08)
+  return s + hline(0, RX, y + TOOL_H - .5, .08) + vline(Math.max(HEAD_W, X0) - .5, y, y + TOOL_H, .08)      // (at the heads' edge, wherever they stand: the inspector moves them — inspector.js)
 }
 /* ── the list that opens under the colour key and the outline key: every pigment laid from deep to light, the greys; and
    the outlines. "as the track" and "as read" give a choice back to the room. ── */
@@ -229,22 +229,24 @@ function setLook (what, v) {
 function pScenes () {
   if (typeof RTB !== 'undefined' && RTB.on) return ''
   if (typeof SKIN === 'object' && SKINS.scenes[SKIN.k.markers]) return SKINS.scenes[SKIN.k.markers]()      // (a theme's markers: skins.js)                                 // (a realtime print writes the markers along its own top: realtime.js)
-  const y = MK_Y, cur = sceneAt(curPos()).i, xe = bx(SONG_END + 1)
-  let s = R(0, y, RX, MK_H, { fill: K1 }) + (X0 > 70 ? T(12, y + 14.2, 'markers', { size: 9, a: .38 }) : '')      // (no word when the heads are folded away: realtime.js)
-  let g = R(bx(1) + .5, y + 4.5, xe - bx(1) - 1, 13, { rx: 2, stroke: INK, sa: .22 }), hits = hit(X0, y, X1 - X0, MK_H, 'scenebar', '', 'default')
+  const y0 = MK_Y, y = MK_Y + MK_C, cur = sceneAt(curPos()).i, xe = bx(SONG_END + 1)      // (y0: the row; y: what it holds, in its middle)
+  const hx = typeof INSP === 'object' ? INSP.w || 0 : 0                                 // (the inspector stands at the left: the words go beside it — inspector.js)
+  let s = R(0, y0, RX, MK_H, { fill: K1 }) + (X0 > 70 ? T(12 + hx, y + 14.6, 'markers', { size: 9, a: .38 }) : '')      // (no word when the heads are folded away: realtime.js)
+  const bt = y0 + 4.5, bh = MK_H - 9                                                     // (a marker as tall as its row lets it, 4.5 clear above and below: his ask, 2026-10-20)
+  let g = R(bx(1) + .5, bt, xe - bx(1) - 1, bh, { rx: 2, stroke: INK, sa: .22 }), hits = hit(X0, y0, X1 - X0, MK_H, 'scenebar', '', 'default')
   SCENES.forEach((sc, i) => {
     const xa = bx(sc.a), xb = bx(sc.b), on = i === cur, xl = Math.max(xa, X0), xr = Math.min(xb, X1)
     if (xr - xl < 1) return
-    if (on) g += R(xa + (sc.a > 1 ? 0 : .5), y + 4.5, xb - xa, 13, { fill: INK })
-    if (sc.a > 1) g += P(`M${n(xa) + .5} ${y + 5}V${y + 17}`, { stroke: INK, sa: .2 })
+    if (on) g += R(xa + (sc.a > 1 ? 0 : .5), bt, xb - xa, bh, { fill: INK })
+    if (sc.a > 1) g += P(`M${n(xa) + .5} ${bt + .5}V${bt + bh - .5}`, { stroke: INK, sa: .2 })
     const next = S.queued === i                                                    // the one the song will go to at the next bar line: a small mark at its far end
     const pick = S.focus === 'marker' && S.selM === sc.a                           // the one that was pressed (the delete key is about it): framed in ink — inside the fill, where it is also the part that plays
-    if (pick) g += on ? R(xa + 2.5, y + 6.5, Math.max(0, xb - xa - 5), 9, { stroke: K1, sa: .7 }) : R(xa + .5, y + 4.5, xb - xa, 13, { stroke: INK })
-    if (xr - xl >= 16) g += T(xl + 6.5 + (xl > xa ? 2 : 0), y + 13.8, fit(asGiven(sc.name), xr - xl - 12 - (next ? 11 : 0), 8, on || pick ? 500 : 400), { size: 8, w: on || pick ? 500 : 400, c: on ? K1 : INK, a: on || pick ? 1 : .62 })
-    if (next && xr - xl >= 14) g += R(xr - 11, y + 8, 6, 6, { fill: on ? K1 : INK })
-    hits += hit(xl, y + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
+    if (pick) g += on ? R(xa + 2.5, bt + 2, Math.max(0, xb - xa - 5), bh - 4, { stroke: K1, sa: .7 }) : R(xa + .5, bt, xb - xa, bh, { stroke: INK })
+    if (xr - xl >= 16) g += T(xl + 6.5 + (xl > xa ? 2 : 0), y0 + 16.6, fit(asGiven(sc.name), xr - xl - 12 - (next ? 11 : 0), 9, on || pick ? 500 : 400), { size: 9, w: on || pick ? 500 : 400, c: on ? K1 : INK, a: on || pick ? 1 : .62 })      // (its name on the line of the row's own word, as large)
+    if (next && xr - xl >= 14) g += R(xr - 11, y0 + MK_H / 2 - 3, 6, 6, { fill: on ? K1 : INK })
+    hits += hit(xl, y0 + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
   })
-  return s + G(g, '', TL) + hline(0, RX, y + MK_H - .5, .06) + vline(HEAD_W - .5, y, y + MK_H, .08) + hits
+  return s + G(g, '', TL) + hline(0, RX, y0 + MK_H - .5, .06) + vline(Math.max(HEAD_W, X0) - .5, y0, y0 + MK_H, .08) + hits
 }
 /* ── the bars. They are cut in two along their length: the top is the cycle's — a stretch of the top edge, with an end to take
    hold of at each side; taken by its middle it moves as it is, and a pull anywhere else along the top draws a new one. The
@@ -276,18 +278,18 @@ function deepLines (D) {
 function pRuler () {
   if (typeof RTB !== 'undefined' && RTB.on) return ''                                 // (a realtime print folds the bars away: realtime.js)
   const y = RU_Y, span = (X1 - X0) / PXB, lab = [1, 2, 4, 8, 16, 32, 64].find(k => k * PXB >= 56) || 64, major = lab > 1 && lab / 2 * PXB >= 14 ? lab / 2 : lab, minor = PXB >= 6
-  let s = R(0, y, RX, RU_H, { fill: lkC('bars.ground', K1) }) + (typeof SKIN === 'object' && SKINS.rule[SKIN.k.cycle] ? SKINS.rule[SKIN.k.cycle](y) : '') + (X0 >= HEAD_W - 1 ? T(12, y + 15.3, 'bars', { size: 9, a: .38 }) + T(HEAD_W - 10, y + 15.3, meterName(), { size: 9, a: .38, anchor: 'end' }) : '')
+  let s = R(0, y, RX, RU_H, { fill: lkC('bars.ground', K1) }) + (typeof SKIN === 'object' && SKINS.rule[SKIN.k.cycle] ? SKINS.rule[SKIN.k.cycle](y) : '') + (X0 >= HEAD_W - 1 ? T(12 + X0 - HEAD_W, y + 16.6, 'bars', { size: 9, a: .38 }) + T(X0 - 10, y + 16.6, meterName(), { size: 9, a: .38, anchor: 'end' }) : '')
   let g = '', t1 = '', t4 = ''
   const D = deepSteps()
   if (D) for (const [x, named, p] of deepLines(D)) {                                   // close up: beats, sixteenths, ticks, samples
-    if (named) { t4 += `M${n(x) + .5} ${y + 5}V${y + RU_H}`; if (x < X1 - 14) g += T(x + 3.5, y + 12.8, D.say(p), { size: lkN('bars.size'), a: p < SONG_END ? .58 : .24 }) } else t1 += `M${n(x) + .5} ${y + 19}V${y + RU_H}`
+    if (named) { t4 += `M${n(x) + .5} ${y + 5}V${y + RU_H}`; if (x < X1 - 14) g += T(x + 3.5, y + 13.8, D.say(p), { size: lkN('bars.size'), a: p < SONG_END ? .58 : .24 }) } else t1 += `M${n(x) + .5} ${y + RU_H - 5}V${y + RU_H}`
   }
   else for (let b = Math.floor(VX); b <= Math.ceil(VX + span) + 1; b++) {              // b: bars counted from zero
     const x = bx(b + 1)
     if (x < X0 - .5 || x > X1 + .5) continue
-    if (b % major === 0) t4 += `M${n(x) + .5} ${y + (b % lab === 0 ? 5 : 15)}V${y + RU_H}`; else if (minor) t1 += `M${n(x) + .5} ${y + 19}V${y + RU_H}`
-    if (b % lab === 0 && x < X1 - 14) g += T(x + 3.5, y + 12.8, String(b + 1), { size: lkN('bars.size'), a: b < SONG_END ? .58 : .24 })
-    if (PXB >= 14 * BEATS()) for (let q = 1; q < BEATS(); q++) { const xq = x + q * PXB / BEATS(); if (xq < X1) t1 += `M${n(xq) + .5} ${y + 20}V${y + RU_H}` }
+    if (b % major === 0) t4 += `M${n(x) + .5} ${y + (b % lab === 0 ? 5 : RU_H - 9)}V${y + RU_H}`; else if (minor) t1 += `M${n(x) + .5} ${y + RU_H - 5}V${y + RU_H}`
+    if (b % lab === 0 && x < X1 - 14) g += T(x + 3.5, y + 13.8, String(b + 1), { size: lkN('bars.size'), a: b < SONG_END ? .58 : .24 })
+    if (PXB >= 14 * BEATS()) for (let q = 1; q < BEATS(); q++) { const xq = x + q * PXB / BEATS(); if (xq < X1) t1 += `M${n(xq) + .5} ${y + RU_H - 4}V${y + RU_H}` }
   }
   g += P(t1, { stroke: INK, sa: .14 }) + P(t4, { stroke: INK, sa: .26 })
   const c = S.cycle, has = c.b - c.a >= 1 / 32
@@ -298,7 +300,7 @@ function pRuler () {
     const part = (x0, x1, m, cur) => { const l = Math.max(X0, x0), r = Math.min(X1, x1); return r - l > .5 ? hit(l, y, r - l, RU_CY, 'cycle', ` data-m="${m}"`, cur) : '' }
     hits += part(ca + e, cb - e, 'move', 'grab') + part(ca - 5, ca + e, 'a', 'ew-resize') + part(cb - e, cb + 5, 'b', 'ew-resize')
   }
-  return s + G(g, '', TL) + hline(0, RX, y + RU_H - .5, .1) + vline(HEAD_W - .5, y, y + RU_H, .08) + hits
+  return s + G(g, '', TL) + hline(0, RX, y + RU_H - .5, .1) + vline(Math.max(HEAD_W, X0) - .5, y, y + RU_H, .08) + hits
 }
 
 /* a list to pick from, where the pointer is. An item: {t, k (set at the right), on, dim, sep (a line above it), v} */
@@ -338,10 +340,10 @@ function miniCells (x, y, items, cw, h, size, i) {
 /* what is someone else's, a bus and a stack are not recorded onto: they have no r and no i */
 const cellsOf = t => (t.kind !== 'audio' || t.theirs ? [] : t.inst ? [{ t: 'r', on: !!t.arm, c: REC, a: 'arm' }] : [{ t: 'r', on: !!t.arm, c: REC, a: 'arm' }, { t: 'i', on: !!t.mon, c: MON, a: 'mon' }]).concat([{ t: 'm', on: !!t.mute, a: 'mute' }, { t: 's', on: !!t.solo, c: SOLO, a: 'solo' }])
 const HEAD_FX = 224, HEAD_FW = 40
-function levelBar (x, y, w, t, vol) {
+function levelBar (x, y, w, t, vol) {                                                     // (the level and the meter in it drawn heavier: his ask, 2026-10-20)
   const fader = volF(vol)
-  return R(x, y, w, 2, { fill: INK, fa: .12 }) + R(x, y, 0, 2, { fill: LEVEL, fa: .86, x: ` id="mt-${t.id}"` }) + R(x + w * volF(0), y - 1.5, 1, 5, { fill: INK, fa: .3 })
-    + (t.ghost != null ? R(x + w * volF(t.ghost) - 1, y - 4, 2, 10, { fill: INK, fa: .28 }) : '') + R(x + w * fader - 1, y - 4, 2, 10, { fill: INK, fa: heard(t) ? 1 : .5 })
+  return R(x, y - 1, w, 4, { rx: 1, fill: INK, fa: .12 }) + R(x, y - 1, 0, 4, { fill: LEVEL, fa: .86, x: ` id="mt-${t.id}"` }) + R(x + w * volF(0), y - 3, 1, 8, { fill: INK, fa: .3 })
+    + (t.ghost != null ? R(x + w * volF(t.ghost) - 1.5, y - 5, 3, 12, { fill: INK, fa: .28 }) : '') + R(x + w * fader - 1.5, y - 5, 3, 12, { rx: 1, fill: INK, fa: heard(t) ? 1 : .5 })
 }
 const triMark = (x, y, open, a = .6) => P(open ? `M${x - 3} ${y - 1.5}H${x + 3}L${x} ${y + 2.5}Z` : `M${x - 1.5} ${y - 3}V${y + 3}L${x + 2.5} ${y}Z`, { fill: INK, fa: a })
 /* A track in a stack is held by it, and looks it: the stack's own colour runs down the left edge of every row in it, one
@@ -736,7 +738,7 @@ function pDrop () {
 }
 /* the playhead: its line down the lanes; its head in the lower part of the bars, clear of the cycle's strip; and round the
    head a place to take it by, wider than the head (pressed there, it is held where it is and goes with the hand) */
-const pPlay = () => { if (typeof RTB !== 'undefined' && RTB.on) return ''; const y = RU_Y + RU_CY, c = lkC('play.c', INK); if (typeof SKIN === 'object' && SKINS.play[SKIN.k.playhead]) return G(SKINS.play[SKIN.k.playhead](c, lkN('play.w')), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"'); return G(P(`M.5 ${y + 6}V${BY}`, { stroke: c, sw: lkN('play.w') }) + P(`M-4.5 ${y + 1}H5.5V${y + 7}L.5 ${y + 12}L-4.5 ${y + 7}Z`, { fill: c }) + hit(-10.5, y, 22, RU_H - RU_CY, 'playhead', '', 'ew-resize'), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"') }
+const pPlay = () => { if (typeof RTB !== 'undefined' && RTB.on) return ''; const y = RU_Y + RU_CY + 1, c = lkC('play.c', INK); if (typeof SKIN === 'object' && SKINS.play[SKIN.k.playhead]) return G(SKINS.play[SKIN.k.playhead](c, lkN('play.w')), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"'); return G(P(`M.5 ${y + 6}V${BY}`, { stroke: c, sw: lkN('play.w') }) + P(`M-4.5 ${y + 1}H5.5V${y + 7}L.5 ${y + 12}L-4.5 ${y + 7}Z`, { fill: c }) + hit(-10.5, y, 22, RU_H - RU_CY, 'playhead', '', 'ew-resize'), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"') }
 
 /* ── the bottom panel: the chosen track's patch, with its strip beside it; or the mixer ── */
 const SIDE = 222, GUT = 34, WSTRIP = 86, NSTRIP = 56, NGUT = 36, MSTRIP = 64, MAX_INS = 4
@@ -1338,7 +1340,7 @@ function onDown (e) {
     case 'msel': chooseTrack(i, e.shiftKey ? 'range' : e.metaKey ? 'toggle' : ''); break
     case 'm-patch': if (!isChosen(i)) leadTrack(i); else S.sel = i; S.panel.tab = 'patch'; uiDirty('head', 'lanes', 'dock', 'top'); break
     case 'mvol': tr.ghost = null; drag = { a, i, ly: p.y, f0: volF(shown(tr, 'vol')), acc: 0, v0: tr.vol, others: others(i, 'vol'), g: stripGeom(BY + PH, S.panel.h - PH, el.dataset.w === '1'), before: autoPts(tr, 'vol').length ? editState() : null }; break
-    case 'mpan': drag = { a, i, x0: +el.dataset.x, w: +el.dataset.pw, v0: tr.pan || 0, others: others(i, 'pan') }; if (e.shiftKey) { drag.pv = tr.pan || 0; drag.lx = p.x } else stripPanX(drag, p.x, e); break      // (with shift it is not thrown to the pointer first: it moves finely from where it is)
+    case 'mpan': drag = { a, i, v0: tr.pan || 0, pv: tr.pan || 0, lx: p.x, ly: p.y, others: others(i, 'pan') }; break      // (taken where it is: it moves by how far the hand goes, right or up for the right — never thrown to the pointer)
     case 'msend': drag = { a, i, k: +el.dataset.k, x0: +el.dataset.x, w: +el.dataset.pw, px: p.x, moved: false, f: e.shiftKey && tr.sends[+el.dataset.k] ? volF(tr.sends[+el.dataset.k].db) : null, lx: p.x }; break
     case 'msendadd': openSendMenu(tr, tr.sends.length, p.x - 10, p.y + 10); break
     case 'mfx': drag = { a, i, k: +el.dataset.k, x0: p.x, y0: p.y, alt: e.altKey, moved: false, to: [] }; break      // (let go where pressed: opened; pulled with option: copied — fxUp)
@@ -1414,12 +1416,13 @@ function zoomDrag (d, x) {
 const pulled = (d, y, per, e) => { d.acc += (d.ly - y) * per * fine(e); d.ly = y; return d.acc }
 const FADER_PULL = .6                                                                     // (a fader goes a little slower than the hand: on a short one a small pull was a big change)
 function stripVolY (d, y, e) { const t = S.tracks[d.i]; volSet(t, fVol(clamp(d.f0 + pulled(d, y, FADER_PULL / d.g.fh, e), 0, 1))); carry(d, 'vol', t.vol); uiDirty('dock', 'head') }
-function stripPanX (d, x, e) {
+/* a pan pulled: a hundred and twenty-eight points of the hand from the middle to either side (two to a step), across or
+   up and down, a quarter as far with shift */
+function stripPanX (d, x, e, y) {
   const t = S.tracks[d.i]
-  let p = clamp((x - d.x0) / d.w, 0, 1) * 2 - 1
-  if (e && e.shiftKey && d.pv != null) p = clamp(d.pv + (x - d.lx) / d.w * 2 * .2, -1, 1)
-  d.pv = p; d.lx = x
-  t.pan = Math.abs(p) < .06 ? 0 : Math.round(p * 64) / 64; pushTrack(t); carry(d, 'pan', t.pan); uiDirty('dock')
+  const moved = (x - d.lx) - (y == null ? 0 : y - d.ly)
+  d.pv = clamp(d.pv + moved / 128 * (e && e.shiftKey ? .25 : 1), -1, 1); d.lx = x; if (y != null) d.ly = y
+  t.pan = Math.abs(d.pv) < .012 ? 0 : Math.round(d.pv * 64) / 64; pushTrack(t); carry(d, 'pan', t.pan); uiDirty('dock', 'insp')
 }
 function masterY (y, e) { S.master = fVol(clamp(drag.f0 + pulled(drag, y, FADER_PULL / drag.g.fh, e), 0, 1)); pushMaster(); uiDirty('top', 'dock') }
 /* the hand going on across the rows from an m or an s: each row it passes is set the way the first one went */
@@ -1438,7 +1441,7 @@ function onMove (e) {
   const t = S.tracks[S.sel]
   if (drag.a === 'vol') setVolX(drag.i, drag.rel ? p.x - (p.y - drag.py) : p.x, e)
   else if (drag.a === 'mvol') stripVolY(drag, p.y, e)
-  else if (drag.a === 'mpan') stripPanX(drag, p.x, e)
+  else if (drag.a === 'mpan') stripPanX(drag, p.x, e, p.y)
   else if (drag.a === 'mmaster') masterY(p.y, e)
   else if (drag.a === 'swipe') swipeMove(e)
   else if (drag.a === 'scene') sceneMove(p)

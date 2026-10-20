@@ -184,15 +184,15 @@ SKINS.head.cassette = i => {
 }
 /* ── the markers: a J-card ── */
 SKINS.scenes.cassette = () => {
-  const y = MK_Y
-  let s = R(0, y, RX, MK_H, { fill: K1 }), g = '', hits = hit(X0, y, X1 - X0, MK_H, 'scenebar', '', 'default')
+  const y0 = MK_Y, y = MK_Y + MK_C
+  let s = R(0, y0, RX, MK_H, { fill: K1 }), g = '', hits = hit(X0, y0, X1 - X0, MK_H, 'scenebar', '', 'default')
   SCENES.forEach((sc, i) => {
     const xa = bx(sc.a), xb = bx(sc.b), xl = Math.max(xa, X0), xr = Math.min(xb, X1)
     if (xr - xl < 1) return
     const chosen = S.focus === 'marker' && S.selM === sc.a
     g += R(xl + .5, y + 4, xr - xl - 1, 15, { rx: 2, fill: i % 2 ? '#EADFC7' : '#E3D6BA', stroke: chosen ? CS.dark : null })
     g += csTx(xl + 5, y + 14.6, 'A' + (i + 1), { size: 7, w: 700, c: CS.orange, ls: .3 }) + T(xl + 22, y + 14.8, fit(asGiven(sc.name), Math.max(8, xr - xl - 27), 9, 700), { size: 9, w: 700, c: CS.dark })
-    hits += hit(xl, y + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
+    hits += hit(xl, y0 + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
   })
   return s + G(g, '', TL) + hits
 }

@@ -493,6 +493,7 @@ private:
         if (op == "session") { const auto took = engine.setSession (d); if (engine.trackCount() != lastTracks) { lastTracks = engine.trackCount(); daw::logLine ("session: " + juce::String (lastTracks) + " tracks, tempo " + juce::String (engine.tempo.load())); } done (took); return; }
         if (op == "play")    { engine.loopA.store ((double) d["a"]); engine.loopB.store ((double) d["b"]); engine.loop.store ((int) d["loop"] != 0); engine.play ((double) d["bar"]); done (okVar()); return; }
         if (op == "stop")    { engine.stop(); done (okVar()); return; }
+        if (op == "ref")     { engine.setRef (d["key"].toString(), (double) d["start"], (float) (double) d["vol"], (int) d["on"] != 0); done (okVar()); return; }      // the reference row (ui/reference.js)
         if (op == "seek")    { engine.seek ((double) d["bar"]); done (okVar()); return; }
         if (op == "queue")   { engine.queued.store ((double) d["bar"]); done (okVar()); return; }
         if (op == "loop")    { engine.loopA.store ((double) d["a"]); engine.loopB.store ((double) d["b"]); engine.loop.store ((int) d["on"] != 0); done (okVar()); return; }

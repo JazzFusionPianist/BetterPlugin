@@ -1,5 +1,7 @@
-// node test/wall.mjs — the patch as a wall (Patch on Slur's way): a patch begins with in and out and nothing between; a print
-// picked from the list stands on the wall unwired; wires are drawn by hand from a port to a thing (the real pointer), never
+// node test/wall.mjs — the patch as a wall (Patch on Slur's way): a patch begins with in and out far apart and one wire
+// between them; a print picked from the list (twice) is set at the end of the way and wired in; command and a press
+// bypasses a thing, control and a press takes it off its wires; a band over the ground chooses, the other button puts what
+// is chosen in order (organize) or bypasses it all; wires are drawn by hand from a port to a thing (the real pointer), never
 // round in a ring; one output feeds several things; a mix takes several wires and shares a hundred among them; a print's
 // pulled is moved and pressed opens its study (test/study.mjs); scrolling makes the wall nearer and further about the
 // pointer and its ground is pulled about; a thing set down on a wire joins it; one taken off heals the wire; a patch
@@ -13,7 +15,10 @@ const out = [], bad = []
 const ok = (name, cond, extra) => { out.push(`${cond ? 'ok  ' : 'FAIL'} ${name}${extra !== undefined ? '  ' + JSON.stringify(extra) : ''}`); if (!cond) bad.push(name) }
 const ev = b.ev
 const mouse = (type, x, y, extra = {}) => b.send('Input.dispatchMouseEvent', Object.assign({ type, x, y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1, pointerType: 'mouse' }, extra))
-const pull = async (x0, y0, x1, y1, steps = 8) => { await mouse('mouseMoved', x0, y0, { buttons: 0 }); await mouse('mousePressed', x0, y0); for (let k = 1; k <= steps; k++) await mouse('mouseMoved', x0 + (x1 - x0) * k / steps, y0 + (y1 - y0) * k / steps); await b.sleep(40); await mouse('mouseReleased', x1, y1); await b.sleep(60) }
+const pull = async (x0, y0, x1, y1, steps = 8, modifiers = 0) => { await mouse('mouseMoved', x0, y0, { buttons: 0, modifiers }); await mouse('mousePressed', x0, y0, { modifiers }); for (let k = 1; k <= steps; k++) await mouse('mouseMoved', x0 + (x1 - x0) * k / steps, y0 + (y1 - y0) * k / steps, { modifiers }); await b.sleep(40); await mouse('mouseReleased', x1, y1, { modifiers }); await b.sleep(60) }
+const press = async (x, y, modifiers = 0, button = 'left') => { await mouse('mouseMoved', x, y, { buttons: 0, modifiers }); await mouse('mousePressed', x, y, { modifiers, button, buttons: button === 'right' ? 2 : 1 }); await mouse('mouseReleased', x, y, { modifiers, button }); await b.sleep(80) }
+const twice = async (x, y) => { await mouse('mouseMoved', x, y, { buttons: 0 }); for (const c of [1, 2]) { await mouse('mousePressed', x, y, { clickCount: c }); await mouse('mouseReleased', x, y, { clickCount: c }) } await b.sleep(120) }
+const ALT = 1, CTRL = 2, CMD = 4, SHIFT = 8
 if (!(await ev(`return typeof wallOf === 'function'`))) { console.log('wall: the page does not list wall.js yet (WALL_PAGE: a copy that does)'); await b.close(); process.exit(0) }
 
 await ev(`if (typeof START !== 'undefined') START.on = false; setView(true)
@@ -22,10 +27,12 @@ await ev(`if (typeof START !== 'undefined') START.on = false; setView(true)
 const at = (id, what = 'c') => ev(`flush(); const t = S.tracks[S.sel], w = wallOf(t), g = WALL.g, k = board.getBoundingClientRect().width / W, q = ${JSON.stringify(what)} === 'out' ? wallOutPort(w, ${id}, 0) : ${JSON.stringify(what)} === 'cap' ? { x: wallPos(w, ${id}).x, y: wallPos(w, ${id}).y + 52 } : wallPos(w, ${id}); return { x: (g.cx + (q.x - w.ox) * w.z) * k, y: (g.cy + (q.y - w.oy) * w.z) * k }`)
 const wall = () => ev(`flush(); const t = S.tracks[S.sel], w = wallOf(t); return { nodes: w.nodes.map(n => [n.id, n.k, +(wallAmount(t, n)).toFixed(3), n.x, n.y]), wires: w.wires.map(e => [e.from, e.to, +(+e.gain).toFixed(3)]), z: +w.z.toFixed(3), o: [Math.round(w.ox), Math.round(w.oy)], sel: WALL.sel, drawn: document.querySelectorAll('#g-dock [data-k="node"]').length, focus: S.focus }`)
 
-{ const s = await wall()
-  ok('a patch begins with nothing on it and nothing wired', s.nodes.length === 0 && s.wires.length === 0 && s.drawn === 0, s)
+{ const s = await wall(), span = await ev(`const w = wallOf(S.tracks[S.sel]); return w.out.x - w.in.x`)
+  ok('a patch begins with nothing on it, in and out far apart, and one wire between them', s.nodes.length === 0 && JSON.stringify(s.wires) === '[[-1,-2,1]]' && s.drawn === 0 && span >= 880, [s, span])
   const m = await ev(`return wallMsg(S.tracks[S.sel])`)
-  ok('…and what the engine would be told is an empty graph (the sound goes by)', m.nodes.length === 0 && m.edges.length === 0, m) }
+  ok('…and what the engine would be told is in wired to out (the sound goes by)', m.nodes.length === 0 && m.edges.length === 1 && m.edges[0].from === -1 && m.edges[0].to === -2, m)
+  const a = await at(-1), o = await at(-2), cw = await ev(`return WALL.g.w * board.getBoundingClientRect().width / W`)
+  ok('…in near the left of the wall, out near its right', o.x - a.x > cw * .6, [a.x, o.x, cw]) }
 
 /* a print from the list */
 { const p = await ev(`flush(); const el = document.querySelector('#g-dock [data-a="plugs"]'), r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }`)
@@ -36,9 +43,29 @@ const wall = () => ev(`flush(); const t = S.tracks[S.sel], w = wallOf(t); return
   await b.type('comp'); await b.sleep(120)
   const r = await ev(`const el = [...document.querySelectorAll('.pk-row')].find(x => x.querySelector('b').textContent === 'comp'), q = el.getBoundingClientRect(); return { x: q.left + 30, y: q.top + q.height / 2 }`)
   await b.click(r.x, r.y); await b.sleep(150)
-  const s = await wall()
-  ok('a print picked stands on the wall, chosen, with no wire', s.nodes.length === 1 && s.nodes[0][1] === 'comp' && s.wires.length === 0 && s.drawn === 1 && s.sel && s.sel.node === s.nodes[0][0], s)
-  await b.press('Escape', 'Escape', 27); await b.sleep(100) }
+  const once = await wall(), lit = await ev(`return [...document.querySelectorAll('.pk-row.on b')].map(x => x.textContent)`)
+  ok('pressed once in the list, a print is only lit', once.nodes.length === 0 && lit[0] === 'comp', [once.nodes, lit])
+  await twice(r.x, r.y)
+  const s = await wall(), id = s.nodes.length ? s.nodes[0][0] : null, pos = await ev(`const w = wallOf(S.tracks[S.sel]); return { in: w.in, n: w.nodes.map(q => [q.x, q.y]) }`)
+  ok('pressed twice, it is on the wall — one of it — chosen, and wired in at the end of the way: in, it, out', s.nodes.length === 1 && s.nodes[0][1] === 'comp' && JSON.stringify(s.wires) === JSON.stringify([[-1, id, 1], [id, -2, 1]]) && s.drawn === 1 && s.sel && s.sel.node === id, s)
+  ok('…on the line, to the right of in', pos.n[0][1] === pos.in.y && pos.n[0][0] > pos.in.x, pos)
+  await b.press('Escape', 'Escape', 27); await b.sleep(100)
+  /* the next one picked goes to its right, wired after it */
+  await ev(`const t = S.tracks[S.sel]; wallAdd(t, 'tone'); flush()`)
+  const s2 = await wall(), tone = s2.nodes.find(q => q[1] === 'tone'), comp = s2.nodes.find(q => q[1] === 'comp')
+  ok('the next one stands to the right of it, on the same line, and the way goes in, comp, tone, out', tone[3] > comp[3] && tone[4] === comp[4] && JSON.stringify(s2.wires.map(e => [e[0], e[1]])) === JSON.stringify([[-1, comp[0]], [comp[0], tone[0]], [tone[0], -2]]), s2)
+  await ev(`const t = S.tracks[S.sel], w = wallOf(t); wallRemove(t, w.nodes.find(q => q.k === 'tone')); flush()`)
+  /* command and a press: bypassed, and back; control and a press: off its wires, the way healed */
+  const c = await at(id)
+  await press(c.x, c.y, CMD)
+  const by = await ev(`return wallOf(S.tracks[S.sel]).nodes[0].bypass`)
+  await press(c.x, c.y, CMD)
+  ok('command and a press on a print: bypassed; again, back on', by === true && (await ev(`return wallOf(S.tracks[S.sel]).nodes[0].bypass`)) === false, by)
+  await press(c.x, c.y, CTRL)
+  const s3 = await wall()
+  ok('control and a press on it: off its wires, and in goes to out again; it stays where it stood', s3.nodes.length === 1 && JSON.stringify(s3.wires.map(e => [e[0], e[1]])) === '[[-1,-2]]' && s3.nodes[0][3] === pos.n[0][0] && !(await ev(`return !!S.menu`)), [s3, await ev(`return S.menu && S.menu.items.map(i => i.t)`)])
+  /* (from here on, wired by hand as before: the wall's one wire taken away) */
+  await ev(`wallOf(S.tracks[S.sel]).wires = []; WALL.sel = null; flush()`) }
 
 /* wired by hand: in to the print, the print to out */
 { const id = (await wall()).nodes[0][0]
@@ -69,7 +96,7 @@ const wall = () => ev(`flush(); const t = S.tracks[S.sel], w = wallOf(t); return
   await b.press('Escape', 'Escape', 27); await b.sleep(60) }
 
 /* two more, side by side into a mix */
-{ await ev(`const t = S.tracks[S.sel]; wallAdd(t, 'space'); wallAdd(t, 'delay'); wallAdd(t, 'mix'); const w = wallOf(t); const P = { comp: [200, 0], space: [380, -90], delay: [380, 90], mix: [560, 0] }; for (const n of w.nodes) { n.x = P[n.k][0]; n.y = P[n.k][1] } w.in = { x: 40, y: 0 }; w.out = { x: 720, y: 0 }; w.z = 0; WALL.sel = null; dirtyAll(); flush()`)
+{ await ev(`const t = S.tracks[S.sel]; wallAdd(t, 'space'); wallAdd(t, 'delay'); wallAdd(t, 'mix'); const w = wallOf(t), comp = w.nodes.find(n => n.k === 'comp').id; w.wires = [{ from: -1, to: comp, gain: 1, port: 0 }, { from: comp, to: -2, gain: 1, port: 0 }]; const P = { comp: [200, 0], space: [380, -90], delay: [380, 90], mix: [560, 0] }; for (const n of w.nodes) { n.x = P[n.k][0]; n.y = P[n.k][1] } w.in = { x: 40, y: 0 }; w.out = { x: 720, y: 0 }; w.z = 0; WALL.sel = null; dirtyAll(); flush()`)
   const s0 = await wall(), id = k => s0.nodes.find(n => n[1] === k)[0]
   ok('space and delay come on at the amount they always came on at', s0.nodes.find(n => n[1] === 'space')[2] === .3 && s0.nodes.find(n => n[1] === 'delay')[2] === .2, s0.nodes)
   /* the wire from comp to out is taken away: pressed, then the delete key */
@@ -96,7 +123,32 @@ const wall = () => ev(`flush(); const t = S.tracks[S.sel], w = wallOf(t); return
   ok('a level pulled up: the other gives way, a hundred in all', sh2[0] > .65 && Math.abs(sh2[0] + sh2[1] - 1) < .002, sh2)
   const m = await ev(`return wallMsg(S.tracks[S.sel])`)
   ok('the engine would be told the same graph: four prints, six wires, the mix’s shares', m.nodes.length === 4 && m.edges.length === 6 && m.nodes.find(n => n.type === 2).line === 2 && m.nodes.find(n => n.type === 10).line === 3 && Math.abs(m.edges.filter(e => e.to === id('mix')).reduce((a, e) => a + e.gain, 0) - 1) < .002, m.edges)
-  await b.shot(`wall-${W}.png`) }
+  await b.shot(`wall-${W}.png`)
+  /* made a mess of, then: a band over the ground chooses all four; the other button on the ground; organize */
+  await ev(`const w = wallOf(S.tracks[S.sel]), P = { comp: [330, 150], space: [560, -40], delay: [250, -130], mix: [640, 170] }; for (const q of w.nodes) { q.x = P[q.k][0]; q.y = P[q.k][1] } w.z = 0; WALLORG.many.clear(); dirtyAll(); flush()`)
+  const box = await ev(`flush(); const w = wallOf(S.tracks[S.sel]), g = WALL.g, k = board.getBoundingClientRect().width / W, sc = q => ({ x: (g.cx + (q.x - w.ox) * w.z) * k, y: (g.cy + (q.y - w.oy) * w.z) * k }); const lim = q => ({ x: clamp(q.x, (g.x + 6) * k, (g.x + g.w - 6) * k), y: clamp(q.y, (g.y + 4) * k, (g.y + g.h - 30) * k) }); return { a: lim(sc({ x: 200, y: -185 })), b: lim(sc({ x: 700, y: 215 })) }`)
+  await pull(box.a.x, box.a.y, box.b.x, box.b.y, 10)
+  const chosen = await ev(`return [...WALLORG.many].length`)
+  ok('a plain drag over the ground chooses the four things it passes over (and the ground stays)', chosen === 4, chosen)
+  await press(box.a.x, box.a.y, 0, 'right')
+  const menu = await ev(`flush(); return S.menu && S.menu.items.map(i => i.t)`)
+  ok('the other button on the ground: organize, bypass all', JSON.stringify(menu) === '["organize","bypass all"]', menu)
+  const item = await ev(`flush(); const el = document.querySelector('[data-a="pick"][data-i="0"]'), r = el.getBoundingClientRect(); return { x: r.left + 20, y: r.top + r.height / 2 }`)
+  await b.click(item.x, item.y); await b.sleep(120)
+  const half = await ev(`const w = wallOf(S.tracks[S.sel]); return w.nodes.find(q => q.k === 'delay').y`)
+  await b.sleep(700)
+  const L = await ev(`const w = wallOf(S.tracks[S.sel]), o = {}; for (const q of w.nodes) o[q.k] = [q.x, q.y]; o.in = [w.in.x, w.in.y]; o.out = [w.out.x, w.out.y]; return o`)
+  ok('organize: it is seen moving (halfway, the delay is between where it was and where it goes)', half > -130 && half < L.delay[1], [half, L.delay])
+  ok('…in a row from in to out as it is wired: comp, then space and delay side by side, then the mix', L.in[0] < L.comp[0] && L.comp[0] < L.space[0] && L.space[0] === L.delay[0] && L.delay[0] < L.mix[0] && L.mix[0] < L.out[0], L)
+  ok('…what follows one thing on its line stands at its height (comp, the mix, in and out on one line); what runs side by side, one over the other, as far either side of that line (the higher of the two before stays the higher)', L.comp[1] === L.in[1] && L.mix[1] === L.in[1] && L.out[1] === L.in[1] && L.delay[1] < L.in[1] && L.space[1] > L.in[1] && L.space[1] + L.delay[1] === 2 * L.in[1] && L.space[1] - L.delay[1] >= 120, L)
+  ok('…the wires are as they were', (await wall()).wires.length === 6)
+  await press(box.a.x, box.a.y, 0, 'right')
+  const by2 = await ev(`flush(); const el = document.querySelector('[data-a="pick"][data-i="1"]'), r = el.getBoundingClientRect(); return { x: r.left + 20, y: r.top + r.height / 2 }`)
+  await b.click(by2.x, by2.y); await b.sleep(80)
+  const bs = await ev(`return wallOf(S.tracks[S.sel]).nodes.map(q => [q.k, !!q.bypass])`)
+  ok('bypass all: every one of them that can be is bypassed (a mix has no such switch)', bs.filter(x => x[0] !== 'mix').every(x => x[1]) && !bs.find(x => x[0] === 'mix')[1], bs)
+  await ev(`wallBypassAll(S.tracks[S.sel], null); WALLORG.many.clear(); flush()`)
+  ok('…and again: all back on', (await ev(`return wallOf(S.tracks[S.sel]).nodes.every(q => !q.bypass)`))) }
 
 /* nearer and further, about the pointer; the ground pulled about */
 { const g = await ev(`const k = board.getBoundingClientRect().width / W; return { x: (WALL.g.cx + 120) * k, y: (WALL.g.cy - 40) * k }`)
@@ -108,16 +160,16 @@ const wall = () => ev(`flush(); const t = S.tracks[S.sel], w = wallOf(t); return
   await b.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: g.x, y: g.y, deltaX: 0, deltaY: 400 }); await b.sleep(80)
   ok('scrolled down, further away', (await wall()).z < s0.z, (await wall()).z)
   const e0 = await ev(`const k = board.getBoundingClientRect().width / W, x0 = (typeof MAC_W !== 'undefined' && macTrack() ? MAC_W : 0) + 30; return { x: x0 * k, y: (WALL.g.y + 30) * k }`), o0 = (await wall()).o      // (past the macros' column, where the wall begins)
-  await pull(e0.x, e0.y, e0.x + 60, e0.y + 20)
+  await pull(e0.x, e0.y, e0.x + 60, e0.y + 20, 8, ALT)
   const o1 = (await wall()).o
-  ok('the empty ground pulled: the wall goes with the hand', o1[0] < o0[0] - 20 && o1[1] < o0[1], [o0, o1])
+  ok('the empty ground pulled with option: the wall goes with the hand', o1[0] < o0[0] - 20 && o1[1] < o0[1], [o0, o1])
   const lanes = await ev(`return [PXB, VX]`)
   const far = await ev(`const k = board.getBoundingClientRect().width / W; return { x: 600 * k, y: (TY + 60) * k }`)
   await b.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: far.x, y: far.y, deltaX: 0, deltaY: -160 }); await b.sleep(60)
   ok('scrolling over the lanes still scrolls the lanes, not the wall', JSON.stringify((await wall()).o) === JSON.stringify(o1)) }
 
 /* a thing with no wires set down on a wire joins it; taken off, the wire heals */
-{ await ev(`const t = S.tracks[S.sel]; wallAdd(t, 'air'); const w = wallOf(t), n = w.nodes.find(x => x.k === 'air'); n.x = 640; n.y = 150; w.z = 0; WALL.sel = null; dirtyAll(); flush()`)
+{ await ev(`const t = S.tracks[S.sel]; wallAdd(t, 'air'); const w = wallOf(t), n = w.nodes.find(x => x.k === 'air'); wallLoose(t, n.id); n.x = 640; n.y = 150; w.z = 0; WALL.sel = null; dirtyAll(); flush()`)
   const s0 = await wall(), air = s0.nodes.find(n => n[1] === 'air')[0], mix = s0.nodes.find(n => n[1] === 'mix')[0]
   const cap = await at(air, 'cap'), wmid = await ev(`flush(); const w = wallOf(S.tracks[S.sel]), i = w.wires.findIndex(e => e.to === -2), el = document.querySelector('#g-dock [data-k="wire"][data-i="' + i + '"]'), L = el.getTotalLength(), q = el.getPointAtLength(L / 2), m = el.getScreenCTM(); return { x: q.x * m.a + m.e, y: q.y * m.d + m.f }`)
   await pull(cap.x, cap.y, wmid.x, wmid.y + (cap.y - (await at(air)).y))
@@ -140,14 +192,14 @@ const wall = () => ev(`flush(); const t = S.tracks[S.sel], w = wallOf(t); return
   const c = await ev(`const t = S.tracks.find(x => x.name === 'hats'); delete t.wall; wallOf(t); setPrint(t, 'space', 40); const w = wallOf(t), id = (w.nodes.find(n => n.k === 'space') || {}).id; return { n: w.nodes.length, wires: w.wires.map(e => [e.from, e.to]), id }`)
   ok('a print turned up from elsewhere (the command line) on an empty wall is wired in to out by itself', c.n === 1 && c.wires.length === 2 && c.wires[0][0] === -1 && c.wires[0][1] === c.id && c.wires[1][1] === -2, c) }
 
-/* a plug-in put on the track from somewhere other than the wall's list joins the end of the way; from the list, it stands unwired */
+/* a plug-in put on the track joins the end of the way; one held loose (WALL.loose: nothing holds one so now) stands unwired */
 { const r = await ev(`const t = S.tracks.find(x => x.name === 'guitar'); delete t.wall; t.inserts = []; wallOf(t); t.inserts.push({ uid: 41, id: 'a', name: 'one', fmt: 'au' }); const w1 = wallOf(t), a = w1.wires.map(e => [e.from, e.to])
     t.inserts.push({ uid: 42, id: 'b', name: 'two', fmt: 'au' }); const w2 = wallOf(t), b2 = w2.wires.map(e => [e.from, e.to]), ids = w2.nodes.map(n => n.id)
     WALL.loose = t.id; t.inserts.push({ uid: 43, id: 'c', name: 'three', fmt: 'au' }); const w3 = wallOf(t); WALL.loose = null
     return { a, b2, ids, three: w3.nodes.length, wires3: w3.wires.length }`)
   ok('put on a track from elsewhere, a plug-in joins the end of the way: in, it, out', JSON.stringify(r.a) === JSON.stringify([[-1, r.ids[0]], [r.ids[0], -2]]), r.a)
   ok('…and the next one after it', JSON.stringify(r.b2) === JSON.stringify([[-1, r.ids[0]], [r.ids[0], r.ids[1]], [r.ids[1], -2]]), r.b2)
-  ok('picked from the wall’s own list, it stands unwired', r.three === 3 && r.wires3 === 3, [r.three, r.wires3]) }
+  ok('held loose, it stands unwired', r.three === 3 && r.wires3 === 3, [r.three, r.wires3]) }
 
 /* read again from a project: the plug-in finds its place as it is opened */
 { const r = await ev(`const src = S.tracks.find(x => x.name === 'snare'), saved = JSON.parse(JSON.stringify(wallSaved(src))), savedAs = saved.nodes.map(n => [n.k, n.p == null ? null : n.p, 'ins' in n]), t = S.tracks.find(x => x.name === 'bass'); t.wall = saved; t.inserts = []; setPrint(t, 'tape', 24); setPrint(t, 'space', 30); setPrint(t, 'delay', 20)

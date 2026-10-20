@@ -93,16 +93,16 @@ SKINS.lanes.blueprint = (vis, L) => {
 }
 /* ── section lines: a circled letter and the name ── */
 SKINS.scenes.blueprint = () => {
-  const y = MK_Y, cur = sceneAt(curPos()).i
-  let s = R(0, y, RX, MK_H, { fill: K1 }), g = '', hits = hit(X0, y, X1 - X0, MK_H, 'scenebar', '', 'default')
+  const y0 = MK_Y, y = MK_Y + MK_C, cur = sceneAt(curPos()).i
+  let s = R(0, y0, RX, MK_H, { fill: K1 }), g = '', hits = hit(X0, y0, X1 - X0, MK_H, 'scenebar', '', 'default')
   SCENES.forEach((sc, i) => {
     const xa = bx(sc.a), xb = bx(sc.b), xl = Math.max(xa, X0), xr = Math.min(xb, X1)
     if (xr - xl < 1) return
     const cx = Math.max(xa, X0 + 8)
-    if (xa >= X0 - 1) g += bpLine(xa, y + MK_H - 4, xa, y + MK_H, { a: .5 }) + Cc(cx, y + 10, 6.5, { fill: K1, stroke: INK, sw: .8 }) + T(cx, y + 12.6, i < 26 ? String.fromCharCode(65 + i) : String(i + 1), { size: 7.5, w: 600, anchor: 'middle' })
+    if (xa >= X0 - 1) g += bpLine(xa, y0 + MK_H - 4, xa, y0 + MK_H, { a: .5 }) + Cc(cx, y + 10, 6.5, { fill: K1, stroke: INK, sw: .8 }) + T(cx, y + 12.6, i < 26 ? String.fromCharCode(65 + i) : String(i + 1), { size: 7.5, w: 600, anchor: 'middle' })
     g += T(cx + 10, y + 13, fit(asGiven(sc.name.toUpperCase()), Math.max(8, xr - xl - 16), 7.5), { size: 7.5, a: i === cur ? 1 : .7 })
     if (S.focus === 'marker' && S.selM === sc.a) g += Cc(cx, y + 10, 8.5, { stroke: INK, sw: .8 })
-    hits += hit(xl, y + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
+    hits += hit(xl, y0 + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
   })
   return s + G(g, '', TL) + hits
 }

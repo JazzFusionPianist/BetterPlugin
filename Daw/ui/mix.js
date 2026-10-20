@@ -1,5 +1,5 @@
 /* ── tracks and where their sound goes: buses, stacks, sends; the strip of the chosen track; scenes ── */
-const panText = p => Math.abs(p) < .005 ? 'c' : (p < 0 ? '−' : '+') + Math.round(Math.abs(p) * 64)
+const panText = p => Math.abs(p) < .005 ? 'C' : (p < 0 ? 'L' : 'R') + Math.round(Math.abs(p) * 64)      // (L and R and C as capitals: his ask, 2026-10-20)
 const outName = t => { const d = byId(destId(t)); return d ? d.name : 'stereo out' }
 /* a stack's tracks sit right under it, in the order they were in */
 function normalizeOrder () {
@@ -342,21 +342,23 @@ const MASTER = () => ({ id: 'M', name: 'stereo out', kind: 'out', vol: S.master,
    it needs, and one more, and as many sends — three of each at least — as long as the fader keeps a hundred pixels; it
    gave two rows to them (his ask, 2026-10-19: "볼륨 페이더의 높이를 조금만 줄여서 fx랑 send를 넣을 자리를"). */
 const MIX_FADER_MIN = 80
+/* the room the pan takes: a bar as wide as the strip (his pick of pan draft 1, m-b), or a knob in the inspector (i-c) */
+const PAN_BAR = 30, PAN_KNOB = 74
 let MIX_N = { key: '', nf: 3, ns: 3 }
 function mixCounts (h, wide) {
   const key = h + '|' + (wide ? 1 : 0) + '|' + S.tracks.map(t => `${t.wall ? t.wall.nodes.length : 0},${(t.inserts || []).length},${(t.sends || []).length},${PRINTS3.filter(k => printOn(t, k)).length}`).join(';')
   if (MIX_N.key === key) return MIX_N
   const most = Math.max(0, ...S.tracks.map(t => fxItems(t).length)), sends = Math.max(0, ...S.tracks.map(t => (t.sends || []).length))
   let nf = clamp(most + 1, 3, 8), ns = clamp(sends + 1, 3, 6)
-  const room = h - (7 + 9 + 14 + 67) - 16 * (wide ? 2 : 1) - MIX_FADER_MIN
+  const room = h - (7 + 9 + PAN_BAR + 67) - 16 * (wide ? 2 : 1) - MIX_FADER_MIN
   while ((nf + ns) * 16 > room && (nf > 2 || ns > 2)) { if ((nf > ns && nf > 2) || ns <= 2) nf--; else ns-- }
   MIX_N = { key, nf, ns }
   return MIX_N
 }
-function stripGeom (y, h, wide) {
-  const sp = 16, sh = 14, { nf, ns } = mixCounts(h, wide)
+function stripGeom (y, h, wide, knob) {
+  const sp = 16, sh = 14, { nf, ns } = mixCounts(h - (knob ? PAN_KNOB - PAN_BAR : 0), wide)
   const rws = (wide ? ['in'] : []).concat(Array.from({ length: nf }, (_, k) => 'fx' + k), ['send'], Array(ns - 1).fill(''), ['out'])
-  const y0 = y + 7, panY = y0 + rws.length * sp + 9, ft = panY + 14, fb = Math.max(ft + 24, y + h - 67)
+  const y0 = y + 7, panY = y0 + rws.length * sp + 9, ft = panY + (knob ? PAN_KNOB : PAN_BAR), fb = Math.max(ft + 24, y + h - 67)
   return { sp, sh, rows: rws, nf, ns, y0, panY, ft, fb, fh: fb - ft, yOf: db => fb - (fb - ft) * volF(db) }
 }
 /* what is on a track's patch, in order: the prints and plug-ins on its wall (a key's side is not a slot), else — no wall
@@ -375,20 +377,29 @@ function fxItems (t) {
   }
   return out
 }
-function stripGutter (x, w, y, h, wide) {
-  const q = stripGeom(y, h, wide)
+function stripGutter (x, w, y, h, wide, knob) {
+  const q = stripGeom(y, h, wide, knob)
   let s = ''
   q.rows.forEach((l, i) => { const said = l === 'fx0' ? 'fx' : /^fx\d/.test(l) ? '' : l; if (said) s += T(x + w - 6, q.y0 + i * q.sp + q.sh / 2 + 3.2, said, { size: 9, a: .4, anchor: 'end' }) })
   s += T(x + w - 6, q.panY + 4, 'pan', { size: 9, a: .4, anchor: 'end' })
   if (!(typeof SKIN === 'object' && SKINS.strip[SKIN.k.mixer] && !SKINS.strip[SKIN.k.mixer].meters)) for (const db of DBS) s += T(x + w - 6, q.yOf(db) + 3, db === -48 ? '∞' : String(Math.abs(db)), { size: 8.5, a: db === 0 ? .66 : .36, anchor: 'end' })      // (a console's knobs carry their own scale)
   return s
 }
+/* the pan as a bar the strip's width: a groove, filled from its middle, a handle where it stands (his pick, 2026-10-20) */
+const panWide = (x, y, w, h, pan) => { const cx = x + w / 2, px = cx + pan * (w / 2 - 1.5); return R(x, y, w, h, { rx: 1.5, fill: K0, fa: .9 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 1.5, stroke: INK, sa: .16 }) + R(Math.min(cx, px), y + 2, Math.abs(px - cx), h - 4, { fill: INK, fa: .42 }) + R(cx - .5, y - 2, 1, h + 4, { fill: INK, fa: .3 }) + R(px - 1.5, y - 2, 3, h + 4, { rx: 1, fill: INK }) }
+/* …and as a knob (the inspector's): the way it can go, 135 degrees either side of the top; how far it went, from the top */
+const panKnob = (cx, cy, r, pan, sw = 3) => {
+  const at = (rr, deg) => { const a = (deg - 90) * Math.PI / 180; return [cx + rr * Math.cos(a), cy + rr * Math.sin(a)] }
+  const arc = (d0, d1) => { if (Math.abs(d1 - d0) < .01) return ''; const [x0, y0] = at(r, d0), [x1, y1] = at(r, d1); return `M${n(x0)} ${n(y0)}A${r} ${r} 0 ${Math.abs(d1 - d0) > 180 ? 1 : 0} ${d1 > d0 ? 1 : 0} ${n(x1)} ${n(y1)}` }
+  const d = pan * 135, [tx, ty] = at(r - sw - 2, d)
+  return P(arc(-135, 135), { stroke: INK, sa: .16, sw, cap: 'round' }) + P(arc(0, d), { stroke: INK, sa: .95, sw, cap: 'round' }) + R(cx - .5, cy - r - sw / 2 - 3, 1, 3, { fill: INK, fa: .4 }) + P(`M${n(cx)} ${n(cy)}L${n(tx)} ${n(ty)}`, { stroke: INK, sa: .9, sw: Math.max(1, sw * .6), cap: 'round' })
+}
 /* left or right of the middle: a line that fills from its centre */
 const panBar = (x, y, w, pan) => { const cx = x + w / 2, px = cx + pan * w / 2; return R(x, y, w, 2, { fill: INK, fa: .12 }) + R(Math.min(cx, px), y, Math.abs(px - cx), 2, { fill: INK, fa: .7 }) + R(cx - .5, y - 2, 1, 6, { fill: INK, fa: .3 }) + R(px - 1, y - 3, 2, 8, { fill: INK }) }
 /* what plays into a bus, or sits in a stack: said where a track says its input */
 const feedsOf = t => S.tracks.filter(x => x !== t && (x.sends || []).some(sd => sd.to === t.id)).length
 function strip (x, y, w, h, t, i, o = {}) {
-  const wide = !!o.wide, q = stripGeom(y, h, wide), pad = wide ? 5 : 4, sx = x + pad, sw = w - pad * 2, fs = wide ? 9.5 : 9, sel = !!o.sel, tx = sx + (wide ? 6 : 4), di = ` data-i="${i}"`
+  const wide = !!o.wide, q = stripGeom(y, h, wide, !!o.knob), pad = wide ? 5 : 4, sx = x + pad, sw = w - pad * 2, fs = wide ? 9.5 : 9, sel = !!o.sel, tx = sx + (wide ? 6 : 4), di = ` data-i="${i}"`
   let s = '', yy = q.y0, si = 0, hits = ''
   const short = v => wide ? v : (SHORT[v] || v)
   const word = (txt, room, it, a = .88) => T(tx, yy + q.sh / 2 + fs * .35, fit(txt, room, fs, 400, !!it), { size: fs, a, it: !!it })
@@ -440,10 +451,18 @@ function strip (x, y, w, h, t, i, o = {}) {
   const fx = x + (wide ? 34 : o.master ? 28 : 23), vol = o.master ? S.master : shown(t, 'vol'), muted = !o.master && !heard(t)
   const con = typeof SKIN === 'object' && SKINS.strip[SKIN.k.mixer]                    // (a theme's strip: its level, pan, buttons and name — skins.js)
   if (!o.master) {
-    const pan = shown(t, 'pan'), px = sx + (wide ? 4 : 2), pw = sw - (wide ? 34 : 24)
-    s += con ? con.pan(px, q.panY, pw, pan) : panBar(px, q.panY, pw, pan)
-    s += T(sx + sw - 2, q.panY + (wide ? 3.6 : 3.2), panText(pan), { size: wide ? 9.5 : 8.5, a: autoPts(t, 'pan').length ? 1 : .66, anchor: 'end' })      // (every strip says where its pan stands, the narrow ones too)
-    hits += hit(px - 3, q.panY - 7, pw + 6, 16, 'mpan', `${di} data-x="${n(px)}" data-pw="${n(pw)}"`, 'ew-resize')
+    const pan = shown(t, 'pan'), px = sx + (wide ? 4 : 2), pw = sw - (wide ? 34 : 24), lit = autoPts(t, 'pan').length ? 1 : .88      // (its value in the size and weight of the strip's own words, on the line of the gutter's "pan": his ask, 2026-10-20)
+    if (con) {                                                                             // (a theme's strip keeps its own pan: skins.js)
+      s += con.pan(px, q.panY, pw, pan) + T(sx + sw - 2, q.panY + (wide ? 3.6 : 3.2), panText(pan), { size: wide ? 9.5 : 8.5, a: autoPts(t, 'pan').length ? 1 : .66, anchor: 'end' })
+      hits += hit(px - 3, q.panY - 7, pw + 6, 16, 'mpan', `${di} data-x="${n(px)}" data-pw="${n(pw)}"`, 'ew-resize')
+    } else if (o.knob) {                                                                   // the inspector: a knob, its value under it
+      const r = 21, cy = q.panY - 1 + r
+      s += panKnob(sx + sw / 2, cy, r, pan) + T(sx + sw / 2, cy + r + 14, panText(pan), { size: fs, a: lit, anchor: 'middle' })
+      hits += hit(sx, q.panY - 8, sw, PAN_KNOB - 4, 'mpan', di, 'ns-resize')
+    } else {                                                                               // a bar the strip's width, its value over it: taken anywhere on them, and moved by how far the hand goes (never thrown to where it is pressed)
+      s += T(sx + sw / 2, q.panY + 4, panText(pan), { size: fs, a: lit, anchor: 'middle' }) + panWide(sx, q.panY + 9, sw, 9, pan)
+      hits += hit(sx, q.panY - 8, sw, PAN_BAR - 2, 'mpan', di, 'ew-resize')
+    }
   }
   /* the fader on its scale, the meter beside it */
   let tk = ''
@@ -451,11 +470,11 @@ function strip (x, y, w, h, t, i, o = {}) {
   const fy = q.yOf(vol)
   if (con) s += con.level(x, w, sx, sw, q, vol, muted, o.master ? null : t)
   else {
-    s += P(tk, { stroke: INK, sa: .26 }) + R(fx - .5, q.ft, 1, q.fh, { fill: INK, fa: .2 })
-    if (!o.master && t.ghost != null) s += R(fx - 6, q.yOf(t.ghost) - .5, 12, 1, { fill: INK, fa: .4 })
-    s += R(fx - 6, fy - 3, 12, 6, { rx: 1, fill: INK, fa: muted ? .5 : 1 }) + P(`M${fx - 4} ${n(fy)}H${fx + 4}`, { stroke: K0, sa: .7 })
+    s += P(tk, { stroke: INK, sa: .26 }) + R(fx - 1, q.ft, 2, q.fh, { rx: 1, fill: INK, fa: .22 })      // (the fader and the meters drawn heavier: his ask, 2026-10-20)
+    if (!o.master && t.ghost != null) s += R(fx - 8, q.yOf(t.ghost) - .5, 16, 1, { fill: INK, fa: .4 })
+    s += R(fx - 8, fy - 4, 16, 8, { rx: 1.5, fill: INK, fa: muted ? .5 : 1 }) + P(`M${fx - 5.5} ${n(fy)}H${fx + 5.5}`, { stroke: K0, sa: .7, sw: 1.2 })
   }
-  const bw = wide || o.master ? 3.5 : 3, mx = fx + (wide || o.master ? 13 : 12)
+  const bw = wide || o.master ? 6 : 5, mx = fx + (wide || o.master ? 15 : 13)
   for (let c = 0; c < 2 && (!con || con.meters); c++) {
     const x2 = mx + c * (bw + 1), ids = `${t.id}-${c}`
     s += R(x2, q.ft, bw, q.fh, { fill: INK, fa: .1 }) + R(x2, q.fb, bw, 0, { fill: LEVEL, fa: .86, x: ` id="ms-${ids}"` }) + R(x2, q.fb, bw, 0, { fill: SOLO, x: ` id="mh-${ids}"` }) + R(x2, q.fb, bw, 1, { fill: INK, fa: 0, x: ` id="mk-${ids}"` })

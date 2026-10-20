@@ -107,8 +107,8 @@ SKINS.lanes.score = (vis, L) => {
 
 /* ── rehearsal marks: a boxed letter, the name in italic ── */
 SKINS.scenes.score = () => {
-  const y = MK_Y, cur = sceneAt(curPos()).i
-  let s = R(0, y, RX, MK_H, { fill: K1 }), g = '', hits = hit(X0, y, X1 - X0, MK_H, 'scenebar', '', 'default')
+  const y0 = MK_Y, y = MK_Y + MK_C, cur = sceneAt(curPos()).i
+  let s = R(0, y0, RX, MK_H, { fill: K1 }), g = '', hits = hit(X0, y0, X1 - X0, MK_H, 'scenebar', '', 'default')
   SCENES.forEach((sc, i) => {
     const xa = bx(sc.a), xb = bx(sc.b), xl = Math.max(xa, X0), xr = Math.min(xb, X1), on = i === cur
     if (xr - xl < 1) return
@@ -117,7 +117,7 @@ SKINS.scenes.score = () => {
     const nm = fit(asGiven(sc.name), Math.max(8, xr - xl - 24), 10.5, 400, true)
     g += T(Math.max(xa, X0) + 19, y + 14.6, nm, { size: 10.5, it: true, a: on ? 1 : .7 })
     if (S.focus === 'marker' && S.selM === sc.a) g += P(`M${n(xl + 19)} ${y + 18}H${n(Math.min(xr - 4, xl + 19 + tw(nm, 10.5, 400, true)))}`, { stroke: INK, sw: .8 })
-    hits += hit(xl, y + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
+    hits += hit(xl, y0 + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
   })
   return s + G(g, '', TL) + hits
 }

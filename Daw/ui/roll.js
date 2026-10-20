@@ -97,7 +97,7 @@ function rollFit (r, t) {
   const V = ROLL.view, a = r ? r.a - 1 : Math.floor(curPos()), len = r ? r.b - r.a : 4
   const span = clamp(len + .5, 2.5, 8.5)
   V.a = a - .25; V.b = V.a + span
-  if (r && r.notes.length && !rollKit(t)) { const ns = regSound(r).map(x => x.n); if (ns.length) { const lo = Math.min(...ns), hi = Math.max(...ns); V.hi = clamp(Math.round((lo + hi) / 2) + 12, 24, 127) } }
+  if (r && r.notes.length && !rollKit(t)) { const ns = regSound(r).map(x => x.n); if (ns.length) { const lo = Math.min(...ns), hi = Math.max(...ns); V.hi = clamp(Math.round((lo + hi) / 2) + 12, 24, 127); ROLL.span = { lo, hi } } }      // (span: once the page knows how many rows it shows, the notes stand in their middle — below)
   ROLL.sel = new Set(); ROLL.cp = new Set(); ROLL.rid = r ? r.id : null
 }
 /* how loud a note of this instrument is from the moment its key goes down (seconds): rise, fall, held level, ring */
@@ -152,6 +152,12 @@ function pRoll (y, h) {
   const pxb = (x1 - x0) / (V.b - V.a), X = bar => x0 + (bar - V.a) * pxb, pps = pxb / SPB()
   const rowH = kit ? clamp(Math.floor(gh / DRUM_PADS.length), 12, 26) : ROLL.rowH, count = kit ? DRUM_PADS.length : Math.max(1, Math.floor(gh / rowH))
   if (!kit) V.hi = clamp(Math.round(V.hi), count - 1, 127)
+  if (!kit && ROLL.span) { const c = ROLL.span; ROLL.span = null; V.hi = clamp(c.hi - c.lo + 1 > count ? c.hi : Math.round((c.lo + c.hi + count - 1) / 2), count - 1, 127) }      // (all of them in sight when they fit; else the highest at the top)
+  if (!kit && ROLL.keep && r) {                                                          // the lane come up (or gone): the notes that are chosen stay in sight
+    ROLL.keep = false
+    const ps = r.notes.filter(x => ROLL.sel.has(x.id)).map(x => x.n)
+    if (ps.length) { const top = Math.max(...ps), bottom = Math.min(...ps); if (top > V.hi) V.hi = top; else if (bottom < V.hi - count + 1) V.hi = Math.min(127, Math.max(top, bottom + count - 1)) }
+  }
   const hi = kit ? 0 : V.hi, lo = hi - count + 1
   const rowOfKey = p => kit ? (() => { const i = DRUM_PADS.findIndex(q => q[1] === p); return i < 0 ? -1 : DRUM_PADS.length - 1 - i })() : hi - p
   const Y = p => top + rowOfKey(p) * rowH, gb = top + count * rowH
@@ -381,7 +387,7 @@ function rollDown (e) {
   const hold = d => { ROLL.drag = Object.assign({ x0: p.x, y0: p.y, moved: false }, d); try { svg.setPointerCapture(e.pointerId) } catch (err) {} }
   ROLL.on = k === 'clane' || k === 'cpt' || k === 'vel' ? 'lane' : k === 'paper' || k === 'note' || k === 'len' ? 'paper' : ROLL.on
   if (k === 'none') return true
-  if (k === 'lane') { ROLL.lane = !ROLL.lane; uiDirty('dock'); return true }
+  if (k === 'lane') { ROLL.lane = !ROLL.lane; ROLL.keep = true; uiDirty('dock'); return true }
   if (k === 'param') { rollParamMenu(p.x - 20, p.y); return true }
   if (k === 'root') { openMenu(p.x - 10, p.y + 12, RL_ROOTS.map((v, i) => ({ t: v, v: i, on: i === ROLL.root })), it => { ROLL.root = it.v; uiDirty('dock') }, { w: 70 }); return true }
   if (k === 'scale') { openMenu(p.x - 10, p.y + 12, Object.keys(RL_SCALES).map(v => ({ t: v, v, on: v === ROLL.scale })), it => { ROLL.scale = it.v; uiDirty('dock') }, { w: 150 }); return true }
@@ -550,7 +556,7 @@ function rollKey (e) {
   }
   if (c === 'KeyQ' && r && ((plain && !e.shiftKey) || (e.metaKey && e.altKey && !e.ctrlKey))) { take(); if (!e.repeat) rollQuantDo(r, !plain); return }      // q: the chosen notes to the panel's own grid (not the region to the room's); option command q: back as played
   if (c === 'KeyL' && plain && !e.shiftKey && r) { take(); if (!e.repeat) rollLegato(r); return }      // l: force legato (on the lanes l fills a region to the next; here, each chosen note)
-  if (c === 'KeyA' && plain && !e.shiftKey) { take(); if (!e.repeat) { ROLL.lane = !ROLL.lane; uiDirty('dock') } return }      // a: the lane under the notes, up or away
+  if (c === 'KeyA' && plain && !e.shiftKey) { take(); if (!e.repeat) { ROLL.lane = !ROLL.lane; ROLL.keep = true; uiDirty('dock') } return }      // a: the lane under the notes, up or away
   if ((c === 'Backspace' || c === 'Delete') && plain) {
     take()
     if (e.repeat) return

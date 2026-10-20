@@ -869,6 +869,15 @@ public:
         if (auto it = bufIndex.find (key); it != bufIndex.end()) return bufs[(size_t) it->second];
         return {};
     }
+    /** The reference: its sound (a key the page brought in; empty: none), the bar its region begins on (from 0), its level,
+        and whether it is the one heard. */
+    void setRef (const String& key, double startBar, float vol, bool on)
+    {
+        auto b = key.isNotEmpty() ? buffer (key) : std::shared_ptr<Buf>();
+        std::shared_ptr<Buf> gone;
+        { const juce::ScopedLock sl (lock); gone = std::move (refBuf); refBuf = b; refStartBar = startBar; }
+        refVol.store (vol); refOn.store (on && b != nullptr && b->data.getNumSamples() > 0);
+    }
 
     /** The session, as the page tells it. A track the page marks `same` keeps the regions, lines and wiring it was last
         told (they are numbered: `ver`); one the engine does not hold in that telling is asked for again (the answer says
@@ -4048,9 +4057,15 @@ private:
             const float* now[kMaxIn];
             for (int c = 0; c < kMaxIn; ++c) now[c] = ins[c] == silence.data() ? ins[c] : ins[c] + done;
             blockDone = done;
+            const juce::int64 was = posS;
             const int got = renderSome (juce::jmin (n - done, maxBlock), any ? now : nullptr);
             if (got <= 0) break;
             const float* mL = mix.getReadPointer (0); const float* mR = mix.getReadPointer (1); const float* ck = clk.getReadPointer (0);
+            const Buf* rb = refBuf.get();
+            const bool rolling = posS != was;                                                  // (the song went on: the reference goes on with it; stopped, it is silent)
+            const juce::int64 refAt = rb != nullptr ? posS - got - (juce::int64) std::llround (refStartBar * barSamples()) : 0;
+            const float rv = refVol.load(), rT = refOn.load() ? 1.0f : 0.0f, rStep = 1.0f / (0.02f * (float) sr);
+            const int rLen = rb != nullptr ? rb->data.getNumSamples() : 0, rR = rb != nullptr ? juce::jmin (1, rb->data.getNumChannels() - 1) : 0;
             const float mT = master.load(), ms = (mT - masterSm) / (float) got;
             double sq = 0.0; float pk = 0.0f, pL = 0.0f, pR = 0.0f;
             for (int i = 0; i < got; ++i)
@@ -4059,6 +4074,13 @@ private:
                 float l = mL[i] * masterSm, r = mR[i] * masterSm;
                 limit (l, r);
                 if (liveMixOut != nullptr) { liveMixOut->buf.setSample (0, i, l); liveMixOut->buf.setSample (1, i, r); }      // (a realtime print of the mix: what goes to the speakers)
+                if (rb != nullptr || refX > 0.0f)
+                {
+                    refX = refX < rT ? juce::jmin (rT, refX + rStep) : juce::jmax (rT, refX - rStep);
+                    float a = 0.0f, b = 0.0f;
+                    if (rb != nullptr && rolling) { const juce::int64 k = refAt + i; if (k >= 0 && k < rLen) { a = rb->data.getSample (0, (int) k) * rv; b = rb->data.getSample (rR, (int) k) * rv; } }
+                    if (refX > 0.0f) { l += (a - l) * refX; r += (b - r) * refX; }
+                }
                 const float al = std::abs (l), ar = std::abs (r);
                 sq += (double) (l * l + r * r) * 0.5; if (al > pL) pL = al; if (ar > pR) pR = ar;
                 if (! silent) { out[0][done + i] = l + ck[i]; if (numOut > 1 && out[1] != nullptr) out[1][done + i] = r + ck[i]; }
@@ -4320,6 +4342,14 @@ private:
     std::vector<float> testBuf, silence;
     float testPhase = 0.0f;
     juce::int64 posS = 0, recStartS = 0, qEdge = 0;
+    /* the reference song (the page's reference row, his ask 2026-10-20): not a track — not in the mix, not through the
+       stereo out's wall, its fader or the limiter. While it is the one chosen it is heard in the mix's place, at the song's
+       place, from where its region begins; the two cross over in a fiftieth of a second (refX: how much of it is heard) */
+    std::shared_ptr<Buf> refBuf;
+    double refStartBar = 0.0;
+    std::atomic<float> refVol { 1.0f };
+    std::atomic<bool> refOn { false };
+    float refX = 0.0f;
     juce::File takeNote;
     double lastQ = -1.0;
     int clkAt = -1, clkFrom = 0; bool clkAccent = false;

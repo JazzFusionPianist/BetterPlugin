@@ -107,15 +107,15 @@ SKINS.head.terminal = i => {
 }
 /* ── a marker: ├ and its name ── */
 SKINS.scenes.terminal = () => {
-  const y = MK_Y, cur = sceneAt(curPos()).i
-  let s = R(0, y, RX, MK_H, { fill: K1 }), g = '', hits = hit(X0, y, X1 - X0, MK_H, 'scenebar', '', 'default')
+  const y0 = MK_Y, y = MK_Y + MK_C, cur = sceneAt(curPos()).i
+  let s = R(0, y0, RX, MK_H, { fill: K1 }), g = '', hits = hit(X0, y0, X1 - X0, MK_H, 'scenebar', '', 'default')
   SCENES.forEach((sc, i) => {
     const xa = bx(sc.a), xb = bx(sc.b), xl = Math.max(xa, X0), xr = Math.min(xb, X1)
     if (xr - xl < 1) return
-    if (xa >= X0 - 1) g += P(`M${n(xa) + .5} ${y + 6}V${y + MK_H}M${n(xa) + .5} ${y + 12.5}H${n(xa) + 5}`, { stroke: INK, sw: 1.2 })
+    if (xa >= X0 - 1) g += P(`M${n(xa) + .5} ${y + 6}V${y0 + MK_H}M${n(xa) + .5} ${y + 12.5}H${n(xa) + 5}`, { stroke: INK, sw: 1.2 })
     const nm = fit(asGiven(sc.name), Math.max(8, xr - xl - 12), 11)
     g += S.focus === 'marker' && S.selM === sc.a ? tmInv(xl + 7, y + 16, nm) : tmT(xl + 7, y + 16, nm, { a: i === cur ? 1 : .78 })
-    hits += hit(xl, y + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
+    hits += hit(xl, y0 + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
   })
   return s + G(g, '', TL) + hits
 }

@@ -98,8 +98,8 @@ SKINS.head.poster = i => {
 }
 /* ── the markers: shapes in the primary colours, and the names ── */
 SKINS.scenes.poster = () => {
-  const y = MK_Y
-  let s = R(0, y, RX, MK_H, { fill: K1 }), g = '', hits = hit(X0, y, X1 - X0, MK_H, 'scenebar', '', 'default')
+  const y0 = MK_Y, y = MK_Y + MK_C
+  let s = R(0, y0, RX, MK_H, { fill: K1 }), g = '', hits = hit(X0, y0, X1 - X0, MK_H, 'scenebar', '', 'default')
   SCENES.forEach((sc, i) => {
     const xa = bx(sc.a), xb = bx(sc.b), xl = Math.max(xa, X0), xr = Math.min(xb, X1)
     if (xr - xl < 1) return
@@ -107,7 +107,7 @@ SKINS.scenes.poster = () => {
     g += k === 0 ? Cc(x + 5, cy, 4.5, { fill: c }) : k === 1 ? R(x + .5, cy - 4.5, 9, 9, { fill: c }) : P(`M${n(x)} ${cy + 5}L${n(x + 5)} ${cy - 4.5}L${n(x + 10)} ${cy + 5}Z`, { fill: c })
     const chosen = S.focus === 'marker' && S.selM === sc.a
     g += T(x + 14, y + 16.5, fit(asGiven(sc.name), Math.max(8, xr - xl - 20), 13, 600), { size: 13, w: 600 }) + (chosen ? R(x + 13, y + 19, Math.min(xr - xl - 16, tw(asGiven(sc.name), 13, 600)), 2, { fill: BH.black }) : '')
-    hits += hit(xl, y + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
+    hits += hit(xl, y0 + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
   })
   return s + G(g, '', TL) + hits
 }

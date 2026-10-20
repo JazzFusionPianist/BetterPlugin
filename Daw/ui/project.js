@@ -187,6 +187,7 @@ function serialize () {
     v: 3, name: PROJ.name, demo: PROJ.demo, fresh: PROJ.fresh ? true : undefined, tempo: S.tempo, meter: S.meter, key: S.key, end: SONG_END, scenes: SCENES.map(s => [s.name, s.a]), master: S.master, click: S.click, countIn: S.countIn,
     cycle: S.cycle, sel: S.sel, view: { pxb: PXB, vx: VX, vy: VY, rh: S.rh, wz: S.wz || 1, panel: { on: S.panel.on, tab: S.panel.tab, h: S.panel.h }, slur: S.slur }, snap: S.snap, mode: S.mode, nudge: S.nudge, grid: S.grid, q: S.q,
     out: typeof wallOutSaved === 'function' ? wallOutSaved() : undefined,              // (wall.js: what stands on the stereo out's wall)
+    ref: typeof refSaved === 'function' ? refSaved() : undefined,                      // (reference.js: the reference row)
     tracks: S.tracks.map(t => {
       const o = {}
       for (const k of KEEP_T) if (t[k] !== undefined) o[k] = t[k]
@@ -466,6 +467,7 @@ async function loadProjectNow (key, json, free) {
     if (rr && rr.ok) { const got = { uid: rr.uid, name: rr.name, fmt: rr.fmt, id: ins.id, state: ins.state || '', off: !!ins.off, key: ins.key || 0, n: ins.n || 0, pn: ins.pn || null, sc: !!rr.key }; t.inserts.push(got); if (ins.off) NAT.call('bypass', { track: t.id, uid: rr.uid, off: 1 }); keyTold(t, got) }
     else { t.inserts.push(kept); LOAD.left.push(kept.name) }                              // it would not open: its place and its settings stay in the song
   }
+  if (typeof refLoad === 'function') refLoad(d.ref)                                    // (reference.js: the reference row; its sound comes on its own)
   if (typeof wallOutLoad === 'function') await wallOutLoad(d.out, name => { c.pd = plugN++; c.what = name; openingTell() })      // (wall.js: the stereo out's own wall and plug-ins)
   if (gen !== SOUNDS.gen) return true
   c.pd = c.pn; openingTell()

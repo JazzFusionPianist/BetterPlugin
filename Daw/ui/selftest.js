@@ -2620,6 +2620,81 @@ async function runSelfTest (mode) {
   /* the stereo out's own wall (wall.js): with nothing on it the song is printed as it was; a print on it changes the whole
      song's print and leaves a single track's print alone; a plug-in on it that is late is made up for; taken off again, the
      engine no longer holds the stereo out as a bus and the song is printed as before. */
+  /* the reference (his ask, 2026-10-20): heard only while it is the one chosen; heard straight out — the stereo out's fader
+     all the way down and the tracks silenced, it is still heard; chosen again, the mix comes back; written with the song */
+  await step('reference', async () => {
+    if (typeof refLoad !== 'function') return { skipped: 'this page has no reference' }
+    const t0 = S.tracks.find(sounding)
+    if (!t0) return { skipped: 'no track with sound on it' }
+    /* a file of its own: four bars of a track printed, then brought in as a reference is */
+    const a0 = firstBar(t0), keep = { master: S.master, mute: S.tracks.map(t => t.mute) }
+    const pr = await NAT.call('bounce', { kind: 'stems', a0, a1: a0 + 4, modes: ['wet'], tracks: [{ id: t0.id, name: 'ref check' }], folder: 'ref check', name: 'ref check', fmt: 'wav', rate: 0, bits: 24 }); await sleep(150)
+    if (!pr || !pr.ok) return { skipped: 'the print did not come', pr }
+    const got = await NAT.call('audioBring', { project: projKey(), paths: [`${pr.dir}/ref check.wav`] }), d = Array.isArray(got) ? got[0] : null
+    if (!d || !d.ok) return { skipped: 'the file was not brought in', got }
+    const res = { file: d.file, sec: +(+d.sec).toFixed(2) }
+    refLoad({ name: 'reference check', file: d.file, sec: d.sec, a: a0 + 1, b: a0 + 1 + d.sec / SPB(), srcBars: d.sec / SPB(), vol: 0 })
+    const r0 = { a: a0 + 1 }
+    for (let k = 0; k < 40 && REF.t.regs[0].wait; k++) await sleep(100)
+    res.loaded = !REF.t.regs[0].wait
+    await snap('selftest-reference.png')
+    const at = r0.a - 1 + .5
+    res.mix = await (async () => { await playFrom(at); return listen(700) })(); halt(false)
+    for (const t of S.tracks) t.mute = true; applyAll(); S.master = -48; pushMaster()
+    res.silent = await (async () => { await playFrom(at); return listen(700) })(); halt(false)
+    refHear(true); await sleep(100)
+    res.refHeard = await (async () => { await playFrom(at); return listen(700) })(); halt(false)
+    refHear(false); await sleep(100)
+    res.backToMix = await (async () => { await playFrom(at); return listen(700) })(); halt(false)
+    S.tracks.forEach((t, i) => t.mute = keep.mute[i]); applyAll(); S.master = keep.master; pushMaster()
+    res.written = !!(JSON.parse(serialize()).ref || {}).file
+    refLoad(null)
+    res.gone = !REF.t && TY === RU_Y + RU_H
+    return res
+  })
+  /* the wall as it begins now (his ask, 2026-10-20): in wired straight to out is heard as the track's own sound; a print
+     put on from the list (twice) is wired in at the end; organize puts a mess in order — pictured, as WebKit draws it */
+  await step('wallOrg', async () => {
+    if (typeof wallOrganize !== 'function') return { skipped: 'this page has no organize' }
+    const t = S.tracks.find(sounding)
+    if (!t) return { skipped: 'no track with sound on it' }
+    const a0 = firstBar(t), was = { wall: t.wall ? wallSaved(t) : null, patch: copy(t.patch), sel: S.sel, panel: copy(S.panel) }, res = { track: t.name }
+    const print = async name => { const b = await NAT.call('bounce', { kind: 'stems', a0, a1: a0 + 2, modes: ['wet'], tracks: [{ id: t.id, name }], folder: 'wall org', name, fmt: 'wav', rate: 0, bits: 24 }); await sleep(120); return b && b.ok ? `${b.dir}/${name}.wav` : null }
+    for (const k of PRINTS3) setPrint(t, k, 0)
+    pushTrack(t)
+    WALL.loose = null
+    const w = wallOf(t); w.nodes = []; w.wires = []; WALL.sent.delete(t.id); await NAT.call('wall', wallMsg(t)); await sleep(150)
+    const dry = await print('org dry')
+    delete t.wall; const w2 = wallOf(t); WALL.sent.delete(t.id)
+    res.fresh = { wires: w2.wires.map(e => [e.from, e.to]), span: w2.out.x - w2.in.x }
+    res.told = await NAT.call('wall', wallMsg(t)); await sleep(150)
+    const m = await NAT.call('testLag', { a: dry, b: await print('org in to out') })
+    res.inToOut = { lag: m.lag, alike: +(+m.alike).toFixed(4), level: m.levelA > 0 ? +(m.levelB / m.levelA).toFixed(3) : 0 }
+    /* on the screen: the list's row pressed twice, then a mess put in order */
+    S.sel = S.tracks.indexOf(t); S.panel.on = true; S.panel.tab = 'patch'; WALL.out = false; setView(true); dirtyAll(); flush()
+    openPicker('fx'); await sleep(300)
+    const row = document.querySelector('#pk-list .pk-row[data-print="comp"]')
+    if (row) { row.dispatchEvent(new MouseEvent('click', { bubbles: true })); row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })) }
+    await sleep(200); closePicker()
+    for (const k of ['tone', 'space', 'delay']) wallAdd(t, k)
+    const id = k => (w2.nodes.find(q => q.k === k) || {}).id
+    res.inline = w2.wires.map(e => [e.from, e.to]).join(' ')
+    /* space and delay side by side after tone, into a mix */
+    wallAdd(t, 'mix')
+    const tone = id('tone'), sp = id('space'), dl = id('delay'), mx = id('mix')
+    w2.wires = w2.wires.filter(e => ![sp, dl, mx].includes(e.from) && ![sp, dl, mx].includes(e.to) && e.from !== tone)
+    w2.wires.push({ from: tone, to: sp, gain: 1, port: 0 }, { from: tone, to: dl, gain: 1, port: 0 }, { from: sp, to: mx, gain: .5, port: 0 }, { from: dl, to: mx, gain: .5, port: 0 }, { from: mx, to: -2, gain: 1, port: 0 })
+    const P = { comp: [120, 160], tone: [-200, -120], space: [60, -60], delay: [520, -150], mix: [250, 40] }
+    for (const q of w2.nodes) if (P[q.k]) { q.x = P[q.k][0]; q.y = P[q.k][1] }
+    w2.z = 0; wallPush(t); dirtyAll(); flush(); await sleep(300)
+    await NAT.call('testSnap', { name: 'selftest-wall-mess.png' }); await sleep(400)
+    wallOrganize(t, null); await sleep(1500); flush()
+    await NAT.call('testSnap', { name: 'selftest-wall-organized.png' }); await sleep(400)
+    res.after = Object.fromEntries(w2.nodes.map(q => [q.k, [Math.round(q.x), Math.round(q.y)]]))
+    res.bad = WALL.bad.get(t.id) || null
+    t.wall = was.wall; t.patch = was.patch; S.sel = was.sel; Object.assign(S.panel, was.panel); WALL.sent.delete(t.id); pushTrack(t); wallPush(t); setView(true); dirtyAll(); flush()
+    return res
+  })
   await step('wallOut', async () => {
     if (typeof wallOutTrack !== 'function') return { skipped: 'this page has no wall' }
     const t = S.tracks.find(sounding)

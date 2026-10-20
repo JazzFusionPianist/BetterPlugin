@@ -69,6 +69,7 @@ const MENU_BAR = () => [
   ]],
   ['Track', [
     ['New Tracks…', '⌥⌘KeyN', { id: 'newtracks' }], ['New Audio Track', '⌥⌘KeyA', { id: 'newaudio' }], ['New Instrument Track', '⌥⌘KeyS'], ['New Bus', '⌃KeyN', { id: 'newbus' }],
+    ['Create Reference Track', '⌥⌘KeyR'],
     '-',
     ['Duplicate', '⌘KeyD', { id: 'duptrack' }], ['Duplicate with Its Regions', '⌥⇧⌘KeyD'], ['Rename…', null, { id: 'renametrack', k: '⇧Enter' }], ['Delete', '⌘Backspace', { id: 'deltrack' }], ['Delete Empty Tracks', '⇧⌘Backspace'],
     '-',
@@ -107,7 +108,7 @@ const MENU_BAR = () => [
   ['View', [
     ['Patch', 'KeyB', { on: () => S.panel.on && S.panel.tab === 'patch' }], ['Mixer', 'KeyX', { on: () => S.panel.on && S.panel.tab === 'mixer' }],
     ['Notes', 'KeyP', { on: () => S.panel.on && S.panel.tab === 'notes' }], ['Prompt', null, { do: () => { if (typeof promptOpen === 'function') promptOpen() }, on: () => S.panel.on && S.panel.tab === 'prompt' }], ['Rubato Panel', 'KeyW', { on: () => S.panel.on && S.panel.tab === 'rubato' }],
-    ['Slur', 'KeyO', { on: () => !!S.slur }],
+    ['Slur', 'KeyO', { on: () => !!S.slur }], ['Inspector', null, { do: () => toggleInspector(), on: () => !!INSP.on }],
     '-',
     ['Automation', 'KeyA', { on: () => !!S.auto }], ['Next Automation Parameter', '⌘KeyY'], ['Rubato View', '⌘KeyF', { on: () => !!S.flex }],
     '-',

@@ -244,18 +244,18 @@ function skinLevel (x, y, t, vol, i) {
 
 /* ── the markers on yellow tape flags, hanging from the top of their row ── */
 function skinScenes () {
-  const y = MK_Y, cur = sceneAt(curPos()).i
-  let s = R(0, y, RX, MK_H, { fill: K1 }) + (X0 > 70 ? T(12, y + 14.2, 'markers', { size: 9, a: .38 }) : ''), g = '', hits = hit(X0, y, X1 - X0, MK_H, 'scenebar', '', 'default')
+  const y0 = MK_Y, y = MK_Y, cur = sceneAt(curPos()).i      // (its flags hang from the top of the row)
+  let s = R(0, y0, RX, MK_H, { fill: K1 }) + (X0 > 70 ? T(12 + (typeof INSP === 'object' ? INSP.w || 0 : 0), y + 14.2, 'markers', { size: 9, a: .38 }) : ''), g = '', hits = hit(X0, y0, X1 - X0, MK_H, 'scenebar', '', 'default')
   SCENES.forEach((sc, i) => {
     const xa = bx(sc.a), xb = bx(sc.b), on = i === cur, xl = Math.max(xa, X0), xr = Math.min(xb, X1)
     if (xr - xl < 1) return
     const nm = fit(asGiven(sc.name), Math.max(8, xr - xl - 14), 8.5, 700), w = Math.min(xr - xl - 4, tw(nm, 8.5, 700) + 10)
-    g += P(`M${n(xa) + .5} ${y + 2}V${y + MK_H}`, { stroke: INK, sa: .5 })
+    g += P(`M${n(xa) + .5} ${y + 2}V${y0 + MK_H}`, { stroke: INK, sa: .5 })
     if (w > 8) g += R(Math.max(xa, X0) + .8, y + 4, w, 13, { fill: on ? '#F7D774' : '#EFCB62', x: ' filter="drop-shadow(0 .5px .5px rgba(0,0,0,.3))"' }) + T(Math.max(xa, X0) + 5, y + 13.6, nm, { size: 8.5, w: 700, c: '#2A1E10' })
     if (S.focus === 'marker' && S.selM === sc.a && w > 8) g += R(Math.max(xa, X0) + .8, y + 4, w, 13, { stroke: '#2A1E10', sw: 1 })
-    hits += hit(xl, y + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
+    hits += hit(xl, y0 + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
   })
-  return s + G(g, '', TL) + hline(0, RX, y + MK_H - .5, .06) + vline(HEAD_W - .5, y, y + MK_H, .08) + hits
+  return s + G(g, '', TL) + hline(0, RX, y0 + MK_H - .5, .06) + vline(Math.max(HEAD_W, X0) - .5, y0, y0 + MK_H, .08) + hits
 }
 /* the cycle, in red grease pencil along the top of the bars */
 function skinCycle (ca, cb, y, on) {

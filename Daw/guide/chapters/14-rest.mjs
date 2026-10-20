@@ -97,6 +97,18 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
     p('What is left out is gone from the plug-in list of the patch and the wall, and from the instruments of a track of notes. A song that already uses one still opens with it. A kind set by hand is the kind everywhere the room sorts plug-ins by kind. [[⌘Z]] in the window takes the last change back.', '뺀 것은 패치와 월의 플러그인 목록, 노트 트랙의 악기 목록에서 사라집니다. 이미 그것을 쓰는 곡은 그대로 열립니다. 직접 정한 종류는 방이 플러그인을 종류별로 나누는 모든 곳에 그대로 쓰입니다. 창에서 [[⌘Z]]를 누르면 마지막 변경이 되돌아갑니다.'),
     art: fig('plugins', { w: 150, calls: [[1, 'p-by', 't'], [6, 'p-again', 't'], [2, 'p-find', 'l'], [3, 'p-group#3', 'l'], [4, 'p-tick#3', 'r'], [5, 'p-none', 't'], [7, 'p-kind', 'r'], [8, 'p-read', 'l']] }) }),
 
+  page(t('keeping the machine light', '컴퓨터를 가볍게'), { kind: 'text', cc: 3, txt:
+    h('tracks at rest', '쉬는 트랙') +
+    p('A track that has had nothing coming in and nothing going out for longer than its plug-ins ring on (eight seconds at least, up to thirty when a plug-in says its tail is long) is not worked at all: its plug-ins and its patch rest until sound comes to it again, in the very block it comes. What you hear is the same; only silence is not worked out. With the song stopped, a room full of plug-ins comes down to a tenth of the work.', '들어오는 소리도 나가는 소리도 없이 플러그인의 꼬리보다 오래(최소 8초, 꼬리가 긴 플러그인은 최대 30초) 지난 트랙은 아예 계산하지 않습니다. 플러그인과 패치는 소리가 다시 오는 바로 그 블록까지 쉽니다. 들리는 소리는 같고, 무음만 계산하지 않습니다. 곡을 멈추면 플러그인이 가득한 방의 일이 10분의 1로 줄어듭니다.') +
+    p('A muted track, or one soloed away, takes no sound in: its plug-ins ring out and then rest. A track that something listens to (a key, a side) is always worked, and nothing rests while a print is made.', '뮤트되었거나 솔로로 빠진 트랙은 소리를 받지 않으므로 플러그인이 울림을 마친 뒤 쉽니다. 무언가가 듣고 있는 트랙(키, 사이드)은 항상 계산하고, 프린트하는 동안에는 아무것도 쉬지 않습니다.') +
+    h('freezing a track', '트랙 프리즈') +
+    p('((Track > Freeze Track)), or {{freeze track}} in a track’s menu, prints the track once, before its fader, through its patch and plug-ins (an instrument and all), and from then on it plays that print: its plug-ins, instrument and patch rest even while the song plays. The head says {{frozen}} after its name. Fader, pan, sends and their lines go on as they were.', '((Track > Freeze Track))이나 트랙 메뉴의 {{freeze track}}은 트랙을 페이더 앞에서, 패치와 플러그인(악기 포함)을 거쳐 한 번 프린트하고, 그다음부터는 그 프린트를 재생합니다. 곡이 재생될 때도 플러그인, 악기, 패치가 쉽니다. 헤드의 이름 뒤에 {{frozen}}이 붙습니다. 페이더, 팬, 센드와 그 라인은 그대로 작동합니다.') +
+    list(
+      ['Change anything the print was made from (a region, a note, a plug-in put on, taken off or opened, the patch, a line of a print or plug-in, the tempo) and the track thaws by itself.', '프린트의 재료가 바뀌면(리전, 노트, 플러그인 추가, 제거, 열기, 패치, 프린트나 플러그인의 라인, 템포) 트랙은 저절로 풀립니다.'],
+      ['The same line again, or {{unfreeze track}}, thaws it by hand.', '같은 메뉴를 다시 누르거나 {{unfreeze track}}으로 직접 풀 수 있습니다.'],
+      ['A song keeps its frozen tracks: the print is a file in its folder, read again when the song opens.', '곡은 프리즈된 트랙을 그대로 간직합니다. 프린트는 곡 폴더의 파일이며, 곡을 열 때 다시 읽습니다.']) +
+    h('switching a track off', '트랙 끄기') +
+    p('((Track > Disable Track)) leaves a track out altogether: nothing of it is worked and it is silent until it is switched on again.', '((Track > Disable Track))은 트랙을 통째로 뺍니다. 다시 켤 때까지 아무것도 계산하지 않고 소리도 나지 않습니다.') }),
   page(t('after a bad end', '비정상 종료 뒤에'), { kind: 'text', cc: 3, txt:
     h('what protects the work', '작업을 지키는 것') +
     list(

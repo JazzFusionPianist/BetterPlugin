@@ -248,6 +248,7 @@ function serialize () {
       if (o.inst) o.inst = instCopy(o.inst)
       const kept = list => list.filter(r => r.loop || r.file || r.notes).map(r => { const q = {}; for (const k of KEEP_R) if (r[k] !== undefined && r[k] !== null) q[k] = r[k]; if (r.loop) q.buf = r.buf; return q })
       o.regs = kept(t.regs)
+      if (t.frozen && t.frozen.reg && t.frozen.reg.file) { const fr = t.frozen.reg; o.frozen = { reg: { a: fr.a, b: fr.b, file: fr.file, sec: fr.sec }, sig: t.frozen.sig } }      // (freeze.js: its print, a file in the song's folder)
       if ((t.alts || []).length) o.alts = t.alts.map(a => ({ name: a.name, regs: kept(a.regs) }))
       if (t.wall && typeof wallSaved === 'function') o.wall = wallSaved(t)                 // (wall.js: how its patch is wired)
       o.inserts = (t.inserts || []).filter(i => i.id).map(i => Object.assign({ id: i.id, name: i.name, fmt: i.fmt, state: i.state || '' }, i.off ? { off: true } : {}, i.key ? { key: i.key } : {}, i.n ? { n: i.n } : {}, i.pn ? { pn: i.pn } : {}))
@@ -257,11 +258,11 @@ function serialize () {
 }
 /* full = ask every plug-in for its state too (slower; done now and then, on save, and on the way out).
    While a project is being opened or made (PROJ.hold) nothing is written, or half of one song would land in another's file. */
-async function saveProject (full, evenHeld) {
+async function saveProject (full, evenHeld, moved) {                               // moved: only the plug-ins that have changed are asked (Engine::pluginStates)
   if (!NAT || PROJ.busy || S.rec || (PROJ.hold && !evenHeld)) return false
   PROJ.busy = true
   try {
-    if (full) { const st = await NAT.call('pluginStates'); if (st) for (const t of S.tracks) { for (const i of t.inserts || []) if (st['u' + i.uid] != null) i.state = st['u' + i.uid]; if (t.inst && t.inst.kind === 'plug' && t.inst.uid && st['u' + t.inst.uid] != null) t.inst.state = st['u' + t.inst.uid] } if (st && typeof OUT !== 'undefined') for (const i of OUT.inserts) if (st['u' + i.uid] != null) i.state = st['u' + i.uid] }
+    if (full) { const st = await NAT.call('pluginStates', moved ? { moved: 1 } : {}); if (st) for (const t of S.tracks) { for (const i of t.inserts || []) if (st['u' + i.uid] != null) i.state = st['u' + i.uid]; if (t.inst && t.inst.kind === 'plug' && t.inst.uid && st['u' + t.inst.uid] != null) t.inst.state = st['u' + t.inst.uid] } if (st && typeof OUT !== 'undefined') for (const i of OUT.inserts) if (st['u' + i.uid] != null) i.state = st['u' + i.uid] }
     const json = serialize()
     if (json === PROJ.last && PROJ.saved) return true
     const r = await NAT.call('projSave', { name: projKey(), json })
@@ -302,7 +303,7 @@ async function loadFiles (project, tracks, step) {
 const natText = b64 => { const s = atob(String(b64 || '')), u8 = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i); return new TextDecoder().decode(u8) }
 const SOUNDS = { gen: 0, ready: new Map(), stop: null, fresh: [], settle: 0 }
 function soundsStop () { SOUNDS.gen++; SOUNDS.ready = new Map(); SOUNDS.fresh = []; if (SOUNDS.stop) { const s = SOUNDS.stop; SOUNDS.stop = null; s(false) } }
-const soundNames = tracks => [...new Set(tracks.flatMap(t => [t].concat(t.alts || [])).flatMap(L => L.regs || []).filter(q => !q.loop && !q.notes && q.file).map(q => q.file))]
+const soundNames = tracks => [...new Set(tracks.flatMap(t => [t].concat(t.alts || [], t.frozen && t.frozen.reg ? [{ regs: [t.frozen.reg] }] : [])).flatMap(L => L.regs || []).filter(q => !q.loop && !q.notes && q.file).map(q => q.file))]
 /* a region given its sound (f: what audioLoad answered); one whose sound could not be found stays, now as not found */
 function soundOn (r, f) {
   delete r.wait
@@ -311,7 +312,7 @@ function soundOn (r, f) {
 }
 function soundsFill () {
   if (!SOUNDS.ready.size) return
-  for (const L of S.tracks.flatMap(t => [t].concat(t.alts || []))) for (const r of L.regs) if (r.wait && SOUNDS.ready.has(r.file)) soundOn(r, SOUNDS.ready.get(r.file))
+  for (const L of S.tracks.flatMap(t => [t].concat(t.alts || [], t.frozen && t.frozen.reg ? [{ regs: [t.frozen.reg] }] : []))) for (const r of L.regs) if (r.wait && SOUNDS.ready.has(r.file)) soundOn(r, SOUNDS.ready.get(r.file))
 }
 /* -> a promise: true once every sound has come, false when another project was opened first. step(done): after each */
 function soundsRead (project, names, step) {
@@ -486,6 +487,7 @@ async function loadProjectNow (key, json, free) {
     if (d.demo && MOCK_PATCH[t.name] && JSON.stringify(t.patch) === JSON.stringify(MOCK_PATCH[t.name])) t.patch = NO_PATCH()          // the first song's mock-up patch, exactly as it was put there and never touched: taken off
     const back = list => list.map(q => Object.assign({ off: 0, gain: 0, mute: false, fi: 0, fo: 0 }, q, q.file && !q.loop && !q.notes ? { missing: true, wait: true } : {})).filter(q => q.notes ? Array.isArray(q.notes) : q.loop ? LOOPS[q.buf] : q.key || q.missing)      // (its sound is still to come: soundsRead. One not found is never let go of: its region stays, says so, and is written back as it was — missing.js)
     t.regs = back(o.regs)
+    if (t.frozen && t.frozen.reg && t.frozen.reg.file) t.frozen = { reg: Object.assign({ rate: 1, off: 0, gain: 0, fi: 0, fo: 0 }, t.frozen.reg, { missing: true, wait: true }), sig: t.frozen.sig }; else delete t.frozen      // (a frozen track's print comes with the other sounds: until it has, the track plays as it is)
     t.alts = Array.isArray(o.alts) ? o.alts.map(a => ({ name: String(a.name), regs: back(a.regs || []) })) : []
     t.patch0 = copy(t.patch)
     return t
@@ -774,7 +776,16 @@ async function projectBoot (hello) {
   await natReady()
   PROJ.last = PROJ.last || serialize()
   if (!START.on) { refreshPool(); setTitle() }
-  setInterval(() => { if (!drag) saveProject(++PROJ.ticks % 20 === 0 && !S.playing && S.tracks.some(t => (t.inserts || []).length)) }, 3000)      // plug-ins are asked for their settings about once a minute, and never while the song runs
+  /* every three seconds, if anything has changed (TOUCHED: counted whenever something is drawn again); plug-ins are asked for
+     their settings about once a minute, never while the song runs, and then only those that have changed (every fifth
+     time all of them) — so a song left alone writes nothing and asks nothing (his ask, 2026-10-21) */
+  setInterval(() => {
+    if (drag) return
+    const tick = ++PROJ.ticks, full = tick % 20 === 0 && !S.playing && S.tracks.some(t => (t.inserts || []).length)
+    if (!full && TOUCHED === PROJ.seen) return
+    const t0 = TOUCHED
+    saveProject(full, false, full && tick % 100 !== 0).then(ok => { if (ok) PROJ.seen = t0 })
+  }, 3000)
   NAT.on('dawQuit', () => { if (typeof quitAsked === 'function') quitAsked(); else saveNow(true).then(() => NAT.call('quit'), () => NAT.call('quit')) })      // (doors.js: it asks first when the song is not as it was last saved)
 }
 /* the menu bar's File: each line does what its key does */

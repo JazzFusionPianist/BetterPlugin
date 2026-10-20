@@ -16,7 +16,7 @@ if (NAT) {
   }
   /* a track is given its room (the patch engine) only once it could need one: a print turned up at either end of its scene hand, or a line drawn for one */
   const patched = t => ['A', 'B'].some(k => t.patch[k].tape + t.patch[k].space + t.patch[k].delay > 0) || ['tape', 'space', 'delay'].some(k => autoPts(t, k).length > 0)
-  const trackMsg = t => { const p = patchNow(t); return { id: t.id, vol: dbLin(t.vol), on: t.isOut || audible(t) ? 1 : 0, pan: t.pan || 0, tape: p.tape / 100, space: p.space / 100, delay: p.delay / 100, share: p.share / 100, patched: patched(t) ? 1 : 0, wall: typeof wallOf === 'function' ? 1 : 0, mon: t.mon ? 1 : 0, dead: t.disabled ? 1 : 0, live: liveOn(t) ? 1 : 0, input: t.inp || 0, sends: (t.sends || []).map(s => ({ to: s.to, gain: dbLin(s.db) })) } }
+  const trackMsg = t => { const p = patchNow(t); return { id: t.id, vol: dbLin(t.vol), on: t.isOut || audible(t) ? 1 : 0, pan: t.pan || 0, tape: p.tape / 100, space: p.space / 100, delay: p.delay / 100, share: p.share / 100, patched: patched(t) ? 1 : 0, wall: typeof wallOf === 'function' ? 1 : 0, mon: t.mon ? 1 : 0, dead: t.disabled ? 1 : 0, frozen: typeof frozenReg === 'function' && frozenReg(t) ? 1 : 0, live: liveOn(t) ? 1 : 0, input: t.inp || 0, sends: (t.sends || []).map(s => ({ to: s.to, gain: dbLin(s.db) })) } }
   const regMsg = r => { const w = r.wkey && LIVEW.has(r.wkey) ? r.wkey : null; return regMsgOf(r, w) }       // a rendering that was let go: the plain file plays until it is rendered again
   N.regMsg = regMsg                                                                    // (for whoever has regions rendered outside a session: a join)
   const regMsgOf = (r, w) => ({ a: r.a - 1, b: r.b - 1, buf: w || (r.loop ? r.buf : r.key), loop: r.loop ? 1 : 0, rate: w ? 1 : (r.rate || 1), bars: r.loop ? LOOPS[r.buf].bars : 1, off: r.off || 0, gain: dbLin(r.gain || 0), fi: r.fi || 0, fo: r.fo || 0, fic: r.fic || 0, foc: r.foc || 0 })
@@ -27,15 +27,17 @@ if (NAT) {
      only: when given, the regions for which it is true are the ones that sound (a bounce in place) */
   let telling = 0
   const sendSession = async only => {
+    if (!only && typeof frozenCheck === 'function') frozenCheck()                        // (freeze.js: a frozen track whose makings changed thaws first)
     const mine = ++telling
     const outT = typeof wallOutTrack === 'function' ? wallOutTrack() : null               // (wall.js: the stereo out, while something stands on its wall — a bus of the engine's that all the others play into)
     const tracks = S.tracks.concat(outT ? [outT] : []).map(t => {
-      const wired = { kind: t.kind === 'audio' ? 0 : 1, out: destId(t) || (outT && t !== outT ? outT.id : 0), autos: autoMsg(t), regs: t.kind === 'audio' ? t.regs.filter(r => !r.mute && !r.notes && !r.missing && (!only || only(r))).map(regMsg) : [] }
-      Object.assign(wired, noteMsg(t, only))                                           // a track of notes: what it plays, as it sounds
+      const fr = !only && typeof frozenReg === 'function' ? frozenReg(t) : null          // a frozen track plays its print, and that alone (freeze.js)
+      const wired = { kind: t.kind === 'audio' ? 0 : 1, out: destId(t) || (outT && t !== outT ? outT.id : 0), autos: autoMsg(t), regs: fr ? [regMsg(fr)] : t.kind === 'audio' ? t.regs.filter(r => !r.mute && !r.notes && !r.missing && (!only || only(r))).map(regMsg) : [] }
+      if (!fr) Object.assign(wired, noteMsg(t, only))                                  // a track of notes: what it plays, as it sounds
       const text = JSON.stringify(wired) + '|' + (t.sends || []).map(s => s.to).join()
       if (!only && t._told === text) return Object.assign(trackMsg(t), { same: 1, ver: t._ver })
       t._ver = (t._ver || 0) + 1; t._told = only ? null : text                             // (what is sent for a bounce in place is not what the track holds: it is sent again afterwards)
-      return Object.assign(trackMsg(t), wired, { ver: t._ver })
+      return Object.assign(trackMsg(t), wired, { ver: t._ver }, only ? { frozen: 0 } : {})      // (a bounce in place of a frozen track's regions plays them through its plug-ins)
     })
     const r = await NAT.call('session', { tempo: S.tempo, meter: S.meter, end: SONG_END, master: dbLin(S.master), tracks })
     if (!r || !r.ok || r.again) { for (const t of S.tracks) t._told = null; if (outT) outT._told = null; if (r && r.again && mine === telling && !only) return sendSession() }      // not taken, or not held as thought: nothing counts as told

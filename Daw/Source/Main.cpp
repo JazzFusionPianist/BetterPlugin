@@ -610,7 +610,7 @@ private:
         if (op == "keyInputs")  { done (engine.keyInputs()); return; }
         if (op == "hush")       { engine.hushAll(); done (okVar()); return; }                                                      // every instrument silent at once
         if (op == "capture")    { done (engine.capture()); return; }                                                           // what was just played, though nothing was recording
-        if (op == "pluginStates") { done (engine.pluginStates()); return; }
+        if (op == "pluginStates") { done (engine.pluginStates ((int) d["moved"] != 0)); return; }
         if (op == "prefGet") { auto v = juce::JSON::parse (prefsFile()); done (v.isObject() ? v : juce::var (new juce::DynamicObject())); return; }
         if (op == "prefSet")
         {
@@ -1052,14 +1052,16 @@ private:
             auto* o = new juce::DynamicObject();
             if (selfTestMode().isEmpty()) { done (juce::var (o)); return; }
             juce::AudioFormatManager fm; fm.registerBasicFormats();
-            auto read = [&fm] (const juce::String& path)
+            const double from = (double) d.getProperty ("from", 0.0);         // (seconds into both files where the comparing begins)
+            auto read = [&fm, from] (const juce::String& path)
             {
                 std::vector<float> v;
                 if (std::unique_ptr<juce::AudioFormatReader> r { fm.createReaderFor (juce::File (path)) })
                 {
-                    const int n = (int) juce::jmin ((juce::int64) 72000, r->lengthInSamples);
+                    const juce::int64 at = juce::jlimit ((juce::int64) 0, r->lengthInSamples, (juce::int64) (from * r->sampleRate));
+                    const int n = (int) juce::jmin ((juce::int64) 72000, r->lengthInSamples - at);
                     juce::AudioBuffer<float> b ((int) r->numChannels, n);
-                    r->read (&b, 0, n, 0, true, true);
+                    r->read (&b, 0, n, at, true, true);
                     v.resize ((size_t) n);
                     for (int i = 0; i < n; ++i) { float sum = 0.0f; for (int c = 0; c < b.getNumChannels(); ++c) sum += b.getSample (c, i); v[(size_t) i] = sum; }
                 }
@@ -1464,6 +1466,7 @@ private:
         if (op == "log") { daw::logLine ("page: " + d["text"].toString()); done (okVar()); return; }
         if (op == "stalls") { auto* o = new juce::DynamicObject(); o->setProperty ("ms", juce::roundToInt (stallMax)); stallMax = 0.0; done (juce::var (o)); return; }      // the longest the window stood still since last asked
         if (op == "testPerf")  { done (engine.takePerf()); return; }
+        if (op == "testRest")  { engine.restOn.store ((int) d["on"] != 0); done (okVar()); return; }      // the check: tracks may rest, or not (Engine::playTrack)
         if (op == "testSound") { done (engine.testSound (audioDirOf (projectDir (d["project"].toString())).getChildFile (d["file"].toString()))); return; }
         if (op == "testHands") { engine.setHands ((int) d["n"]); auto* o = new juce::DynamicObject(); o->setProperty ("threads", engine.hands() + 1); done (juce::var (o)); return; }       // how many threads share a block (-1: as the machine allows)
         if (op == "testFile")                                                  // a sound of a given length, made here and laid in the project's folder (the same every time: bursts of noise over a low tone)

@@ -42,7 +42,8 @@ function makeCursors () {
   }
 }
 const dirty = new Set()
-function uiDirty () { for (const p of arguments) dirty.add(p); if (!uiDirty.q) { uiDirty.q = true; requestAnimationFrame(flush) } }
+let TOUCHED = 0                                                                     // how many times something has been drawn again: what the quiet save looks at (project.js)
+function uiDirty () { TOUCHED++; for (const p of arguments) dirty.add(p); if (!uiDirty.q) { uiDirty.q = true; requestAnimationFrame(flush) } }
 /* what is chosen on the lanes is named in the tracks' own bar, so whatever redraws the panel redraws that bar too */
 function flush () {
   uiDirty.q = false
@@ -398,7 +399,7 @@ function headRow (i) {
   const room = sk ? cx - 8 : two ? cx - 12 : HEAD_FX - 10                              // (where the name must end)
   const grp = t.kind === 'audio' && t.grp ? t.grp : '', grpW = grp ? (typeof grpChipW === 'function' ? grpChipW(t) : tw(grp, 9, 500) + 7) : 0                 // the group it is in: its name after the track's (groups.js)
   const alt = t.kind === 'audio' && (t.alts || []).length ? `alt ${altName(t)}` : ''                      // which of its alternatives is on the lane, once it has more than one
-  const tag = t.theirs || (t.kind === 'bus' ? 'bus' : alt), tagW = tag ? tw(tag, 9, 400, !!t.theirs) + 6 : 0, wt = stack || sel ? 500 : 400
+  const tag = t.theirs || (t.kind === 'bus' ? 'bus' : t.frozen ? 'frozen' : alt), tagW = tag ? tw(tag, 9, 400, !!t.theirs) + 6 : 0, wt = stack || sel ? 500 : 400
   const hs = lkN('heads.size'), nm = fit(asGiven(t.name), room - x0 - tagW - grpW, hs, wt)      // (as large as the look says)
   if (sk) s += skTape(x0 - 4, y + rh / 2 - 8, Math.min(cx - 12 - x0, tw(nm, hs, 700) + 16), t.name, Math.min(hs, rh / 2 - 1))
   else s += T(x0, ny, nm, { size: hs, w: wt, a: t.mute ? .42 : sel ? 1 : .88 })
@@ -853,6 +854,26 @@ function pPatch (y, h) {
   s += strip(x2, y, WSTRIP, h, MASTER(), -1, { wide: true, master: true })
   return s
 }
+/* where each strip on show stands in the mixer, so that one can be drawn again alone (redrawTracks) */
+const STRIP_AT = new Map()
+/* tracks whose level, pan or lines moved: their rows and their strips drawn again alone, in place of all the heads and the
+   whole panel at every move of the hand or step of a line (his ask, 2026-10-21: as fast as it can go). What cannot be drawn
+   alone (a theme's mixer, the patch of the chosen track) is drawn whole, as before; what is not on show is left */
+function redrawTracks (list) {
+  let dock = false, chosen = false
+  for (const t of list) {
+    const i = S.tracks.indexOf(t)
+    if (i < 0) continue
+    const el = $('hd-' + i)
+    if (el) el.innerHTML = headRow(i)
+    if (i === S.sel) chosen = true
+    if (!S.panel.on) continue
+    if (S.panel.tab === 'mixer') { const a = STRIP_AT.get(t.id), g = $('sg-' + t.id); if (a && g) g.innerHTML = strip(a[0], a[1], a[2], a[3], t, a[4], a[5]); else if (!STRIP_AT.size) dock = true }
+    else if (i === S.sel) dock = true
+  }
+  if (dock) uiDirty('dock')
+  if (chosen && typeof INSP === 'object' && INSP.w) uiDirty('insp')
+}
 function pMixer (y, h) {
   if (typeof SKIN === 'object' && SKINS.mixer[SKIN.k.mixer]) { MGEOM = null; return SKINS.mixer[SKIN.k.mixer](y, h) }      // (a theme's mixer of its own: skins.js)
   const vis = rows(), mx = RX - 8 - MSTRIP, room = mx - 8 - NGUT, fitN = Math.max(1, Math.floor(room / NSTRIP))
@@ -860,10 +881,12 @@ function pMixer (y, h) {
   const shownT = vis.slice(S.panel.mx, S.panel.mx + fitN)
   MGEOM = stripGeom(y, h, false)
   let s = stripGutter(0, NGUT, y, h, false) + vline(NGUT - .5, y, y + h, .06)
+  STRIP_AT.clear()
   shownT.forEach((i, k) => {
-    const t = S.tracks[i], x = NGUT + k * NSTRIP, nx = S.tracks[shownT[k + 1]]
+    const t = S.tracks[i], x = NGUT + k * NSTRIP, nx = S.tracks[shownT[k + 1]], o = { sel: isChosen(i) }
     if (isChosen(i)) s += R(x, y, NSTRIP, h, { fill: INK, fa: .07 })
-    s += strip(x, y, NSTRIP, h, t, i, { sel: isChosen(i) }) + vline(x + NSTRIP - .5, y, y + h, t.kind === 'stack' || (nx && !nx.parent && t.parent) ? .1 : .05)
+    STRIP_AT.set(t.id, [x, y, NSTRIP, h, i, o])
+    s += G(strip(x, y, NSTRIP, h, t, i, o), '', ` id="sg-${t.id}"`) + vline(x + NSTRIP - .5, y, y + h, t.kind === 'stack' || (nx && !nx.parent && t.parent) ? .1 : .05)
   })
   if (fitN < vis.length) s += R(NGUT + 4 + (room - 8) * S.panel.mx / vis.length, y + h - 4, Math.max(18, (room - 8) * fitN / vis.length), 3, { rx: 1.5, fill: INK, fa: .22 })
   s += R(mx - 8, y, RX - mx + 8, h, { fill: K2, fa: .7 }) + vline(mx - 8.5, y, y + h, .1)
@@ -1292,9 +1315,8 @@ function setVolX (i, x, e) {
   let f = clamp((x - gx) / gw, 0, 1)
   if (d) { if (d.rel && d.f != null) f = clamp(d.f + (x - d.lx) / (e && e.shiftKey ? 600 : 160), 0, 1); else if (e && e.shiftKey && d.f != null) f = clamp(d.f + (x - d.lx) / gw * .2, 0, 1); d.f = f; d.lx = x }
   volSet(t, fVol(f))
-  if (d && d.others.size) { carry(d, 'vol', t.vol); uiDirty('head') }
-  else { const el = $('hd-' + i); if (el) el.innerHTML = headRow(i) }
-  if (S.panel.on) uiDirty('dock')
+  if (d && d.others.size) carry(d, 'vol', t.vol)
+  redrawTracks([t].concat(d && d.others ? [...d.others.keys()] : []))
 }
 /* option and a press: a thing that is pulled goes back to where it starts — a fader to 0 dB, a pan to the middle, a send to
    0 dB, a region's gain and pitch to none, a print to the amount it came on with, the zoom to all of the song. Says
@@ -1480,14 +1502,14 @@ function zoomDrag (d, x) {
 /* what a pull has added up to since the hand came: a fifth as fast while shift is held */
 const pulled = (d, y, per, e) => { d.acc += (d.ly - y) * per * fine(e); d.ly = y; return d.acc }
 const FADER_PULL = .6                                                                     // (a fader goes a little slower than the hand: on a short one a small pull was a big change)
-function stripVolY (d, y, e) { const t = S.tracks[d.i]; volSet(t, fVol(clamp(d.f0 + pulled(d, y, FADER_PULL / d.g.fh, e), 0, 1))); carry(d, 'vol', t.vol); uiDirty('dock', 'head') }
+function stripVolY (d, y, e) { const t = S.tracks[d.i]; volSet(t, fVol(clamp(d.f0 + pulled(d, y, FADER_PULL / d.g.fh, e), 0, 1))); carry(d, 'vol', t.vol); redrawTracks([t].concat(d.others ? [...d.others.keys()] : [])) }
 /* a pan pulled: a hundred and twenty-eight points of the hand from the middle to either side (two to a step), across or
    up and down, a quarter as far with shift */
 function stripPanX (d, x, e, y) {
   const t = S.tracks[d.i]
   const moved = (x - d.lx) - (y == null ? 0 : y - d.ly)
   d.pv = clamp(d.pv + moved / 128 * (e && e.shiftKey ? .25 : 1), -1, 1); d.lx = x; if (y != null) d.ly = y
-  t.pan = Math.abs(d.pv) < .012 ? 0 : Math.round(d.pv * 64) / 64; pushTrack(t); carry(d, 'pan', t.pan); uiDirty('dock', 'insp')
+  t.pan = Math.abs(d.pv) < .012 ? 0 : Math.round(d.pv * 64) / 64; pushTrack(t); carry(d, 'pan', t.pan); redrawTracks([t].concat(d.others ? [...d.others.keys()] : []))
 }
 function masterY (y, e) { S.master = fVol(clamp(drag.f0 + pulled(drag, y, FADER_PULL / drag.g.fh, e), 0, 1)); pushMaster(); uiDirty('top', 'dock') }
 /* the hand going on across the rows from an m or an s: each row it passes is set the way the first one went */
@@ -1836,34 +1858,47 @@ function fitRoom () {
   relayout(); dirtyAll(); syncSlur()
 }
 /* levels, as the app measures them thirty times a second; they fall back on their own */
-const METERS = { m: [0, 0], i: 0, t: new Map(), now: new Map(), mm: [0, 0], hold: new Map() }
+const METERS = { m: [0, 0], i: 0, t: new Map(), now: new Map(), mm: [0, 0], hold: new Map(), ver: 0, drawn: -1 }      // (ver: counted up whenever a part is drawn again, so the meters in it are drawn once more)
 let MGEOM = null                                                   // where the strips' meters stand, when the panel shows any
 const linDb = v => v > 1e-5 ? 20 * Math.log10(v) : -100
+/* a meter's attribute written only when it is not what it already is (the meters are drawn every frame: his ask,
+   2026-10-21, as fast as it can go); a part drawn again is new, and is written whole */
+const setA = (el, k, v) => { const c = el.__m || (el.__m = {}); if (c[k] !== v) { c[k] = v; el.setAttribute(k, v) } }
 function drawMeters () {
   const fall = .87, f6 = volF(-6)
+  /* nothing to show and nothing falling: the meters stand at nothing as they were last drawn, and nothing is touched
+     (a part drawn again since draws its meters at nothing too) */
+  if (!METERS.m[0] && !METERS.m[1] && !METERS.i && !METERS.mm[0] && !METERS.mm[1] && METERS.drawn === METERS.ver) {
+    let any = false
+    for (const v of METERS.t.values()) if (v) { any = true; break }
+    if (!any) for (const v of METERS.now.values()) if (v) { any = true; break }
+    if (!any) for (const v of METERS.hold.values()) if (v > .005) { any = true; break }
+    if (!any) return
+  }
+  METERS.drawn = METERS.ver
   const bars = (key, v, G0) => {
     const f = volF(Math.min(6, linDb(v))), hold = Math.max(f, (METERS.hold.get(key) || 0) - .008); METERS.hold.set(key, hold)
     for (let c = 0; c < 2; c++) {
       const b = $(`ms-${key}-${c}`), h = $(`mh-${key}-${c}`), k = $(`mk-${key}-${c}`)
       if (!b) return
       const lo = Math.min(f, f6)
-      b.setAttribute('y', n(G0.fb - G0.fh * lo)); b.setAttribute('height', n(G0.fh * lo))
-      h.setAttribute('y', n(G0.fb - G0.fh * f)); h.setAttribute('height', n(Math.max(0, G0.fh * (f - f6)))); h.setAttribute('fill', v > 1 ? REC : SOLO)
-      k.setAttribute('y', n(G0.fb - G0.fh * hold - 1)); k.setAttribute('fill-opacity', hold > .005 ? .75 : 0)
+      setA(b, 'y', n(G0.fb - G0.fh * lo)); setA(b, 'height', n(G0.fh * lo))
+      setA(h, 'y', n(G0.fb - G0.fh * f)); setA(h, 'height', n(Math.max(0, G0.fh * (f - f6)))); setA(h, 'fill', v > 1 ? REC : SOLO)
+      setA(k, 'y', n(G0.fb - G0.fh * hold - 1)); setA(k, 'fill-opacity', hold > .005 ? .75 : 0)
     }
   }
   let top = 0
   for (let c = 0; c < 2; c++) {
-    const v = Math.max(METERS.m[c], METERS.mm[c] * fall); METERS.mm[c] = v; METERS.m[c] = 0; top = Math.max(top, v)
+    const v = Math.max(METERS.m[c], METERS.mm[c] * fall); METERS.mm[c] = v < 1e-4 ? 0 : v; METERS.m[c] = 0; top = Math.max(top, v)
     const el = $(c ? 'mm-r' : 'mm-l')
-    if (el) { el.setAttribute('width', n(METER_W * volF(Math.min(6, linDb(v))))); el.setAttribute('fill', v > .97 ? REC : LEVEL) }
+    if (el) { setA(el, 'width', n(METER_W * volF(Math.min(6, linDb(v))))); setA(el, 'fill', v > .97 ? REC : LEVEL) }
   }
   if (MGEOM && VIEW.p > .5) bars('M', top, MGEOM)
   for (const t of S.tracks) {
     const raw = Math.max(METERS.t.get(t.id) || 0, t.arm && !t.mon ? METERS.i : 0), v = Math.max(raw, (METERS.now.get(t.id) || 0) * fall)
     METERS.t.set(t.id, 0); METERS.now.set(t.id, v < 1e-4 ? 0 : v)
     const el = $('mt-' + t.id)
-    if (el) { el.setAttribute('width', n((+el.getAttribute('data-w') || HEAD_FW) * volF(Math.min(6, linDb(v))))); el.setAttribute('fill', v > 1 || (t.arm && !t.mon) ? REC : LEVEL) }
+    if (el) { setA(el, 'width', n((+el.getAttribute('data-w') || HEAD_FW) * volF(Math.min(6, linDb(v))))); setA(el, 'fill', v > 1 || (t.arm && !t.mon) ? REC : LEVEL) }
     if (MGEOM && VIEW.p > .5) bars(t.id, v, MGEOM)
   }
   METERS.i = 0
@@ -1873,18 +1908,18 @@ function followAuto () {
   const now = performance.now()
   if (now - (followAuto.at || 0) < 70) return
   followAuto.at = now
-  let dock = false
+  const moved = []
   for (const i of rows()) {
     const t = S.tracks[i], keys = Object.keys(t.autos || {}).filter(k => t.autos[k].length)
     if (!keys.length) { if (t._as) t._as = ''; continue }
     const sig = keys.map(k => AUTO[k] ? AUTO[k].fmt(shown(t, k)) : '').join('|')
     if (sig === t._as) continue
     t._as = sig
-    const el = $('hd-' + i)
-    if (el && !(drag && drag.a === 'vol')) el.innerHTML = headRow(i)
-    dock = true
+    moved.push(t)
   }
-  if (dock && !drag && S.panel.on) uiDirty('dock')
+  if (!moved.length) return
+  if (!drag) redrawTracks(moved)                                                     // (only those whose lines moved: their rows and their strips)
+  else if (drag.a !== 'vol') for (const t of moved) { const i = S.tracks.indexOf(t), el = $('hd-' + i); if (el) el.innerHTML = headRow(i) }      // (while the hand has hold of something: the rows alone, as before)
 }
 function frame () {
   if (TWEEN.on) {                                                                    // a panel on its way open or shut

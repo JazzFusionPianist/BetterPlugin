@@ -3,6 +3,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <set>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 #include "FxEngine.h"
 #include "Stretch.h"
 #include "Transients.h"
@@ -45,9 +47,12 @@
 void* slurAacOpen (const char* path, double sampleRate, int channels, int kbps);
 bool  slurAacWrite (void* handle, const float* interleaved, int frames);
 void  slurAacClose (void* handle);
-void* slurSrcOpen (double fromRate, double toRate, int channels);
+void* slurSrcOpen (double fromRate, double toRate, int channels, bool best = true);
 int   slurSrcRun (void* handle, const float* interleaved, int frames, bool last, float* out, int cap);
 void  slurSrcClose (void* handle);
+#ifndef SLUR_BRING_BEST
+ #define SLUR_BRING_BEST false                    // a sound brought in at another rate: the converter at its usual best, not its slowest (a print uses that)
+#endif
 
 namespace daw
 {
@@ -215,8 +220,9 @@ struct Insert
     struct Heard final : juce::AudioProcessorListener
     {
         std::atomic<int> index { -1 };
-        void audioProcessorParameterChanged (juce::AudioProcessor*, int i, float) override { index.store (i); }
-        void audioProcessorChanged (juce::AudioProcessor*, const ChangeDetails&) override {}
+        std::atomic<bool> moved { true };              // something of it has changed since its settings were last asked for (a save asks only those: Engine::statesNow)
+        void audioProcessorParameterChanged (juce::AudioProcessor*, int i, float) override { index.store (i); moved.store (true); }
+        void audioProcessorChanged (juce::AudioProcessor*, const ChangeDetails&) override { moved.store (true); }
     } heard;
     ~Insert() { if (inst != nullptr) inst->removeListener (&heard); if (own != nullptr) own->touched = nullptr; }
     /** A line sets one of its controls (0..1). The thread that plays it, before it plays the block. */
@@ -458,6 +464,7 @@ struct Track
     std::vector<Auto> autos;
     std::atomic<float> vol { 1.0f }, gate { 1.0f }, pan { 0.0f }, tape { 0.0f }, space { 0.0f }, delay { 0.0f }, peak { 0.0f };
     std::atomic<bool> mon { false };
+    std::atomic<bool> frozen { false };          // frozen (his ask, 2026-10-21): it plays its print, the one region the page sends it; its instrument, plug-ins and patch rest, and are no later than nothing
     std::atomic<bool> dead { false };            // switched off (his ask, 2026-10-20: for the processor's sake): nothing of it is worked — no region read, no instrument, no plug-in, no patch — and it is silent
     std::atomic<int> ahead { 0 };                // how late its plug-ins hand sound over, and those of the buses on its longest way to the stereo out: its regions are read that much early
     std::atomic<int> early { 0 }, earlyIn { 0 }; // how much earlier than the playhead the sound is where it leaves the track (the lateness of the buses still to come), and where it goes into the track's patch (that, and its own): its lines are read as early, so that a line changes the sound at the bar it is drawn at
@@ -468,6 +475,12 @@ struct Track
     std::vector<std::unique_ptr<Insert>> inserts;
     juce::AudioBuffer<float> work;
     float cost = 0.0f;                           // how long its own part of a block has been taking, in seconds (smoothed): what says whether a rank is worth sharing out
+    /* resting (his ask, 2026-10-21: as fast as it can go, without anything being less at hand): see playTrack */
+    std::atomic<int> sleepAfter { 0 };           // after how many samples of nothing coming in and nothing going out its plug-ins and patch may rest: their longest tail and two seconds, eight at least, thirty at most; 0: not yet known
+    int quiet = 0;                               // audio thread: how many samples in a row it has had nothing coming in and given nothing out
+    bool keyFor = false, keyed = false;          // something listens to it (a key, a side) / something of it listens to another track: never rested (set when the tracks are wired)
+    std::atomic<int> rested { 0 };               // how many blocks it has rested (for the check)
+    std::atomic<float> stillOut { 0.0f };        // the loudest its plug-ins gave out while nothing came in, since the check last asked (for the check)
     int ver = -1;                                // which telling of its regions, lines and wiring it holds (the page numbers them, and sends only what has changed)
 
     //── its patch as a wall (Patch on Slur's way): prints and plug-ins in one graph, wired as the page drew them ──
@@ -578,7 +591,7 @@ public:
         if (fmt == "aiff" || fmt == "flac") bits = juce::jmin (24, bits);
         from = fromRate;
         if (src != nullptr) { slurSrcClose (src); src = nullptr; }
-        if (std::abs (fromRate / rate - 1.0) > 1.0e-9 && (src = slurSrcOpen (fromRate, rate, 2)) == nullptr) return "that rate would not open";      // another rate: the Mac's own converter (Mac.mm)
+        if (std::abs (fromRate / rate - 1.0) > 1.0e-9 && (src = slurSrcOpen (fromRate, rate, 2, true)) == nullptr) return "that rate would not open";      // another rate: the Mac's own converter (Mac.mm)
         file.deleteFile();
         if (fmt == "m4a")
         {
@@ -798,6 +811,9 @@ public:
     ~Engine() override
     {
         here->store (false);
+        { const std::lock_guard<std::mutex> lk (warmMx); warmQuit = true; }   // the read-ahead's thread goes first (it holds sounds of its own while it asks for them)
+        warmCv.notify_all();
+        if (warmThread.joinable()) warmThread.join();
         leaving.store (true);                                          // a print that is under way gives up at its next block, takes away the file it was writing, and is waited for: nothing is taken from under it
         if (printThread.joinable())
         {
@@ -1067,6 +1083,7 @@ public:
         t->delay.store (juce::jlimit (0.0f, 1.0f, (float) (double) tv["delay"]));
         t->mon.store ((int) tv["mon"] != 0);
         t->dead.store ((int) tv["dead"] != 0);
+        t->frozen.store ((int) tv["frozen"] != 0);
         t->input.store ((int) tv["input"]);
         t->live.store ((int) tv["live"] != 0);
         if (auto* sd = tv["sends"].getArray()) for (int k = 0; k < juce::jmin (3, sd->size()); ++k) t->sends[k].gain.store ((float) (double) (*sd)[k]["gain"]);
@@ -1149,6 +1166,11 @@ public:
         if (auto* d = dm.getCurrentAudioDevice()) { const int x = d->getXRunCount(); o->setProperty ("xruns", x < 0 ? -1 : juce::jmax (0, x - lastXruns)); lastXruns = juce::jmax (0, x); }      // what the device itself says it could not keep up with (-1: it does not say)
         o->setProperty ("block", block); o->setProperty ("sr", sr);
         o->setProperty ("threads", pool.size() + 1); o->setProperty ("shared", shared.exchange (0));
+        {                                                              // how many tracks are resting now, and how many blocks each has rested since the last asking
+            int resting = 0; juce::Array<juce::var> rests;
+            for (auto& tp : tracks) { const int r = tp->rested.exchange (0); if (r > 0) ++resting; auto* q = new juce::DynamicObject(); q->setProperty ("id", tp->id); q->setProperty ("rested", r); q->setProperty ("after", tp->sleepAfter.load()); q->setProperty ("key", tp->keyFor || tp->keyed); q->setProperty ("plugs", (int) tp->inserts.size()); q->setProperty ("stillOut", (double) tp->stillOut.exchange (0.0f)); q->setProperty ("quiet", tp->quiet); rests.add (juce::var (q)); }
+            o->setProperty ("resting", resting); o->setProperty ("rests", rests); o->setProperty ("restOn", restOn.load());
+        }
         if (n == 0) perfSum.store (0.0);
         return juce::var (o);
     }
@@ -1568,7 +1590,7 @@ public:
         ins->name = String (juce::CharPointer_UTF8 (plug->name().c_str()));
         ins->fmt = "au";
         ins->own = std::move (plug);
-        { Insert* raw = ins.get(); ins->own->touched = [raw] (int index) { raw->heard.index.store (index); }; }      // (the plug-in belongs to this very insert, and goes with it)
+        { Insert* raw = ins.get(); ins->own->touched = [raw] (int index) { raw->heard.index.store (index); raw->heard.moved.store (true); }; }      // (the plug-in belongs to this very insert, and goes with it)
         Marker::plugin (ins->uid, ident, ins->name);
         const Inside inside (ins->uid);
         ins->prepare (sr, maxBlock, &playHead);
@@ -1642,16 +1664,19 @@ public:
         }
     }
 
-    /** What every plug-in would need to come back as it is: uid -> its state, base64. Message thread. */
-    juce::var pluginStates()
+    /** What every plug-in would need to come back as it is: uid -> its state, base64. Message thread. moved: only those
+        that have told of a change since they were last asked (the quiet save, about once a minute: asking every plug-in
+        for its settings holds the page up, his ask 2026-10-21; a save by hand, and every fifth quiet one, ask them all,
+        for a plug-in that changes without telling) */
+    juce::var pluginStates (bool moved = false)
     {
         if (bouncing.load()) return printStates;                       // (a print is playing them on its own thread: they are not asked in the middle of it, and what they were when it began is what a save, or the app going, writes down)
-        return statesNow();
+        return statesNow (moved);
     }
-    juce::var statesNow()
+    juce::var statesNow (bool moved = false, bool taken = true)          // taken: what is asked goes into a save, so each is counted as asked
     {
         auto* o = new juce::DynamicObject();
-        for (auto& t : tracks) t->eachPlug ([o] (Insert& i) { juce::MemoryBlock mb; const Inside inside (i.uid); i.stateTo (mb); o->setProperty (juce::Identifier ("u" + String (i.uid)), juce::Base64::toBase64 (mb.getData(), mb.getSize())); });
+        for (auto& t : tracks) t->eachPlug ([o, moved, taken] (Insert& i) { if (! (taken ? i.heard.moved.exchange (false) : i.heard.moved.load()) && moved) return; juce::MemoryBlock mb; const Inside inside (i.uid); i.stateTo (mb); o->setProperty (juce::Identifier ("u" + String (i.uid)), juce::Base64::toBase64 (mb.getData(), mb.getSize())); });
         return juce::var (o);
     }
 
@@ -2225,6 +2250,8 @@ public:
         }
         auto* o = new juce::DynamicObject();
         juce::var out (o);
+        const auto t0 = juce::Time::getMillisecondCounterHiRes();
+        double tRead = 0.0, tLook = 0.0, tSync = 0.0;
         {
             juce::MemoryMappedFile mm (part, juce::MemoryMappedFile::readWrite);
             if (mm.getData() == nullptr || (juce::int64) mm.getSize() < bytes) { part.deleteFile(); return {}; }
@@ -2240,6 +2267,28 @@ public:
                     rd.read (&in, 0, n, p, true, true);
                     for (int c = 0; c < ch; ++c) std::memcpy (dst[c] + p, in.getReadPointer (c), (size_t) n * sizeof (float));
                 }
+            }
+            else if (void* cv = slurSrcOpen (rd.sampleRate, sr, ch, SLUR_BRING_BEST))
+            {
+                /* another rate: the Mac's own converter (Mac.mm), filtered, in pieces — some twenty times as fast as the
+                   interpolator below, which is kept for when it will not open (his ask, 2026-10-21: Logic brings it in at once) */
+                constexpr int cap = 1 << 15;
+                std::vector<float> inter ((size_t) piece * (size_t) ch), got ((size_t) cap * (size_t) ch);
+                juce::int64 at = 0;
+                auto take = [&] (int n)
+                {
+                    for (int i = 0; i < n && at < frames; ++i, ++at) for (int c = 0; c < ch; ++c) dst[c][at] = got[(size_t) i * (size_t) ch + (size_t) c];
+                };
+                for (juce::int64 p = 0; p < srcLen; p += piece)
+                {
+                    const int n = (int) juce::jmin ((juce::int64) piece, srcLen - p);
+                    rd.read (&in, 0, n, p, true, true);
+                    for (int c = 0; c < ch; ++c) { const float* x = in.getReadPointer (c); for (int i = 0; i < n; ++i) inter[(size_t) i * (size_t) ch + (size_t) c] = x[i]; }
+                    for (int k = slurSrcRun (cv, inter.data(), n, false, got.data(), cap); ; k = slurSrcRun (cv, nullptr, 0, false, got.data(), cap)) { take (k); if (k < cap) break; }
+                }
+                for (int k = slurSrcRun (cv, nullptr, 0, true, got.data(), cap); ; k = slurSrcRun (cv, nullptr, 0, true, got.data(), cap)) { take (k); if (k < cap) break; }
+                for (int c = 0; c < ch; ++c) if (at < frames) juce::FloatVectorOperations::clear (dst[c] + at, (int) (frames - at));
+                slurSrcClose (cv);
             }
             else
             {
@@ -2272,17 +2321,20 @@ public:
                 for (int c = 0; c < ch; ++c) pend[c].insert (pend[c].end(), (size_t) (64 + (int) std::ceil ((double) (late + 16) * ratio)), 0.0f);        // what the interpolator is still holding
                 drain (true);
             }
+            tRead = juce::Time::getMillisecondCounterHiRes();
             const juce::AudioBuffer<float> view (dst, ch, frames);
             describe (view, *o, true);                                  // how it looks and how it sounds, read back from where it now lies
+            tLook = juce::Time::getMillisecondCounterHiRes();
             o->setProperty ("channels", ch); o->setProperty ("frames", frames); o->setProperty ("rate", sr);
             if (rd.lengthInSamples > srcLen) { o->setProperty ("cut", true); o->setProperty ("whole", (double) rd.lengthInSamples / rd.sampleRate); }
             const char head[16] = { 's', 'l', 'u', 'r', ' ', 's', 'o', 'u', 'n', 'd', ' ', '1', 0, 0, 0, 0 };
             std::memcpy (mm.getData(), head, sizeof (head));
-            ::msync (mm.getData(), mm.getSize(), MS_SYNC);              // on the disk for real before it is given its name: after a power cut a file of the right length with holes in it would pass for whole
+            ::msync (mm.getData(), mm.getSize(), MS_SYNC);              tSync = juce::Time::getMillisecondCounterHiRes();      // on the disk for real before it is given its name: after a power cut a file of the right length with holes in it would pass for whole
         }
         snd.deleteFile();
         if (! part.moveFileTo (snd)) { part.deleteFile(); return {}; }
         if (! about.replaceWithText (juce::JSON::toString (out, true))) { snd.deleteFile(); return {}; }
+        logLine ("sound: made ready, " + String (bytes / 1048576) + " MB" + (same ? "" : " (from " + String (rd.sampleRate) + ")") + ": read " + String (juce::roundToInt (tRead - t0)) + " ms, looked at " + String (juce::roundToInt (tLook - tRead)) + " ms, written " + String (juce::roundToInt (tSync - tLook)) + " ms");
         return out;
     }
     juce::var decodeFrom (std::unique_ptr<juce::AudioFormatReader> rd)
@@ -2354,9 +2406,69 @@ public:
     void warm()
     {
         if (bouncing.load() || ! playing.load()) return;
-        warmFrom (posBars.load(), 4.0, false);
-        if (loop.load()) warmFrom (loopA.load(), 2.0, false);
-        if (const double q = queued.load(); q >= 0.0) warmFrom (q, 2.0, false);
+        /*  What it asks for is asked by a thread of its own (his ask, 2026-10-21: the sound never kept waiting on the disk
+            while the window is busy): here only where each region's sound lies is laid out for it, and it goes on along
+            the song twenty times a second whatever this thread is doing.                                               */
+        auto plan = std::make_shared<WarmPlan>();
+        plan->barS = barSamples(); plan->sr = sr;
+        for (auto& tp : tracks)
+            for (auto& r : tp->regs)
+            {
+                if (r.buf < 0 || r.buf >= (int) bufs.size() || r.loop || tp->dead.load()) continue;
+                const auto& b = bufs[(size_t) r.buf];
+                if (b == nullptr || b->map == nullptr) continue;
+                plan->spans.push_back ({ r.a * plan->barS, r.b * plan->barS, (r.a - r.off) * plan->barS, r.rate, b });
+            }
+        {
+            const std::lock_guard<std::mutex> lk (warmMx);
+            warmPlan = plan;
+            if (! warmThread.joinable()) warmThread = std::thread ([this] { warmRun(); });
+        }
+    }
+    struct WarmSpan { double a, b, origin, rate; std::shared_ptr<Buf> buf; };      // in the song's samples; origin: where the sound's first sample would stand
+    struct WarmPlan { std::vector<WarmSpan> spans; double barS = 1.0, sr = 48000.0; };
+    std::mutex warmMx;
+    std::condition_variable warmCv;
+    std::shared_ptr<const WarmPlan> warmPlan;
+    std::thread warmThread;
+    bool warmQuit = false;
+    /** The read-ahead's own thread: four seconds ahead of the playhead, and two from the start of the cycle and from a
+        marker that is waiting, asked of the system (never read here: the system reads them in on its own). */
+    void warmRun()
+    {
+        for (;;)
+        {
+            std::shared_ptr<const WarmPlan> plan;
+            {
+                std::unique_lock<std::mutex> lk (warmMx);
+                warmCv.wait_for (lk, std::chrono::milliseconds (50), [this] { return warmQuit; });
+                if (warmQuit) return;
+                plan = warmPlan;
+            }
+            if (plan == nullptr || ! playing.load() || bouncing.load()) continue;
+            const auto ask = [&] (double bar, double seconds)
+            {
+                const double p0 = bar * plan->barS, p1 = p0 + seconds * plan->sr;
+                const auto page = (size_t) ::getpagesize();
+                for (auto& s : plan->spans)
+                {
+                    const double from = juce::jmax (p0, s.a), to = juce::jmin (p1, s.b);
+                    if (to <= from) continue;
+                    const auto& d = s.buf->data;
+                    const juce::int64 len = d.getNumSamples();
+                    const juce::int64 i0 = juce::jlimit ((juce::int64) 0, len, (juce::int64) ((from - s.origin) * s.rate)), i1 = juce::jlimit ((juce::int64) 0, len, (juce::int64) ((to - s.origin) * s.rate) + 2);
+                    if (i1 <= i0) continue;
+                    for (int c = 0; c < d.getNumChannels(); ++c)
+                    {
+                        const auto a = (size_t) (d.getReadPointer (c) + i0) & ~(page - 1), e = (size_t) (d.getReadPointer (c) + i1);
+                        ::madvise ((void*) a, e - a, MADV_WILLNEED);
+                    }
+                }
+            };
+            ask (posBars.load(), 4.0);
+            if (loop.load()) ask (loopA.load(), 2.0);
+            if (const double q = queued.load(); q >= 0.0) ask (q, 2.0);
+        }
     }
     /** `now`: read it in before going on (a moment's wait where the song is about to start), not just ask for it. */
     void warmFrom (double bar, double seconds, bool now)
@@ -2637,7 +2749,16 @@ public:
                                 ~Making() { const juce::ScopedLock sl (e.printFileLock); e.printFiles.clear(); } } making { *this, files };
                 const juce::int64 tail = (juce::int64) (sr * tailSec);
                 for (auto& tp : tracks) { tp->gainSm = dbGainOf (*tp, a0); tp->panSm = tp->pan.load(); quietNotes (*tp); }
-                for (juce::int64 k = 0; k < (juce::int64) (sr * 1.5) && ! halted(); k += maxBlock) renderGraph (s0, maxBlock, false, true, nullptr, a1, tap);   // let old tails die away
+                /* old tails die away first: a second and a half, and on until nothing at all comes out of any track for a
+                   quarter of a second (a delay fed back, a long reverb: what was played before must not ring into the
+                   print — a track frozen right after a print had its echoes at its start), thirty seconds at most */
+                for (juce::int64 k = 0, still = 0; k < (juce::int64) (sr * 30.0) && ! halted() && (k < (juce::int64) (sr * 1.5) || still < (juce::int64) (sr * 0.25)); k += maxBlock)
+                {
+                    renderGraph (s0, maxBlock, false, true, nullptr, a1, tap);
+                    bool quiet = quietIn (mix.getReadPointer (0), mix.getReadPointer (1), maxBlock);
+                    for (auto& tp : tracks) if (quiet && ! quietIn (tp->work.getReadPointer (0), tp->work.getReadPointer (1), maxBlock)) quiet = false;
+                    still = quiet ? still + maxBlock : 0;
+                }
                 measureLatency();                                      // (some only say how late they are offline once they have played a block that way)
                 limG = 1.0f; float mSm = master.load();
                 juce::AudioBuffer<float> outBuf (2, maxBlock);
@@ -3056,7 +3177,7 @@ public:
         printing.store (true); Meter::still.store (true);              // (the meters count nothing while a print is made)
         try
         {
-            printStates = statesNow();
+            printStates = statesNow (false, false);
             printThread = std::thread ([this, work, end] () mutable { try { work (*end); } catch (...) { logLine ("print: something was thrown"); } end.reset(); printing.store (false); });
         }
         catch (...)
@@ -3446,6 +3567,12 @@ private:
             if (tp->sideFrom == 0) continue;
             if (auto* s = find (tp->sideFrom)) if (s != tp.get() && ! reaches (tp.get(), s)) { tp->side = s; heard[s].push_back (tp.get()); }
         }
+        for (auto& tp : tracks)                                         // (a track something listens to, or that listens to one, is never rested: playTrack)
+        {
+            tp->keyFor = heard.count (tp.get()) > 0;
+            tp->keyed = tp->side != nullptr;
+            for (auto& i : tp->inserts) if (i->key != nullptr) tp->keyed = true;
+        }
         order.clear(); rankEnds.clear();
         std::map<Track*, int> waiting, rank;
         for (auto& tp : tracks) { waiting[tp.get()] = 0; rank[tp.get()] = 0; }
@@ -3555,7 +3682,7 @@ private:
     {
         checkWalls();
         lowLatency();
-        auto own = [] (const Track& t) { int n = t.plug != nullptr ? t.plug->latencyNow() : 0; if (t.wall) return n + t.wallLat; for (auto& i : t.inserts) n += i->latencyHeard(); return n; };
+        auto own = [] (const Track& t) { if (t.frozen.load()) return 0; int n = t.plug != nullptr ? t.plug->latencyNow() : 0; if (t.wall) return n + t.wallLat; for (auto& i : t.inserts) n += i->latencyHeard(); return n; };
         /*  How far it still is from where a track's sound leaves it to the stereo out, counted in the lateness of the
             buses on the way — by its longest way, when it has several (its own way out, and each bus it sends into).
             A track's regions are read that much early, and by its own plug-ins' lateness, so what goes the longest way
@@ -3578,6 +3705,11 @@ private:
         for (auto& tp : tracks)
         {
             auto& t = *tp;
+            {                                                          // how long its plug-ins say they ring on after their sound has stopped: it rests no sooner than that, eight seconds at least and thirty at most
+                double tail = 0.0;                                     // (one that says it rings for ever — a delay fed back, say — is still heard out: a track only rests once nothing at all has come out of it for that long)
+                for (auto& i : t.inserts) if (i->inst != nullptr) { const double sec = i->inst->getTailLengthSeconds(); tail = juce::jmax (tail, std::isfinite (sec) ? sec : 1.0e9); }
+                t.sleepAfter.store ((int) (sr * juce::jlimit (8.0, 30.0, tail + 2.0)));
+            }
             const int all = longest (&t, 0);
             t.ahead.store (t.kind == 0 ? own (t) + all : 0);
             t.early.store (all); t.earlyIn.store (own (t) + all);
@@ -3801,18 +3933,43 @@ private:
         const bool kept = tap != nullptr && tap->t == &t;
         const bool dead = t.dead.load (std::memory_order_relaxed);
         if (dead) { juce::FloatVectorOperations::clear (L, n); juce::FloatVectorOperations::clear (R, n); }      // (what flowed into it — sends, a stack's tracks — goes no further)
+        /*  Resting (his ask, 2026-10-21: as fast as it can go, and nothing less at hand). A track that is not heard — muted,
+            or soloed away, its fader come to rest at nothing — takes no more sound in: no region is read, and what it plays
+            and what flows into it go no further than its door. And a track that has had nothing coming in and given nothing
+            out for longer than its plug-ins ring on (eight seconds at least) is not worked at all — its plug-ins and its
+            patch rest — until sound comes to it again, in the very block it comes. What is heard is the same: only silence
+            is not worked out. Never in a print or a measure, never for a track something listens to (a key, a side) or one
+            that listens to another; a switched-off track is skipped whole, as before.                                 */
+        const bool mayRest = ! st.offline && tap == nullptr && t.printLive == nullptr && ! t.keyFor && ! t.keyed && ! dead && restOn.load (std::memory_order_relaxed);
+        const bool unheard = mayRest && t.gate.load (std::memory_order_relaxed) == 0.0f && t.gainSm == 0.0f;
         if (t.kind == 0 && ! dead)
         {
-            if (st.rolling) { const juce::int64 early = t.ahead.load(); for (auto& r : t.regs) addRegion (*st.bufs, r, st.pos + early, n, st.barS, L, R, st.endBar); }
-            if (st.in != nullptr && t.mon.load())
+            if (st.rolling && ! unheard) { const juce::int64 early = t.ahead.load(); for (auto& r : t.regs) addRegion (*st.bufs, r, st.pos + early, n, st.barS, L, R, st.endBar); }
+            if (st.in != nullptr && t.mon.load() && ! unheard)
             {
                 const float* a; const float* b;
                 pickInput (st.in, t.input.load(), a, b);
                 for (int i = 0; i < n; ++i) { L[i] += a[i]; R[i] += b[i]; }
             }
-            if (t.notes || t.built != nullptr || t.plug != nullptr) playNotes (t, st, L, R);
+            if ((t.notes || t.built != nullptr || t.plug != nullptr) && ! t.frozen.load (std::memory_order_relaxed)) playNotes (t, st, L, R);      // (an instrument goes on playing — its keys must still be let go of — unless the track plays its print)
         }
-        if (! (kept && tap->dry) && ! dead) renderTrack (t, st.pos, n, st.rolling, st.barS, st.rolling ? st.bar0 + (double) t.earlyIn.load() / st.barS : st.bar0);
+        bool rest = false, stillIn = false;
+        if (mayRest)
+        {
+            if (unheard) { juce::FloatVectorOperations::clear (L, n); juce::FloatVectorOperations::clear (R, n); }
+            stillIn = quietIn (L, R, n);
+            const int after = t.sleepAfter.load (std::memory_order_relaxed);
+            rest = stillIn && after > 0 && t.quiet >= after;
+            if (rest) { juce::FloatVectorOperations::clear (L, n); juce::FloatVectorOperations::clear (R, n); t.rested.fetch_add (1, std::memory_order_relaxed); }
+        }
+        if (! (kept && tap->dry) && ! dead && ! rest && ! t.frozen.load (std::memory_order_relaxed)) renderTrack (t, st.pos, n, st.rolling, st.barS, st.rolling ? st.bar0 + (double) t.earlyIn.load() / st.barS : st.bar0);
+        if (mayRest && ! rest)
+        {
+            const bool stillOut = stillIn && quietIn (L, R, n);
+            t.quiet = stillOut ? t.quiet + n : 0;                      // (nothing came in, and nothing came out of its plug-ins either)
+            if (stillIn) { const auto l = juce::FloatVectorOperations::findMinAndMax (L, n); const float m = juce::jmax (-l.getStart(), l.getEnd()); if (m > t.stillOut.load (std::memory_order_relaxed)) t.stillOut.store (m, std::memory_order_relaxed); }
+        }
+        else if (! mayRest) t.quiet = 0;
         if (kept && tap->pre) { tap->buf.copyFrom (0, 0, L, n); tap->buf.copyFrom (1, 0, R, n); }
         if (t.printLive != nullptr && t.printLive->pre && n <= t.printLive->buf.getNumSamples()) { t.printLive->buf.copyFrom (0, 0, L, n); t.printLive->buf.copyFrom (1, 0, R, n); }      // (a realtime print before the fader)
 
@@ -3856,6 +4013,12 @@ private:
 
     /** A print or a measure is about to play the song from somewhere: no key is down, and the DAW's own instruments are
         silent at once (one from outside is sent its keys up when the pass begins — see playNotes — and dies away). */
+    /** Nothing in this block worth working out: under -120 dB all along. */
+    static bool quietIn (const float* L, const float* R, int n)
+    {
+        const auto l = juce::FloatVectorOperations::findMinAndMax (L, n), r = juce::FloatVectorOperations::findMinAndMax (R, n);
+        return juce::jmax (-l.getStart(), l.getEnd(), -r.getStart(), r.getEnd()) < 1.0e-6f;
+    }
     static void quietNotes (Track& t)
     {
         if (t.built != nullptr) { t.built->allOff (true); t.keysUp(); }
@@ -4454,6 +4617,9 @@ private:
     const double tickSeconds = [] { mach_timebase_info_data_t tb {}; mach_timebase_info (&tb); return tb.denom != 0 ? (double) tb.numer / (double) tb.denom * 1.0e-9 : 1.0e-9; }();      // one tick of the clock that runs through sleep
     juce::CriticalSection printFileLock;                       // what a print is writing at this moment (its file, and the file an mp3 is made from): half-made, and taken away should the app have to go without the print
     juce::Array<juce::File> printFiles;                        // (an mp3's own wav among them)
+public:
+    std::atomic<bool> restOn { true };                         // tracks may rest (playTrack); the check turns it off to hear that nothing changes
+private:
     juce::var printStates;                                     // every plug-in's state as it was when the print began (message thread)
     std::atomic<int> perfCalls { 0 }, perfOver { 0 }, perfHeld { 0 }, clicksBegun { 0 }, accentsBegun { 0 };
     //── the keys ──

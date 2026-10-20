@@ -27,7 +27,7 @@ LANG.lists.ko = {
 
   /* hand off */
   'song': '곡', 'range': '범위', 'mix': '믹스', 'print': '프린트', 'with patch': '패치 포함', 'dry': '드라이', 'both': '둘 다', 'one': '하나', 'all': '전체', 'none': '없음', 'yes': '예', 'no': '아니요',
-  '# stems': '스템 #개', 'the mix, # files': '믹스, 파일 #개', '# stems, # kinds each': '스템 #개, 종류마다 #개', '# stem, # kinds each': '스템 #개, 종류마다 #개', '# bit': '#비트',
+  '# stems': '스템 #개', 'Freeze Track': '트랙 프리즈', 'freeze track': '트랙 프리즈', 'unfreeze track': '프리즈 풀기', 'frozen': '프리즈', 'freezing': '프리즈하는 중', 'could not freeze': '프리즈하지 못함', 'freezing is in the app': '프리즈는 앱에서', 'only a track of sound or notes freezes': '오디오나 노트 트랙만 프리즈됩니다', 'nothing on it to freeze': '프리즈할 것이 없습니다', 'it changed while it was being frozen': '프리즈하는 동안 바뀌었습니다', 'the mix, # files': '믹스, 파일 #개', '# stems, # kinds each': '스템 #개, 종류마다 #개', '# stem, # kinds each': '스템 #개, 종류마다 #개', '# bit': '#비트',
 
   /* the foot */
   'rate': '레이트', 'buffer': '버퍼', 'saved': '저장됨', '# empty tracks deleted': '빈 트랙 #개 삭제됨', '# ticks': '#틱', 'by # ms': '# ms씩',

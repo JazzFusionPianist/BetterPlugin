@@ -251,6 +251,86 @@ async function runSelfTest (mode) {
     await note('page', { errors: window.__errs || [] })
     await NAT.call('testDone'); return
   }
+  if (mode === 'rest') {                                                           // only this: tracks resting (Engine::playTrack, his ask 2026-10-21) — one sound with resting on and off; a track wakes the block its sound comes; the load while stopped, resting off and on
+    await step('rest', async () => {
+      const res = {}, put = async ids => { let k = 0; for (let i = 0; i < Math.min(10, S.tracks.length); i++) if (S.tracks[i].kind === 'audio' && !S.tracks[i].theirs && !S.tracks[i].inst) for (const id of ids) { const r = await natInsert(i, id, { show: false }); if (r && r.ok) k++ } return k }
+      /* plug-ins that sound the same however long they have run (an eq, a delay): the same two bars printed in real time
+         after a long quiet, once with the tracks resting as it starts and once with resting off — one sound */
+      res.put = await put(['AudioUnit:Effects/aufx,nbeq,appl', 'AudioUnit:Effects/aufx,dely,appl'])
+      halt(false)
+      const rt = async (on, name) => { await NAT.call('testRest', { on: on ? 1 : 0 }); await sleep(35000); const before = await NAT.call('testPerf'); const r = await rtbRun({ kind: 'mix', a0: 16, a1: 18, modes: ['wet'], tracks: [], folder: name, name, fmt: 'wav', rate: 0, bits: 24 }); return Object.assign({}, r, { restingBefore: before.resting }) }
+      const rOn = await rt(true, 'rest on'), rOff = await rt(false, 'rest off')
+      res.printed = { on: { ok: rOn.ok, restingBefore: rOn.restingBefore }, off: { ok: rOff.ok, restingBefore: rOff.restingBefore } }
+      if (rOn.ok && rOff.ok) res.onAgainstOff = await NAT.call('testLag', { a: rOff.dir + '/rest off.wav', b: rOn.dir + '/rest on.wav' })
+      /* a reverb more on each (heavier), and the load while stopped: resting off, then on once the tails have gone */
+      res.putMore = await put(['AudioUnit:Effects/aufx,mrev,appl'])
+      const load = async (on, wait) => { await NAT.call('testRest', { on: on ? 1 : 0 }); await sleep(wait); await NAT.call('testPerf'); await sleep(4000); return NAT.call('testPerf') }
+      const off = await load(false, 3000), on = await load(true, 45000)
+      res.stopped = { off: { load: +off.load.toFixed(4), worst: +off.worst.toFixed(4) }, on: { load: +on.load.toFixed(4), worst: +on.worst.toFixed(4), resting: on.resting, of: on.rests.length }, tracks: on.rests.map(q => { const x = S.tracks.find(t => t.id === q.id); return [x && x.name, q.rested, +(q.after / 48000).toFixed(1), q.key, q.plugs, q.stillOut, +(q.quiet / 48000).toFixed(1)] }) }
+      /* played where a track has sound: it wakes in the block its sound comes */
+            const t = S.tracks.find(x => x.kind === 'audio' && x.regs.some(r => !r.mute && r.a <= 17 && r.b > 18))
+      if (t) { play(16); await sleep(250); await NAT.call('testPerf'); await sleep(1300); const p = await NAT.call('testPerf'); halt(false); const me = p.rests.find(r => r.id === t.id); res.playing = { track: t.name, restedPlaying: me && me.rested } }      // (it was resting just before: res.stopped)
+      await NAT.call('testRest', { on: 1 })
+      res.ok = res.put > 0 && !!res.onAgainstOff && res.onAgainstOff.lag === 0 && res.onAgainstOff.alike > .99999 && rOn.restingBefore > 0 && !!res.playing && res.playing.restedPlaying === 0 && res.stopped.tracks.some(q => q[0] === res.playing.track && q[1] > 0) && res.stopped.on.resting > res.stopped.on.of / 2 && res.stopped.on.load < res.stopped.off.load * .6
+      return res
+    })
+    await note('page', { errors: window.__errs || [] })
+    await NAT.call('testDone'); return
+  }
+  if (mode === 'bring') {                                                          // only this: sound brought in, timed (his ask, 2026-10-21: Logic brings it in at once) — at the song's rate and at another, eight files of three minutes each
+    await step('bring', async () => {
+      const res = {}, here = projKey()
+      const lane = S.tracks.findIndex(t => t.kind === 'audio' && !t.inst && !t.theirs)
+      for (const [label, rate] of [['same', 48000], ['other', 44100]]) {
+        const srcs = []
+        for (let k = 0; k < 8; k++) srcs.push(await NAT.call('testFile', { project: 'bring ' + label, name: `${label} ${k + 1}`, sec: 180, ch: 2, rate }))
+        const names = srcs.map((f, k) => `${label} ${k + 1}`)
+        await NAT.call('stalls')
+        const t1 = performance.now(), going = bringPaths(srcs.map(f => f.path), lane, label === 'same' ? 3 : 30)
+        let placedMs = null
+        while (placedMs == null && performance.now() - t1 < 60000) { if (names.every(nm => S.tracks.some(t => t.regs.some(r => r.name === nm)))) placedMs = Math.round(performance.now() - t1); else await sleep(5) }
+        await going
+        const regs = S.tracks.flatMap(t => t.regs).filter(r => names.includes(r.name))
+        res[label] = { mbEach: +srcs[0].mb.toFixed(1), rate, placedMs, allMs: Math.round(performance.now() - t1), stallMs: (await NAT.call('stalls')).ms, heard: regs.filter(r => r.key && !r.wait).length }
+      }
+      res.sr = SND_SR
+      /* (that a sound brought in from another rate lies where it should, sample for sample, was measured from outside: against afconvert, lag 0) */
+      res.ok = res.same.heard === 8 && res.other.heard === 8 && res.same.placedMs < 100 && res.same.allMs < 2000 && res.other.allMs < 3000
+      return res
+    })
+    await note('page', { errors: window.__errs || [] })
+    await NAT.call('testDone'); return
+  }
+  if (mode === 'freeze') {                                                         // only this: a track frozen (freeze.js, Engine: Track::frozen) — it sounds as it did; saved and opened again it is still frozen and still sounds so; changed, it thaws
+    await step('freeze', async () => {
+      const res = {}
+      const i = S.tracks.findIndex(t => t.kind === 'audio' && !t.theirs && !t.inst && t.regs.some(r => !r.mute && !r.notes && r.a <= 9 && r.b > 11))
+      const t = S.tracks[i]; res.track = t && t.name
+      const r = await natInsert(i, 'AudioUnit:Effects/aufx,dely,appl', { show: false }); res.plug = !!(r && r.ok)
+      await natSession(); await sleep(300)
+      const print = async name => { const b = await NAT.call('bounce', { kind: 'stems', a0: 0, a1: 12, modes: ['wet'], tracks: [{ id: S.tracks[i].id, name }], folder: name, name, fmt: 'wav', rate: 0, bits: 24 }); return b && b.ok ? b.dir + '/' + name + '.wav' : null }
+      const before = await print('freeze before')
+      await freezeTrack(i, true); await sleep(300); flush()
+      res.frozen = { on: !!t.frozen, key: !!(t.frozen && t.frozen.reg && t.frozen.reg.key), file: t.frozen && t.frozen.reg && t.frozen.reg.file, head: /frozen/.test(($('hd-' + i) || {}).textContent || '') }
+      const after = await print('freeze after')
+      if (before && after) res.sameSound = await NAT.call('testLag', { a: before, b: after, from: 10 })
+      /* saved and opened again: still frozen, its print read back */
+      await saveNow(true); await loadProject(projKey())
+      for (let k = 0; k < 100 && !(S.tracks[i] && S.tracks[i].frozen && S.tracks[i].frozen.reg && S.tracks[i].frozen.reg.key); k++) await sleep(100)
+      await sleep(500)
+      const t2 = S.tracks[i]; res.reopened = { on: !!(t2 && t2.frozen), key: !!(t2 && t2.frozen && t2.frozen.reg.key) }
+      const again = await print('freeze reopened')
+      if (before && again) res.reopenedSound = await NAT.call('testLag', { a: before, b: again, from: 10 })
+      /* a region changed: it thaws by itself, and plays through its plug-ins again */
+      const rg = t2.regs.find(x => !x.mute && !x.notes)
+      edit(() => { rg.gain = (rg.gain || 0) - 1; return true }); await natSession(); await sleep(200)
+      res.thawed = !t2.frozen
+      res.ok = res.plug && res.frozen.on && res.frozen.key && res.frozen.head && !!res.sameSound && res.sameSound.lag === 0 && res.sameSound.alike > .9999 && res.reopened.on && res.reopened.key && !!res.reopenedSound && res.reopenedSound.lag === 0 && res.reopenedSound.alike > .9999 && res.thawed
+      return res
+    })
+    await note('page', { errors: window.__errs || [] })
+    await NAT.call('testDone'); return
+  }
   if (mode === 'themes') {                                                         // only this: a theme pressed in settings > display (display.js), the room wearing it (theme.js): its type, its grounds
     await step('themes', async () => {
       const res = {}, there = js => NAT.call('testSettingsJs', { js })

@@ -160,7 +160,7 @@ static OSStatus slurSrcFeed (AudioConverterRef, UInt32* packets, AudioBufferList
     return noErr;
 }
 
-void* slurSrcOpen (double fromRate, double toRate, int channels)
+void* slurSrcOpen (double fromRate, double toRate, int channels, bool best)
 {
     AudioStreamBasicDescription a = {};
     a.mFormatID = kAudioFormatLinearPCM; a.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked;
@@ -169,7 +169,7 @@ void* slurSrcOpen (double fromRate, double toRate, int channels)
     a.mSampleRate = fromRate; b.mSampleRate = toRate;
     AudioConverterRef c = nullptr;
     if (AudioConverterNew (&a, &b, &c) != noErr || c == nullptr) return nullptr;
-    UInt32 cx = kAudioConverterSampleRateConverterComplexity_Mastering, q = kAudioConverterQuality_Max;
+    UInt32 cx = best ? kAudioConverterSampleRateConverterComplexity_Mastering : kAudioConverterSampleRateConverterComplexity_Normal, q = kAudioConverterQuality_Max;      // (best: a print; else a sound brought in, where its being ready at once counts too)
     AudioConverterSetProperty (c, kAudioConverterSampleRateConverterComplexity, sizeof (cx), &cx);
     AudioConverterSetProperty (c, kAudioConverterSampleRateConverterQuality, sizeof (q), &q);
     auto* s = new SlurSrc();

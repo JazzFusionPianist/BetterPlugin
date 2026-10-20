@@ -158,5 +158,7 @@ const THEMES = {
     'part.transport': 'a terminal', 'part.heads': 'a terminal’s lines', 'part.sound': 'blocks of text', 'part.markers': 'a terminal’s', 'part.cycle': 'a terminal’s', 'part.playhead': 'a terminal’s', 'part.mixer': 'a terminal’s',
   },
 }
-const THEME_ORDER = ['console', 'cassette', 'score', 'bauhaus', 'blueprint', 'phosphor']
+/* the themes offered: bauhaus alone for now (his word, 2026-10-21: the other five are taken down until they are made
+   again; their looks and parts stay here) */
+const THEME_ORDER = ['bauhaus']
 if (typeof module !== 'undefined') module.exports = { THEMES, THEME_ORDER, THEME_FACES }

@@ -51,7 +51,7 @@ SKINS.left.poster = () => {
     s += Cc(mx, my, 38, { fill: BH.paper }) + T(mx, my + 4, fmtDb(S.master), { size: 17, w: 700, anchor: 'middle' }) + T(mx, my + 16, 'O U T', { size: 6, w: 600, anchor: 'middle', x: ' xml:space="preserve"' }) + Cc(168, my - 88, 10, { fill: BH.red })
     s += hit(mx - 40, my - 40, 80, 80, 'master', '', 'ns-resize')
   } else BHX.donut = null
-  return G(ground + G(s, `translate(0 ${-up})`), `translate(${o} 0)`)
+  return G(ground + G(s, `translate(0 ${-up})`, ' id="bh-col"'), `translate(${o} 0)`)
 }
 /* the foot: a black band, the room's settings in it */
 SKINS.foot.poster = y0 => {
@@ -67,6 +67,9 @@ SKINS.foot.poster = y0 => {
   return s
 }
 SKINS.frame.poster = p => {
+  /* the start page and the sheet of keys are over the room: the column's controls are not there to be pressed while they are */
+  const col = $('bh-col'), hide = (typeof START === 'object' && START.on) || !!S.sheet
+  if (col && col.getAttribute('visibility') !== (hide ? 'hidden' : 'visible')) col.setAttribute('visibility', hide ? 'hidden' : 'visible')
   const [bar, rest] = bhSplit(p), b = $('bh-bar'), r = $('bh-rest'), t = $('bh-time'), ct = clock(p)
   if (b && b.textContent !== bar) { b.textContent = bar; BHX.rest = 18 + tw(bar, 64, 700) + 2; if (r) r.setAttribute('x', n(BHX.rest)) }
   if (r && r.textContent !== rest) r.textContent = rest

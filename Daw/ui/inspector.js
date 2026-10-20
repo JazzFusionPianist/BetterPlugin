@@ -61,7 +61,9 @@ PARTS.insp = pInsp
       try { svg.setPointerCapture(e.pointerId) } catch (err) {}
       return
     }
-    return down0(e)
+    const r = down0(e)
+    if (drag && drag.a === 'vol' && drag.lx != null && INSP.w) drag.lx -= INSP.w      // (a level moved from where it stands, with shift or as a theme's knob: its start read as setVolX reads the pointer)
+    return r
   }
   /* its meters, thirty times a second */
   const meters0 = drawMeters

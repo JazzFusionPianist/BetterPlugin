@@ -251,7 +251,7 @@ async function others () {
     await d.sleep(400); await d.ev(`LOOK = { 'reg.corners': 4, 'reg.line': { c: null, a: 35 }, 'reg.shape': 'off' }; draw(); return 1`)
     await d.pic('display', [0, 0, 1100, 692], 1.2); await d.close()
   }
-  for (const th of ['console', 'bauhaus']) if (!want.length || want.includes('theme-' + th)) {      // the room in a built-in theme, its parts and all (theme.js, skins.js)
+  for (const th of ['bauhaus']) if (!want.length || want.includes('theme-' + th)) {      // the room in a built-in theme, its parts and all (theme.js, skins.js)
     const t = await room({}); await t.sleep(800)
     await t.ev(`for (const tr of S.tracks) { if (tr.theirs === 'jun') tr.theirs = 'theo'; if (tr.theirs === 'minseo') tr.theirs = 'mina' } S.panel.on = true; S.panel.tab = 'mixer'; setView(true); applyLook(JSON.parse(JSON.stringify(THEMES['${th}']))); return 1`)
     await t.sleep(1200); await t.ev(`flush(); return 1`)

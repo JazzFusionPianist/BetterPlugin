@@ -42,7 +42,9 @@ const PART_KINDS = {
   lanes: [['as they come', 'plain'], ['staves', 'score'], ['a drawing', 'blueprint']],
   sound: [['as it comes', 'plain'], ['blocks of text', 'terminal']],
 }
-const PART_WORDS = k => PART_KINDS[k].map(x => x[0])
+/* the shapes offered: the room's own and those of the themes offered (theme.js THEME_ORDER); a look that wears another still wears it */
+const PART_SHOWN = new Set(['plain', 'poster'])
+const PART_WORDS = k => PART_KINDS[k].filter(x => PART_SHOWN.has(x[1])).map(x => x[0])
 /* the faces a theme may give the room (theme.js carries them) and the grounds */
 const LOOK_FACES = ['instrument sans', 'plex condensed', 'archivo', 'archivo wide', 'garamond', 'jost', 'plex mono', 'courier']
 /* ── every part and every quality ── [group, [[part, say (what it reaches), [[head, [quality…]]…]]…]] */
@@ -64,7 +66,7 @@ const LOOK_TREE = [
     ['their shapes', 'what a theme may change the shape of', [
       ['', [
         ['part.transport', 'the transport', 'p', { items: PART_WORDS('transport'), d: 'a bar at the top' }],
-        ['part.meters', 'meters over the room', 'p', { items: ['none', 'VU meters over the room'], d: 'none' }],
+        ['part.meters', 'meters over the room', 'p', { items: PART_SHOWN.has('console') ? ['none', 'VU meters over the room'] : ['none'], d: 'none' }],
         ['part.heads', 'a track’s head', 'p', { items: PART_WORDS('heads'), d: 'as it comes' }],
         ['part.headsAt', 'the heads stand', 'p', { items: ['at the left', 'at the right'], d: 'at the left' }],
         ['part.lanes', 'the lanes', 'p', { items: PART_WORDS('lanes'), d: 'as they come' }],
@@ -73,7 +75,7 @@ const LOOK_TREE = [
         ['part.cycle', 'the cycle', 'p', { items: PART_WORDS('cycle'), d: 'a band' }],
         ['part.playhead', 'the playhead', 'p', { items: PART_WORDS('playhead'), d: 'as it comes' }],
         ['part.mixer', 'the mixer', 'p', { items: PART_WORDS('mixer'), d: 'strips' }],
-      ]],
+      ].filter(q => q[3].items.length > 1)],      // (a part with no shape but its own to choose is not listed)
     ]],
   ]],
   ['background', [

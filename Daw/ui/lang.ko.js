@@ -12,7 +12,7 @@ LANG.lists.ko = {
   'colour': '색', 'outline': '모양', 'as read': '읽은 대로', 'as the track': '트랙대로',
   'track': '트랙', 'tracks': '트랙', 'track #': '트랙 #', 'stack': '스택', 'stacks': '스택', 'bus': '버스', 'buses': '버스', 'markers': '마커',
   'bar': '마디', 'bars': '마디', 'beat': '박', 'tick': '틱', 'sample': '샘플', 'many': '여러 개',
-  'nudge': '넛지', 'nudge beat': '넛지 박', 'nudge tick': '넛지 틱', 'nudge sample': '넛지 샘플', 'nudge # ms': '넛지 # ms', 'nudge #/#': '넛지 #/#',
+  'nudge': '넛지', 'start at #': '시작 시간 #', '# fps': '# fps', '# drop fps': '# 드롭 fps', 'smpte # fps': 'SMPTE # fps', 'smpte # drop fps': 'SMPTE # 드롭 fps', 'smpte starts at #': 'SMPTE 시작 #', 'nudge beat': '넛지 박', 'nudge tick': '넛지 틱', 'nudge sample': '넛지 샘플', 'nudge # ms': '넛지 # ms', 'nudge #/#': '넛지 #/#',
   'tempo': '템포', 'key': '키', 'out': '출력', 'in': '입력', 'to': '→',
 
   /* what a track is, what it listens to and where it plays */
@@ -254,3 +254,9 @@ Object.assign(LANG.lists.ko, {
 Object.assign(LANG.lists.ko, {
   'Find Missing Sounds…': '찾을 수 없는 사운드 찾기…', 'no sound of this project is missing': '이 프로젝트에 빠진 사운드가 없습니다',
 })
+/* the transport panel (panel.js) */
+Object.assign(LANG.lists.ko, {
+  'start': '처음으로', 'cycle off': '사이클 꺼짐', 'cycle # to #': '사이클 #–#', 'zoom across': '가로 줌', 'zoom down': '세로 줌', 'bpm': 'bpm',
+  'peak #': '피크 #', 'peak −∞': '피크 −∞', 'gain #': '게인 #', 'tr #': '트랜스포즈 #', '# regions': '리전 #개',
+})
+Object.assign(LANG.menuKo, { 'Transport Panel': '트랜스포트 패널' })

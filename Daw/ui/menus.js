@@ -108,7 +108,7 @@ const MENU_BAR = () => [
   ['View', [
     ['Patch', 'KeyB', { on: () => S.panel.on && S.panel.tab === 'patch' }], ['Mixer', 'KeyX', { on: () => S.panel.on && S.panel.tab === 'mixer' }],
     ['Notes', 'KeyP', { on: () => S.panel.on && S.panel.tab === 'notes' }], ['Prompt', null, { do: () => { if (typeof promptOpen === 'function') promptOpen() }, on: () => S.panel.on && S.panel.tab === 'prompt' }], ['Rubato Panel', 'KeyW', { on: () => S.panel.on && S.panel.tab === 'rubato' }],
-    ['Slur', 'KeyO', { on: () => !!S.slur }], ['Inspector', null, { do: () => toggleInspector(), on: () => !!INSP.on }],
+    ['Slur', 'KeyO', { on: () => !!S.slur }], ['Inspector', null, { do: () => toggleInspector(), on: () => !!INSP.on }], ['Transport Panel', 'KeyH', { on: () => typeof TPANEL === 'object' && TPANEL.on }],
     '-',
     ['Automation', 'KeyA', { on: () => !!S.auto }], ['Next Automation Parameter', '⌘KeyY'], ['Rubato View', '⌘KeyF', { on: () => !!S.flex }],
     '-',

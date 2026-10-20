@@ -5,7 +5,7 @@ export default () => chapter('window', t('the window', '창'),
 
   page(t('the window at a glance', '한눈에 보는 창'), { kind: 'split', tw: 88, txt:
     legend(
-      [1, '__control bar__ transport and the low latency bolt, the display (position, time, tempo, measure, key, nudge, grid), the output level', '__컨트롤 바__ 트랜스포트와 저지연 번개, 트랜스포트, 디스플레이(위치, 시간, 템포, 박자, 키, 넛지, 그리드), 출력 레벨'],
+      [1, '__control bar__ transport and the low latency bolt, the display (position, time, tempo, measure, key), the nudge and the grid apart at the right, the output level', '__컨트롤 바__ 트랜스포트와 저지연 번개, 디스플레이(위치, 시간, 템포, 박자, 키), 오른쪽에 따로 넛지와 그리드, 출력 레벨'],
       [2, '__the tracks’ bar__ new track, the two views, the tool, the mode, and what is chosen', '__트랙 바__ 새 트랙, 두 가지 보기, 도구, 모드, 선택된 것'],
       [3, '__markers__ the parts of the song, one cell each', '__마커__ 곡의 파트, 파트마다 칸 하나'],
       [4, '__bars__ the cycle on its upper strip, the playhead on its lower', '__마디 눈금__ 위쪽 띠에는 사이클, 아래쪽 띠에는 플레이헤드'],
@@ -18,6 +18,23 @@ export default () => chapter('window', t('the window', '창'),
     p('Under the lanes a panel opens on one of its pages: {{patch}} [[B]], {{mixer}} [[X]], {{notes}} [[P]], {{prompt}} [[/]] or {{rubato}} [[W]]; at the right, the Slur panel [[O]]. The Mac’s ((Window)) menu opens them too. {{hand off}} (stems, or a bounce of the mix) comes up in the middle of the window from ((File > Hand Off…)) [[⌘B]]. The window is never smaller than 1100 by 668 and opens as large as the screen allows.', '레인 아래에는 패널이 열리고 {{patch}} [[B]], {{mixer}} [[X]], {{notes}} [[P]], {{prompt}} [[/]], {{rubato}} [[W]] 중 한 페이지를 보여 줍니다. 오른쪽에는 Slur 패널 [[O]]이 열립니다. Mac의 ((Window)) 메뉴로도 열 수 있습니다. {{hand off}}(스템, 또는 믹스 바운스)는 ((File > Hand Off…)) [[⌘B]]로 창 가운데에 뜹니다. 창은 1100 x 668보다 작아지지 않고, 화면이 허락하는 가장 큰 크기로 열립니다.'),
     art: fig('window', { w: 158, calls: [[1, [520, 22], 't'], [8, [714, 93], 't'], [2, [20, 57], 'l', -3], [3, [1160, 81], 'r', -2], [4, [1160, 104], 'r', 4], [5, [140, 330], 'l'], [6, [960, 330], 'r'], [7, [674, 470], 'b'], [9, [110, 709], 'b'], [10, [1152, 709], 'b']] }) }),
 
+  page(t('the transport panel', '트랜스포트 패널'), { kind: 'split', tw: 112, txt:
+    p('The app begins with the transport panel down the left: the control bar and the tracks’ bar in one column, each thing as large as it matters. [[H]] hides it (and brings it back); hidden, the two bars are back at the top, as the next pages show. ((View)) > ((Transport Panel)) does the same. The app remembers which.', '앱은 왼쪽에 트랜스포트 패널을 띄운 채 시작합니다. 컨트롤 바와 트랙 바를 한 열에 모아, 중요한 것일수록 크게 그렸습니다. [[H]]로 숨기고 다시 띄웁니다. 숨기면 두 바가 다음 페이지들처럼 위쪽에 돌아옵니다. ((View)) > ((Transport Panel))도 같습니다. 앱이 어느 쪽이었는지 기억합니다.') +
+    table(null,
+      [1, ['play, stop, record: a triangle, a square, a ring. The one the room is doing is filled. Beside them, to the start', '재생, 정지, 녹음: 삼각형, 사각형, 원. 지금 하고 있는 것이 채워집니다. 옆에 처음으로']],
+      [2, ['the bar the song is in, large, with beat . division . tick at its foot. Click to type a place (17.3.2.120)', '지금 마디를 크게, 그 옆에 박 . 16분 . 틱. 클릭해서 위치 입력(17.3.2.120)']],
+      [3, ['the time as SMPTE. Click to type a time; right-click for its start and frame rate', 'SMPTE 시간. 클릭해서 시간 입력, 우클릭으로 시작 시간과 프레임레이트']],
+      [4, ['the measure, its beats as squares (the one sounding filled); click for the list', '박자. 박을 사각형으로, 지금 박이 채워집니다. 클릭하면 목록']],
+      [5, ['the tempo in its ring; the dot goes round once a bar. Click to type', '템포와 그 둘레. 점이 한 마디에 한 바퀴 돕니다. 클릭해서 입력']],
+      [6, ['the cycle: the triangle turns it on and off. Beside it the key, click and low latency', '사이클: 삼각형으로 켜고 끕니다. 옆에 키, 클릭, 저지연']]) +
+    table(null,
+      [7, ['the song as a line: its parts as ticks, the cycle yellow, the playhead a dot', '곡을 선으로: 파트는 눈금, 사이클은 노랑, 플레이헤드는 점']],
+      [8, ['{{out}}: a ring filled as loud as the mix; the white square is its level, drag up or down. The light fills red once the mix has clipped, the loudest peak beside it; click the light to let go of it', '{{out}}: 믹스 소리만큼 차는 링. 흰 사각형이 레벨이고 위아래로 드래그. 믹스가 클립하면 빨간 불이 켜지고 옆에 가장 큰 피크가 나옵니다. 불을 클릭하면 초기화']],
+      [9, ['how many tracks; the circle adds one. Beside it what is chosen: its colour opens the look list; a region shows its gain and transpose (drag them)', '트랙 수, 원으로 새 트랙. 옆에 선택된 것: 색을 누르면 모양 목록, 리전이면 게인과 트랜스포즈(드래그)']],
+      [10, ['the tool, the mode, the grid, the nudge: click for their lists', '도구, 모드, 그리드, 넛지: 클릭하면 목록']],
+      [11, ['automation and rubato, the two views [[A]] [[⌘F]]; the zoom along the song and the rows’ height', '오토메이션과 루바토 두 보기 [[A]] [[⌘F]]. 가로 줌과 줄 높이']]),
+    art: fig('panel', { w: 48, calls: [[1, 'play', 'l'], [2, 'pos', 'l', 4], [3, 'smpte', 'l'], [4, 'meter', 'l'], [5, 'tempo', 'r'], [6, 'loop', 'l'], [7, [40, 398], 'l'], [8, 'master', 'r'], [9, 'addtrack', 'r'], [10, 'toolmenu', 'l'], [11, 'autokey', 'l']] }) }),
+
   page(t('the control bar', '컨트롤 바'), { kind: 'wide', cc: 3, txt:
     table(null,
       [1, ['to the start [[↩]]', '처음으로 [[↩]]']],
@@ -27,18 +44,18 @@ export default () => chapter('window', t('the window', '창'),
     table(null,
       [5, ['cycle on, off [[C]]. With none set, it takes the part of the song the playhead is in', '사이클 켜기, 끄기 [[C]]. 정해 둔 것이 없으면 플레이헤드가 있는 파트를 잡습니다']],
       [6, ['click (metronome) [[K]]. The count-in has no cell: [[⇧K]]', '클릭(메트로놈) [[K]]. 카운트인은 칸이 없습니다. [[⇧K]]']],
-      [7, ['position, as bar.beat.sixteenth. Click to type: a bar (17), bar beat sixteenth (17.3.2), or a time (12.5s, 1:02.25)', '위치. 마디.박.16분. 클릭해서 입력: 마디(17), 마디 박 16분(17.3.2), 또는 시간(12.5s, 1:02.25)']],
-      [8, ['time, a readout only', '시간. 읽기 전용']],
+      [7, ['position, as bar.beat.sixteenth.tick (a beat has 960 ticks, a sixteenth 240, as in Logic). Click to type: a bar (17), bar beat sixteenth (17.3.2), to the tick (17.3.2.120), or a time (12.5s, 1:02.25)', '위치. 마디.박.16분.틱(Logic처럼 한 박이 960틱, 16분 하나가 240틱). 클릭해서 입력: 마디(17), 마디 박 16분(17.3.2), 틱까지(17.3.2.120), 또는 시간(12.5s, 1:02.25)']],
+      [8, ['time as SMPTE timecode, hours:minutes:seconds:frames. Click to type a time to go to. Right-click: where the count begins (00:00:00:00 at first; 01:00:00:00 is usual for picture) and the frame rate: 23.976, 24, 25, 29.97 drop, 29.97 or 30 (at first). With frames dropped a ; stands before the frames', '시간. SMPTE 타임코드, 시:분:초:프레임. 클릭해서 갈 시간을 입력. 우클릭: 카운트가 시작하는 시간(처음에는 00:00:00:00, 영상 작업에서는 흔히 01:00:00:00)과 프레임레이트 23.976, 24, 25, 29.97 drop, 29.97, 30(처음 값). 드롭 프레임이면 프레임 앞에 ;가 붙습니다']],
       [9, ['tempo. Click to type, 40 to 240', '템포. 클릭해서 입력, 40~240']]) +
     table(null,
       [10, ['measure. Click for the list, 2/4 to 12/8', '박자. 클릭하면 목록, 2/4에서 12/8까지']],
       [11, ['key, a label of up to 8 characters. It is saved with the project and shown in the start page’s list; nothing else uses it', '키. 8자까지의 메모. 저장되고 내보내기의 info 파일에 적힙니다. 다른 데는 쓰이지 않습니다']],
-      [12, ['nudge: how far one nudge goes. Click for the list', '넛지: 한 번에 움직이는 거리. 클릭하면 목록']],
+      [12, ['nudge: how far one nudge goes. Click for the list. It stands with the grid in a box of its own at the right', '넛지: 한 번에 움직이는 거리. 클릭하면 목록. 그리드와 함께 오른쪽에 따로 있습니다']],
       [13, ['{{grid}}: the division the lanes’ lines are drawn at, 1/4 to begin with. Click for the list. See “the five modes and the grid”', '{{grid}}: 레인에 그려지는 선의 간격. 처음에는 1/4. 클릭하면 목록. “다섯 가지 모드와 그리드” 참고']],
       [14, ['{{out}}: the output meter and level. Drag up or down; double-click for 0 dB', '{{out}}: 출력 미터와 레벨. 위아래로 드래그, 더블 클릭하면 0 dB']],
       [15, ['the bolt: low latency. Lit, what you hear live skips every plug-in and print later than the limit set in settings, 5 ms at first. See “a take”', '번개: 저지연 모드. 켜면 실시간으로 듣는 소리가 설정의 한계(처음 5 ms)보다 늦는 플러그인과 프린트를 건너뜁니다. “테이크” 참고']]) +
     note('While a take is being recorded, the tempo and the measure cannot be changed and the playhead cannot be moved.', '녹음 중에는 템포와 박자를 바꿀 수 없고 플레이헤드도 옮길 수 없습니다.'),
-    art: fig('bar', { w: 267, calls: [[15, 'lowlat', 'b'], [1, 'tostart', 'b'], [2, 'play', 't'], [3, 'stop', 'b'], [4, 'rec', 't'], [5, 'loop', 'b'], [6, 'click', 't'], [7, 'pos', 'b'], [8, [578, 9], 't'], [9, 'tempo', 'b'], [10, 'meter', 't'], [11, 'key', 'b'], [12, 'nudge', 't'], [13, 'grid', 'b'], [14, 'master', 't']] }) }),
+    art: fig('bar', { w: 267, calls: [[15, 'lowlat', 'b'], [1, 'tostart', 'b'], [2, 'play', 't'], [3, 'stop', 'b'], [4, 'rec', 't'], [5, 'loop', 'b'], [6, 'click', 't'], [7, 'pos', 'b'], [8, 'smpte', 't'], [9, 'tempo', 'b'], [10, 'meter', 't'], [11, 'key', 'b'], [12, 'nudge', 't'], [13, 'grid', 'b'], [14, 'master', 't']] }) }),
 
   page(t('the tracks’ bar', '트랙 바'), { kind: 'wide', cc: 3, txt:
     table(null,
@@ -47,17 +64,16 @@ export default () => chapter('window', t('the window', '창'),
       [3, ['{{auto}} the automation view [[A]], {{rubato}} the rubato view [[⌘F]] (time that gives and takes: pins, quantize, how a track is stretched). One turns the other off', '{{auto}} 오토메이션 보기 [[A]], {{rubato}} 루바토 보기 [[⌘F]](시간을 당기고 늦추기: 핀, 퀀타이즈, 트랙을 늘이는 방식). 하나를 켜면 다른 하나는 꺼집니다']],
       [4, ['{{tool}}: the tool a click on the lanes uses. [[T]] opens the same list at the pointer', '{{tool}}: 레인을 클릭할 때 쓰는 도구. [[T]]를 누르면 같은 목록이 포인터 위치에 열립니다']]) +
     table(null,
-      [5, ['{{cmd}}: the second tool, used while [[⌘]] is held', '{{cmd}}: 두 번째 도구. [[⌘]]를 누르는 동안 쓰입니다']],
-      [6, ['{{mode}}: how a drag is placed: smart, grid, slip, shuffle, spot', '{{mode}}: 드래그가 놓이는 방식. smart, grid, slip, shuffle, spot']],
-      [7, ['what is chosen: a region’s name, a count, a track, or a crossfade with its length and curve', '선택된 것: 리전 이름, 개수, 트랙, 또는 크로스페이드의 길이와 곡선']],
-      [8, ['colour and outline keys: open the look list', '색과 모양 키: 모양 목록을 엽니다']]) +
+      [5, ['{{mode}}: how a drag is placed: smart, grid, slip, shuffle, spot', '{{mode}}: 드래그가 놓이는 방식. smart, grid, slip, shuffle, spot']],
+      [6, ['what is chosen: a region’s name, a count, a track, or a crossfade with its length and curve', '선택된 것: 리전 이름, 개수, 트랙, 또는 크로스페이드의 길이와 곡선']],
+      [7, ['colour and outline keys: open the look list', '색과 모양 키: 모양 목록을 엽니다']]) +
     table(null,
-      [9, ['{{gain}} of the chosen region. Drag up or down, −30 to +12 dB', '선택한 리전의 {{gain}}. 위아래로 드래그, −30~+12 dB']],
-      [10, ['{{transpose}} in semitones, −24 to +24; beside it, on sound, {{fine}} in cents, −100 to +100', '{{transpose}} 반음 단위, −24~+24. 오디오면 옆에 {{fine}}, 센트 단위, −100~+100']],
-      [11, ['zoom along the song', '곡 방향 줌']],
-      [12, ['row height', '줄 높이']]) +
+      [8, ['{{gain}} of the chosen region. Drag up or down, −30 to +12 dB', '선택한 리전의 {{gain}}. 위아래로 드래그, −30~+12 dB']],
+      [9, ['{{transpose}} in semitones, −24 to +24; beside it, on sound, {{fine}} in cents, −100 to +100', '{{transpose}} 반음 단위, −24~+24. 오디오면 옆에 {{fine}}, 센트 단위, −100~+100']],
+      [10, ['zoom along the song', '곡 방향 줌']],
+      [11, ['row height', '줄 높이']]) +
     p('With a region that has a fade or a file whose tempo is known, more fields appear here: {{fade}}, its curve, {{bpm}}. In the rubato view a chosen region shows instead how its track is stretched ({{stretch}}), its two sensitivities ({{hits}}, {{notes}}) and {{quantize}} with its value. When the window is narrow the fields at the right drop off first.', '페이드가 있는 리전이나 템포를 아는 파일이면 여기에 칸이 더 나타납니다. {{fade}}와 곡선, {{bpm}}. 루바토 보기에서는 선택한 리전 대신 그 트랙을 늘이는 방식({{stretch}}), 두 민감도({{hits}}, {{notes}}), {{quantize}}와 값이 나옵니다. 창이 좁으면 오른쪽 칸부터 사라집니다.'),
-    art: fig('toolrow', { w: 267, calls: [[1, 'addtrack', 't'], [2, [84, 21], 'b'], [3, [337, 6], 't'], [4, 'toolmenu', 'b'], [5, 'tool2menu', 't'], [6, 'modemenu', 'b'], [7, [727, 6], 't'], [8, 'look', 'b', 3], [9, 'rgain', 't'], [10, 'rtr', 'b'], [11, 'zoomx', 't'], [12, 'zoomy', 'b']] }) }),
+    art: fig('toolrow', { w: 267, calls: [[1, 'addtrack', 't'], [2, [84, 21], 'b'], [3, [337, 6], 't'], [4, 'toolmenu', 'b'], [5, 'modemenu', 'b'], [6, [727, 6], 't'], [7, 'look', 'b', 3], [8, 'rgain', 't'], [9, 'rtr', 'b'], [10, 'zoomx', 't'], [11, 'zoomy', 'b']] }) }),
 
   page(t('markers, bars, cycle, playhead', '마커, 마디 눈금, 사이클, 플레이헤드'), { kind: 'wide', cc: 3, txt:
     h('markers', '마커') +

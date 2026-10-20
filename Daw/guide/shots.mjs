@@ -83,6 +83,11 @@ const SHOTS = {
     await b.ev(`const S = __daw.S; S.cycle = { on: true, a: 16, b: 24 }; S.pos = 19; __daw.redraw()`)
     await b.pic('window'); await b.pic('bar', [0, 0, W, 44], 1.5); await b.pic('toolrow', [0, 44, W, 27], 1.5); await b.pic('ruler', [0, 70, W, 47], 1.5)
     await b.pic('foot', [0, H - 22, W, 22], 1.5)
+    /* the transport panel (panel.js): the column as the app begins with it */
+    await b.ev(`if (typeof tpanelSet === 'function') { tpanelSet(true, false); flush(); SKINS.frame.panel(curPos()) } return 1`); await b.sleep(250)
+    await b.ev(`flush(); if (typeof SKINS === 'object' && SKINS.frame.panel) SKINS.frame.panel(curPos()); return 1`)
+    await b.pic('panel', [0, 0, 248, H], 1.5)
+    await b.ev(`if (typeof tpanelSet === 'function') { tpanelSet(false, false); flush() } return 1`)
   },
   async heads (b) {
     // a stack over the first three tracks, two of them an edit group, one armed and heard, one muted, one soloed, one with alternatives

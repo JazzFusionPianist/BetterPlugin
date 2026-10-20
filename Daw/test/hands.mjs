@@ -68,7 +68,7 @@ await key('z', 'KeyZ', 90, 4); ok('undo takes it back', await st(`S.tracks.lengt
 await click('[data-a="autokey"]'); ok('auto on', await st('S.auto')); await click('[data-a="flexkey"]'); ok('flex on turns auto off', await st('S.flex && !S.auto')); await click('[data-a="flexkey"]'); ok('flex off', await st('!S.flex'))
 await click('[data-a="toolmenu"]'); await pick('scissors'); ok('tool scissors', await st(`S.tool === 'scissors'`))
 await click('[data-a="toolmenu"]'); await pick('pointer')
-await click('[data-a="tool2menu"]'); await pick('pencil'); ok('cmd tool pencil', await st(`S.tool2 === 'pencil'`)); await click('[data-a="tool2menu"]'); await pick('marquee')
+ok('no command tool in the bar (he had it gone, 2026-10-21)', await st(`!document.querySelector('[data-a="tool2menu"]') && !('tool2' in S)`))
 await click('[data-a="modemenu"]'); await pick('slip'); ok('the mode key: slip, nothing pulls', await st(`S.mode === 'slip' && !S.snap`)); await click('[data-a="modemenu"]'); await pick('smart'); ok('and smart again', await st(`S.mode === 'smart' && S.snap`))
 // colour and outline
 await click('[data-a="sel"][data-i="0"]')

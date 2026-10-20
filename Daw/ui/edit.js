@@ -1551,7 +1551,7 @@ function lanesDown (e, p) {
 function lanesPress (e, p) {
   if (S.focus !== 'lanes') { S.focus = 'lanes'; S.selM = null; uiDirty('scenes') }
   if ((p.y - TY + VY) >= rowTops().all) { S.selR = []; S.selP = []; S.marq = null; uiDirty('lanes', 'dock'); return }       // below the last row
-  const tool = fadeHeld(e, p) ? 'fade' : e.metaKey ? S.tool2 : S.tool
+  const tool = fadeHeld(e, p) ? 'fade' : S.tool                                         // (command held is no second tool: he had it gone, 2026-10-21)
   if (S.auto && tool !== 'zoom' && tool !== 'marquee') { autoDown(e, p, tool); return }
   const ti = laneAt(p.y), t = S.tracks[ti], pos = barAt(p.x)
   /* a bus's or a stack's own line is taken where it is, the lines shown or not (auto.js: lineOwn) */
@@ -1817,7 +1817,7 @@ async function stopsOf (tracks) {
 const nextStop = (stops, from, dir) => { if (dir > 0) return stops.find(v => v > from + 1e-4); for (let i = stops.length - 1; i >= 0; i--) if (stops[i] < from - 1e-4) return stops[i]; return undefined }
 /* the cursor says what a press would do */
 function lanesHover (e, p, el) {
-  const tool = fadeHeld(e, p) ? 'fade' : e.metaKey ? S.tool2 : S.tool
+  const tool = fadeHeld(e, p) ? 'fade' : S.tool
   let c = { pencil: 'crosshair', eraser: 'cell', scissors: 'col-resize', join: 'copy', mute: 'not-allowed', gain: 'ns-resize', fade: 'ew-resize', marquee: 'crosshair', zoom: 'zoom-in', flex: 'col-resize' }[tool] || 'default'
   if (S.auto && tool !== 'zoom' && tool !== 'marquee') c = tool === 'eraser' ? 'cell' : 'crosshair'
   else if (tool !== 'zoom' && tool !== 'marquee' && (p.y - TY + VY) < rowTops().all && onOwnLine(laneAt(p.y), p)) c = tool === 'eraser' ? 'cell' : 'crosshair'

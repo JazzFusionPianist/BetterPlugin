@@ -9,7 +9,7 @@ const canStretch = r => !!r && (r.notes ? true : !r.loop && !!r.key && (r.sec ||
 /* the end a press with option would take hold of: [region, track, row] — or nothing */
 function stretchAt (e, p) {
   if (!e.altKey || e.shiftKey || (p.y - TY + VY) >= rowTops().all) return null
-  const tool = e.metaKey ? S.tool2 : S.tool
+  const tool = S.tool
   if (!(tool === 'pointer' || tool === 'smart' || tool === 'flex') || S.auto) return null
   const ti = laneAt(p.y), t = S.tracks[ti]
   if (!t || t.kind !== 'audio') return null

@@ -28,7 +28,7 @@ function parsePos (v) {
   m = v.match(/\d+/g)
   if (!m || +m[0] < 1) return null
   const beats = BEATS(), per = BEAT_16()
-  return (+m[0] - 1) + (m[1] ? (clamp(+m[1], 1, beats) - 1) / beats : 0) + (m[2] ? (clamp(+m[2], 1, per) - 1) / (beats * per) : 0) + (m[3] ? clamp(+m[3], 0, 239) / (240 * beats * per) : 0)
+  return (+m[0] - 1) + (m[1] ? (clamp(+m[1], 1, beats) - 1) / beats : 0) + (m[2] ? (clamp(+m[2], 1, per) - 1) / (beats * per) : 0) + (m[3] ? (clamp(+m[3], 1, 240) - 1) / (240 * beats * per) : 0)
 }
 /* a name (or the tempo, or the key) is changed where it stands: an input laid over the words. A project's name has no
    place of its own on the board (the window's title says it), so it is asked for in a small box under the bar. */
@@ -48,10 +48,11 @@ function startRename (what, i, at) {
     const sc = SCENES[i]
     if (!sc) return
     put(clamp(bx(sc.a), X0, Math.max(X0, X1 - 112)) + 2, MK_Y + 2, 110, 18, '500 9px', sc.name)
-  } else if (typeof skinField === 'function' && skinField(what)) { const f = skinField(what); put(f.x, f.y, f.w, f.h, '500 12px', what === 'tempo' ? String(+S.tempo.toFixed(2)) : what === 'key' ? S.key : what === 'smpte' ? smpte(curPos()) : readout(curPos()), true) }      // (the deck at the foot: where it says it is — skins.js)
-  else if (what === 'tempo') put(DISP_X + 144, 11, 62, 22, '400 11.5px', String(+S.tempo.toFixed(2)), true)
-  else if (what === 'key') put(DISP_X + 250, 11, 58, 22, '400 11.5px', S.key, true)
-  else if (what === 'pos') put(DISP_X, 11, 78, 22, '500 12.5px', readout(curPos()), true)           // where the playhead is, typed: a bar, or bar beat sixteenth
+  } else if (typeof skinField === 'function' && skinField(what)) { const f = skinField(what); put(f.x, f.y, f.w, f.h, '500 12px', what === 'tempo' ? String(+S.tempo.toFixed(2)) : what === 'key' ? S.key : what === 'smpte' ? smpte(curPos()) : what === 'smptestart' ? smpteStart() : place(curPos()), true) }      // (the deck at the foot: where it says it is — skins.js)
+  else if (what === 'tempo') put(DISP_X + BARC.tempo[0], 11, BARC.tempo[1], 22, '400 11.5px', String(+S.tempo.toFixed(2)), true)
+  else if (what === 'key') put(DISP_X + BARC.key[0], 11, BARC.key[1], 22, '400 11.5px', S.key, true)
+  else if (what === 'pos') put(DISP_X, 11, BARC.pos[1], 22, '500 12.5px', place(curPos()), true)           // where the playhead is, typed: a bar, or bar beat sixteenth tick
+  else if (what === 'smpte' || what === 'smptestart') put(DISP_X + BARC.smpte[0], 11, BARC.smpte[1], 22, '400 11.5px', what === 'smpte' ? smpte(curPos()) : smpteStart(), true)      // a time to go to, or where the count begins
   else if (what === 'rbpm') { const r = selRegs().map(x => x[0]).find(q => !q.loop && q.bpm > 0); if (!r || !at) return; put(at.x + at.w - 46, at.y + at.h / 2 - 9, 46, 18, '400 9.5px', String(+r.bpm.toFixed(2)), true) }
   else if (what === 'spot') {                                                                        // where what is chosen should begin, typed where it begins now
     const rs = selRegs()
@@ -93,6 +94,8 @@ function startRename (what, i, at) {
       if (db != null && i < 0) { S.master = db; pushMaster() } else if (db != null && S.tracks[i]) volSet(S.tracks[i], db)
     }
     else if (what === 'pos') { const to = parsePos(v); if (to != null) goTo(to) }
+    else if (what === 'smpte') { const to = smptePos(v); if (to != null) goTo(clamp(to, 0, SONG_END)) }
+    else if (what === 'smptestart') { const r = smpteRate(), k = tcCount(v, r); if (k != null) { S.smpte = { rate: r.t, start: tcLabel(k, r) }; say(`smpte starts at ${S.smpte.start}`) } }
     else if (what === 'spot') { const to = parsePos(v); if (to != null && v !== first) act.spot(to) }      // (the box shows its place rounded to a sixteenth: left as it was, nothing moves)
     else if (what === 'rbpm') { const bpm = Math.round(parseFloat(v) * 100) / 100, rs = selRegs().map(x => x[0]).filter(q => !q.loop); if (isFinite(bpm) && bpm >= 30 && bpm <= 300 && rs.length) edit(() => { for (const r of rs) r.bpm = bpm }) }
     else if (what === 'region') { const rs = selRegs().map(x => x[0]); if (rs.length) edit(() => { for (const r of rs) { r.tag = v; dirtyReg(r) } }) }
@@ -238,7 +241,7 @@ const KEEP_T = ['id', 'name', 'col', 'shape', 'tone', 'theirs', 'kind', 'vol', '
 const KEEP_R = ['id', 'a', 'b', 'off', 'gain', 'mute', 'fi', 'fo', 'loop', 'rate', 'sec', 'srcBars', 'tag', 'name', 'file', 'tr', 'ft', 'flex', 'rev', 'fx', 'col', 'shape', 'fic', 'foc', 'grp', 'bpm', 'xo', 'sm', 'px', 'py', 'notes', 'ctl', 'q', 'qs', 'sw', 'vel', 'rep', 'chords']
 function serialize () {
   return JSON.stringify({
-    v: 3, name: PROJ.name, demo: PROJ.demo, fresh: PROJ.fresh ? true : undefined, tempo: S.tempo, meter: S.meter, key: S.key, end: SONG_END, scenes: SCENES.map(s => [s.name, s.a]), master: S.master, click: S.click, countIn: S.countIn,
+    v: 3, name: PROJ.name, demo: PROJ.demo, fresh: PROJ.fresh ? true : undefined, tempo: S.tempo, meter: S.meter, key: S.key, smpte: S.smpte, end: SONG_END, scenes: SCENES.map(s => [s.name, s.a]), master: S.master, click: S.click, countIn: S.countIn,
     cycle: S.cycle, sel: S.sel, view: { pxb: PXB, vx: VX, vy: VY, rh: S.rh, wz: S.wz || 1, panel: { on: S.panel.on, tab: S.panel.tab, h: S.panel.h }, slur: S.slur }, snap: S.snap, mode: S.mode, nudge: S.nudge, grid: S.grid, q: S.q,
     out: typeof wallOutSaved === 'function' ? wallOutSaved() : undefined,              // (wall.js: what stands on the stereo out's wall)
     ref: typeof refSaved === 'function' ? refSaved() : undefined,                      // (reference.js: the reference row)
@@ -496,7 +499,7 @@ async function loadProjectNow (key, json, free) {
   PID = Math.max(0, ...S.tracks.flatMap(t => Object.values(t.autos).flatMap(p => p.map(q => q.id))))
   for (const t of S.tracks.flatMap(lanesOf)) for (const q of t.regs) if (q.notes) { for (const x of q.notes) if (x.id > NID) NID = x.id; for (const c of q.ctl || []) if (c.id > NID) NID = c.id }
   S.cycle = Object.assign({ on: false, a: 0, b: 4 }, d.cycle); S.sel = clamp(d.sel || 0, 0, Math.max(0, S.tracks.length - 1)); setMode(MODES.includes(d.mode) ? d.mode : d.snap === false ? 'slip' : 'smart'); S.nudge = NUDGES.includes(d.nudge) ? d.nudge : 'beat'; if (typeof GRIDS !== 'undefined') S.grid = GRIDS.includes(d.grid) ? d.grid : '1/4'; S.pos = 0
-  S.master = d.master == null ? 0 : d.master; S.click = !!d.click; S.countIn = d.countIn !== false; S.q = d.q || 1 / 16; S.auto = false; S.flex = false; S.key = typeof d.key === 'string' ? d.key : ''; S.look = null
+  S.master = d.master == null ? 0 : d.master; S.click = !!d.click; S.countIn = d.countIn !== false; S.q = d.q || 1 / 16; S.auto = false; S.flex = false; S.key = typeof d.key === 'string' ? d.key : ''; S.smpte = Object.assign({ rate: '30', start: '00:00:00:00' }, d.smpte); S.look = null
   /* the view comes back as it was left; in a project from before this room (rows were twice as tall, the dock was always there) only its zoom along the song does */
   const vw = d.view || {}, now = d.v >= 3
   if (now && vw.panel) { S.panel.on = !!vw.panel.on; S.panel.tab = vw.panel.tab === 'mixer' ? 'mixer' : 'patch'; S.panel.h = vw.panel.h || 316 }
@@ -577,7 +580,7 @@ async function newProjectNow () {
   setProj(name); PROJ.demo = false; PROJ.last = ''; PROJ.saved = false; PROJ.fresh = true      // (fresh: it has never been given a name — the first ⌘S asks for one)
   SONG_END = 64; SCENES = []
   if (typeof wallOutLoad === 'function') wallOutLoad(null)                               // (a new song: nothing on the stereo out's wall)
-  S.tracks = [t]; S.sel = 0; S.cycle = { on: false, a: 0, b: 4 }; S.pos = 0; S.master = 0; S.auto = false; S.flex = false; S.key = ''; S.look = null; S.rh = 25; S.wz = 1; PXB = (X1 - X0) / 24; VX = 0; VY = 0          // a new song opens on its first twenty-four bars
+  S.tracks = [t]; S.sel = 0; S.cycle = { on: false, a: 0, b: 4 }; S.pos = 0; S.master = 0; S.auto = false; S.flex = false; S.key = ''; S.smpte = { rate: '30', start: '00:00:00:00' }; S.look = null; S.rh = 25; S.wz = 1; PXB = (X1 - X0) / 24; VX = 0; VY = 0          // a new song opens on its first twenty-four bars
   repaint()
   resync(); pushTransport(); pushMaster()
   await saveNow(false, true)

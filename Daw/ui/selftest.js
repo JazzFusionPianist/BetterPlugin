@@ -2160,6 +2160,21 @@ async function runSelfTest (mode) {
   /* zooming by the hand on a full screen (his users, 2026-10-19: "트랙 패드로 horizontal 줌인 줌 아웃 … 스무스하게 잘 안된다"):
      what a step of a pinch costs here, in WebKit — the lanes drawn again at every step, as they were, against stretched
      while the hand goes and drawn for real once it rests (zoomLive) */
+  /* the transport panel (panel.js, his pick of design/transport panel draft 8): H brings it in, as WebKit draws it — its
+     parts all there, beat . division . tick standing after the bar as drawn, the tool row folded; H again, the bars back */
+  await step('panel', async () => {
+    halt(false)
+    const res = {}, key = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'h', code: 'KeyH', bubbles: true, cancelable: true }))
+    jumpTo(18 + 2 / 4 + 1 / 16 + 37 / 3840); key(); await sleep(150); flush(); SKINS.frame.panel(curPos())
+    const col = document.getElementById('tp-col'), bar = document.getElementById('tp-bar'), rest = document.getElementById('tp-rest')
+    res.on = { panel: TPANEL.on, col: !!col, left: SKV.left, toolRowFolded: MK_Y === 0 && !document.querySelector('#g-info [data-a="toolmenu"]'), barGone: !document.getElementById('rd') }
+    res.parts = ['play', 'stop', 'rec', 'pos', 'smpte', 'meter', 'tempo', 'loop', 'key', 'click', 'lowlat', 'master', 'addtrack', 'look', 'toolmenu', 'modemenu', 'grid', 'nudge', 'autokey', 'flexkey', 'zoomx', 'zoomy'].filter(a => !document.querySelector('#tp-col [data-a="' + a + '"]'))
+    res.place = bar && rest ? { bar: bar.textContent, rest: rest.textContent, after: +rest.getAttribute('x') >= +bar.getAttribute('x') + bar.getComputedTextLength() } : null
+    await snap('selftest-panel.png')
+    key(); await sleep(150); flush()
+    res.off = { panel: TPANEL.on, col: !!document.getElementById('tp-col'), bar: !!document.getElementById('rd') }
+    return res
+  })
   await step('zoomFeel', async () => {
     halt(false)
     const keep = S.tracks, sel = S.sel, px = PXB, vx = VX, src = S.tracks.filter(t => t.kind === 'audio' && t.regs.length)

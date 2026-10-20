@@ -7,6 +7,43 @@ const readout = p => { const b = Math.floor(p + 1e-6), bt = Math.max(0, p - b) *
 const meterName = () => `${S.meter[0]}/${S.meter[1]}`
 const clock = p => { const s = Math.max(0, p) * SPB(), m = Math.floor(s / 60), r = s - m * 60; return `${m}:${String(Math.floor(r)).padStart(2, '0')}.${Math.floor(r * 10) % 10}` }
 const pad2 = k => String(k).padStart(2, '0')
+/* the place to the tick: bar . beat . sixteenth . tick, as Logic counts them (960 ticks a beat, 240 a sixteenth); the tick
+   in three figures, so the place does not jump about as it runs (his ask, 2026-10-20) */
+const place = p => { const b = Math.floor(p + 1e-6), bt = Math.max(0, p - b) * BEATS(), bi = Math.floor(bt + 1e-9), f = Math.max(0, bt - bi) * BEAT_16(), si = Math.floor(f + 1e-9), tk = Math.floor(Math.max(0, f - si) * 240 + 1e-6); return `${b + 1}.${Math.min(BEATS(), bi + 1)}.${Math.min(BEAT_16(), si + 1)}.${String(Math.min(239, tk) + 1).padStart(3, '0')}` }
+/* the time as SMPTE timecode, hours:minutes:seconds:frames, at the project's rate and from the time given to its start
+   (S.smpte: { rate, start } — both set by a right press on it, smpteMenu). 23.976 and 29.97 run a thousandth slow against
+   the clock and count as 24 and 30; 29.97 drop leaves out frames 0 and 1 of each minute but every tenth, as the standard
+   says, and is written with a ; before the frames */
+const SMPTE_RATES = [{ t: '23.976', fps: 24, pull: true }, { t: '24', fps: 24 }, { t: '25', fps: 25 }, { t: '29.97 drop', fps: 30, pull: true, drop: true }, { t: '29.97', fps: 30, pull: true }, { t: '30', fps: 30 }]
+const smpteRate = () => SMPTE_RATES.find(r => S.smpte && r.t === S.smpte.rate) || SMPTE_RATES[5]
+function tcLabel (n, r) {                                                              // a count of frames from 00:00:00:00, as it is written
+  if (r.drop) { const d = Math.floor(n / 17982), m = n % 17982; n += 18 * d + (m > 1 ? 2 * Math.floor((m - 2) / 1798) : 0) }
+  const f = r.fps, s = Math.floor(n / f)
+  return `${pad2(Math.floor(s / 3600) % 24)}:${pad2(Math.floor(s / 60) % 60)}:${pad2(s % 60)}${r.drop ? ';' : ':'}${pad2(n % f)}`
+}
+function tcCount (v, r) {                                                              // what is typed, as a count of frames (null: not a time); figures fill from the right, as in Logic
+  let g = String(v).trim().match(/\d+/g)
+  if (!g) return null
+  if (g.length === 1 && g[0].length > 2) g = g[0].padStart(Math.ceil(g[0].length / 2) * 2, '0').match(/\d\d/g)
+  if (g.length > 4) return null
+  const [hh, mm, ss, ff] = Array(4 - g.length).fill(0).concat(g.map(Number))
+  if (hh > 23 || mm > 59 || ss > 59 || ff >= r.fps) return null
+  const mins = hh * 60 + mm
+  if (r.drop && ss === 0 && ff < 2 && mm % 10) return null                              // (a frame the count leaves out)
+  return (hh * 3600 + mm * 60 + ss) * r.fps + ff - (r.drop ? 2 * (mins - Math.floor(mins / 10)) : 0)
+}
+const smpteStart = () => tcLabel(tcCount((S.smpte && S.smpte.start) || '0', smpteRate()) || 0, smpteRate())
+const smpte = p => { const r = smpteRate(); return tcLabel(Math.floor(Math.max(0, p) * SPB() * r.fps / (r.pull ? 1.001 : 1) + 1e-6) + (tcCount((S.smpte && S.smpte.start) || '0', r) || 0), r) }
+/* a time typed as timecode: the place it stands for (null: before the start, or not a time) */
+const smptePos = v => { const r = smpteRate(), n = tcCount(v, r), n0 = tcCount((S.smpte && S.smpte.start) || '0', r) || 0; return n == null || n < n0 ? null : (n - n0) * (r.pull ? 1.001 : 1) / r.fps / SPB() }
+function smpteMenu (x, y) {
+  const r = smpteRate()
+  openMenu(x, y, [{ t: `start at ${smpteStart()}`, v: 'start' }].concat(SMPTE_RATES.map((q, k) => ({ t: `${q.t} fps`, v: q.t, on: q === r, sep: !k }))), it => {
+    if (it.v === 'start') { startRename('smptestart'); return }
+    const was = smpteStart(); S.smpte = { rate: it.v, start: was }; S.smpte.start = smpteStart()      // (the start stays the time it was, said at the new rate)
+    say(`smpte ${it.v} fps`); uiDirty('top')
+  }, { w: 176 })
+}
 const copy = o => JSON.parse(JSON.stringify(o))
 
 /* looks that were drawn as a draft first (Daw/design/editing round 1 draft): a fade as a bent line with the sound darkened above it,
@@ -113,31 +150,45 @@ function pBar () {
   /* (patch, mixer and slur are opened from the Mac's Window menu, and by b, x and o; hand off from the File menu and by
      command b: the bar keeps no keys for them) */
   x -= 18
-  /* the middle: where the playhead is, in bars and in time (pressed: a place can be typed); the tempo, the measure, the key; and how
-     far one nudge goes (pressed: the list of them). It stands in the middle of the window, and gives way to the left where
-     the right end would run into it */
+  /* the middle: where the playhead is, in bars to the tick and as SMPTE timecode (pressed: a place, or a time, can be typed;
+     the time pressed with the right: its start and its rate); the tempo, the measure, the key. It stands in the middle of
+     the window. At the right end, apart (his ask, 2026-10-20, design/transport draft 1, way B): how far one nudge goes and
+     the grid, each pressed for its list, beside the out; the middle gives way to the left where it would run into them */
   const tempo = (+S.tempo).toFixed(2), keyName = S.key || 'key'
-  const disp = [[readout(curPos()), 78, 500, ' id="rd"', 'pos'], [clock(curPos()), 66, 400, ' id="rt"', null], [tempo, 62, 400, '', 'tempo'], [meterName(), 44, 400, '', 'meter'], [fit(keyName, 50, 11.5), 58, 400, '', 'key'], [S.nudge, NUDGE_W, 400, '', 'nudge']].concat(typeof gridName === 'function' ? [[gridName(), GRID_W, 400, '', 'grid']] : []), dw = disp.reduce((a, q) => a + q[1], 0)      // (grid.js: the division the lanes' lines are drawn at)
-  const tw0 = tr.length * 30, tx = Math.min(Math.round((W - tw0 - 10 - dw) / 2), Math.floor(x - 30 - 40 - 46 - dw - 10 - tw0)), lx = tx + tw0 + 10
+  const disp = [[place(curPos()), BARC.pos[1], 500, ' id="rd"', 'pos'], [smpte(curPos()), BARC.smpte[1], 400, ' id="rt"', 'smpte'], [tempo, BARC.tempo[1], 400, '', 'tempo'], [meterName(), BARC.meter[1], 400, '', 'meter'], [fit(keyName, 50, 11.5), BARC.key[1], 400, '', 'key']], dw = disp.reduce((a, q) => a + q[1], 0)
+  const side = [['nudge', S.nudge, NUDGE_W]].concat(typeof gridName === 'function' ? [['grid', gridName(), GRID_W]] : []), sw = side.reduce((a, q) => a + q[2], 0)      // (grid.js: the division the lanes' lines are drawn at)
+  const tw0 = tr.length * 30, all = tw0 + 10 + dw
+  const at = mw => { const sx = Math.floor(x - 30 - mw - 26 - 24 - sw); return { sx, tx: Math.min(Math.round((W - all) / 2), sx - 24 - all) } }
+  METER_W = 60                                                                         // (the out's meter as drawn in the draft)
+  let { sx, tx } = at(METER_W)
+  if (tx < 12) { METER_W = Math.max(40, METER_W - (12 - tx)); ({ sx, tx } = at(METER_W)) }      // (a narrow window: the out's meter gives way first)
+  const lx = tx + tw0 + 10
+  const box = (bx, w) => R(bx, 10, w, 24, { rx: 2, fill: K0 }) + R(bx + .5, 10.5, w - 1, 23, { rx: 2, stroke: INK, sa: .2 })
   s += cells(tx, 10, 24, tr, { widths: tr.map(() => 30) })[0]
-  s += R(lx, 10, dw, 24, { rx: 2, fill: K0 }) + R(lx + .5, 10.5, dw - 1, 23, { rx: 2, stroke: INK, sa: .2 })
+  s += box(lx, dw)
   let cx = lx
   disp.forEach(([v, w, wt, extra, a], i) => {
     if (i) s += vline(cx - .5, 14, 30, .13)
-    if (a === 'nudge' || a === 'grid') { const lw = tw(a, 9.5), x0 = cx + (w - lw - 5 - tw(v, 11.5)) / 2; s += T(x0, 26.2, a, { size: 9.5, a: .4 }) + T(x0 + lw + 5, 26.4, v, { size: 11.5, a: .86 }) }      // the one value here that does not say what it is by its look: it is named
-    else s += T(cx + w / 2, 26.4, v, { size: i ? 11.5 : 12.5, w: wt, a: i === 4 && !S.key ? .36 : i ? .86 : 1, anchor: 'middle', x: extra })
+    s += T(cx + w / 2, 26.4, v, { size: i ? 11.5 : 12.5, w: wt, a: i === 4 && !S.key ? .36 : i ? .86 : 1, anchor: 'middle', x: extra })
     if (a) s += hit(cx, 10, w, 24, a)
     cx += w
   })
-  DISP_X = lx
-  METER_W = clamp(Math.floor(x - 30 - (lx + dw + 46)), 40, 76)
+  s += box(sx, sw); cx = sx
+  side.forEach(([a, v, w], i) => {                                                     // the two values here that do not say what they are by their look: they are named
+    if (i) s += vline(cx - .5, 14, 30, .13)
+    const lw = tw(a, 9.5), x0 = cx + (w - lw - 5 - tw(v, 11.5)) / 2
+    s += T(x0, 26.2, a, { size: 9.5, a: .4 }) + T(x0 + lw + 5, 26.4, v, { size: 11.5, a: .86 }) + hit(cx, 10, w, 24, a)
+    cx += w
+  })
+  DISP_X = lx; SIDE_X = sx
   const mx = x - 30 - METER_W
   s += T(x, 25.6, fmtDb(S.master), { size: 10, a: .82, anchor: 'end' })
   for (let c = 0; c < 2; c++) { const y = 18 + c * 5; s += R(mx, y, METER_W, 2.5, { fill: INK, fa: .12 }) + R(mx, y, 0, 2.5, { fill: LEVEL, fa: .86, x: ` id="mm-${c ? 'r' : 'l'}"` }) }
   s += R(mx + METER_W * volF(0), 15, 1, 13.5, { fill: INK, fa: .28 }) + T(mx - 8, 25.6, 'out', { size: 9.5, a: .4, anchor: 'end' }) + hit(mx - 26, 8, METER_W + 62, 28, 'master', '', 'ns-resize')
   return s + hline(0, W, 44 - .5, .1)
 }
-let DISP_X = 0
+let DISP_X = 0, SIDE_X = 0
+const BARC = { pos: [0, 100], smpte: [100, 94], tempo: [194, 62], meter: [256, 44], key: [300, 58] }      // the middle's cells: where each begins in it, how wide
 const NUDGE_W = 92
 const TL = ' clip-path="url(#tl)"', LN = ' clip-path="url(#ln)"'
 
@@ -158,7 +209,7 @@ function pTool () {
   x = Math.max(X0 + 10, x + 4)                                                       // (the heads at the right: the row goes on after the counts — skins.js)
   const [c, cw] = cells(x, y + 4, 18, [{ t: 'auto', on: S.auto, a: 'autokey' }, { t: 'rubato', on: S.flex, a: 'flexkey' }], { size: 9.5 }); s += c; x += cw + 16
   const put = (label, word, a, dim) => { s += T(x, by, label, { size: 9.5, a: .4 }); x += tw(label, 9.5) + 6; const [k, w] = menuKey(x, y + 4, word, { a, dim }); s += k; x += w + 14 }
-  put('tool', toolWord(S.tool), 'toolmenu'); put('cmd', toolWord(S.tool2), 'tool2menu'); put('mode', S.mode, 'modemenu', S.mode === 'slip')
+  put('tool', toolWord(S.tool), 'toolmenu'); put('mode', S.mode, 'modemenu', S.mode === 'slip')
   const zx = RX - 156, lim = zx - 28, zoomFits = zx - 24 > x, rs = S.focus === 'tracks' ? [] : selRegs(), st = S.tracks[S.sel], named = !!st && x + 14 + 190 < lim
   if (named) s += vline(x, y + 6, y + TOOL_H - 6, .1)
   x += 14
@@ -325,7 +376,7 @@ function pMenu () {
   })
   return s
 }
-const openToolMenu = (x, y, second) => openMenu(x, y, TOOLS.map(([name, , letter]) => ({ t: toolWord(name), k: second ? '' : letter, on: name === (second ? S.tool2 : S.tool), v: name })), it => { if (second) { S.tool2 = it.v; uiDirty('info') } else pickTool(it.v) }, { tools: !second, w: 132 })
+const openToolMenu = (x, y) => openMenu(x, y, TOOLS.map(([name, , letter]) => ({ t: toolWord(name), k: letter, on: name === S.tool, v: name })), it => pickTool(it.v), { tools: true, w: 132 })
 
 /* ── one track's head, on one line: its colour, its number, its name, whose it is; its cells; its level under its fader;
    what the fader reads ── */
@@ -347,7 +398,7 @@ function squareCells (x, y, items, cw, size, i, gap = 2) {
   let s = '', hits = ''
   items.forEach((it, k) => {
     const cx = x + k * (cw + gap)
-    s += it.on ? R(cx, y, cw, cw, { fill: it.c || INK }) : R(cx + .5, y + .5, cw - 1, cw - 1, { stroke: INK, sa: .9 })      // (its edge white, not grey: his ask, 2026-10-20)
+    s += it.on ? R(cx, y, cw, cw, { fill: it.c || INK }) : R(cx + .3, y + .3, cw - .6, cw - .6, { stroke: INK, sa: .85, sw: .6 })      // (its edge white, not grey: his ask, 2026-10-20; a hairline, 2026-10-21: "outer edge가 너무 두꺼워")
     s += T(cx + cw / 2, y + cw / 2 + size * .34, it.t, { size, w: it.on ? 500 : 400, c: it.on ? K0 : INK, a: it.on ? 1 : .82, anchor: 'middle' })
     if (it.a) hits += hit(cx, y - 2, cw, cw + 4, it.a, ` data-i="${i}"`)
   })
@@ -363,7 +414,7 @@ const HEAD_FX = 138, HEAD_FW = 40, HEAD_TWO = 36, HEAD_FW2 = 110, HEAD_CW = 14, 
 function levelBar (x, y, w, t, vol) {                                                     // (the level and the meter in it drawn heavier: his ask, 2026-10-20)
   const fader = volF(vol)
   return R(x, y - 1, w, 4, { fill: INK, fa: .12 }) + R(x, y - 1, 0, 4, { fill: LEVEL, fa: .86, x: ` id="mt-${t.id}" data-w="${n(w)}"` }) + R(x + w * volF(0), y - 3, 1, 8, { fill: INK, fa: .3 })
-    + (t.ghost != null ? R(x + w * volF(t.ghost) - 1.2, y - 5, 2.4, 12, { fill: INK, fa: .28 }) : '') + R(x + w * fader - 1.2, y - 5, 2.4, 12, { fill: INK, fa: heard(t) ? 1 : .5 })
+    + (t.ghost != null ? R(x + w * volF(t.ghost) - 1.2, y - 5, 2.4, 12, { fill: INK, fa: .28 }) : '') + R(x + w * fader - 3.5, y - 2.5, 7, 7, { fill: INK, fa: heard(t) ? 1 : .5 })      // (its handle a small square, filled: his pick of design/transport panel draft 2, 2026-10-21)
 }
 const triMark = (x, y, open, a = .6) => P(open ? `M${x - 3} ${y - 1.5}H${x + 3}L${x} ${y + 2.5}Z` : `M${x - 1.5} ${y - 3}V${y + 3}L${x + 2.5} ${y}Z`, { fill: INK, fa: a })
 /* A track in a stack is held by it, and looks it: the stack's own colour runs down the left edge of every row in it, one
@@ -1377,9 +1428,10 @@ function onDown (e) {
     case 'meter': { const at = typeof skinMenuAt === 'function' && skinMenuAt('meter'); if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(at ? at.x : p.x - 20, at ? at.y : barMenuY(), MEASURES.map(m => ({ t: `${m[0]}/${m[1]}`, v: m, on: m[0] === S.meter[0] && m[1] === S.meter[1] })), it => setMeter(it.v[0], it.v[1]), { w: 84, up: at && at.up }); break }
     case 'key': startRename('key'); break
     case 'pos': startRename('pos'); break
+    case 'smpte': startRename('smpte'); break
     case 'volnum': break                                                              // (twice: a level is typed; with option: 0 db)
     case 'grid': gridMenu(); break
-    case 'nudge': { const at = typeof skinMenuAt === 'function' && skinMenuAt('nudge'); if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(at ? at.x : DISP_X + 308, at ? at.y : barMenuY(), NUDGES.map(v => ({ t: v, k: NUDGE_KEY[v], v, on: v === S.nudge })), it => setNudge(it.v), { w: 150, up: at && at.up }); break }
+    case 'nudge': { const at = typeof skinMenuAt === 'function' && skinMenuAt('nudge'); if (S.menu) { S.menu = null; uiDirty('menu') } else openMenu(at ? at.x : SIDE_X, at ? at.y : barMenuY(), NUDGES.map(v => ({ t: v, k: NUDGE_KEY[v], v, on: v === S.nudge })), it => setNudge(it.v), { w: 150, up: at && at.up }); break }
     case 'master': drag = { a, ly: p.y, v0: S.master, acc: 0 }; break
     case 'mmaster': drag = { a, ly: p.y, f0: volF(S.master), acc: 0, g: stripGeom(BY + PH, S.panel.h - PH, S.panel.tab === 'patch') }; break
     /* a marker: it is the one the delete key is about now, the song goes there, and it can be pulled to another bar */
@@ -1398,7 +1450,6 @@ function onDown (e) {
     case 'new-out': { const o = S.newT; openMenu(p.x - 10, p.y + 12, [{ t: 'stereo out', v: 0, on: !o.out }].concat(S.tracks.filter(b => b.kind !== 'audio').map(b => ({ t: b.name, k: b.kind, v: b.id, on: o.out === b.id }))), it => { o.out = it.v; uiDirty('new') }); break }
     case 'new-make': makeNewTracks(); break
     case 'toolmenu': { const at = typeof skinMenuAt === 'function' && skinMenuAt('toolmenu'); if (S.menu) { S.menu = null; uiDirty('menu') } else { openToolMenu(at ? at.x : p.x - 10, at ? at.y : TOOL_Y + TOOL_H + 2); if (at && at.up && S.menu) S.menu.up = true } break }
-    case 'tool2menu': if (S.menu) { S.menu = null; uiDirty('menu') } else openToolMenu(p.x - 10, TOOL_Y + TOOL_H + 2, true); break
     case 'pick': { const m = S.menu, it = m && m.items[i]; if (!(m && m.keep)) S.menu = null; uiDirty('menu'); if (it) m.pick(it); break }      // (keep: a list of which several are chosen stays up)
     case 'menu-close': S.menu = null; uiDirty('menu'); break
     case 'sheet-close': S.sheet = false; uiDirty('sheet', 'cmd'); syncSlur(); break
@@ -1685,6 +1736,7 @@ function onContext (e) {
   else if (a === 'scenebar') openMenu(p.x, p.y, [{ t: 'new marker here', v: 1 }], () => addScene(Math.round(barAt(p.x)) + 1))
   else if (a === 'sel' || a === 'vol' || a === 'msel') { if (groupOf(i).length > 1) { S.sel = i; S.focus = 'tracks'; uiDirty('head', 'lanes', 'dock') } else chooseTrack(i); openTrackMenu(i, p.x, p.y) }
   else if (a === 'msend') openSendMenu(S.tracks[i], +el.dataset.k, p.x, p.y)
+  else if (a === 'smpte') smpteMenu(p.x, p.y)                                       // the time: where its count begins, and its rate
   else if (a === 'mfx') fxMenu(i, +el.dataset.k, p.x, p.y)
   else if (a === 'loan') openKeyMenu(S.tracks[S.sel], i, p.x, p.y)                     // a plug-in: what it listens to (its key)
   else if (a === 'lanes') openToolMenu(p.x, p.y)
@@ -1929,7 +1981,7 @@ function frame () {
     relayout(); dirtyAll(); flush()
     if (x >= 1) { TWEEN.on = false; syncSlur() }
   }
-  const p = curPos(), rd = $('rd'), rt = $('rt'), txt = readout(p), si = sceneAt(p).i, room = (X1 - X0) / PXB, play = $('ph')
+  const p = curPos(), rd = $('rd'), rt = $('rt'), txt = place(p), si = sceneAt(p).i, room = (X1 - X0) / PXB, play = $('ph')
   let x = bx(p + 1)
   /* The page turns with the playhead — until the window is taken somewhere else while the song plays (scrolled, or made
      nearer, so that the playhead is no longer in it): then it stays where it was put, and the song plays on out of sight.
@@ -1941,8 +1993,8 @@ function frame () {
   if (S.playing && !drag && off && !S.away) { VX = clamp(x < X0 - 1 ? p - room / 2 : p, 0, maxVX()); uiDirty('lanes', 'ruler', 'scenes'); x = bx(p + 1) }
   frame.vx = VX; frame.pxb = PXB
   if (play) play.setAttribute('transform', `translate(${Math.round(x)} 0)`)
-  if (rd && rd.textContent !== txt) { rd.textContent = txt; rd.setAttribute('x', n(DISP_X + 39 - tw(txt, 12.5, 500) / 2)) }
-  if (rt) { const ct = clock(p); if (rt.textContent !== ct) { rt.textContent = ct; rt.setAttribute('x', n(DISP_X + 78 + 33 - tw(ct, 11.5) / 2)) } }
+  if (rd && rd.textContent !== txt) { rd.textContent = txt; rd.setAttribute('x', n(DISP_X + BARC.pos[1] / 2 - tw(txt, 12.5, 500) / 2)) }
+  if (rt) { const ct = smpte(p); if (rt.textContent !== ct) { rt.textContent = ct; rt.setAttribute('x', n(DISP_X + BARC.smpte[0] + BARC.smpte[1] / 2 - tw(ct, 11.5) / 2)) } }
   if (typeof SKIN === 'object' && (skinHas('transport') || SKIN.bridge)) skinFrame(p)
   if (si !== frame.si) { frame.si = si; uiDirty('scenes'); if (S.ho.open) uiDirty('hand') }
   if (drag) edgeTurn()
@@ -2000,7 +2052,7 @@ async function boot () {
   $('pk-q').addEventListener('keydown', e => { if (e.key === 'Escape') closePicker(); e.stopPropagation() })
   window.__daw = { S, E, CAP, NAT, VIEW, runCommand, parseLocal, applyActions, renderStem, flush, wav16, zipStore, hoPlan, gotoScene, natInsert, openPicker, closePicker, PROJ, serialize, saveProject, loadProject, newProject, newTrack, deleteTrack, dropFiles, placeDecoded, makeStack, setOut, setSend, record, stopRecord, toggleAuto, toggleFlex, rewarp, bounceInPlace, addScene, removeScene, AUTO, autoAt, METERS, byId, rows, heard, audible, act, KEYS, UNDO, REDO, setCycle, setZoom, regOf, onKey, mkReg, togglePanel, toggleSlur, setView, repaint, fitRoom, chooseTrack, chosen, isChosen, leadTrack, newTracks, deleteTracks, moveTracks, openNewTrack, makeNewTracks, optReset, nudgeBars, NUDGES,
     lay: () => ({ W, H, RX, X0, X1, TY, BY, LANES_H, rh: S.rh, PXB, VX, VY }),
-    redraw: () => { repaint(); relayout(); for (const k in PARTS) draw(k); dirty.clear(); const p = curPos(), rd = $('rd'); if (rd) rd.textContent = readout(p) }, play: from => play(from), halt: r => halt(r), jumpTo: b => jumpTo(b), curPos: () => curPos(), applyAll: () => applyAll(), sendStems: () => sendStems() }
+    redraw: () => { repaint(); relayout(); for (const k in PARTS) draw(k); dirty.clear(); const p = curPos(), rd = $('rd'); if (rd) rd.textContent = place(p) }, play: from => play(from), halt: r => halt(r), jumpTo: b => jumpTo(b), curPos: () => curPos(), applyAll: () => applyAll(), sendStems: () => sendStems() }
   document.documentElement.dataset.ready = '1'
   if (natInit) { BOOT.up = hello && hello.up; BOOT.page = performance.now(); await natInit(); await projectBoot(hello); BOOT.ready = performance.now(); if (hello && hello.selftest) runSelfTest(hello.selftest) }
 }

@@ -57,9 +57,9 @@ const mkReg = o => Object.assign({ id: ++RID, off: 0, gain: 0, mute: false, fi: 
    out: the id of the bus it plays into (0 = the stereo out); parent: the stack it sits in; sends: [{to, db}]; autos: lines along the song, by parameter */
 const mkTrack = (name, c, own, theirs, buf, vol, regs, patch, extra) => Object.assign({ id: ++TID, name, theirs, kind: 'audio', vol, def: vol, pan: 0, mute: false, solo: false, arm: false, mon: false, inp: 0, out: 0, parent: null, open: true, sends: [], autos: {}, ap: 'vol', buf0: buf, regs: regs.map(([a, b, tag]) => mkReg({ a, b, buf, loop: true, off: a - 1, tag })), patch, n: null, inserts: [] }, extra || {})
 const S = {
-  tempo: 92, meter: [4, 4], key: '', playing: false, pos: 0, sel: 4, queued: null, master: -4.2, click: false, countIn: true, rec: null, auto: false, flex: false, q: 1 / 16, rh: 25, wz: 1, selP: [],
+  tempo: 92, meter: [4, 4], key: '', smpte: { rate: '30', start: '00:00:00:00' }, playing: false, pos: 0, sel: 4, queued: null, master: -4.2, click: false, countIn: true, rec: null, auto: false, flex: false, q: 1 / 16, rh: 25, wz: 1, selP: [],
   panel: { on: false, tab: 'patch', h: 316, mx: 0 }, slur: false, look: null,
-  cycle: { on: false, a: 16, b: 24 }, tool: 'pointer', tool2: 'marquee', snap: true, mode: 'smart', mode0: 'smart', nudge: 'beat', selR: [], selX: null, marq: null, band: null, menu: null,
+  cycle: { on: false, a: 16, b: 24 }, tool: 'pointer', snap: true, mode: 'smart', mode0: 'smart', nudge: 'beat', selR: [], selX: null, marq: null, band: null, menu: null,
   /* what is chosen besides regions: the tracks chosen along with the leading one (S.sel), by id; the track a shift press reaches from;
      the marker that was pressed (by the bar it begins on); and which of these was taken hold of last — the delete key and the
      tracks' own bar go by that ('lanes', 'tracks' or 'marker') */

@@ -479,7 +479,7 @@ function strip (x, y, w, h, t, i, o = {}) {
     const cw = wide || o.master ? 24 : 20                                                   // (as in his picture of a strip, 2026-10-20: a flat square cap, its line dark)
     s += P(tk, { stroke: INK, sa: .26 }) + R(fx - 1.5, q.ft, 3, q.fh, { fill: INK, fa: .16 })
     if (!o.master && t.ghost != null) s += R(fx - cw / 2, q.yOf(t.ghost) - .5, cw, 1, { fill: INK, fa: .4 })
-    s += R(fx - cw / 2, fy - 4.5, cw, 9, { fill: INK, fa: muted ? .5 : 1 }) + R(fx - cw / 2 + 4, fy - .6, cw - 8, 1.2, { fill: K0, fa: .75 })
+    s += R(fx - 5, fy - 5, 10, 10, { fill: INK, fa: muted ? .5 : 1 })      // (the cap a small square, filled: his pick of design/transport panel draft 2, 2026-10-21)
   }
   const bw = wide || o.master ? 5 : 4, mx = fx + (wide || o.master ? 16 : 14)
   for (let c = 0; c < 2 && (!con || con.meters); c++) {

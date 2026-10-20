@@ -202,7 +202,7 @@ await undo()
 { const p = await at('snare', 9, .5); await b.click(p.x, p.y); await b.sleep(120) }
 await key('Escape', 'Escape', 27); await b.sleep(60)
 ok('escape: nothing moves', same((await regs('snare'))[0], [5, 13, 4]) && await ev(`return document.getElementById('rename').hidden`))
-ok('a place typed many ways', await ev(`const q = SPB(); return parsePos('17') === 16 && parsePos('17.3') === 16.5 && parsePos('17 3 2') === 16.5625 && Math.abs(parsePos('1.1.1.120') - 120 / 3840) < 1e-12 && Math.abs(parsePos('1:02.5') - 62.5 / q) < 1e-9 && Math.abs(parsePos('250ms') - .25 / q) < 1e-12 && parsePos('x') === null && parsePos('0') === null`))
+ok('a place typed many ways', await ev(`const q = SPB(); return parsePos('17') === 16 && parsePos('17.3') === 16.5 && parsePos('17 3 2') === 16.5625 && Math.abs(parsePos('1.1.1.120') - 119 / 3840) < 1e-12 && parsePos('1.1.1.1') === 0 && Math.abs(parsePos('1:02.5') - 62.5 / q) < 1e-9 && Math.abs(parsePos('250ms') - .25 / q) < 1e-12 && parsePos('x') === null && parsePos('0') === null`))
 
 // ── the mode is the project's ──
 ok('the mode is written with the project and read back', await ev(`setMode('grid'); const j = JSON.parse(serialize()); const had = j.mode; setMode('smart'); return had === 'grid'`))

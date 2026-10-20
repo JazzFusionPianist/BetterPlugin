@@ -187,9 +187,23 @@ SKINS.strip.poster = {
    holds do the strips scroll, and a row of the numbers over them goes to any one. The out at the right: a blue bar for
    each side, a black disc on the rule, its figure large. */
 const BMX = { v: new Map() }
-const BMX_WIDE = 148, BMX_MIN = 15, BMX_SENDS = 3                                 // (BMX_SENDS: as many sends as the engine has for a track — Engine.h SendSlot)
+const BMX_WIDE = 148, BMX_MIN = 15, BMX_COL = 34                                   // (BMX_COL: a column of send knobs more, when a strip's height holds no more)
+const bmxSends = () => typeof MAX_SENDS === 'number' ? MAX_SENDS : 10                // (as many sends as a track can have: engine.js)
+/* where a strip's send knobs stand: as many to a column as its height holds at their smallest, sized so six stand in one
+   (his word); past that the strip is wider to the right by a column (his word, 2026-10-21), ten at most */
+function bmxKnobs (t, lh) {
+  const sends = t.sends || [], canAdd = !t.theirs && sends.length < bmxSends(), count = sends.length + (canAdd ? 1 : 0)
+  const fits = Math.max(1, Math.floor(lh / 28)), inCol = Math.min(fits, Math.max(6, count)), cols = Math.max(1, Math.ceil(count / inCol)), per = lh / inCol
+  return { sends, canAdd, inCol, cols, per, kr: clamp((per - 14) / 2, 5.5, 11), extra: (cols - 1) * BMX_COL }
+}
 function bhMixer (y, h) {
-  const vis = rows(), mw = 150, gutter = 14, room = RX - mw - gutter * 2
+  const vis = rows(), mw = 150, gutter = 14, room0 = RX - mw - gutter * 2
+  /* how many lines the open strips' patches take: the level starts under the longest */
+  const lines = t => { const f = fxItems(t).length; return Math.min(f, 3) + (f > 3 ? 1 : 0) + (t.theirs ? 0 : 1) }
+  const allOpen0 = vis.length * 104 <= room0, openers = allOpen0 ? vis : vis.filter(i => isChosen(i))
+  const most = Math.max(3, ...openers.map(i => lines(S.tracks[i])))
+  const lh0 = Math.max(30, (y + h - 50) - (y + 26 + 46 + most * 13))                      // (the level's height at its least: what the knobs are planned for)
+  const extraOf = i => bmxKnobs(S.tracks[i], lh0).extra, room = room0 - openers.reduce((a, i) => a + extraOf(i), 0)
   const nOpen = Math.min(vis.filter(i => isChosen(i)).length, Math.floor(room / BMX_WIDE))
   let wide = BMX_WIDE, slim = 0, list = vis, over = false
   if (vis.length * 104 <= room) { wide = clamp(Math.floor(room / vis.length), 104, BMX_WIDE); slim = wide }
@@ -203,9 +217,6 @@ function bhMixer (y, h) {
     }
     slim = Math.min(slim, 100)
   }
-  /* how many lines the open strips' patches and sends take: the level starts under the longest */
-  const lines = t => { const f = fxItems(t).length; return Math.min(f, 3) + (f > 3 ? 1 : 0) + (t.theirs ? 0 : 1) }
-  const most = Math.max(3, ...list.filter(i => isChosen(i) || slim >= 104).map(i => lines(S.tracks[i])))
   const top = y + (over ? 26 : 10), foot = y + h - 10, lt = top + 46 + most * 13, lb = foot - 40, lh = Math.max(30, lb - lt)
   const yOf = db => lb - lh * volF(db)
   BMX.v.clear()
@@ -216,7 +227,7 @@ function bhMixer (y, h) {
   }
   let x = gutter
   for (const i of list) {
-    const t = S.tracks[i], di = ` data-i="${i}"`, sel = isChosen(i), c = bhCol(t), ink = bhInk(c), vol = shown(t, 'vol'), sw = sel || slim >= 104 ? wide : slim
+    const t = S.tracks[i], di = ` data-i="${i}"`, sel = isChosen(i), c = bhCol(t), ink = bhInk(c), vol = shown(t, 'vol'), open = sel || slim >= 104, kp = open ? bmxKnobs(t, lh0) : null, sw = open ? wide : slim      // (sw: the strip as it is drawn; it takes kp.extra more for its knobs)
     const num = pad2(i + 1)
     BMX.v.set(t.id, [lt, lh])
     if (sw >= 104) {
@@ -232,15 +243,16 @@ function bhMixer (y, h) {
       if (its.length > 3) { s += T(x + 11, yy, `+${its.length - 3} more`, { size: 8, a: .5 }) + hit(x - 2, yy - 10, sw - 30, 13, 'm-patch', di); yy += 13 }
       if (!t.theirs) s += Cc(x + 3.5, yy - 3.5, 4.5, { fill: BH.red }) + P(`M${n(x + 3.5)} ${n(yy - 6.5)}v6M${n(x + .5)} ${n(yy - 3.5)}h6`, { stroke: BH.paper, sw: 1.2 }) + hit(x - 3, yy - 10, 14, 13, 'mfxadd', di)
       /* its sends: round knobs down the room right of the level, as many as there are and one more to give another (his
-         word on draft 2: knobs as Logic Pro's sends, how much under each; sized so that six stand in a strip) */
-      const sends = t.sends || [], canAdd = !t.theirs && sends.length < BMX_SENDS, slots = Math.max(6, sends.length + (canAdd ? 1 : 0)), per = lh / slots, kr = clamp((per - 14) / 2, 5.5, 11), kx = x + sw - 22
-      const knob = (cy, f) => { const a0 = -135 * Math.PI / 180, a1 = a0 + f * 270 * Math.PI / 180, at = (r, q) => `${n(kx + r * Math.sin(q))} ${n(cy - r * Math.cos(q))}`; return Cc(kx, cy, kr, { fill: BH.paper, stroke: BH.black, sw: 1.2 }) + (f > .004 ? P(`M${at(kr + 2.6, a0)}A${n(kr + 2.6)} ${n(kr + 2.6)} 0 ${f > 2 / 3 ? 1 : 0} 1 ${at(kr + 2.6, a1)}`, { stroke: BH.red, sw: 2.4 }) : '') + P(`M${n(kx)} ${n(cy)}L${at(kr - 1, a1)}`, { stroke: BH.black, sw: 1.6 }) }
-      sends.forEach((sd, k) => {
-        const cy = lt + per * k + kr + 3
-        s += knob(cy, volF(sd.db)) + T(kx, cy + kr + 9, fmtDb(sd.db), { size: 7.5, w: 600, a: .8, anchor: 'middle' })
+         word on draft 2: knobs as Logic Pro's sends, how much under each); a column more to the right when they run out */
+      const per = lh / kp.inCol, kr = clamp((per - 14) / 2, 5.5, 11)
+      const at = j => ({ kx: x + sw - 22 + Math.floor(j / kp.inCol) * BMX_COL, cy: lt + per * (j % kp.inCol) + kr + 3 })
+      const knob = (kx, cy, f) => { const a0 = -135 * Math.PI / 180, a1 = a0 + f * 270 * Math.PI / 180, on = (r, q) => `${n(kx + r * Math.sin(q))} ${n(cy - r * Math.cos(q))}`; return Cc(kx, cy, kr, { fill: BH.paper, stroke: BH.black, sw: 1.2 }) + (f > .004 ? P(`M${on(kr + 2.6, a0)}A${n(kr + 2.6)} ${n(kr + 2.6)} 0 ${f > 2 / 3 ? 1 : 0} 1 ${on(kr + 2.6, a1)}`, { stroke: BH.red, sw: 2.4 }) : '') + P(`M${n(kx)} ${n(cy)}L${on(kr - 1, a1)}`, { stroke: BH.black, sw: 1.6 }) }
+      kp.sends.forEach((sd, k) => {
+        const { kx, cy } = at(k)
+        s += knob(kx, cy, volF(sd.db)) + T(kx, cy + kr + 9, fmtDb(sd.db), { size: 7.5, w: 600, a: .8, anchor: 'middle' })
         s += hit(kx - kr - 5, cy - kr - 5, 2 * kr + 10, 2 * kr + 16, 'msend', `${di} data-k="${k}" data-rel="1" data-x="${n(kx - 60)}" data-pw="120"`, 'ns-resize')
       })
-      if (canAdd) { const cy = lt + per * sends.length + kr + 3; s += Cc(kx, cy, kr, { stroke: BH.black, sw: 1, dash: '2 2', sa: .5 }) + P(`M${n(kx)} ${n(cy - 4)}v8M${n(kx - 4)} ${n(cy)}h8`, { stroke: BH.black, sw: 1.2, sa: .6 }) + hit(kx - kr - 4, cy - kr - 4, 2 * kr + 8, 2 * kr + 8, 'msendadd', di) }
+      if (kp.canAdd) { const { kx, cy } = at(kp.sends.length); s += Cc(kx, cy, kr, { stroke: BH.black, sw: 1, dash: '2 2', sa: .5 }) + P(`M${n(kx)} ${n(cy - 4)}v8M${n(kx - 4)} ${n(cy)}h8`, { stroke: BH.black, sw: 1.2, sa: .6 }) + hit(kx - kr - 4, cy - kr - 4, 2 * kr + 8, 2 * kr + 8, 'msendadd', di) }
       /* the level */
       const bw = 16, rx0 = x + bw + 16, fy = yOf(vol)
       s += R(x, lt, bw, lh, { fill: BH.black, fa: .05 }) + R(x, lb, bw, 0, { fill: c, x: ` id="bmx-${t.id}"` })
@@ -261,7 +273,7 @@ function bhMixer (y, h) {
       s += hit(x, lt - 6, sw - 4, lh + 12, 'mvol', `${di} data-w="0"`, 'ns-resize')
       cellsOf(t).filter(it => it.t === 'm' || it.t === 's').forEach((it, k) => { const yy = foot - 30 + k * 13; s += bhShape(it.t, cxm - 3.5, yy, 7, it.on, it.t === 's' ? BH.blue : BH.black) + hit(x, yy - 3, sw - 4, 13, it.a, di) })
     }
-    x += sw
+    x += sw + (kp ? kp.extra : 0)
   }
   /* the out */
   const ox = RX - mw - gutter + 18, fy = yOf(S.master), mr = ox + 50

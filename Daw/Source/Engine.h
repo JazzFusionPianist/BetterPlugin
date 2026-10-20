@@ -436,7 +436,9 @@ inline float fadeShape (int curve, double x)
 }
 
 /** A line drawn along the song for one thing on a track: bars against a value. Volumes and sends in dB, pan −1..1, the prints 0..1. */
-enum { kAutoVol = 0, kAutoPan, kAutoTape, kAutoSpace, kAutoDelay, kAutoSend0, kAutoCount = kAutoSend0 + 3, kAutoPlug = 100, kAutoPrint = 101 };      // kAutoPlug: a line for one of a plug-in's own controls; kAutoPrint: one for a hand of a print on the wall (a macro wired to it)
+/** As many sends as a track can have (his word, 2026-10-21: ten, no more). The page says it as MAX_SENDS (ui/engine.js). */
+static constexpr int kMaxSends = 10;
+enum { kAutoVol = 0, kAutoPan, kAutoTape, kAutoSpace, kAutoDelay, kAutoSend0, kAutoCount = kAutoSend0 + kMaxSends, kAutoPlug = 100, kAutoPrint = 101 };      // kAutoPlug: a line for one of a plug-in's own controls; kAutoPrint: one for a hand of a print on the wall (a macro wired to it)
 /** A line along the song. One for a plug-in's control says which plug-in (uid) and which of its controls (index), and
     counts from 0 to 1 as the plug-in does; `told` is what the control was last set to, so that it is set only when the
     line has moved on. */
@@ -458,7 +460,7 @@ struct Track
     int id = 0, kind = 0;                        // kind 0 plays regions; 1 is a bus: an aux, or the sum of a stack
     int outId = 0;
     Track* out = nullptr;                        // nullptr: the stereo out
-    struct SendSlot { int to = 0; Track* dst = nullptr; std::atomic<float> gain { 0.0f }; float sm = 0.0f; Hold hold; } sends[3];
+    struct SendSlot { int to = 0; Track* dst = nullptr; std::atomic<float> gain { 0.0f }; float sm = 0.0f; Hold hold; } sends[kMaxSends];
     Hold outHold;                                // what goes its plain way out, held back when a send of its takes longer to arrive
     std::vector<Region> regs;
     std::vector<Auto> autos;
@@ -950,7 +952,7 @@ public:
         juce::var result (res);
         res->setProperty ("ok", false);
         if (bouncing.load()) return result;
-        struct Told { int id = 0, ver = -1, kind = 0, outId = 0, sendTo[3] { 0, 0, 0 }; float sendGain[3] { 0.0f, 0.0f, 0.0f }; bool same = false, notes = false; std::vector<Region> regs; std::vector<Auto> autos; std::vector<NoteEv> evs; };
+        struct Told { int id = 0, ver = -1, kind = 0, outId = 0, sendTo[kMaxSends] {}; float sendGain[kMaxSends] {}; bool same = false, notes = false; std::vector<Region> regs; std::vector<Auto> autos; std::vector<NoteEv> evs; };
         std::vector<Told> told;
         std::map<int, std::unique_ptr<Track>> fresh;
         bool again = false;
@@ -974,7 +976,7 @@ public:
                 {
                     t.kind = (int) tv["kind"]; t.outId = (int) tv["out"];
                     if (auto* sd = tv["sends"].getArray())
-                        for (int k = 0; k < juce::jmin (3, sd->size()); ++k) { t.sendTo[k] = (int) (*sd)[k]["to"]; t.sendGain[k] = (float) (double) (*sd)[k]["gain"]; }
+                        for (int k = 0; k < juce::jmin (kMaxSends, sd->size()); ++k) { t.sendTo[k] = (int) (*sd)[k]["to"]; t.sendGain[k] = (float) (double) (*sd)[k]["gain"]; }
                     if (auto* rg = tv["regs"].getArray())
                     {
                         t.regs.reserve ((size_t) rg->size());
@@ -1048,7 +1050,7 @@ public:
                 if (! in.same)
                 {
                     t->kind = in.kind; t->outId = in.outId; t->ver = in.ver;
-                    for (int k = 0; k < 3; ++k)
+                    for (int k = 0; k < kMaxSends; ++k)
                     {
                         if (in.sendTo[k] != t->sends[k].to) t->sends[k].sm = 0.0f;
                         t->sends[k].to = in.sendTo[k]; t->sends[k].dst = nullptr;
@@ -1086,7 +1088,7 @@ public:
         t->frozen.store ((int) tv["frozen"] != 0);
         t->input.store ((int) tv["input"]);
         t->live.store ((int) tv["live"] != 0);
-        if (auto* sd = tv["sends"].getArray()) for (int k = 0; k < juce::jmin (3, sd->size()); ++k) t->sends[k].gain.store ((float) (double) (*sd)[k]["gain"]);
+        if (auto* sd = tv["sends"].getArray()) for (int k = 0; k < juce::jmin (kMaxSends, sd->size()); ++k) t->sends[k].gain.store ((float) (double) (*sd)[k]["gain"]);
         const float sh = juce::jlimit (0.0f, 1.0f, (float) (double) tv["share"]);
         const bool wanted = (bool) tv["patched"] || t->tape.load() + t->space.load() + t->delay.load() > 0.0005f;
         if (t->wall || (bool) tv["wall"]) {}                           // (its patch is a wall: setWall makes and compiles its chain)
@@ -4115,7 +4117,7 @@ private:
         if (t.outHold.len == 0) { juce::FloatVectorOperations::add (dL, L, n); juce::FloatVectorOperations::add (dR, R, n); }
         else t.outHold.add (L, R, dL, dR, n, 1.0f, 1.0f);
         float v;
-        for (int k = 0; k < 3; ++k)
+        for (int k = 0; k < kMaxSends; ++k)
         {
             auto& s = t.sends[k];
             if (s.dst == nullptr) continue;

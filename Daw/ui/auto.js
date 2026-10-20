@@ -9,7 +9,7 @@ const AUTO_OWN = {
   tape: Object.assign({ p: 2, name: 'tape', now: t => patchNow(t).tape, step: 2 }, lin01),
   space: Object.assign({ p: 3, name: 'space', now: t => patchNow(t).space, step: 2 }, lin01),
   delay: Object.assign({ p: 4, name: 'delay', now: t => patchNow(t).delay, step: 2 }, lin01),
-  send0: sendAuto(0), send1: sendAuto(1), send2: sendAuto(2),
+  ...Object.fromEntries(Array.from({ length: MAX_SENDS }, (_, k) => ['send' + k, sendAuto(k)])),      // send0 … send9 (engine.js MAX_SENDS)
 }
 /* a line for one of a plug-in's own controls is kept as fx<n>.<i>: the plug-in by the number it keeps on its track
    (ins.n, written into the project), the control by its place among the plug-in's controls. It counts from 0 to 1, as

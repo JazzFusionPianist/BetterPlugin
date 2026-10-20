@@ -547,8 +547,12 @@ async function runSelfTest (mode) {
     setOut(kick, bus.id); bus.vol = -6; applyAll(); const viaBusMinus6 = await hear()
     bus.mute = true; applyAll(); const busMuted = await only(kick, async () => { bus.mute = true; applyAll(); await playFrom(16); return listen(1300) })
     bus.mute = false; bus.vol = 0; setOut(kick, 0); setSend(kick, 0, bus.id); kick.sends[0].db = -6; applyAll(); const withSendMinus6 = await hear()
-    setSend(kick, 0, 0)
-    return { direct, viaBusMinus6, busMuted, withSendMinus6, tracks: S.tracks.map(t => t.name + ':' + t.kind) }
+    /* the tenth send (his ten, 2026-10-21): the first nine to a bus kept silent, the tenth to the room — heard as the first was */
+    const far = newTrack('bus', 'far', true); far.mute = true
+    kick.sends[0].to = far.id; for (let k = 1; k < MAX_SENDS; k++) setSend(kick, k, k < MAX_SENDS - 1 ? far.id : bus.id)
+    kick.sends[MAX_SENDS - 1].db = -6; applyAll(); const tenthSendMinus6 = await hear(), sendsHeld = kick.sends.length
+    kick.sends = []; await deleteTracks([far]); applyAll()
+    return { direct, viaBusMinus6, busMuted, withSendMinus6, tenthSendMinus6, sendsHeld, tracks: S.tracks.map(t => t.name + ':' + t.kind) }
   })
   await step('stack', async () => {
     S.selR = [track('kick').regs[0].id, track('snare').regs[0].id]; S.focus = 'lanes'; makeStack(); await sleep(200)

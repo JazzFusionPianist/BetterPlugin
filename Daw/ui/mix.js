@@ -190,7 +190,7 @@ const moveTrack = (i, k) => moveTracks([S.tracks[i]], k)
 /* a send that goes takes its line with it, and the ones after it move up */
 function removeSend (t, k) {
   t.sends.splice(k, 1)
-  for (let i = k; i < 3; i++) { const next = t.autos['send' + (i + 1)]; if (next) t.autos['send' + i] = next; else delete t.autos['send' + i] }
+  for (let i = k; i < MAX_SENDS; i++) { const next = t.autos['send' + (i + 1)]; if (next) t.autos['send' + i] = next; else delete t.autos['send' + i] }
   if (/^send/.test(t.ap) && !t.sends[+t.ap.slice(4)]) t.ap = 'vol'
 }
 /* tracks deleted together, in one step that an undo takes back. A song keeps at least one track. Afterwards nothing is
@@ -286,7 +286,7 @@ function setOut (t, id) {
     normalizeOrder(); S.sel = Math.max(0, S.tracks.indexOf(cur))
   })
 }
-function setSend (t, k, id) { edit(() => { if (!id) { if (!t.sends[k]) return false; removeSend(t, k) } else if (t.sends[k]) t.sends[k].to = id; else if (t.sends.length < 3) t.sends.push({ to: id, db: -12 }); else return false }) }
+function setSend (t, k, id) { edit(() => { if (!id) { if (!t.sends[k]) return false; removeSend(t, k) } else if (t.sends[k]) t.sends[k].to = id; else if (t.sends.length < MAX_SENDS) t.sends.push({ to: id, db: -12 }); else return false }) }
 const canFeed = (t, b) => b !== t && b.kind !== 'audio' && !reaches(b, t)                          // nothing may come back round to itself
 function openOutMenu (t, x, y) {
   const items = [{ t: 'stereo out', v: 0, on: !destId(t) }].concat(S.tracks.filter(b => canFeed(t, b)).map(b => ({ t: b.name, k: b.kind, v: b.id, on: destId(t) === b.id })))

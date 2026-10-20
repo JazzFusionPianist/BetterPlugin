@@ -26,6 +26,7 @@ let SCENES = mkScenes(DEMO_SCENES)
    The bars are cut in two along their length: the top (RU_CY of it) is the cycle's, the rest is the playhead's.
    The tool row, the markers and the bars are one height (his ask, 2026-10-20); what a marker row holds was drawn for 22
    and stands MK_C lower, in the middle of its row. */
+const MAX_SENDS = 10                     // (as many sends as a track can have — Engine.h kMaxSends; his word, 2026-10-21)
 let BAR_H = 44                           // (let: a theme puts VU meters over the room, or the transport at its foot — skins.js)
 const TOOL_H = 26, MK_H = 26, RU_H = 26, RU_CY = 10, MK_C = 2, HEAD_W = 292, FOOT_H = 22, PH = 26, SLUR_W = 300, MIN_PANEL = 232
 let X0 = HEAD_W, TY = BAR_H + TOOL_H + MK_H + RU_H, TOOL_Y = BAR_H, MK_Y = BAR_H + TOOL_H, RU_Y = BAR_H + TOOL_H + MK_H      // (let: a realtime print folds the heads, the tool row and the bars away — relayout)

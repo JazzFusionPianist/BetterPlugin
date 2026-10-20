@@ -6,7 +6,7 @@
    line of a print or a plug-in, the tempo — and it thaws by itself, and the print is let go. Track > Freeze Track; again,
    or Unfreeze, to thaw. A song keeps its frozen tracks: the print is a file in its own folder, read again when it opens.
    Read after native.js (sendSession asks frozenCheck before it tells the engine). */
-const FROZEN_LIVE = new Set(['vol', 'pan', 'send0', 'send1', 'send2'])                   // lines after the fader: they go on live
+const FROZEN_LIVE = { has: k => k === 'vol' || k === 'pan' || /^send\d+$/.test(k) }                   // lines after the fader: they go on live
 const FROZEN_LOOKS = new Set(['id', 'name', 'tag', 'col', 'shape', 'grp', 'mute'])      // (and what is nothing — 0, false, none — is left out: a song opened again fills those in)
 /* what the print was made from, written down as a song keeps it (so that it reads the same once the song is opened
    again): when it is not the same any more, the print no longer is what the track is */

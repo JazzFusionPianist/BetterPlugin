@@ -409,7 +409,7 @@ function squareCells (x, y, items, cw, size, i, gap = 2) {
   let s = '', hits = ''
   items.forEach((it, k) => {
     const cx = x + k * (cw + gap)
-    s += it.on ? R(cx, y, cw, cw, { fill: it.c || INK }) : R(cx + .3, y + .3, cw - .6, cw - .6, { stroke: INK, sa: .85, sw: .6 })      // (its edge white, not grey: his ask, 2026-10-20; a hairline, 2026-10-21: "outer edge가 너무 두꺼워")
+    s += it.on ? R(cx, y, cw, cw, { fill: it.c || INK }) : R(cx + .25, y + .25, cw - .5, cw - .5, { stroke: INK, sa: .8, sw: .5 })      // (its edge white, not grey: his ask, 2026-10-20; a hairline, 2026-10-21: "outer edge가 너무 두꺼워"; thinner still, 2026-10-22: one pixel of a retina screen, on the pixel)
     s += T(cx + cw / 2, y + cw / 2 + size * .34, it.t, { size, w: it.on ? 500 : 400, c: it.on ? K0 : INK, a: it.on ? 1 : .82, anchor: 'middle' })
     if (it.a) hits += hit(cx, y - 2, cw, cw + 4, it.a, ` data-i="${i}"`)
   })

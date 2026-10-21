@@ -2379,6 +2379,43 @@ async function runSelfTest (mode) {
     res.after = { buses: S.tracks.filter(x => x.name === 'way a' || x.name === 'way b').length, out: t.out, sends: t.sends.length }
     return res
   })
+  /* a print in place begins where its sound does (his report, 2026-10-21: a bounce of notes came out well before its note):
+     the same note printed alone; with its track sending to a bus that has a latent plug-in on it; with that plug-in on the
+     track itself, switched off — each file sounds first on the same sample */
+  await step('bounceOnTime', async () => {
+    halt(false); if (S.cycle.on) keyDown('KeyC')
+    const res = { tried: [] }, n0 = UNDO.length, back = allHeard()
+    const t = newInstTrack('synth', 'pluck'); await natSession(); await sleep(250)
+    notesOn(t, 3, 5, [[1, .5, 69]]); await natSession(); await sleep(150)
+    const print = async name => { await natSession(); await sleep(150); const b = await NAT.call('bounce', { kind: 'place', project: PROJ.name, a0: 2, a1: 4, tail: .5, tracks: [{ id: t.id, name }] }); const d = b && b.placed && b.placed[0]; return d && d.ok && b.dir ? `${b.dir}/${d.file}` : null }
+    const onset = async f => { if (!f) return null; const g = await NAT.call('testGate', { a: f, b: f, from: 0, thr: .01 }); return g && g.got }
+    res.plain = await onset(await print('on time plain'))
+    const B = newTrack('bus', 'on time bus', true); setSend(t, t.sends.length, B.id)
+    const sd = t.sends.find(x => x.to === B.id); if (sd) sd.db = -6
+    await natSession()
+    let late = null, lateId = null
+    for (const id of ['AudioUnit:Effects/aufx,lmtr,appl', 'AudioUnit:Effects/aufx,mcmp,appl', 'AudioUnit:Effects/aufx,nptc,appl', 'AudioUnit:Effects/aufx,dcmp,appl']) {
+      const r = await natInsert(S.tracks.indexOf(B), id, { show: false })
+      res.tried.push([id.slice(-14), r && r.ok ? r.latency : String(r && r.error)])
+      if (r && r.ok && r.latency > 0) { late = r; lateId = id; break }
+      if (r && r.ok) { await NAT.call('remove', { track: B.id, uid: r.uid }); B.inserts = B.inserts.filter(x => x.uid !== r.uid) }
+    }
+    if (late) {
+      res.plugin = late.name; res.samples = late.latency
+      await sleep(300); res.sent = await onset(await print('on time sent'))
+      await NAT.call('remove', { track: B.id, uid: late.uid }); B.inserts = B.inserts.filter(x => x.uid !== late.uid)
+      const off = await natInsert(S.tracks.indexOf(t), lateId, { show: false })
+      if (off && off.ok) { await NAT.call('bypass', { track: t.id, uid: off.uid, off: 1 }); const ins = t.inserts.find(x => x.uid === off.uid); if (ins) ins.off = true; await sleep(300)
+        res.offOnTrack = await onset(await print('on time off'))
+        await NAT.call('remove', { track: t.id, uid: off.uid }); t.inserts = t.inserts.filter(x => x.uid !== off.uid) }
+    } else res.skipped = 'no plug-in here reports a delay'
+    res.ok = res.plain != null && res.plain > 0 && (res.skipped || (Math.abs(res.sent - res.plain) <= 2 && (res.offOnTrack == null || Math.abs(res.offOnTrack - res.plain) <= 2)))
+    while (UNDO.length > n0) undoEdit()
+    const left = S.tracks.filter(x => x === t || x === B)
+    if (left.length) await deleteTracks(left)
+    back(); await natSession(); await sleep(200)
+    return res
+  })
   /* the meter on a wall, in the engine: wired between in and out it measures what the track plays, and the track's print is
      the same with it as without it, not a sample late; its count begins again when the song is played from another place;
      its face is a window of its own, there when asked for and gone when the meter is taken off */

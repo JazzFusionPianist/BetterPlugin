@@ -320,7 +320,7 @@ struct Insert
     /** How late it hands sound over, as it is now. An audio unit is asked itself: the library only hears of a change on
         the main thread's own time, and one told it is offline (see above) may answer otherwise from that moment on. */
     /** How late it makes what goes through it: as late as it is, or nothing while low latency mode steps past it. */
-    int latencyHeard() const { return llmSkip.load() ? 0 : latencyNow(); }
+    int latencyHeard() const { return llmSkip.load() || off.load() ? 0 : latencyNow(); }      // (switched off it lets the sound by as it comes: nothing to make up for)
     int latencyNow() const
     {
         if (own != nullptr) return juce::jmax (0, own->latency());
@@ -559,6 +559,8 @@ struct LiveOut
 {
     Track* t = nullptr;
     bool pre = false;
+    juce::int64 from = 0, written = 0;           // where the song stands as its first sample is written (its track's sound is early by Track::early there), how much of it is
+
     juce::File tmp, file;
     juce::var tv;                                // what the page called it ({id, name})
     std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> tw;
@@ -2007,7 +2009,7 @@ public:
         measureLatency();
         return res;
     }
-    void bypassPlugin (int trackId, int uid, bool off) { if (auto* t = find (trackId)) t->eachPlug ([uid, off] (Insert& i) { if (i.uid == uid) i.off.store (off); }); }
+    void bypassPlugin (int trackId, int uid, bool off) { if (auto* t = find (trackId)) { t->eachPlug ([uid, off] (Insert& i) { if (i.uid == uid) i.off.store (off); }); measureLatency(); } }
 
     void closeEditors() { for (auto& t : tracks) t->eachPlug ([] (Insert& i) { i.shut(); }); }
 
@@ -2768,20 +2770,25 @@ public:
                 limG = 1.0f; float mSm = master.load();
                 juce::AudioBuffer<float> outBuf (2, maxBlock);
                 int lead = 0; for (auto& tp : tracks) lead = juce::jmax (lead, tp->ahead.load());
-                for (juce::int64 p = s0 - lead; p < s0 && ! halted(); )
+                /* where a track's sound leaves it, it is still early by what the buses on its way to the out will make up
+                   for (Track::early; before its own plug-ins, by all it is read ahead): the stretch is played that much
+                   sooner, so its file begins on the range's first sample (a print of a track whose send goes to a bus with
+                   a latent plug-in came out early by that plug-in's latency: his report, 2026-10-21) */
+                const juce::int64 E = tap != nullptr && tap->t != nullptr ? (juce::int64) (tap->dry ? tap->t->ahead.load() : tap->t->early.load()) : 0;
+                for (juce::int64 p = s0 - E - lead; p < s0 - E && ! halted(); )
                 {
-                    const int n = (int) juce::jmin ((juce::int64) maxBlock, s0 - p);
+                    const int n = (int) juce::jmin ((juce::int64) maxBlock, s0 - E - p);
                     renderGraph (p, n, true, true, nullptr, a1, tap);
                     p += n;
                 }
                 printPart.store (0.0f);
                 auto partTold = juce::Time::getMillisecondCounter(); float partWas = 0.0f;
-                for (juce::int64 p = s0; p < s1 + tail && ! halted(); p += maxBlock)
+                for (juce::int64 p = s0 - E; p < s1 + tail - E && ! halted(); p += maxBlock)
                 {
-                    const int n = (int) juce::jmin ((juce::int64) maxBlock, s1 + tail - p);
+                    const int n = (int) juce::jmin ((juce::int64) maxBlock, s1 + tail - E - p);
                     renderGraph (p, n, true, true, nullptr, a1, tap);
                     /* how far along this file is, told about ten times a second, and at every tenth of the way (progress with -1: no file more is done, only this) */
-                    const float part = (float) ((double) (p - s0 + n) / (double) juce::jmax ((juce::int64) 1, s1 + tail - s0));
+                    const float part = (float) ((double) (p - (s0 - E) + n) / (double) juce::jmax ((juce::int64) 1, s1 + tail - s0));
                     printPart.store (part);
                     if (const auto nowMs = juce::Time::getMillisecondCounter(); nowMs - partTold > 90 || part - partWas >= 0.1f) { partTold = nowMs; partWas = part; juce::MessageManager::callAsync ([progress, part] { progress (-1, juce::roundToInt (part * 1000.0f)); }); }
                     if (tap != nullptr) for (auto& sk : sinks) sk->write (tap->buf, n);
@@ -2910,10 +2917,11 @@ public:
                     for (juce::int64 k = 0; k < (juce::int64) (sr * 1.5) && ! leaving.load(); k += maxBlock) renderGraph (s0, maxBlock, false, true, nullptr, a1, tap);      // (old tails die away first, as for a print)
                     measureLatency();
                     int lead = 0; for (auto& tp : tracks) lead = juce::jmax (lead, tp->ahead.load());
-                    for (juce::int64 p = s0 - lead; p < s0 && ! leaving.load(); ) { const int n = (int) juce::jmin ((juce::int64) maxBlock, s0 - p); renderGraph (p, n, true, true, nullptr, a1, tap); p += n; }
-                    for (juce::int64 p = s0; p < s1 && ! leaving.load(); p += maxBlock)
+                    const juce::int64 E = tap != nullptr && tap->t != nullptr ? (juce::int64) tap->t->early.load() : 0;      // (a track heard where it leaves itself is early by what its way on makes up for: as a print, exportAudio)
+                    for (juce::int64 p = s0 - E - lead; p < s0 - E && ! leaving.load(); ) { const int n = (int) juce::jmin ((juce::int64) maxBlock, s0 - E - p); renderGraph (p, n, true, true, nullptr, a1, tap); p += n; }
+                    for (juce::int64 p = s0 - E; p < s1 - E && ! leaving.load(); p += maxBlock)
                     {
-                        const int n = (int) juce::jmin ((juce::int64) maxBlock, s1 - p);
+                        const int n = (int) juce::jmin ((juce::int64) maxBlock, s1 - E - p);
                         renderGraph (p, n, true, true, nullptr, a1, tap);
                         const auto& got = tap != nullptr && tap->t != nullptr ? tap->buf : mix;
                         ear.push (got.getReadPointer (0), got.getReadPointer (1), n);
@@ -3029,13 +3037,15 @@ public:
             liveS0 = (juce::int64) std::llround (a0 * barS);
             liveTotal = (juce::int64) std::llround ((a1 - a0) * barS + tail * sr);
             liveWritten = 0;
+            for (auto& lo : lives) { lo->from = liveS0 - (lo->t != nullptr ? (juce::int64) lo->t->early.load() : 0); lo->written = 0; }
         }
+        juce::int64 first = liveS0; for (auto& lo : lives) first = juce::jmin (first, lo->from);
         liveOpts = opts; liveDir = dir; liveDone = std::move (done); liveFmt = fmt;
         liveLoopWas = loop.load(); loop.store (false);                       // (the range is played once, from its start to its end)
         for (auto& tp : tracks) tp->fineR = tp->fineW.load();
         fineOn.store (true);
         livePhase.store (1);
-        play (juce::jmax (0.0, a0 - 0.25 * sr / barS));                      // a quarter of a second before it: what is already sounding there has begun
+        play (juce::jmax (0.0, (double) juce::jmin (liveS0 - (juce::int64) (0.25 * sr), first - (juce::int64) (0.05 * sr)) / barS));      // a quarter of a second before it (what is already sounding there has begun), sooner where a file must begin sooner
         logLine ("realtime print: " + kind + ", " + String ((int) lives.size()) + " files, bars " + String (a0 + 1.0) + " to " + String (a1 + 1.0));
     }
     /** Stop a print (offline: printCancel; realtime: liveStop): nothing of it is kept. */
@@ -3373,7 +3383,7 @@ public:
     static int wallLatency (const orbfx::Graph::Node& n, const void* ctx)
     {
         const auto& c = *static_cast<const WallCtx*> (ctx);
-        if (n.type == orbfx::kOutside) { auto* i = n.id >= 0 && n.id < orbfx::kMaxNodes ? c.at[n.id] : nullptr; return i != nullptr ? juce::jmax (0, i->latencyNow()) : 0; }
+        if (n.type == orbfx::kOutside) { auto* i = n.id >= 0 && n.id < orbfx::kMaxNodes ? c.at[n.id] : nullptr; return i != nullptr ? juce::jmax (0, i->latencyHeard()) : 0; }      // (as late as it makes the sound: switched off, or stepped past by low latency mode, not at all)
         return c.chain->nodeLatency (n);
     }
     /** The audio thread, from inside the graph: the plug-in that stands at this node plays its part, in place. */
@@ -3411,7 +3421,7 @@ public:
         for (auto& nd : g.nodes) if (nd.id >= 0 && nd.id < kMaxNodes) types[nd.id] = nd.type;
         for (int i = 0; i < kMaxNodes; ++i)
         {
-            t.slotIns[i] = at[i]; t.slotLat[i] = at[i] != nullptr ? at[i]->latencyNow() : 0; t.slotType[i] = types[i];
+            t.slotIns[i] = at[i]; t.slotLat[i] = at[i] != nullptr ? at[i]->latencyHeard() : 0; t.slotType[i] = types[i];
             if (prm != nullptr) { t.prm[i] = prm[i]; t.slotSrc[i] = src[i]; t.amt[(size_t) i].store (amt[i]); }
         }
         t.chain->publish (p);                                                 // (under the same lock: no block is played with the new places and the old program)
@@ -3510,7 +3520,7 @@ private:
             auto& t = *tp;
             if (! t.wall || t.chain == nullptr) continue;
             bool moved = false;
-            for (int i = 0; i < orbfx::kMaxNodes; ++i) if (t.slotIns[i] != nullptr && t.slotIns[i]->latencyNow() != t.slotLat[i]) moved = true;
+            for (int i = 0; i < orbfx::kMaxNodes; ++i) if (t.slotIns[i] != nullptr && t.slotIns[i]->latencyHeard() != t.slotLat[i]) moved = true;      // (a plug-in switched off or on lays its wall out again)
             if (! moved) continue;
             Insert* at[orbfx::kMaxNodes]; for (int i = 0; i < orbfx::kMaxNodes; ++i) at[i] = t.slotIns[i];
             String err;
@@ -4472,21 +4482,25 @@ private:
     {
         const int ph = livePhase.load (std::memory_order_relaxed);
         if (ph != 1 && ph != 2) return;
-        int off = 0;
-        if (ph == 1)
+        if (ph == 1 && ! chunkRolling) return;
+        /* each file from where its own track's sound for the range's start leaves the track (Track::early): the mix's
+           from the range's start itself */
+        juce::int64 least = liveTotal;
+        for (auto& lo : lives)
         {
-            if (! chunkRolling || chunkPos + got <= liveS0) return;
-            off = (int) juce::jlimit ((juce::int64) 0, (juce::int64) got, liveS0 - chunkPos);
-            livePhase.store (2);
-        }
-        const int n = (int) juce::jmin ((juce::int64) (got - off), liveTotal - liveWritten);
-        if (n > 0)
-            for (auto& lo : lives)
+            if (lo->written == 0 && chunkPos + got <= lo->from) { least = 0; continue; }
+            const int off = lo->written == 0 ? (int) juce::jlimit ((juce::int64) 0, (juce::int64) got, lo->from - chunkPos) : 0;
+            const int n = (int) juce::jmin ((juce::int64) (got - off), liveTotal - lo->written);
+            if (n > 0)
             {
                 const float* ch[2] = { lo->buf.getReadPointer (0) + off, lo->buf.getReadPointer (1) + off };
                 lo->tw->write (ch, n);
+                lo->written += n;
+                if (ph == 1) livePhase.store (2);
             }
-        liveWritten += juce::jmax (0, n);
+            least = juce::jmin (least, lo->written);
+        }
+        liveWritten = least;
         if (liveWritten >= liveTotal) livePhase.store (3);
     }
     /** A realtime print ends: kept (its files made into what was asked for, on a thread of their own) or not (taken away). */

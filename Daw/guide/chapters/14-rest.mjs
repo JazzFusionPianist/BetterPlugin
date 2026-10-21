@@ -10,11 +10,11 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
       [['what it shows', '보여 주는 것'], ['Slur’s own page, loaded from the net. With no connection the column has nothing to show', 'Slur의 자체 페이지. 인터넷에서 불러옵니다. 연결이 없으면 보여 줄 것이 없습니다']],
       [['signing in', '로그인'], ['in the panel itself, with your Slur account', '패널 안에서 Slur 계정으로']],
       [['links', '링크'], ['a link the page wants opened elsewhere opens in the Mac’s browser', '다른 곳에서 열어야 하는 링크는 Mac의 브라우저에서 열립니다']]) +
-    p('The panel is 300 wide. When it opens, the tracks’ bar, the markers, the lanes and the panel under them end at its left edge; the control bar and the foot keep the whole width. Whether it was open is saved with the project.', '패널 폭은 300입니다. 열리면 트랙 바, 마커, 레인, 아래 패널이 그 왼쪽 가장자리에서 끝나고, 컨트롤 바와 맨 아래 줄은 전체 폭을 유지합니다. 열려 있었는지는 프로젝트에 저장됩니다.') +
+    p('The panel is 300 wide. When it opens, the markers, the lanes and the panel under them end at its left edge; the foot keeps the whole width. Whether it was open is saved with the project.', '패널 폭은 300입니다. 열리면 마커, 레인, 아래 패널이 그 왼쪽 가장자리에서 끝나고, 맨 아래 줄은 전체 폭을 유지합니다. 열려 있었는지는 프로젝트에 저장됩니다.') +
     note('The effects button of the Slur page is hidden here: in Slur Studio the patch is the app’s own.', 'Slur 페이지의 이펙트 버튼은 여기서 숨겨집니다. Slur Studio에서는 패치가 앱 자체의 것이기 때문입니다.'),
     art: draw(150, 92,
       D.box(0, 4, 150, 84, 'k') +
-      `<rect x="0" y="4" width="150" height="7" class="db k2"/>` + D.txt(4, 9, 'control bar', '컨트롤 바', 'xs wh2') +
+      `<rect x="0" y="4" width="150" height="7" class="db k2"/>` + D.txt(4, 9, 'markers', '마커', 'xs wh2') +
       `<rect x="0" y="84" width="150" height="4" class="db k2"/>` + D.txt(4, 87.2, 'foot', '맨 아래 줄', 'xs wh2') +
       `<rect x="0" y="11" width="37" height="45" class="db k2"/>` + D.txt(4, 20, 'track heads', '트랙 헤드', 'xs wh2') +
       D.txt(42, 20, 'lanes', '레인', 'xs wh2') +
@@ -32,7 +32,7 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
       [2, '{{what comes in}} a level meter while the input is open; else a {{listen}} key that opens it', '{{what comes in}} 입력이 열려 있으면 레벨 미터, 아니면 입력을 여는 {{listen}} 키'],
       [3, '{{rate}} in kHz and {{buffer}} in samples: those the device offers', '{{rate}}(kHz)와 {{buffer}}(샘플): 장치가 제공하는 값'],
       [4, '{{latency}} a readout: in, out, there and back', '{{latency}} 읽기 전용: 입력, 출력, 왕복'],
-      [5, '{{low latency}} with the bolt on the control bar lit, what is heard live steps past any plug-in later than this: 1, 3, 5, 10 or 20 ms, 5 at first', '{{low latency}} 컨트롤 바의 번개가 켜져 있으면, 직접 듣는 소리는 이보다 늦는 플러그인을 건너뜁니다: 1, 3, 5, 10, 20 ms, 처음엔 5'],
+      [5, '{{low latency}} with low latency on in the transport panel, what is heard live steps past any plug-in later than this: 1, 3, 5, 10 or 20 ms, 5 at first', '{{low latency}} 트랜스포트 패널에서 저지연이 켜져 있으면, 직접 듣는 소리는 이보다 늦는 플러그인을 건너뜁니다: 1, 3, 5, 10, 20 ms, 처음엔 5'],
       [6, '{{threads}} how many of the Mac’s cores work on the sound. {{all}} at first', '{{threads}} 소리 처리에 쓰는 Mac 코어 수. 처음엔 {{all}}'],
       [7, '{{test tone}} {{play}}', '{{test tone}} {{play}}']) +
     p('The device, rate, buffer and threads cannot be changed while a take or a print is under way. When the device moves to another rate, the app follows and says so at the foot: “now at 48k”.', '녹음이나 바운스가 진행 중일 때는 장치, 레이트, 버퍼, 스레드를 바꿀 수 없습니다. 장치의 레이트가 바뀌면 앱이 따라가고 아래에 알려 줍니다. “now at 48k”.') +

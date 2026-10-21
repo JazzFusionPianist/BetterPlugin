@@ -21,7 +21,7 @@ export default () => chapter('tracks', t('tracks', '트랙'),
       [['bus', '버스'], ['holds no regions. Tracks play or send into it. Made at the bottom. Its row wears its colour', '리전이 없습니다. 다른 트랙이 이리로 나가거나 센드를 보냅니다. 목록 맨 아래에 생깁니다. 행 전체가 자기 색으로 옅게 칠해집니다']],
       [['stack', '스택'], ['a bus that sits above its own tracks; they play into it', '자기 트랙들 위에 놓이는 버스. 그 트랙들이 이리로 나갑니다']]) +
     h('the new-track list', '새 트랙 목록') +
-    p('Open it with the + at the left of the tracks’ bar, [[⌥⌘N]], or ((Track > New Tracks…)).', '트랙 바 왼쪽의 +, [[⌥⌘N]], 또는 ((Track > New Tracks…))로 엽니다.') +
+    p('Open it with the + beside the count of tracks in the transport panel, [[⌥⌘N]], or ((Track > New Tracks…)).', '트랜스포트 패널의 트랙 수 옆 +, [[⌥⌘N]], 또는 ((Track > New Tracks…))로 엽니다.') +
     legend(
       [1, '{{kind}} audio, midi or bus. [[←]] [[→]] change it', '{{kind}} audio, midi, bus. [[←]] [[→]]로 바꿉니다'],
       [2, '{{input}} for audio: an input, or a pair for a stereo take. For midi this row reads {{instrument}} and opens the list of instruments', '오디오일 때 {{input}}: 입력 하나, 또는 스테레오 테이크를 위한 한 쌍. midi일 때는 이 줄이 {{instrument}}가 되어 악기 목록을 엽니다'],
@@ -80,7 +80,7 @@ export default () => chapter('tracks', t('tracks', '트랙'),
     lead('Every track takes a colour and its regions an outline, so a song can be read from far away.', '트랙마다 색이 있고 리전마다 모양이 있어서, 멀리서도 곡을 읽을 수 있습니다.') +
     p('The app reads what a track is from its name first, then from its sound, and paints each family in one pigment from deep to light: drums blue, bass violet, keys green, guitar ochre, voice red, effects pale. Buses are grey. A stack takes the colour of most of its tracks, unless its name says otherwise.', '앱은 먼저 이름으로, 그다음 소리로 트랙이 무엇인지 읽고, 계열마다 한 가지 색을 짙은 쪽에서 밝은 쪽으로 칠합니다. 드럼은 파랑, 베이스는 보라, 건반은 초록, 기타는 황토, 보컬은 빨강, 효과음은 옅은 색. 버스는 회색이고, 스택은 이름이 따로 말하지 않으면 안의 트랙 대부분의 색을 따릅니다.') +
     h('setting it by hand', '직접 정하기') +
-    p('The two small keys after the name on the tracks’ bar open the look list. A choice is set on the chosen regions; with tracks taken hold of, on the chosen tracks.', '트랙 바에서 이름 뒤의 작은 키 두 개가 모양 목록을 엽니다. 선택은 선택한 리전에 적용되고, 트랙을 잡고 있었다면 선택한 트랙에 적용됩니다.') +
+    p('The colour beside what is chosen, in the transport panel, opens the look list. A choice is set on the chosen regions; with tracks taken hold of, on the chosen tracks.', '트랜스포트 패널에서 선택된 것 옆의 색을 누르면 모양 목록이 열립니다. 선택은 선택한 리전에 적용되고, 트랙을 잡고 있었다면 선택한 트랙에 적용됩니다.') +
     legend(
       [1, '{{colour}} the six pigments, deep to light, and a row of greys', '{{colour}} 여섯 가지 색을 짙은 쪽에서 밝은 쪽으로, 그리고 회색 한 줄'],
       [2, '{{as the track}} (or {{as read}} for a track) gives the choice back to the app', '{{as the track}}(트랙이면 {{as read}})는 선택을 앱에 되돌려 줍니다'],

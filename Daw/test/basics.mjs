@@ -16,6 +16,7 @@ const key = async (k, code, vk, mods = 0) => { await b.press(k, code, vk, mods);
 const del = () => key('Backspace', 'Backspace', 8)
 const undo = () => key('z', 'KeyZ', 90, CMD)
 const names = () => ev(`return chosen().map(t => t.name)`)
+const panel = on => ev(`tpanelSet(${on}, false); flush(); return 1`)      // (the transport panel — what the bars at the top held — shown for the presses on it)
 const tracks = () => ev(`return S.tracks.map(t => t.name)`)
 const regsOf = name => ev(`return S.tracks.find(t => t.name === ${JSON.stringify(name)}).regs.slice().sort((x, y) => x.a - y.a).map(r => [+r.a.toFixed(4), +r.b.toFixed(4)])`)
 const pick = async label => { const i = await ev(`return S.menu ? S.menu.items.findIndex(it => it.t === ${JSON.stringify(label)}) : -1`); if (i < 0) { bad.push('menu item ' + label); out.push('FAIL menu item ' + label); return } await click(`[data-a="pick"][data-i="${i}"]`) }
@@ -32,7 +33,7 @@ ok('command and a press on a chosen one: it is let go of', same(await names(), [
 await click('[data-a="sel"][data-i="6"]', CMD)
 ok('command and a press on another: it is one more', same(await names(), ['snare', 'bass', 'keys', 'hum']) && await ev('return S.sel === 6'), await names())
 ok('each of them is shown chosen, on its head and along its lane', await ev(`flush(); const band = g => [...document.querySelectorAll(g + ' rect')].filter(r => r.getAttribute('fill') === INK && +r.getAttribute('fill-opacity') < .1 && +r.getAttribute('height') === S.rh).length; return band('#g-head') === 4 && band('#g-lanes') === 4`))
-ok('the bar names them', (await ev(`flush(); return document.getElementById('g-info').textContent`)).includes('tracks4'), await ev(`return document.getElementById('g-info').textContent.slice(0, 120)`))
+await panel(true); ok('the transport panel says how many', (await ev(`flush(); return document.getElementById('tp-col').textContent`)).includes('4 tracks'), await ev(`return document.getElementById('tp-col').textContent.slice(0, 200)`)); await panel(false)
 await key('m', 'KeyM', 77); ok('m: every chosen track is muted, and no other', same(await ev(`return S.tracks.filter(t => t.mute).map(t => t.name)`), ['snare', 'bass', 'keys', 'hum']))
 await key('m', 'KeyM', 77); ok('m again: all of them open', await ev(`return !S.tracks.some(t => t.mute)`))
 await click('[data-a="solo"][data-i="3"]'); ok('s pressed on one of them: all of them', same(await ev(`return S.tracks.filter(t => t.solo).map(t => t.name)`), ['snare', 'bass', 'keys', 'hum']))
@@ -122,9 +123,9 @@ await key(' ', 'Space', 32); await ev(`S.pos = 30`); await key(' ', 'Space', 32)
 ok('each time', await ev(`return curPos() >= 7.95 && curPos() < 8.6`), await ev('return curPos()')); await key(' ', 'Space', 32)
 await ev(`S.cycle.on = false; S.pos = 2`); await key(' ', 'Space', 32); await b.sleep(200)
 ok('with the cycle off, from the playhead', await ev(`return curPos() >= 1.95 && curPos() < 2.6`), await ev('return curPos()')); await key(' ', 'Space', 32)
-await ev(`S.cycle.on = true; S.pos = 3`); await click('[data-a="stop"]'); ok('stop, with the song stopped: back to where the cycle begins', await ev('return S.pos === 8'), await ev('return S.pos'))
+await panel(true); await ev(`S.cycle.on = true; S.pos = 3`); await click('[data-a="stop"]'); ok('stop, with the song stopped: back to where the cycle begins', await ev('return S.pos === 8'), await ev('return S.pos'))
 await b.sleep(450); await click('[data-a="stop"]'); ok('and again: to the start', await ev('return S.pos === 0'), await ev('return S.pos'))
-await ev(`S.cycle = { on: false, a: 16, b: 24 }; __daw.redraw()`)
+await panel(false); await ev(`S.cycle = { on: false, a: 16, b: 24 }; __daw.redraw()`)
 
 // ── a region taken to the playhead ──
 await ev(`const t = S.tracks.find(t => t.name === 'snare'); S.selR = t.regs.filter(r => r.a === 17 || r.a === 25).map(r => r.id); S.focus = 'lanes'; S.pos = 2; __daw.redraw()`)
@@ -137,11 +138,11 @@ ok('shift ; — it goes there, and the one after it is chosen in its place', sam
 await undo()
 
 // ── the nudge: said in the control bar, changed there or by key ──
-ok('the control bar says how far a nudge goes', await ev(`flush(); const t = document.getElementById('g-top').textContent; return t.includes('nudge') && t.includes('beat') && !!document.querySelector('#g-top [data-a="nudge"]')`))
+await panel(true); ok('the transport panel says how far a nudge goes', await ev(`flush(); const t = document.getElementById('g-top').textContent; return t.includes('nudge') && t.includes('beat') && !!document.querySelector('#g-top [data-a="nudge"]')`))
 await click('[data-a="nudge"]')
 ok('pressed: the list of them, each with its key', await ev(`return !!S.menu && S.menu.items.map(i => i.t).join() === NUDGES.join() && S.menu.items.every(i => i.k) && S.menu.items.find(i => i.on).t === 'beat'`), await ev('return S.menu && S.menu.items.map(i => [i.t, i.k])'))
 await pick('1/16'); ok('picked: a sixteenth', await ev(`flush(); return S.nudge === '1/16' && document.getElementById('g-top').textContent.includes('1/16')`))
-await key('0', 'Digit0', 48, CTRL | ALT); ok('control option 0: ten thousandths of a second', await ev(`return S.nudge === '10 ms'`), await ev('return S.nudge'))
+await panel(false); await key('0', 'Digit0', 48, CTRL | ALT); ok('control option 0: ten thousandths of a second', await ev(`return S.nudge === '10 ms'`), await ev('return S.nudge'))
 await ev(`const t = S.tracks.find(t => t.name === 'hats'); S.selR = [t.regs.find(r => r.a === 13).id]; S.focus = 'lanes'`)
 await key('ArrowRight', 'ArrowRight', 39, ALT)
 ok('nudged by it: the region is ten thousandths of a second later, whatever the tempo', await ev(`const r = S.tracks.find(t => t.name === 'hats').regs.slice().sort((x, y) => x.a - y.a)[0]; return Math.abs((r.a - 13) * SPB() - .01) < 1e-9 && Math.abs((r.b - r.a) - 4) < 1e-9`))
@@ -165,14 +166,14 @@ await click('[data-a="mpan"][data-i="5"]', ALT); ok('a pan: the middle', await e
 await ev(`const bus = newTrack('bus', null, true); setSend(S.tracks[5], 0, bus.id); S.tracks[5].sends[0].db = -18; __daw.redraw()`)
 await click('[data-a="msend"][data-i="5"][data-k="0"]', ALT); ok('a send: 0 db, and its list does not open', await ev('return S.tracks[5].sends[0].db === 0 && !S.menu'), await ev('return [S.tracks[5].sends[0].db, !!S.menu]'))
 await ev(`S.master = -7; pushMaster(); __daw.redraw()`); await click('[data-a="mmaster"]', ALT); ok('the out’s fader: 0 db', await ev('return S.master === 0'))
-await ev(`S.master = -7; pushMaster(); __daw.redraw()`); await click('[data-a="master"]', ALT); ok('the out in the control bar: 0 db', await ev('return S.master === 0')); await ev(`S.master = -4.2; pushMaster()`)
+await panel(true); await ev(`S.master = -7; pushMaster(); __daw.redraw()`); await click('[data-a="master"]', ALT); await panel(false); ok('the out in the transport panel: 0 db', await ev('return S.master === 0')); await ev(`S.master = -4.2; pushMaster()`)
 await ev(`const t = S.tracks[5]; setPrint(t, 'tape', 70); touchPatch(t); __daw.redraw()`)
 await click('#g-dock [data-a="wall"][data-k="node"]', ALT); ok('a print: the amount it comes on with', await ev('return Math.round(S.tracks[5].patch.A.tape) === 24'), await ev('return S.tracks[5].patch.A.tape'))
 await ev(`const t = S.tracks[5]; setPrint(t, 'tape', 0); touchPatch(t); S.tracks[5].vol = -5`); await undo(); await undo(); await key('b', 'KeyB', 66); await b.sleep(260)
 await ev(`const r = S.tracks[0].regs[0]; r.gain = -6; r.tr = 3; S.selR = [r.id]; S.focus = 'lanes'; __daw.redraw()`)
-await click('[data-a="rgain"]', ALT); ok('a region’s gain: none', await ev('return (S.tracks[0].regs[0].gain || 0) === 0'), await ev('return S.tracks[0].regs[0].gain'))
+await panel(true); await click('[data-a="rgain"]', ALT); ok('a region’s gain: none', await ev('return (S.tracks[0].regs[0].gain || 0) === 0'), await ev('return S.tracks[0].regs[0].gain'))
 await click('[data-a="rtr"]', ALT); ok('its pitch: as it was', await ev('return (S.tracks[0].regs[0].tr || 0) === 0'), await ev('return S.tracks[0].regs[0].tr'))
-await ev(`setZoom(60, 10)`); await click('[data-a="zoomx"]', ALT); ok('the zoom: all of the song', await ev('return Math.abs(PXB - fitPXB()) < .01'))
+await ev(`setZoom(60, 10)`); await click('[data-a="zoomx"]', ALT); ok('the zoom: all of the song', await ev('return Math.abs(PXB - fitPXB()) < .01')); await panel(false)
 // finely, with shift
 { await key('x', 'KeyX', 88); await b.sleep(260)
   const v0 = await ev('return S.tracks[3].vol'); await drag('[data-a="mvol"][data-i="3"]', 0, -30); const coarse = (await ev('return S.tracks[3].vol')) - v0
@@ -203,7 +204,7 @@ await click('[data-a="new-in"]'); await pick('input 2'); ok('what it listens to:
   ok('return: three audio tracks under the chosen one, each listening to input 2, all three chosen', same((await tracks()).slice(0, 6), ['kick', 'snare', 'audio 1', 'audio 2', 'audio 3', 'hats']) && await ev(`return !S.newT && S.tracks.slice(2, 5).every(t => t.kind === 'audio' && t.inp === 1 && !t.regs.length) && chosen().map(t => t.name).join() === 'audio 1,audio 2,audio 3'`), await tracks())
   await undo(); ok('one undo takes all three back', (await tracks()).length === n0, await tracks()) }
 await key('a', 'KeyA', 65, ALT | CMD); ok('option command a still makes one audio track at once', same((await tracks()).slice(1, 3), ['snare', 'audio 1']), await tracks()); await undo()
-await click('[data-a="addtrack"]'); ok('the + key opens the same list', await ev('return !!S.newT')); await key('Escape', 'Escape', 27); ok('escape closes it', await ev('return !S.newT'))
+await panel(true); await click('[data-a="addtrack"]'); await panel(false); ok('the + key opens the same list', await ev('return !!S.newT')); await key('Escape', 'Escape', 27); ok('escape closes it', await ev('return !S.newT'))
 await key('Escape', 'Escape', 27)
 
 // ── choosing by key, and a few more of his Logic keys ──
@@ -233,8 +234,8 @@ await b.sleep(450); await drag('[data-a="scene"][data-i="1"]', 2 * pxb, 0)
 ok('a marker taken and pulled two bars on: it begins there', await ev(`return SCENES[1].name === 'verse' && SCENES[1].a === 7 && S.selM === 7`), await ev('return SCENES.map(s => [s.name, s.a])'))
 await undo(); ok('undo', await ev('return SCENES[1].a === 5'))
 // where the playhead is, typed
-await click('[data-a="pos"]'); await ev(`const el = document.getElementById('rename'); el.value = '21.3'; el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`); await b.sleep(60)
-ok('the place pressed and typed into: the playhead goes there', await ev('return S.pos === 20.5'), await ev('return S.pos'))
+await panel(true); await click('[data-a="pos"]'); await ev(`const el = document.getElementById('rename'); el.value = '21.3'; el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`); await b.sleep(60)
+ok('the place pressed and typed into: the playhead goes there', await ev('return S.pos === 20.5'), await ev('return S.pos')); await panel(false)
 await ev(`const el = document.getElementById('cmd'); el.value = '17'; el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`); await b.sleep(80)
 ok('a bar said on the line: the same', await ev('return S.pos === 16'), await ev('return [S.pos, S.last]')); await ev(`document.getElementById('cmd').blur()`)
 // a region's own name

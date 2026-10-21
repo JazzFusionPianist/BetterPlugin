@@ -17,7 +17,8 @@ const key = async (k, code, vk, mods) => { await b.press(k, code, vk, mods || 0)
 const settle = () => b.sleep(260)
 const pick = async label => { const i = await st(`S.menu ? S.menu.items.findIndex(it => it.t === ${JSON.stringify(label)}) : -1`); if (i < 0) { bad.push('menu item ' + label); out.push('FAIL menu item ' + label + ' ' + JSON.stringify(await st('S.menu && S.menu.items.map(i => i.t)'))); return } await click(`[data-a="pick"][data-i="${i}"]`) }
 
-// ── the control bar ──
+// ── the control bar and the tracks' own bar: in the transport panel now (the bars at the top are gone) ──
+await ev(`tpanelSet(true, false); flush(); return 1`)
 ok('the bar has no keys for patch, mixer and slur (the Window menu opens them)', await ev(`return !document.querySelector('#g-top [data-a="patch"], #g-top [data-a="mixer"], #g-top [data-a="slur"]')`))
 await ev(`MENU_DO.winpatch()`); await settle(); ok('window > patch opens the panel', await st(`S.panel.on && S.panel.tab === 'patch' && __daw.VIEW.p === 1`))
 await ev(`MENU_DO.winmixer()`); await settle(); ok('window > mixer turns the panel to the mixer', await st(`S.panel.on && S.panel.tab === 'mixer'`))
@@ -39,13 +40,13 @@ await click('[data-a="rec"]'); ok('record says it is in the app', await st(`S.la
 // tempo and key, changed where they stand
 await click('[data-a="tempo"]')
 let box = await ev(`const r = document.getElementById('rename').getBoundingClientRect(), c = document.querySelector('[data-a="tempo"]').getBoundingClientRect(); return { hidden: document.getElementById('rename').hidden, dx: r.left - c.left, dy: r.top - c.top, w: r.width, cw: c.width }`)
-ok('tempo box lies on its cell', !box.hidden && Math.abs(box.dx) < 2 && Math.abs(box.w - box.cw) < 2, box)
+ok('tempo box lies on its cell (inside it)', !box.hidden && box.dx >= -2 && box.dx + box.w <= box.cw + 2, box)
 await ev(`const el = document.getElementById('rename'); el.value = '100'; el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`); await b.sleep(80)
 ok('tempo is 100', await st(`S.tempo === 100`)); await ev(`__daw.S.tempo !== 92 && (function(){ })()`)
 await click('[data-a="tempo"]'); await ev(`const el = document.getElementById('rename'); el.value = '92'; el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`); await b.sleep(80)
 await click('[data-a="key"]')
 box = await ev(`const r = document.getElementById('rename').getBoundingClientRect(), c = document.querySelector('[data-a="key"]').getBoundingClientRect(); return { hidden: document.getElementById('rename').hidden, dx: r.left - c.left, w: r.width, cw: c.width }`)
-ok('key box lies on its cell', !box.hidden && Math.abs(box.dx) < 2, box)
+ok('key box lies on its cell (inside it)', !box.hidden && box.dx >= -2 && box.dx <= box.cw, box)
 await ev(`const el = document.getElementById('rename'); el.value = 'A min'; el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`); await b.sleep(80)
 ok('key is a min', await st(`S.key === 'a min'`), await st('S.key'))
 // the way out
@@ -80,9 +81,10 @@ await click('[data-a="look-col"][data-f=""]'); await click('[data-a="look-shape"
 await click('[data-a="look-close"]', .02, .9); ok('look closes', await st('!S.look'))
 // zoom
 const z0 = await ev('return __daw.lay().PXB'); await drag('[data-a="zoomx"]', 20, 0, .2); const z1 = await ev('return __daw.lay().PXB'); ok('zoom along the song', z1 > z0, [z0, z1])
-await dbl('[data-a="zoomx"]'); ok('twice: all of the song', Math.abs((await ev('return __daw.lay().PXB')) - z0) < .01)
+await dbl('[data-a="zoomx"]'); ok('twice: all of the song', await ev('return Math.abs(__daw.lay().PXB - fitPXB()) < .01'))
 await drag('[data-a="zoomy"]', 20, 0, .2); ok('taller rows', (await st('S.rh')) > 25, await st('S.rh')); await dbl('[data-a="zoomy"]'); ok('twice: rows of 25', await st('S.rh === 25'))
 
+await ev(`tpanelSet(false, false); flush(); return 1`)
 // ── markers and bars ──
 await click('[data-a="scene"][data-i="3"]'); ok('a marker pressed: the song goes there', await st('S.pos === 16'), await st('S.pos'))
 // while the song runs a marker is not gone to in the middle of a bar: it is marked, and the song goes at the next bar line
@@ -93,7 +95,7 @@ await click('[data-a="scene"][data-i="3"]')
 await b.sleep(500); await click('[data-a="scene"][data-i="3"]'); ok('pressed again: let go', await st('S.queued === null'))
 await b.sleep(500); await click('[data-a="scene"][data-i="3"]'); await b.sleep(1700)
 { const q = await ev(`return [__daw.S.queued, __daw.curPos()]`); ok('at the bar line the song goes there', q[0] === null && q[1] >= 16 && q[1] < 17, q) }
-await click('[data-a="stop"]'); await ev(`__daw.S.pos = 16`)
+await ev(`halt(false); return 1`); await ev(`__daw.S.pos = 16`)      // (stopped: the transport is hidden in this part)
 await dbl('[data-a="scene"][data-i="1"]'); await b.sleep(80)
 ok('twice: its name can be typed where it stands', await ev(`const el = document.getElementById('rename'); return !el.hidden && document.activeElement === el && el.value === SCENES[1].name`), await ev(`const el = document.getElementById('rename'); return [el.hidden, el.value]`))
 await b.type('second verse'); await key('Enter', 'Enter', 13)
@@ -124,11 +126,15 @@ await rclick('[data-a="sel"][data-i="1"]'); ok('a head’s own menu', await st(`
 // ── lanes ──
 const reg = await ev(`const t = __daw.S.tracks[0], r = t.regs[0], L = __daw.lay(), b = document.getElementById('board').getBoundingClientRect(); const x = (292 + (r.a - 1 - L.VX) * L.PXB + (r.b - r.a) * L.PXB / 2), y = L.TY + 0 * L.rh - L.VY + L.rh / 2; return { x: b.left + x, y: b.top + y, id: r.id, a: r.a, pxb: L.PXB }`)
 await b.click(reg.x, reg.y); await b.sleep(40); ok('a region pressed: chosen', await st(`S.selR.length === 1 && S.selR[0] === ${reg.id}`))
-ok('the bar names the region', (await ev(`return document.getElementById('g-info').textContent`)).includes('region'))
+await ev(`tpanelSet(true, false); flush(); return 1`)      // (what is chosen is said in the transport panel now)
+ok('the transport panel names the region', await ev(`const r = regOf(${reg.id})[0], t = document.getElementById('tp-col').textContent; return t.includes(r.tag || r.name || S.tracks[0].name) && t.includes('gain')`))
+await ev(`tpanelSet(false, false); flush(); return 1`)
 await b.dragTo(reg.x, reg.y, reg.x + reg.pxb * 2, reg.y, 6); await b.sleep(60); ok('pulled two bars on', await st(`__daw.regOf(${reg.id})[0].a === ${reg.a + 2}`), await st(`__daw.regOf(${reg.id})[0].a`))
 await key('z', 'KeyZ', 90, 4); ok('undo', await st(`__daw.regOf(${reg.id})[0].a === ${reg.a}`))
-const g0 = await st(`__daw.regOf(${reg.id})[0].gain || 0`); await drag('[data-a="rgain"]', 0, -20); ok('gain pulled up in the bar', (await st(`__daw.regOf(${reg.id})[0].gain`)) > g0, await st(`__daw.regOf(${reg.id})[0].gain`)); await dbl('[data-a="rgain"]')
+await ev(`tpanelSet(true, false); flush(); return 1`)
+const g0 = await st(`__daw.regOf(${reg.id})[0].gain || 0`); await drag('[data-a="rgain"]', 0, -20); ok('gain pulled up in the transport panel', (await st(`__daw.regOf(${reg.id})[0].gain`)) > g0, await st(`__daw.regOf(${reg.id})[0].gain`)); await dbl('[data-a="rgain"]')
 await click('[data-a="look"]'); await click('[data-a="look-col"][data-f="gtr"][data-s="5"]'); ok('a region takes a colour of its own', await st(`JSON.stringify(__daw.regOf(${reg.id})[0].col) === '["gtr",5]' && !S.tracks[0].col`)); await click('[data-a="look-col"][data-f=""]'); await click('[data-a="look-close"]', .02, .9)
+await ev(`tpanelSet(false, false); flush(); return 1`)
 await key('Escape', 'Escape', 27)
 
 // ── the panel: patch ──

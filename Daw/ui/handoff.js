@@ -55,10 +55,11 @@ function pHand2 () {
   const pl = hoPlan(), f = hoFmt(), files = hoFiles(), busy = ho.state === 'busy', rows = HO2.more ? hoRows(pl) : []
   const w = Math.min(HO2_W, W - 40), rightH = 60 + 76 + 46 + (pl.mix && !HO2.more ? 44 : 0) + rows.length * 36 + 64
   const listN = pl.mix ? 1 + (files.length > 1 ? files.length : 0) : S.tracks.length, h = clamp(Math.max(rightH, 60 + 30 + listN * 26 + 64), 360, H - 80)
-  const x = Math.round((W - w) / 2), y = Math.max(BAR_H + 4, Math.round((H - h) / 2)), L = x + 24, mid = x + Math.round(w * .47), Rr = x + w - 24
+  const x = Math.round((W - (typeof SKV === 'object' ? SKV.left || 0 : 0) - w) / 2), y = Math.max(BAR_H + 4, Math.round((H - h) / 2)), L = x + 24, mid = x + Math.round(w * .47), Rr = x + w - 24      // (x: in the middle of the window, a column at its left or not), L = x + 24, mid = x + Math.round(w * .47), Rr = x + w - 24
   const bytes = (m, o) => pl.secs(m) * (o.fmt === 'm4a' ? 32000 : o.fmt === 'mp3' ? o.kbps * 125 : o.rate * 2 * (o.bits / 8) * (o.fmt === 'flac' ? .6 : 1))
   const per = pl.modes.reduce((a, m) => a + files.reduce((b, o) => b + bytes(m, o), 0) / 1e6, 0)      // (every file it makes)
-  let s = R(0, 0, W, H, { fill: '#000', fa: .5 }) + hit(0, 0, W, H, 'ho-close', '', 'default')
+  const lc = typeof SKV === 'object' ? SKV.left || 0 : 0
+  let s = R(-lc, 0, W + lc, H, { fill: '#000', fa: .5 }) + hit(-lc, 0, W + lc, H, 'ho-close', '', 'default')      // (the column at the left dimmed too)
   s += R(x - 1, y - 1, w + 2, h + 2, { rx: 6, fill: '#000', fa: .4 }) + R(x, y, w, h, { rx: 5, fill: K2 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 5, stroke: INK, sa: .26 }) + hit(x, y, w, h, 'ho-pane', '', 'default')
   /* its head: what, how long, how big */
   const n = pl.list.length * pl.modes.length

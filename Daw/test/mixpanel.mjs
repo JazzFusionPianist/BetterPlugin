@@ -30,7 +30,8 @@ ok('eight tracks: all of them wide, each with its level, pan, a place for a plug
   { const seen = () => ev(`const g = document.querySelector('#g-dock [data-a="mp-send"][data-i="4"][data-k="0"]').closest('.mpk'), on = el => getComputedStyle(el).display !== 'none'; return { bus: on(g.querySelector('.mpk-bus')), db: on(g.querySelector('.mpk-db')), busWord: g.querySelector('.mpk-bus').textContent, dbWord: g.querySelector('.mpk-db').textContent }`)
     await mouse('mouseMoved', 20, 20, { buttons: 0 }); await b.sleep(80); const away = await seen()
     await mouse('mouseMoved', sd.x, sd.y, { buttons: 0 }); await b.sleep(80); const over = await seen()
-    ok('under the knob its bus; the pointer on it: how much it sends instead', away.bus && !away.db && /bus/.test(away.busWord) && over.db && !over.bus && /db$/.test(over.dbWord), [away, over]) }
+    ok('under the knob its bus; the pointer on it: how much it sends instead', away.bus && !away.db && /bus/.test(away.busWord) && over.db && !over.bus && /dB$/.test(over.dbWord), [away, over])
+    ok('…the amount inside the strip, never past its edge', await ev(`const g = document.querySelector('#g-dock [data-a="mp-send"][data-i="4"][data-k="0"]').closest('.mpk'), d = g.querySelector('.mpk-db'), st = document.querySelector('#g-dock [data-a="msel"][data-i="4"]'), nx = document.querySelector('#g-dock [data-a="msel"][data-i="5"]'); d.style.display = 'inline'; const a = d.getBoundingClientRect(), b = st.getBoundingClientRect(), c = nx.getBoundingClientRect(); d.style.display = ''; return a.right <= c.left + .5 && a.left >= b.left - .5`)) }
   if (sd) await pull(sd.x, sd.y, sd.x, sd.y - 40)
   ok('the knob pulled up sends more', sd && await ev('return S.tracks[4].sends[0].db') > d0, [d0, await ev('return S.tracks[4].sends[0].db')])
   if (sd) { await click(sd.x, sd.y); ok('…pressed and let go: where it goes', await ev('return !!S.menu')); await ev(`S.menu = null; uiDirty('menu'); flush(); return 1`) } }
@@ -48,10 +49,16 @@ ok('eight tracks: all of them wide, each with its level, pan, a place for a plug
 /* two meters, left and right apart */
 { const r = await ev(`const id = S.tracks[0].id; METERS.ts = new Map([[id, [.9, .1]]]); drawMeters(); const a = document.getElementById('mpm-' + id + '-0'), c = document.getElementById('mpm-' + id + '-1'); return [+a.getAttribute('height'), +c.getAttribute('height')]`)
   ok('two meters a strip: the left louder than the right when it is', r[0] > r[1] * 2 && r[0] > 50, r) }
+/* a chosen strip's number on its block of ink: never cut, whatever the number (his ask, 2026-10-21) */
+{ const r = await ev(`const out = []; for (const i of [0, 3, 4]) { S.sel = i; uiDirty('dock', 'head'); flush(); const t = [...document.querySelectorAll('#g-dock text')].find(e => e.getAttribute('fill') === K1 && e.textContent === pad2(i + 1)); const blk = t && t.previousElementSibling; if (!t || !blk) { out.push(null); continue } const a = t.getBBox(), b = blk.getBBox(); out.push(a.x >= b.x - .5 && a.x + a.width <= b.x + b.width + .5) } S.sel = 4; uiDirty('dock'); flush(); return out`)
+  ok('a chosen strip\'s number stands inside its block', r.every(x => x === true), r) }
+/* the out: room between its meters and its fader */
+{ const r = await ev(`const m = document.getElementById('mpm-M-1'), f = document.querySelector('#g-dock [data-a="mmaster"]'); const mb = +m.getAttribute('x') + +m.getAttribute('width'); return { gap: [...document.querySelectorAll('#g-dock rect')].filter(e => e.getAttribute('width') === '1.2' && +e.getAttribute('x') > mb).map(e => +e.getAttribute('x') - mb)[0] }`)
+  ok('the out: its fader well apart from its meters', r.gap >= 28, r) }
 /* the one mixer: the transport panel hidden, the same mixer */
 { await b.press('h', 'KeyH', 72); await b.sleep(150)
   const r = await ev(`flush(); return { panel: TPANEL.on, mixer: SKIN.k.mixer, own: !!document.querySelector('#g-dock [id^="mpm-"]'), bar: !!document.getElementById('rd') }`)
-  ok('the transport panel hidden: the same mixer', !r.panel && r.mixer === 'panel' && r.own && r.bar, r)
+  ok('the transport panel hidden: the same mixer', !r.panel && r.mixer === 'panel' && r.own && !r.bar, r)
   await b.press('h', 'KeyH', 72); await b.sleep(150); await ev('flush(); return 1') }
 /* many tracks: the chosen wide, the rest narrow, the mixer follows the arrangement */
 await ev(`const base = S.tracks.slice(); for (let k = 0; S.tracks.length < 36; k++) { const src = base[k % 8], t = mkTrack('t' + k, null, null, null, null, -6, [], NO_PATCH()); t.c = src.c; S.tracks.push(t) } S.sel = 20; S.selT = []; dirtyAll(); flush(); return 1`)

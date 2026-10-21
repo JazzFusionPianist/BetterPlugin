@@ -81,7 +81,7 @@ await tab()
 await ret()
 { const r = await ev(`flush(); const k = S.tracks.find(t => t.name === 'kick'); return { pts: autoPts(k, 'fx1.0').map(q => [q.b, +q.v.toFixed(3)]), undo: UNDO.length, say: S.last && S.last.say, far: S.last && S.last.far, done: S.line.done, said: [...document.querySelectorAll('#g-cmd text')].map(t => t.textContent).join(' | ') }`)
   ok('5  return: the line is drawn — where it stood at bar 19, three db lower at bar 21, and it stays there', JSON.stringify(r.pts) === '[[18,0.7],[20,0.65]]' && r.undo === 1, r.pts)
-  ok('…and what was done is said: threshold, from −18.0 to −21.0 db', r.done && r.far && /threshold/.test(r.say) && /−18\.0 db/.test(r.say) && /−21\.0 db/.test(r.say) && /−21\.0 db/.test(r.said), [r.say, r.said])
+  ok('…and what was done is said: threshold, from −18.0 to −21.0 dB (drawn with a capital B: his rule)', r.done && r.far && /threshold/.test(r.say) && /−18\.0 db/.test(r.say) && /−21\.0 db/.test(r.say) && /−21\.0 dB/.test(r.said), [r.say, r.said])
   const s = await seen(); ok('…the cells still stand, the dashed line and the band are gone', s.parts.length === 6 && !s.would && s.band.length === 0, [s.parts.length, s.band]) }
 await ev(`undoEdit(); flush()`)
 ok('one undo takes the whole line back', (await ev(`return autoPts(S.tracks.find(t => t.name === 'kick'), 'fx1.0').length`)) === 0)

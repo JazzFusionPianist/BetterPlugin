@@ -19,7 +19,7 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
       [['drag on empty lane', '빈 레인에서 드래그'], ['a rubber band: every region it touches', '고무줄 상자: 닿는 모든 리전']],
       [['click a track’s head', '트랙 헤드 클릭'], ['every region on the chosen tracks', '선택한 트랙의 모든 리전']],
       ['[[esc]]', ['let go of everything', '모든 선택 해제']]) +
-    p('A chosen region is drawn lighter with an ink outline and named on the tracks’ bar. The other regions of its region group, and the regions over the same stretch on the other tracks of a group that shares editing, are chosen with it.', '선택된 리전은 밝게, 검은 윤곽선과 함께 그려지고 트랙 바에 이름이 나옵니다. 같은 리전 그룹의 리전과, 편집을 함께 하는 그룹의 다른 트랙에서 같은 구간에 있는 리전도 함께 선택됩니다.') +
+    p('A chosen region is drawn lighter with an ink outline and named in the transport panel. The other regions of its region group, and the regions over the same stretch on the other tracks of a group that shares editing, are chosen with it.', '선택된 리전은 밝게, 검은 윤곽선과 함께 그려지고 트랜스포트 패널에 이름이 나옵니다. 같은 리전 그룹의 리전과, 편집을 함께 하는 그룹의 다른 트랙에서 같은 구간에 있는 리전도 함께 선택됩니다.') +
     h('a stretch of time: the marquee', '시간 구간: 마키') +
     p('With the marquee tool (by default the tool under [[⌘]]), drag across lanes to pick a stretch of time over those rows. [[⇧]] click extends it. It stays up while the tool is marquee or smart.', '마키 도구(기본으로 [[⌘]]를 누르면 나오는 도구)로 레인을 가로질러 드래그하면 그 줄들의 시간 구간이 잡힙니다. [[⇧]] 클릭으로 늘립니다. 도구가 마키나 스마트인 동안 유지됩니다.') +
     p('Click inside a marquee with the pointer tool and the stretch becomes regions of its own: cut at both its edges on every track it covers, chosen, and ready to move.', '포인터 도구로 마키 안을 클릭하면 그 구간이 독립된 리전이 됩니다. 걸친 모든 트랙에서 양 끝이 잘리고, 선택되어 바로 옮길 수 있습니다.') +
@@ -42,10 +42,10 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
       ['[[⇧←]] [[⇧→]]', ['one more to that side', '그쪽으로 하나 더']],
       ['[[⇧home]] [[⇧end]]', ['the first, the last on the chosen tracks', '선택한 트랙의 처음, 마지막']]) +
     h('a crossfade', '크로스페이드') +
-    p('A crossfade can itself be chosen: click it with the fade tool, or with the smart tool at the foot of the join. It gets an ink frame and the tracks’ bar shows its length and curve. [[⌫]] takes it off.', '크로스페이드 자체도 선택할 수 있습니다. 페이드 도구로 클릭하거나, 스마트 도구로 이음매 아래쪽을 클릭합니다. 검은 테두리가 생기고 트랙 바에 길이와 곡선이 나옵니다. [[⌫]]로 없앱니다.') }),
+    p('A crossfade can itself be chosen: click it with the fade tool, or with the smart tool at the foot of the join. It gets an ink frame and the transport panel shows its length and curve. [[⌫]] takes it off.', '크로스페이드 자체도 선택할 수 있습니다. 페이드 도구로 클릭하거나, 스마트 도구로 이음매 아래쪽을 클릭합니다. 검은 테두리가 생기고 트랜스포트 패널에 길이와 곡선이 나옵니다. [[⌫]]로 없앱니다.') }),
 
   page(t('the tools', '도구'), { kind: 'split', tw: 168, txt:
-    p('[[T]] opens the tool menu at the pointer; then one letter picks a tool ([[T]] [[T]] is the pointer). Right-clicking the lanes opens the same menu. While [[⌘]] is held, the tool is the second one, named after {{cmd}} on the tracks’ bar.', '[[T]]를 누르면 포인터 위치에 도구 메뉴가 열리고, 이어서 글자 하나로 도구를 고릅니다([[T]] [[T]]는 포인터). 레인을 오른쪽 클릭해도 같은 메뉴가 열립니다. [[⌘]]를 누르는 동안에는 트랙 바의 {{cmd}}에 적힌 두 번째 도구가 됩니다.') +
+    p('[[T]] opens the tool menu at the pointer; then one letter picks a tool ([[T]] [[T]] is the pointer). Right-clicking the lanes opens the same menu.', '[[T]]를 누르면 포인터 위치에 도구 메뉴가 열리고, 이어서 글자 하나로 도구를 고릅니다([[T]] [[T]]는 포인터). 레인을 오른쪽 클릭해도 같은 메뉴가 열립니다.') +
     table([['tool', '도구'], ['', ''], ['click', '클릭'], ['drag', '드래그']],
       ['{{pointer}}', '[[T]]', ['choose', '선택'], ['a region’s body: move. An end: trim. [[⌥]] at the press: carry a copy', '리전 몸통: 이동. 끝: 트림. 누를 때 [[⌥]]: 사본을 들고 이동']],
       ['{{smart}}', '[[S]]', ['depends on where it lands; see the next page', '닿는 위치에 따라 다릅니다. 다음 쪽 참고'], ['', '']],
@@ -60,7 +60,7 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
       ['{{rubato}}', '[[X]]', ['in the rubato view: a pin anywhere in a region', '루바토 보기에서: 리전 어디든 핀'], ['the pin', '핀 이동']],
       ['{{zoom}}', '[[Y]]', ['zoom out by half', '절반으로 축소'], ['zoom in to that stretch', '그 구간으로 확대']],
       ['{{velocity}}', '[[V]]', ['on the lanes it is the gain tool: how hard a region of notes plays is its gain', '레인에서는 게인 도구와 같습니다. 노트 리전의 세기가 곧 게인입니다'], ['on the notes page: a note dragged up or down plays harder or softer', '노트 페이지에서: 노트를 위아래로 드래그하면 더 세게, 더 약하게']]),
-    art: fig('toolmenu', { w: 76 }) +
+    art: fig('toolmenu', { w: 44 }) +
       `<div style="width:76mm;margin-top:6mm">` + note('The letters pick tools only while the tool menu is up; at other times the same keys are commands. A grab does not move until the hand has gone 3 pixels, so a click meant to choose does not shift a region. In the automation view every tool except zoom and marquee works the lines instead.', '글자로 도구를 고르는 것은 도구 메뉴가 떠 있을 때뿐이고, 평소에는 같은 키가 명령입니다. 잡은 것은 손이 3픽셀 움직여야 움직이기 시작하므로, 선택하려던 클릭이 리전을 밀지 않습니다. 오토메이션 보기에서는 줌과 마키를 뺀 모든 도구가 라인에 작용합니다.') + `</div>` }),
 
   page(t('the smart tool', '스마트 도구'), { kind: 'split', tw: 96, mid: true, txt:
@@ -158,7 +158,7 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
       ['[[G]]', ['a fade out from the playhead to its end', '플레이헤드에서 리전 끝까지 페이드 아웃']],
       [['take one off', '없애기'], ['choose a crossfade and press [[⌫]]; or [[⌥]] click with the fade tool; or drag it to nothing', '크로스페이드를 선택하고 [[⌫]]. 또는 페이드 도구로 [[⌥]] 클릭. 또는 0이 될 때까지 드래그']]) +
     h('curves', '곡선') +
-    p('Three curves: {{linear}}, {{equal power}}, {{s curve}}. Pick from the menu key on the tracks’ bar that shows the present curve, beside {{crossfade}} or after the {{fade}} field. A new crossfade is linear when the two regions are one sound cut in two (it gives back exactly what was there) and equal power when they are different sounds.', '곡선은 세 가지. {{linear}}, {{equal power}}, {{s curve}}. 트랙 바에서 지금 곡선을 보여 주는 메뉴 키({{crossfade}} 옆, 또는 {{fade}} 칸 뒤)에서 고릅니다. 새 크로스페이드는 두 리전이 하나의 소리를 자른 것이면 linear(원래 소리를 그대로 돌려줍니다), 서로 다른 소리면 equal power로 시작합니다.') +
+    p('Three curves: {{linear}}, {{equal power}}, {{s curve}}. Pick from the curve’s word in the transport panel, beside {{crossfade}} or after the {{fade}} field. A new crossfade is linear when the two regions are one sound cut in two (it gives back exactly what was there) and equal power when they are different sounds.', '곡선은 세 가지. {{linear}}, {{equal power}}, {{s curve}}. 트랜스포트 패널에서 지금 곡선을 보여 주는 말({{crossfade}} 옆, 또는 {{fade}} 칸 뒤)에서 고릅니다. 새 크로스페이드는 두 리전이 하나의 소리를 자른 것이면 linear(원래 소리를 그대로 돌려줍니다), 서로 다른 소리면 equal power로 시작합니다.') +
     draw(122, 24, [['linear', 'linear'], ['equal power', 'equal power'], ['s curve', 's curve']].map(([en, ko], i) => curve(i * 37, 2, 30, 15, i) + D.txt(i * 37 + 15, 21.5, en, ko, 's m')).join('')) +
     h('how a crossfade behaves', '크로스페이드의 동작') +
     list(
@@ -170,11 +170,10 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
       `<div style="width:132mm">` + legend(
         [1, 'a crossfade, chosen: one body through the shared stretch with both lines', '선택된 크로스페이드: 겹치는 구간을 지나는 한 몸, 두 곡선과 함께'],
         [2, 'a fade out: a bent line, the sound darkened above it', '페이드 아웃: 휘어진 선, 그 위의 소리는 어둡게'],
-        [3, 'a fade in on the next region', '다음 리전의 페이드 인']) + `</div>` +
-      fig('fades-row', { w: 132, cap: ['with a crossfade chosen, the tracks’ bar reads its length and its curve', '크로스페이드를 선택하면 트랙 바에 길이와 곡선이 나옵니다'] }) }),
+        [3, 'a fade in on the next region', '다음 리전의 페이드 인']) + `</div>` }),
 
   page(t('the five modes and the grid', '다섯 가지 모드와 그리드'), { kind: 'split', tw: 150, txt:
-    p('The mode says how a drag is placed. Set it from the {{mode}} key on the tracks’ bar, or by key: [[F1]] shuffle, [[F2]] slip, [[F3]] spot, [[F4]] grid. [[F2]] again goes back to the mode before slip. The mode is kept with the project.', '모드는 드래그가 놓이는 방식을 정합니다. 트랙 바의 {{mode}} 키에서, 또는 키로 정합니다. [[F1]] 셔플, [[F2]] 슬립, [[F3]] 스팟, [[F4]] 그리드. [[F2]]를 다시 누르면 슬립 전의 모드로 돌아갑니다. 모드는 프로젝트에 저장됩니다.') +
+    p('The mode says how a drag is placed. Set it from {{mode}} in the transport panel, or by key: [[F1]] shuffle, [[F2]] slip, [[F3]] spot, [[F4]] grid. [[F2]] again goes back to the mode before slip. The mode is kept with the project.', '모드는 드래그가 놓이는 방식을 정합니다. 트랜스포트 패널의 {{mode}}에서, 또는 키로 정합니다. [[F1]] 셔플, [[F2]] 슬립, [[F3]] 스팟, [[F4]] 그리드. [[F2]]를 다시 누르면 슬립 전의 모드로 돌아갑니다. 모드는 프로젝트에 저장됩니다.') +
     table([['mode', '모드'], ['a drag', '드래그'], ['paste', '붙이기'], ['delete', '삭제']],
       ['{{smart}}', ['goes to the grid; region ends on every track, the playhead and the cycle’s ends pull harder than the grid when within 6 pixels', '그리드에 맞습니다. 6픽셀 안에 있으면 모든 트랙의 리전 끝, 플레이헤드, 사이클 끝이 그리드보다 강하게 당깁니다'], ['at the playhead', '플레이헤드에'], ['leaves a gap', '빈자리 남김']],
       ['{{grid}}', ['the grid alone', '그리드만'], ['at the playhead put on the grid', '그리드에 맞춘 플레이헤드에'], ['leaves a gap', '빈자리 남김']],
@@ -182,13 +181,13 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
       ['{{shuffle}}', ['a track’s regions stand end to start: a moved region is put in at the nearest join and what stands after makes room; the gap it left closes', '트랙의 리전이 끝과 시작을 맞대고 섭니다. 옮긴 리전은 가장 가까운 이음매에 끼워지고 뒤의 것이 자리를 내주며, 떠난 자리는 닫힙니다'], ['what follows makes room', '뒤의 것이 자리를 내줌'], ['what follows closes up', '뒤의 것이 당겨짐']],
       ['{{spot}}', ['nothing pulls; a chosen region clicked asks where it should begin. Type a place and [[↩]]', '아무것도 당기지 않음. 선택한 리전을 클릭하면 어디서 시작할지 묻습니다. 위치를 입력하고 [[↩]]'], ['at the playhead', '플레이헤드에'], ['leaves a gap', '빈자리 남김']]) +
     h('the grid', '그리드') +
-    p('The lanes show lines at the division chosen in the control bar’s {{grid}} cell: 1/4 to begin with; 1/1 to 1/32, and the triplet ones 1/3, 1/6, 1/12, 1/24. A bar line is the strongest, a line on a beat weaker, the rest much fainter. From far away the lines thin out instead of running together. The choice is kept with the project.', '레인에는 컨트롤 바의 {{grid}} 칸에서 고른 간격으로 선이 그려집니다. 처음에는 1/4. 1/1부터 1/32까지, 그리고 셋잇단인 1/3, 1/6, 1/12, 1/24. 마디 선이 가장 진하고, 박에 놓인 선은 더 옅고, 나머지는 훨씬 옅습니다. 멀리서 보면 선이 뭉치지 않도록 성기게 그려집니다. 고른 값은 프로젝트에 저장됩니다.') +
+    p('The lanes show lines at the division chosen at {{grid}} in the transport panel: 1/4 to begin with; 1/1 to 1/32, and the triplet ones 1/3, 1/6, 1/12, 1/24. A bar line is the strongest, a line on a beat weaker, the rest much fainter. From far away the lines thin out instead of running together. The choice is kept with the project.', '레인에는 트랜스포트 패널의 {{grid}}에서 고른 간격으로 선이 그려집니다. 처음에는 1/4. 1/1부터 1/32까지, 그리고 셋잇단인 1/3, 1/6, 1/12, 1/24. 마디 선이 가장 진하고, 박에 놓인 선은 더 옅고, 나머지는 훨씬 옅습니다. 멀리서 보면 선이 뭉치지 않도록 성기게 그려집니다. 고른 값은 프로젝트에 저장됩니다.') +
     p('What a drag goes to follows the zoom: the smallest of these still at least 14 pixels wide on screen: 4 bars, 2 bars, a bar, half a bar, the beat, the beat halved again and again, 5 ticks, a tick, then whole samples. With a triplet grid chosen it is thirds, sixths, twelfths of a whole note instead.', '드래그가 맞춰지는 단계는 줌을 따라갑니다. 화면에서 14픽셀 이상인 가장 작은 단계입니다. 4마디, 2마디, 한 마디, 반 마디, 박, 박을 계속 반으로 나눈 것, 5틱, 1틱, 그다음은 샘플 단위. 셋잇단 그리드를 고르면 온음표의 3분의 1, 6분의 1, 12분의 1로 바뀝니다.') +
     table(null,
       [['hold [[⌃]] in a drag', '드래그 중 [[⌃]]'], ['a grid two steps finer, and nothing else pulls', '두 단계 더 촘촘한 그리드, 다른 것은 당기지 않음']],
       [['hold [[⌃⇧]]', '[[⌃⇧]]'], ['free', '자유롭게']]) +
     note('Held before pressing on a region of sound, [[⌃⇧]] makes the pointer the fade tool instead (see “fades and crossfades”).', '소리 리전을 누르기 전에 [[⌃⇧]]를 잡고 있으면 포인터가 대신 페이드 도구가 됩니다(“페이드와 크로스페이드” 참고).'),
-    art: fig('modemenu', { w: 96 }) +
+    art: fig('modemenu', { w: 60 }) +
       draw(96, 46,
         D.txt(0, 4, 'shuffle: a region moved between two others', '셔플: 두 리전 사이로 옮긴 리전', 's') +
         D.txt(0, 11, 'before', '전', 'xs') + reg(0, 13, 26, 9) + reg(26, 13, 30, 9) + reg(56, 13, 22, 9, 'blf') + D.arrow([[67, 12], [67, 8], [26, 8], [26, 12]]) +
@@ -200,7 +199,7 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
       table(null,
         ['[[⌥←]] [[⌥→]]', ['what is chosen goes one nudge earlier, later. With nothing chosen the playhead moves. Held down, it repeats', '선택한 것을 넛지 한 번만큼 앞으로, 뒤로. 선택이 없으면 플레이헤드가 움직입니다. 누르고 있으면 반복']],
         ['[[⌥⇧←]] [[⌥⇧→]]', ['shorter, longer by one nudge', '넛지 한 번만큼 짧게, 길게']]) +
-      p('How far one nudge goes is shown on the control bar. Click it for the list; each value has a key.', '넛지 한 번의 거리는 컨트롤 바에 나옵니다. 클릭하면 목록이 열리고 값마다 키가 있습니다.') +
+      p('How far one nudge goes is shown in the transport panel. Click it for the list; each value has a key.', '넛지 한 번의 거리는 트랜스포트 패널에 나옵니다. 클릭하면 목록이 열리고 값마다 키가 있습니다.') +
       table([['value', '값'], ['key', '키'], ['length', '길이']],
         ['{{bar}}', '[[⌥⇧M]]', ['one bar', '한 마디']],
         ['{{beat}}', '[[⌥⇧B]]', ['one beat of the measure', '박자의 한 박']],
@@ -224,7 +223,7 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
         ['[[⇧space]]', ['play what is chosen from its start', '선택한 것을 처음부터 재생']],
         ['[[⌃⇧,]] [[⌃⇧.]]', ['to the cycle’s start, end', '사이클의 시작, 끝으로']]) +
       note('[[D]], [[G]], [[[]], [[]]], [[;]], [[⌘T]] and [[⌘V]] read the playhead where it is at that moment, so they work while the song runs.', '[[D]], [[G]], [[[]], [[]]], [[;]], [[⌘T]], [[⌘V]]는 그 순간의 플레이헤드 위치를 읽으므로 재생 중에도 동작합니다.')),
-    art: fig('nudgelist', { w: 84 }) }),
+    art: fig('nudgelist', { w: 64 }) }),
 
   page(t('what a region carries', '리전이 지니는 것'), { kind: 'text', cc: 1, txt:
     table([['', ''], ['how', '방법'], ['values', '값'], ['notes', '참고']],
@@ -234,13 +233,13 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
       [['reverse', '리버스'], ['[[⌃⇧R]]', '[[⌃⇧R]]'], ['on, off', '켜기, 끄기'], ['The same stretch of the file, backwards. Its rubato pins are dropped.', '파일의 같은 구간을 거꾸로. 루바토 핀은 없어집니다.']],
       [['strip silence', '무음 제거'], ['[[⌃X]] ((Region > Strip Silence))', '[[⌃X]] ((Region > Strip Silence))'], ['fixed: −40 dB, 0.3 s', '고정: −40 dB, 0.3초'], ['Each chosen file is cut down to the stretches with sound. A quiet stretch shorter than 0.3 s is not a silence; each piece begins 0.01 s early and ends 0.06 s late.', '선택한 파일을 소리가 있는 구간만 남기고 자릅니다. 0.3초보다 짧은 조용한 구간은 무음으로 보지 않고, 조각은 0.01초 일찍 시작해 0.06초 늦게 끝납니다.']],
       [['bounce in place', '제자리 바운스'], ['[[⌃B]]', '[[⌃B]]'], ['', ''], ['The chosen regions are printed through the patch and plug-ins onto a new track; the originals are muted. See “hand off and bounce”.', '선택한 리전을 패치와 플러그인을 거쳐 새 트랙에 찍습니다. 원본은 뮤트됩니다. “내보내기와 바운스” 참고.']],
-      [['colour, outline', '색, 모양'], ['the two keys after the name on the tracks’ bar', '트랙 바에서 이름 뒤의 두 키'], ['', ''], ['See “tracks”.', '“트랙” 장 참고.']]) +
+      [['colour, outline', '색, 모양'], ['the colour beside what is chosen, in the transport panel', '트랜스포트 패널에서 선택된 것 옆의 색'], ['', ''], ['See “tracks”.', '“트랙” 장 참고.']]) +
     note('Reverse, follow the tempo, the tempo commands and strip silence are for files of sound: they skip regions of notes.', '리버스, 템포 따라가기, 템포 명령, 무음 제거는 소리 파일을 위한 것이며 노트 리전은 건너뜁니다.') }),
 
   page(t('a region and the tempo', '리전과 템포'), { kind: 'text', cc: 1, txt:
     table([['', ''], ['how', '방법'], ['values', '값'], ['notes', '참고']],
       [['follow the tempo', '템포 따라가기'], ['[[⌃F]]', '[[⌃F]]'], ['on, off', '켜기, 끄기'], ['On: when the tempo moves, the file keeps its bars and is stretched, pitch kept. Off, as a file comes in: it keeps its length in seconds.', '켜면 템포가 바뀔 때 파일이 마디 수를 유지하며 늘어납니다. 피치는 그대로. 끄면(가져올 때의 기본) 초 단위 길이를 유지합니다.']],
-      [['a file’s own tempo', '파일 자체의 템포'], ['shown as {{bpm}} on the tracks’ bar once known. Click the number to type it', '알게 되면 트랙 바에 {{bpm}}으로 표시. 숫자를 클릭해 입력'], ['30 to 300', '30~300'], ['The app cannot tell a tempo from its double or half; type it right when it is wrong.', '앱은 템포와 그 두 배, 절반을 구별하지 못합니다. 틀렸으면 직접 입력하세요.']],
+      [['a file’s own tempo', '파일 자체의 템포'], ['shown as {{bpm}} in the transport panel once known. Click the number to type it', '알게 되면 트랜스포트 패널에 {{bpm}}으로 표시. 숫자를 클릭해 입력'], ['30 to 300', '30~300'], ['The app cannot tell a tempo from its double or half; type it right when it is wrong.', '앱은 템포와 그 두 배, 절반을 구별하지 못합니다. 틀렸으면 직접 입력하세요.']],
       [['song to file', '곡을 파일에 맞추기'], ['[[⌃⌥T]] ((Region > Tempo > Set Project Tempo from Region))', '[[⌃⌥T]] ((Region > Tempo > Set Project Tempo from Region))'], ['40 to 240', '40~240'], ['The song takes the tempo of the first chosen file.', '곡이 선택한 첫 파일의 템포를 따릅니다.']],
       [['file to song', '파일을 곡에 맞추기'], ['[[⌃⌥F]] ((Region > Tempo > Fit Region to Project Tempo))', '[[⌃⌥F]] ((Region > Tempo > Fit Region to Project Tempo))'], ['', ''], ['The chosen files are stretched so their own beat is the song’s, and follow the tempo from then on. Only files between half and twice the song’s tempo.', '선택한 파일을 늘려 자체 박을 곡에 맞추고, 이후로는 템포를 따라갑니다. 곡 템포의 절반에서 두 배 사이인 파일만.']]) }),
 

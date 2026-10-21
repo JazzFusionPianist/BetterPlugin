@@ -30,7 +30,30 @@ const inWords = (s, it) => { s = String(s); return s.charCodeAt(0) === 0x2063 ? 
 function typeset (s, it) {
   const named = it || String(s).charCodeAt(0) === 0x2063, said = inWords(s, it)
   if (named) return { t: said, face: TF.names || FONT, it: it || (TF.namesIt && !!TF.names), space: 0, stretch: TF.names ? '' : TF.stretch }
-  return { t: TF.caps ? said.toUpperCase() : said, face: FONT, it, space: TF.space, stretch: TF.stretch }
+  const unit = said.indexOf('db') < 0 ? said : said.replace(/(^|[\s\d∞])db\b/g, '$1dB')      // (decibels written dB, wherever the room says them: his ask, 2026-10-21)
+  return { t: TF.caps ? unit.toUpperCase() : unit, face: FONT, it, space: TF.space, stretch: TF.stretch }
+}
+/* how wide a string of figures is as drawn with tabular-nums (every figure as wide as the others): read off a hidden
+   svg text, as WebKit sets it, and kept (the room's type may change: then measured again) */
+const TWT = { el: null, cache: new Map() }
+function twTab (s, size = 10, w = 400) {
+  const f = typeset(s), k = `${f.t}|${size}|${w}|${f.face}|${TF.scale}|${f.space}|${f.stretch}`
+  if (TWT.cache.has(k)) return TWT.cache.get(k)
+  if (!TWT.el && typeof document === 'object' && document.body) {
+    const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg'), t = document.createElementNS(NS, 'text')
+    svg.setAttribute('style', 'position:absolute;left:-9999px;top:0;visibility:hidden'); svg.setAttribute('width', '10'); svg.setAttribute('height', '10')
+    svg.appendChild(t); document.body.appendChild(svg); TWT.el = t
+    if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => TWT.cache.clear())
+  }
+  if (!TWT.el) return tw(s, size, w)
+  const t = TWT.el
+  t.setAttribute('font-family', f.face); t.setAttribute('font-size', size * TF.scale); t.setAttribute('font-weight', w); t.setAttribute('style', 'font-variant-numeric: tabular-nums')
+  if (f.space) t.setAttribute('letter-spacing', f.space); else t.removeAttribute('letter-spacing')
+  if (f.stretch) t.setAttribute('font-stretch', f.stretch); else t.removeAttribute('font-stretch')
+  t.textContent = f.t
+  const v = t.getComputedTextLength() || tw(s, size, w)
+  TWT.cache.set(k, v)
+  return v
 }
 function tw (s, size = 10, w = 400, it = false) { const f = typeset(s, it); cv.font = `${f.it ? 'italic ' : ''}${w} ${f.stretch ? f.stretch + ' ' : ''}${size * TF.scale}px ${f.face}`; return cv.measureText(f.t).width + f.space * f.t.length }
 function T (x, y, s, o = {}) {

@@ -1,6 +1,6 @@
 // node test/meter.mjs — the measure: so many beats to a bar. Changing it moves nothing that sounds; the bars are counted anew
 import { open, PAGE } from './cdp.mjs'
-const b = await open(PAGE, { width: 1440, height: 900, dsf: 1 })
+const b = await open(PAGE, { width: 1440, height: 900, dsf: 1, before: "try { localStorage.setItem('slur.tpanel', '1') } catch (e) {}" })      // (the room as the app shows it: with the transport panel, whose keys this presses)
 await b.sleep(500)
 const out = [], bad = []
 const ok = (name, cond, extra) => { out.push(`${cond ? 'ok  ' : 'FAIL'} ${name}${extra !== undefined ? '  ' + JSON.stringify(extra) : ''}`); if (!cond) bad.push(name) }

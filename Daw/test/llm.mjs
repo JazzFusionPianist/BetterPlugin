@@ -12,10 +12,10 @@ const ok = (name, cond, extra) => { out.push(`${cond ? 'ok  ' : 'FAIL'} ${name}$
 const ev = b.ev
 const mouse = (type, x, y, extra = {}) => b.send('Input.dispatchMouseEvent', Object.assign({ type, x, y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1, pointerType: 'mouse' }, extra))
 const click = async p => { await mouse('mouseMoved', p.x, p.y, { buttons: 0 }); await mouse('mousePressed', p.x, p.y); await mouse('mouseReleased', p.x, p.y); await b.sleep(150) }
-await ev(`if (typeof START !== 'undefined') START.on = false; setView(true); dirtyAll(); flush()`)
-const bolt = () => ev(`flush(); const el = document.querySelector('[data-a="lowlat"]'); if (!el) return null; const r = el.getBoundingClientRect(), c = document.querySelector('[data-a="click"]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, after: r.x > c.x, fill: [...document.querySelectorAll('rect')].some(q => q.getAttribute('fill') === MON && Math.abs(+q.getAttribute('x') - (r.x - document.getElementById('svg').getBoundingClientRect().x)) < 2) }`)
+await ev(`if (typeof START !== 'undefined') START.on = false; tpanelSet(true, false); setView(true); dirtyAll(); flush()`)
+const bolt = () => ev(`flush(); const el = document.querySelector('#tp-col [data-a="lowlat"]'); if (!el) return null; const r = el.getBoundingClientRect(), c = document.querySelector('#tp-col [data-a="click"]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, after: r.y > c.y, fill: [...document.querySelectorAll('#tp-col circle, #tp-col path')].some(q => q.getAttribute('fill') === MON) }`)      // (in the transport panel: under click, lit in the monitor's orange)
 const b0 = await bolt()
-ok('the bolt stands in the transport, after the click, off at first', !!b0 && b0.after && !b0.fill && (await ev(`return S.lowLat`)) === false, b0)
+ok('low latency stands in the transport panel, under click, off at first', !!b0 && b0.after && !b0.fill && (await ev(`return S.lowLat`)) === false, b0)
 await click(b0)
 const b1 = await bolt()
 ok('pressed: on, lit in the monitor’s orange, and says so', (await ev(`return S.lowLat`)) === true && b1.fill && /low latency/.test(await ev(`return (S.last && S.last.say) || ''`)), [b1, await ev(`return S.last`)])

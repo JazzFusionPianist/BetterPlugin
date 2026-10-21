@@ -3,27 +3,38 @@
    knob, its fader and meters drawn heavier. It stands from the markers down to the panel, and the heads and lanes move
    over by its width. View > Inspector shows or hides it; the app remembers which (a browser page without the app begins
    without it). Read after ui.js, mix.js and project.js. */
-const INSP = { on: (() => { try { const v = localStorage.getItem('slur.inspector'); return v == null ? !!NAT : v === '1' } catch (e) { return !!NAT } })(), w: 0, geom: null, hold: new Map() }
+/* (off unless View > Inspector turns it on: his word, 2026-10-21 — the patch page has the strip) */
+const INSP = { on: (() => { try { return localStorage.getItem('slur.inspector2') === '1' } catch (e) { return false } })(), w: 0, geom: null, hold: new Map() }
 const INSP_W = GUT + WSTRIP + 12
 const inspShown = () => INSP.on && !(typeof SKIN === 'object' && SKIN.right) && !(typeof RTB !== 'undefined' && RTB.on)
 function toggleInspector () {
   INSP.on = !INSP.on
-  try { localStorage.setItem('slur.inspector', INSP.on ? '1' : '0') } catch (e) {}
+  try { localStorage.setItem('slur.inspector2', INSP.on ? '1' : '0') } catch (e) {}
   setView(true); dirtyAll()
   if (typeof menusTick === 'function') menusTick()
 }
 function pInsp () {
   if (!INSP.w) { INSP.geom = null; return '' }
-  const t = S.tracks[S.sel], y = MK_Y, h = BY - MK_Y
-  let s = R(0, y, INSP.w, h, { fill: K1 }) + vline(INSP.w - .5, y, BY, .12)
+  /* it stands still when the panel below opens: as tall as the room with no panel, and the panel covers its foot (his
+     ask, 2026-10-21: "inspector를 y 방향으로 움직이게 하지마") */
+  const t = S.tracks[S.sel], y = MK_Y, foot = H - FOOT_H - (typeof DECK_H === 'number' ? DECK_H : 0), h = foot - y
+  let s = R(0, y, INSP.w, h, { fill: K1 }) + vline(INSP.w - .5, y, foot, .12)
   if (!t) return s
-  const sy = y + 6, sh = h - 10, x1 = GUT
-  INSP.geom = stripGeom(sy, sh, true, true)
-  s += stripGutter(0, GUT, sy, sh, true, true)
+  const sy = y + 6, sh = h - 10, x1 = GUT, counts = inspCounts(t, sh)
+  INSP.geom = stripGeom(sy, sh, true, true, counts)
+  s += stripGutter(0, GUT, sy, sh, true, true, counts)
   /* the strip as the mixer draws it, its pan a knob; its meters and fader are the inspector's own (another strip of the
      same track may be on the screen at once) */
-  const own = strip(x1, sy, WSTRIP, sh, t, S.sel, { wide: true, sel: true, knob: true }).replace(/id="m([shk])-/g, 'id="im$1-').replace(/data-a="mvol"/g, 'data-a="ivol"')
+  const own = strip(x1, sy, WSTRIP, sh, t, S.sel, { wide: true, sel: true, knob: true, counts }).replace(/id="m([shk])-/g, 'id="im$1-').replace(/data-a="mvol"/g, 'data-a="ivol"')
   return s + R(x1, sy, WSTRIP, sh, { fill: INK, fa: .05 }) + own
+}
+/* how many rows of its patch and of its sends: its fader no taller than about a third of it, the rest for them (his ask,
+   2026-10-21: "볼륨 페이더의 높이를 조금 줄이고 fx랑 send를 걸 수 있는 y축 공간을 더") — at least three of each, a send row
+   more than it has or about a third of them (up to the most a track can have), the rest for the patch */
+function inspCounts (t, h) {
+  const fader = clamp(h * .3, 90, 230), rows = Math.max(8, Math.floor((h - 78 - 7 - 9 - PAN_KNOB - fader) / 16) - 2)      // (less its input and its out)
+  const most = typeof MAX_SENDS === 'number' ? MAX_SENDS : 10, ns = clamp(Math.max((t.sends || []).length + 1, Math.floor(rows * .35)), 3, Math.min(most, rows - 3))      // (about a third of the rows for sends, as many as it has and one more)
+  return { nf: clamp(rows - ns, 3, 16), ns }
 }
 PARTS.insp = pInsp
 {
@@ -70,10 +81,13 @@ PARTS.insp = pInsp
   drawMeters = function () {
     const r = meters0.apply(null, arguments), G0 = INSP.geom, t = S.tracks[S.sel]
     if (!G0 || !t || !INSP.w) return r
-    const v = METERS.now.get(t.id) || 0, f = volF(Math.min(6, linDb(v))), f6 = volF(-6), hold = Math.max(f, (INSP.hold.get(t.id) || 0) - .008)
+    const mono = METERS.now.get(t.id) || 0, two = METERS.ts && METERS.ts.get(t.id), f6 = volF(-6)
+    if (!INSP.lr || INSP.lr.id !== t.id) INSP.lr = { id: t.id, v: [0, 0] }
+    const vs = [0, 1].map(c => { const x = two ? Math.max(two[c], INSP.lr.v[c] * .87) : mono; INSP.lr.v[c] = x < 1e-4 ? 0 : x; return x })      // (each side its own: Engine.h takeMeters "s")
+    const v = Math.max(vs[0], vs[1]), hold = Math.max(volF(Math.min(6, linDb(v))), (INSP.hold.get(t.id) || 0) - .008)
     INSP.hold.set(t.id, hold)
     for (let c = 0; c < 2; c++) {
-      const b = $(`ims-${t.id}-${c}`), hh = $(`imh-${t.id}-${c}`), k = $(`imk-${t.id}-${c}`)
+      const b = $(`ims-${t.id}-${c}`), hh = $(`imh-${t.id}-${c}`), k = $(`imk-${t.id}-${c}`), f = volF(Math.min(6, linDb(vs[c])))
       if (!b) break
       const lo = Math.min(f, f6)
       b.setAttribute('y', n(G0.fb - G0.fh * lo)); b.setAttribute('height', n(G0.fh * lo))

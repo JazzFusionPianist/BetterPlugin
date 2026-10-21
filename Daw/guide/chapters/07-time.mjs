@@ -49,7 +49,7 @@ export default () => chapter('time', t('the song’s time', '곡의 시간'),
 
   page(t('tempo, measure, undo', '템포, 박자, 실행 취소'), { kind: 'text', cc: 3, txt:
     h('one tempo, one measure', '템포 하나, 박자 하나') +
-    p('A song has one tempo and one measure from beginning to end. Click the tempo on the control bar to type it (40 to 240, two decimals); click the measure for its list (2/4, 3/4, 4/4, 5/4, 6/4, 7/4, 3/8, 5/8, 6/8, 7/8, 9/8, 12/8).', '곡은 처음부터 끝까지 템포 하나, 박자 하나를 갖습니다. 컨트롤 바의 템포를 클릭해 입력하고(40~240, 소수 둘째 자리까지), 박자를 클릭해 목록에서 고릅니다(2/4, 3/4, 4/4, 5/4, 6/4, 7/4, 3/8, 5/8, 6/8, 7/8, 9/8, 12/8).') +
+    p('A song has one tempo and one measure from beginning to end. Click the tempo in the transport panel to type it (40 to 240, two decimals); click the measure for its list (2/4, 3/4, 4/4, 5/4, 6/4, 7/4, 3/8, 5/8, 6/8, 7/8, 9/8, 12/8).', '곡은 처음부터 끝까지 템포 하나, 박자 하나를 갖습니다. 트랜스포트 패널의 템포를 클릭해 입력하고(40~240, 소수 둘째 자리까지), 박자를 클릭해 목록에서 고릅니다(2/4, 3/4, 4/4, 5/4, 6/4, 7/4, 3/8, 5/8, 6/8, 7/8, 9/8, 12/8).') +
     h('what a change of tempo does', '템포가 바뀌면') +
     table(null,
       [['a file', '파일'], ['keeps its length in seconds: it becomes more bars, or fewer, and still begins where it began', '초 단위 길이를 유지합니다. 마디 수가 늘거나 줄고, 시작 위치는 그대로입니다']],

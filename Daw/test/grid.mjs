@@ -5,7 +5,7 @@
 import { open, PAGE } from './cdp.mjs'
 import { readFileSync } from 'node:fs'
 const [ww, hh] = [+process.argv[2] || 1440, +process.argv[3] || 900]
-const b = await open(PAGE, { width: ww, height: hh, dsf: 1 })
+const b = await open(PAGE, { width: ww, height: hh, dsf: 1, before: "try { localStorage.setItem('slur.tpanel', '1') } catch (e) {}" })      // (the room as the app shows it: with the transport panel, whose keys this presses)
 await b.sleep(500)
 const out = [], bad = []
 const ok = (name, cond, extra) => { out.push(`${cond ? 'ok  ' : 'FAIL'} ${name}${extra !== undefined ? '  ' + JSON.stringify(extra) : ''}`); if (!cond) bad.push(name) }

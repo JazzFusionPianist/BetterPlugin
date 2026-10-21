@@ -48,6 +48,10 @@ function startRename (what, i, at) {
     const sc = SCENES[i]
     if (!sc) return
     put(clamp(bx(sc.a), X0, Math.max(X0, X1 - 112)) + 2, MK_Y + 2, 110, 18, '500 9px', sc.name)
+  } else if (what === 'smptestart') {                                                              // where the time's count begins: a wide panel in the middle of the window (his ask, 2026-10-21)
+    const left = typeof SKV === 'object' ? SKV.left || 0 : 0, w = 520, h = 76, x = Math.round((W - left - w) / 2), y = Math.round((H - h) / 2 - 30)
+    S.ask = { x, y, w, h, label: 'smpte start', note: `hh:mm:ss:ff   at ${smpteRate().t} fps   return sets it, esc leaves it`, big: true }
+    put(x + 140, y + 16, 220, 34, '500 22px', smpteStart(), false)
   } else if (typeof skinField === 'function' && skinField(what)) { const f = skinField(what); put(f.x, f.y, f.w, f.h, '500 12px', what === 'tempo' ? String(+S.tempo.toFixed(2)) : what === 'key' ? S.key : what === 'smpte' ? smpte(curPos()) : what === 'smptestart' ? smpteStart() : place(curPos()), true) }      // (the deck at the foot: where it says it is — skins.js)
   else if (what === 'tempo') put(DISP_X + BARC.tempo[0], 11, BARC.tempo[1], 22, '400 11.5px', String(+S.tempo.toFixed(2)), true)
   else if (what === 'key') put(DISP_X + BARC.key[0], 11, BARC.key[1], 22, '400 11.5px', S.key, true)

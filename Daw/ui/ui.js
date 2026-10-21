@@ -1332,6 +1332,7 @@ function pBack () {
 function pAsk () {
   const q = S.ask
   if (!q) return ''
+  if (q.big) return hit(-(typeof SKV === 'object' ? SKV.left || 0 : 0), 0, W + 400, H, 'ask-dim', '', 'default') + R(q.x, q.y, q.w, q.h, { rx: 4, fill: K2 }) + R(q.x + .5, q.y + .5, q.w - 1, q.h - 1, { rx: 4, stroke: INK, sa: .32 }) + T(q.x + 20, q.y + 38, q.label, { size: 12, w: 500, a: .7 }) + T(q.x + 140, q.y + q.h - 12, q.note || '', { size: 8.5, a: .4, x: ' xml:space="preserve"' })      // (a wide one in the middle: smpte's start)
   return R(q.x, q.y, q.w, q.h, { rx: 3, fill: K2 }) + R(q.x + .5, q.y + .5, q.w - 1, q.h - 1, { rx: 3, stroke: INK, sa: .28 }) + T(q.x + 12, q.y + 20.6, q.label, { size: 9.5, a: .4 })
 }
 const PARTS = { ask: pAsk, new: pNew, back: pBack, lanes: pLanes, head: pHead, ruler: pRuler, scenes: pScenes, info: pTool, drop: pDrop, play: pPlay, dock: pDock, slur: pSlur, top: pTop, cmd: pCmd, hand: pHand, look: pLook, sheet: pSheet, menu: pMenu }

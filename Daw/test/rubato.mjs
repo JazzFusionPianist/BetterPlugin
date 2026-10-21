@@ -52,7 +52,7 @@ ok('undone: neither has pins', await ev(`return !(regOf(${set.A})[0].flex || [])
 await mouse('mouseMoved', set.x2, set.y, { buttons: 0 }); await mouse('mousePressed', set.x2, set.y); await mouse('mouseReleased', set.x2, set.y); await b.sleep(100)
 ok('a press that moved nothing leaves no pin, on either', await ev(`return !(regOf(${set.A})[0].flex || []).length && !(regOf(${set.B})[0].flex || []).length`))
 /* the bar, with the region chosen */
-const bar = () => ev(`S.selR = [${set.A}]; S.sel = ${set.iA}; S.focus = 'lanes'; dirtyAll(); flush(); const g = document.getElementById('g-info') || document.body; return { words: [...document.querySelectorAll('text')].map(q => q.textContent).filter(w => ['rubato', 'stretch', 'hits', 'notes', 'chords', 'cut', 'quantize', '70', '60'].includes(w)), tool: S.tool }`)
+const bar = () => ev(`tpanelSet(true, false); S.panel.on = true; S.panel.tab = 'rubato'; setView(true); S.selR = [${set.A}]; S.sel = ${set.iA}; S.focus = 'lanes'; dirtyAll(); flush();      /* (the tool row is gone: how it is stretched and quantize are in the transport panel, the sensitivities in the rubato panel) */ const g = document.getElementById('g-info') || document.body; return { words: [...document.querySelectorAll('text')].map(q => q.textContent).filter(w => ['rubato', 'stretch', 'hits', 'notes', 'chords', 'cut', 'quantize', '70', '60'].includes(w)), tool: S.tool }`)
 const b0 = await bar()
 ok('in rubato, the cell and the tool say rubato; the bar says how the track is stretched, its two sensitivities, quantize', ['rubato', 'stretch', 'chords', 'hits', '70', 'notes', '60', 'quantize'].every(w => b0.words.includes(w)) && b0.words.filter(w => w === 'rubato').length >= 2, b0)
 const at = sel => ev(`const el = document.querySelector('${sel}'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, l: r.x, w: r.width }`)
@@ -65,7 +65,7 @@ ok('cut chosen: the track and its edit group are stretched by cutting', await ev
 await ev(`undoEdit(); flush()`)
 ok('undone: chords again, on both', await ev(`return stretchOf(regOf(${set.A})[1]) === 'chords' && stretchOf(regOf(${set.B})[1]) === 'chords'`))
 await bar()
-{ const q = await at('[data-a="rsens"][data-k="0"]')
+{ const q = await at('[data-a="rp"][data-k="sens"][data-v="0"]')      // (the hits' rail, in the rubato panel)
   await mouse('mouseMoved', q.l + 8, q.y, { buttons: 0 }); await mouse('mousePressed', q.l + 8, q.y); for (let k = 1; k <= 5; k++) await mouse('mouseMoved', q.l + 8 + (q.w + 20) * k / 5, q.y); await mouse('mouseReleased', q.l + q.w + 28, q.y); await b.sleep(120) }
 ok('the hits rail pulled to its end: 100, and the faint stir shows', await ev(`const [r, t] = regOf(${set.A}); return t.hs === 100 && transOf(r).length === 6`), await ev(`return regOf(${set.A})[1].hs`))
 await ev(`undoEdit(); flush()`)

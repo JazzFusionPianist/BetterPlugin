@@ -96,9 +96,11 @@ SKINS.mixer.panel = (y, h) => {
     if (sel && !allWide) s += R(x, top, w, H, { fill: INK, fa: .045 })
     let hits = ''
     if (wide) {
-      const L = x + 10, num = pad2(i + 1), nwid = tw(num, 30, 700)
+      const L = x + 10, num = pad2(i + 1)
+      let nsz = 30; while (nsz > 14 && twTab(num, nsz, 700) + 6 > w - 46) nsz -= 1      // (the number's block is never cut: smaller where the strip is narrow — his ask, 2026-10-21)
+      const nwid = twTab(num, nsz, 700)
       /* the number large in its colour (chosen: on ink), the name, the pan a knob */
-      s += (sel ? R(L - 3, top + 12, nwid + 6, 31, { fill: INK }) : '') + T(L, top + 39, num, { size: 30, w: 700, c: sel ? K1 : t.c, x: mpNum })
+      s += (sel ? R(L - 3, top + 39 - nsz * .86, nwid + 6, nsz * 1.03, { fill: INK }) : '') + T(L, top + 39, num, { size: nsz, w: 700, c: sel ? K1 : t.c, x: mpNum })
       s += T(L + nwid + 7, top + 38, fit(asGiven(t.name), w - nwid - 46, 12.5, 600), { size: 12.5, w: 600, a: heardT ? .95 : .45 })
       hits += hit(x, top + 6, w - 34, 42, 'msel', di)
       if (t.kind !== 'stack') { s += mpKnob(x + w - 20, top + 30, 9, shown(t, 'pan')) + T(x + w - 20, top + 51, panText(shown(t, 'pan')), { size: 8.5, a: .5, anchor: 'middle' }); hits += hit(x + w - 33, top + 16, 28, 40, 'mpan', di, 'ns-resize') }
@@ -119,7 +121,10 @@ SKINS.mixer.panel = (y, h) => {
         sends.slice(0, MP_SENDS).forEach((sd, k) => { const cx = x0 + Math.floor(k / per) * cw + r + 4, cy = ft + (k % per) * (2 * r + 20) + r + 2, b = byId(sd.to), db = mpSendDb(t, k, sd), pulling = drag && drag.a === 'msend' && drag.moved && S.tracks[drag.i] === t && drag.k === k
           /* under it the bus it goes to; how much it sends only while the pointer is on it, or it is turned (his ask, 2026-10-21) */
           const much = (db <= -47.5 ? '−∞' : (pulling ? db.toFixed(1) : String(Math.round(db))).replace('-', '−')) + ' db', bus = b ? asGiven(b.name) : 'send'
-          s += `<g class="mpk${pulling ? ' on' : ''}">` + mpSendKnob(cx, cy, r, volF(db), t.c, bus) + T(cx, cy + r + 11, fit(bus, 2 * r + 12, 8.5, 500), { size: 8.5, w: 500, a: .62, anchor: 'middle', x: ' class="mpk-bus"' }) + T(cx, cy + r + 11, much, { size: 8.5, a: 1, anchor: 'middle', x: mpNum + ' class="mpk-db"' })
+          /* the words under it stay inside the strip: centred on the knob where there is room, else against the strip's edge */
+          const inside = (word, wt) => { const ww = tw(word, 8.5, wt), xr = x + w - 4, xl = x + 4; return cx + ww / 2 > xr ? xr - ww / 2 : cx - ww / 2 < xl ? xl + ww / 2 : cx }
+          const busW = fit(bus, Math.min(2 * r + 12, w - 8), 8.5, 500)
+          s += `<g class="mpk${pulling ? ' on' : ''}">` + mpSendKnob(cx, cy, r, volF(db), t.c, bus) + T(inside(busW, 500), cy + r + 11, busW, { size: 8.5, w: 500, a: .62, anchor: 'middle', x: ' class="mpk-bus"' }) + T(inside(much, 400), cy + r + 11, much, { size: 8.5, a: 1, anchor: 'middle', x: mpNum + ' class="mpk-db"' })
             + hit(cx - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 16, 'mp-send', `${di} data-k="${k}"`, 'ns-resize') + '</g>' })
         if (sends.length < MP_SENDS) { const k = sends.length, cx = x0 + Math.floor(k / per) * cw + r + 4, cy = ft + (k % per) * (2 * r + 20) + r + 2
           s += Cc(cx, cy, r - .5, { stroke: INK, sa: .3, sw: .9, dash: '2 2' }) + P(`M${n(cx)} ${n(cy - 3.5)}V${n(cy + 3.5)}M${n(cx - 3.5)} ${n(cy)}H${n(cx + 3.5)}`, { stroke: INK, sa: .6, sw: 1 }) + T(cx, cy + r + 11, 'send', { size: 8.5, a: .35, anchor: 'middle' })
@@ -139,7 +144,9 @@ SKINS.mixer.panel = (y, h) => {
     } else if (w >= 44) {
       /* narrow, but with room: the number and the name across its head, the pan, the two bars, the fader and its level,
          as many of r i m s as there is room for */
-      const L = x + 8, ns = Math.min(20, w * .34), num = pad2(i + 1), nwid = tw(num, ns, 700)
+      const L = x + 8, num = pad2(i + 1)
+      let ns = Math.min(20, w * .34); while (ns > 10 && twTab(num, ns, 700) + 5 > w - (w >= 58 ? 34 : 14)) ns -= .5
+      const nwid = twTab(num, ns, 700)
       s += (sel ? R(L - 2.5, top + 13, nwid + 5, ns + 3, { fill: INK }) : '') + T(L, top + 15 + ns * .82, num, { size: ns, w: 700, c: sel ? K1 : t.c, x: mpNum })
       s += T(L, top + 52, fit(asGiven(t.name), w - 14, 9.5, 600), { size: 9.5, w: 600, a: heardT ? .9 : .42 })
       hits += hit(x, top + 6, w, 52, 'msel', di)
@@ -173,7 +180,7 @@ SKINS.mixer.panel = (y, h) => {
     s += R(x - .5, top + 8, .6, H - 16, { fill: INK, fa: .06 })
   }
   /* the out: as a wide strip, its name the word */
-  { const L = RX - MP_OUTW + 6, bx0 = L, lx = bx0 + 2 * 7 + 2 + 18, vol = S.master, fy = yOf(vol)
+  { const L = RX - MP_OUTW + 6, bx0 = L, lx = bx0 + 2 * 7 + 2 + 32, vol = S.master, fy = yOf(vol)      // (room between its meters and its fader for the scale: his ask, 2026-10-21)
     s += R(RX - MP_OUTW - 6, top, MP_OUTW + 6, H, { fill: K2, fa: .6 })
     s += T(L, top + 39, 'out', { size: 30, w: 700, c: INK }) + mpCaps(L + tw(LANG_WORDS('out'), 30, 700) + 7, top + 37, 'stereo') + hit(L - 4, top + 8, MP_OUTW - 8, 40, 'wall-out')
     s += mpBars('M', bx0, ft, fb, 7, 2, LEVEL, false)
@@ -205,8 +212,8 @@ SKINS.mixer.panel = (y, h) => {
       if (key === 'M') { one('M', METERS.mm[0] || 0, METERS.mm[1] || 0); continue }
       const two = ts && ts.get(key), mono = METERS.now.get(key) || 0
       one(key, two ? two[0] : mono, two ? two[1] : mono)
-      if (two) ts.set(key, [0, 0])
     }
+    if (ts) ts.clear()                                                                     // (read by every meter of this frame — the inspector's too: then let go)
   } }
 /* a number in the row along the top pressed: that track chosen, and brought into sight */
 { const down0 = onDown

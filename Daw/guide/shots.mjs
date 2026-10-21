@@ -81,11 +81,14 @@ const SHOTS = {
   async window (b) {
     await b.click(await b.X(14), await b.Y(5))
     await b.ev(`const S = __daw.S; S.cycle = { on: true, a: 16, b: 24 }; S.pos = 19; __daw.redraw()`)
-    await b.pic('window'); await b.pic('bar', [0, 0, W, 44], 1.5); await b.pic('toolrow', [0, 44, W, 27], 1.5); await b.pic('ruler', [0, 70, W, 47], 1.5)
+    /* the markers and bars, and the foot, as they stand with nothing at the top (the transport panel hidden) */
+    const mk = await b.ev(`return MK_Y`)
+    await b.pic('ruler', [0, mk, W, 47], 1.5)
     await b.pic('foot', [0, H - 22, W, 22], 1.5)
-    /* the transport panel (panel.js): the column as the app begins with it */
+    /* the window as the app begins: the transport panel at the left (panel.js) */
     await b.ev(`if (typeof tpanelSet === 'function') { tpanelSet(true, false); flush(); SKINS.frame.panel(curPos()) } return 1`); await b.sleep(250)
     await b.ev(`flush(); if (typeof SKINS === 'object' && SKINS.frame.panel) SKINS.frame.panel(curPos()); return 1`)
+    await b.pic('window')
     await b.pic('panel', [0, 0, 248, H], 1.5)
     await b.ev(`if (typeof tpanelSet === 'function') { tpanelSet(false, false); flush() } return 1`)
   },
@@ -106,13 +109,24 @@ const SHOTS = {
   },
   async menus (b) {
     await b.click(await b.X(14), await b.Y(5))
-    await b.hit('toolmenu'); await b.pic('toolmenu', [380, 44, 300, 330], 2); await key(b, 'esc')
-    await b.hit('modemenu'); await b.pic('modemenu', [560, 44, 260, 180], 2); await key(b, 'esc')
-    await b.hit('look', 1); console.log('look', await b.names()); await b.pic('look', [560, 44, 520, 300], 1.5); await key(b, 'esc')
-    { const n = await b.box('nudge'); await b.hit('nudge'); await b.pic('nudgelist', [Math.max(0, Math.round(n[0]) - 12), 0, 300, 270], 2); await key(b, 'esc') }
-    { const n = await b.box('meter'); await b.hit('meter'); await b.pic('meterlist', [Math.max(0, Math.round(n[0]) - 40), 0, 220, 360], 2); await key(b, 'esc') }
-    const s = await b.at('scene', 3); await b.right(s[0], s[1]); await b.pic('markermenu', [380, 70, 420, 220], 2); await key(b, 'esc')
+    const mk = await b.ev(`return MK_Y`)
+    const s = await b.at('scene', 3); await b.right(s[0], s[1]); await b.pic('markermenu', [380, mk, 420, 220], 2); await key(b, 'esc')
+    /* the lists of the transport panel: each opens beside its word (the bars at the top are gone) */
+    await b.ev(`if (typeof tpanelSet === 'function') { tpanelSet(true, false); flush() } return 1`); await b.sleep(250)
+    const near = async (a, w, h, dx = -12, dy = -24) => { const r = await b.box(a); return [Math.max(0, Math.round(r[0] + dx)), Math.max(0, Math.round(r[1] + dy)), w, h] }
+    /* a list and the word it opened from, cut to the two: the list's own rows give its edges */
+    const list = async (name, a) => { const w = await b.box(a); await b.hit(a)
+      const m = await b.ev(`const q = [...document.querySelectorAll('#g-menu [data-a="pick"]')].map(e => e.getBoundingClientRect()); if (!q.length) return null; const l = Math.min(...q.map(r => r.left)), t = Math.min(...q.map(r => r.top)); return [l, t, Math.max(...q.map(r => r.right)) - l, Math.max(...q.map(r => r.bottom)) - t]`)
+      const x = Math.max(0, Math.round(Math.min(m[0], w[0]) - 16)), y = Math.max(0, Math.round(m[1] - 16)), x2 = Math.round(Math.max(m[0] + m[2], w[0] + w[2]) + 16), y2 = Math.round(Math.max(m[1] + m[3], w[1] + w[3]) + 12)
+      await b.pic(name, [x, y, x2 - x, y2 - y], 2); await key(b, 'esc') }
+    await list('toolmenu', 'toolmenu')
+    await list('modemenu', 'modemenu')
+    await b.hit('look', 1); console.log('look', await b.names()); { const r = await b.box('look'); await b.pic('look', [Math.max(0, Math.round(r[0]) - 20), Math.max(0, Math.round(r[1]) - 300), 520, 330], 1.5) } await key(b, 'esc')
+    await list('nudgelist', 'nudge')
+    { const c = await near('meter', 220, 360, -12, -12); await b.hit('meter'); await b.pic('meterlist', c, 2); await key(b, 'esc') }
+    await b.ev(`if (typeof tpanelSet === 'function') { tpanelSet(false, false); flush() } return 1`)
   },
+
   async fades (b) {
     // close in on a join of two kick regions; a fade in, a fade out, and a crossfade drawn with the fade tool
     await b.ev(`const S = __daw.S; S.rh = 64; __daw.setZoom(110, 22.6); __daw.redraw()`)

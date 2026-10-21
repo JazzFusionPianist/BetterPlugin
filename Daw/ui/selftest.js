@@ -13,8 +13,9 @@ async function runSelfTest (mode) {
   const playFrom = async bar => { halt(false); play(bar); await sleep(350) }
   const only = async (t, fn) => { for (const x of S.tracks) x.solo = x === t; applyAll(); const r = await fn(); for (const x of S.tracks) x.solo = false; applyAll(); return r }
   /* real pointer and key events on the page, at places given in the board's own units; a control is found by what it does */
-  const at = (x, y) => { const b = document.getElementById('board').getBoundingClientRect(), k = b.width / W; return { clientX: b.left + x * k, clientY: b.top + y * k } }
-  const mid = (sel, fx = .5, fy = .5) => { flush(); const el = document.querySelector(sel); if (!el) throw new Error('nothing to press: ' + sel); const r = el.getBoundingClientRect(), b = document.getElementById('board').getBoundingClientRect(), k = b.width / W; return [(r.left + r.width * fx - b.left) / k, (r.top + r.height * fy - b.top) / k] }
+  const lc = () => typeof SKV === 'object' ? SKV.left || 0 : 0                       // (the transport panel at the left: the room's x begins after it)
+  const at = (x, y) => { const b = document.getElementById('board').getBoundingClientRect(), k = b.width / (W + lc()); return { clientX: b.left + (x + lc()) * k, clientY: b.top + y * k } }
+  const mid = (sel, fx = .5, fy = .5) => { flush(); const el = document.querySelector(sel); if (!el) throw new Error('nothing to press: ' + sel); const r = el.getBoundingClientRect(), b = document.getElementById('board').getBoundingClientRect(), k = b.width / (W + lc()); return [(r.left + r.width * fx - b.left) / k - lc(), (r.top + r.height * fy - b.top) / k] }
   const tap = (sel, more) => { const [x, y] = mid(sel); press(x, y, more) }
   const fire = (type, x, y, el, more) => { const p = at(x, y); (el || document.elementFromPoint(p.clientX, p.clientY)).dispatchEvent(new PointerEvent(type, Object.assign({ bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', isPrimary: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 }, p, more || {}))) }
   const press = (x, y, more) => { fire('pointerdown', x, y, null, more); fire('pointerup', x, y, window, more) }
@@ -2169,7 +2170,7 @@ async function runSelfTest (mode) {
   await step('panel', async () => {
     halt(false)
     const res = {}, key = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'h', code: 'KeyH', bubbles: true, cancelable: true }))
-    jumpTo(18 + 2 / 4 + 1 / 16 + 37 / 3840); key(); await sleep(150); flush(); SKINS.frame.panel(curPos())
+    tpanelSet(false, false); jumpTo(18 + 2 / 4 + 1 / 16 + 37 / 3840); key(); await sleep(150); flush(); SKINS.frame.panel(curPos())      // (the room begins with it up: down first, then H)
     const col = document.getElementById('tp-col'), bar = document.getElementById('tp-bar'), rest = document.getElementById('tp-rest')
     res.on = { panel: TPANEL.on, col: !!col, left: SKV.left, toolRowFolded: MK_Y === 0 && !document.querySelector('#g-info [data-a="toolmenu"]'), barGone: !document.getElementById('rd') }
     res.parts = ['play', 'stop', 'rec', 'pos', 'smpte', 'meter', 'tempo', 'loop', 'key', 'click', 'lowlat', 'master', 'addtrack', 'look', 'toolmenu', 'modemenu', 'grid', 'nudge', 'autokey', 'flexkey', 'zoomx', 'zoomy'].filter(a => !document.querySelector('#tp-col [data-a="' + a + '"]'))
@@ -2187,7 +2188,8 @@ async function runSelfTest (mode) {
       res.stereo = { track: t.name, left: +l.toFixed(3), right: +r.toFixed(3), apart: l > .02 && r < l * .1 } }
     Object.assign(S.panel, pw); setView(true); dirtyAll(); flush()
     key(); await sleep(150); flush()
-    res.off = { panel: TPANEL.on, col: !!document.getElementById('tp-col'), bar: !!document.getElementById('rd') }
+    res.off = { panel: TPANEL.on, col: !!document.getElementById('tp-col'), nothingAtTheTop: !document.getElementById('rd') && MK_Y === 0 }
+    tpanelSet(true, false)
     return res
   })
   await step('zoomFeel', async () => {
@@ -2300,7 +2302,7 @@ async function runSelfTest (mode) {
     await natSession(); await sleep(100)
     res.heard = await only(t, async () => { await playFrom(43.4); return listen(500) }); halt(false)
     await snap('selftest-33-notes-page.png')
-    { flush(); const el = document.querySelector('[data-a="np"][data-k="note"]'), b0 = document.getElementById('board').getBoundingClientRect(), k = b0.width / W, q = el.getBoundingClientRect(), x = (q.left + q.width / 2 - b0.left) / k, y = (q.top + q.height / 2 - b0.top) / k
+    { flush(); const el = document.querySelector('[data-a="np"][data-k="note"]'), b0 = document.getElementById('board').getBoundingClientRect(), k = b0.width / (W + lc()), q = el.getBoundingClientRect(), x = (q.left + q.width / 2 - b0.left) / k - lc(), y = (q.top + q.height / 2 - b0.top) / k
       await pull(x, y, x, y - 12 * ROLL.g.rowH) }
     res.pulledUp = r.notes.map(q => q.n)
     setNotes(r, r.notes.map(q => Object.assign({}, q, { d: 2 }))); await natSession()
@@ -3150,7 +3152,7 @@ async function runSelfTest (mode) {
     if (ti < 0) return { skipped: 'no track of sound' }
     S.sel = ti; S.panel.on = true; S.panel.tab = 'patch'; S.picker.cat = 'all'; setView(true); __daw.redraw(); await sleep(300)
     await openPicker(); await sleep(600)
-    const el = $('picker'), r = el.getBoundingClientRect(), k = board.getBoundingClientRect().width / W
+    const el = $('picker'), bd = board.getBoundingClientRect(), k = bd.width / (W + lc()), r = { left: el.getBoundingClientRect().left - bd.left - lc() * k, top: el.getBoundingClientRect().top - bd.top, width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height }
     const cats = [...document.querySelectorAll('.pk-cat')].map(c => [c.dataset.cat, +c.querySelector('span').textContent])
     const res = { in: el.classList.contains('in'), box: [r.left / k, r.top / k, r.width / k, r.height / k].map(Math.round), panel: [Math.round(BY + PH), Math.round(S.panel.h - PH), RX - SIDE], cats, rows: document.querySelectorAll('.pk-row').length }
     await snap('selftest-picker-all.png')

@@ -12,15 +12,17 @@
        once the mix has clipped (pressed: the hold let go), the loudest peak beside it;
      how many tracks, large, a key for a new one, what is chosen (its colour and shape: the look's card), a region's gain
        and transpose; at the foot in small capitals the tool, the mode, the grid, the nudge, automation, rubato, the zooms.
-   H shows or hides it (View > Transport Panel); hidden, the control bar and the tracks' bar are back at the top. The app
-   remembers which; a browser page without the app, and the app's own check, begin without it. No name of the song or of
+   H shows or hides it (View > Transport Panel); hidden, nothing stands in its place (since 2026-10-21: the bars at the
+   top are gone) and the song has all the room. The app remembers which; it begins with it up. No name of the song or of
    the program in it (his rule). Read after skins.js, ui.js, inspector.js and selftest.js. */
-const TPANEL = { on: (() => { try { const v = localStorage.getItem('slur.tpanel'); return v == null ? !!NAT : v === '1' } catch (e) { return !!NAT } })() }
+const TPANEL = { on: (() => { try { const v = localStorage.getItem('slur.tpanel'); return v == null ? !!NAT : v !== '0' } catch (e) { return !!NAT } })() }      // (the app begins with it; a bare page in a browser — the tests' — without it, unless they ask)
 const TPX = { CW: 248, pk: -100, clip: false, was: false, geo: null }
-SKIN_BANDS.panel = [0, 0, TPX.CW]
-SKIN_NO_TOOL.add('panel')
+SKIN_BANDS.panel = [0, 0, TPX.CW]; SKIN_BANDS.none = [0, 0, 0]
+SKIN_NO_TOOL.add('panel'); SKIN_NO_TOOL.add('none')
+/* the room's transport is the panel; hidden, nothing stands in its place — the control bar and the tracks' bar at the top are
+   gone (his word, 2026-10-21: "transport를 닫았을 때 … 화면 상단 … 이제 필요없지 않나"): the song has all the room */
 { const read0 = skinRead
-  skinRead = function () { read0(); if (TPANEL.on && SKIN.k.transport === 'plain') { SKIN.k.transport = 'panel'; SKIN.noTool = true } } }
+  skinRead = function () { read0(); if (SKIN.k.transport === 'plain') { SKIN.k.transport = TPANEL.on ? 'panel' : 'none'; SKIN.noTool = true } } }
 function tpanelSet (on, keep = true) {
   TPANEL.on = !!on
   if (keep) try { localStorage.setItem('slur.tpanel', TPANEL.on ? '1' : '0') } catch (e) {}
@@ -30,9 +32,9 @@ function tpanelSet (on, keep = true) {
 }
 const toggleTransportPanel = () => tpanelSet(!TPANEL.on)
 KEYS.KeyH = () => toggleTransportPanel()
-/* the app's own check runs on the room as it was before the panel; its own step turns it on (selftest.js) */
+/* the app's own check runs on the room as it comes: the panel up */
 { const run0 = runSelfTest
-  runSelfTest = async function (mode) { tpanelSet(false, false); return run0(mode) } }
+  runSelfTest = async function (mode) { tpanelSet(true, false); return run0(mode) } }
 
 /* ── drawing ── */
 const tpNum = ' style="font-variant-numeric: tabular-nums"'
@@ -81,7 +83,7 @@ SKINS.left.panel = () => {
     s += hit(GL - 4, by - bs * .74, RE - GL + 4, bs * .74 + 6, 'pos')
     SKV.field.pos = fld(GL, by - 30, 150, 30)
     const tc = smpte(p)
-    s += T(GL, by + 24, tc, { size: 10, a: .7, x: tpNum + ' id="tp-smpte"' }) + tpCap(GL + tw(tc, 10) + 8, by + 24, smpteRate().t + ' fps', { a: .32 }) + hit(GL - 4, by + 12, 150, 16, 'smpte')
+    s += T(GL, by + 24, tc, { size: 10, a: .7, x: tpNum + ' id="tp-smpte"' }) + tpCap(GL + twTab(tc, 10) + 8, by + 24, smpteRate().t + ' fps', { a: .32 }) + hit(GL - 4, by + 12, 150, 16, 'smpte')
     SKV.field.smpte = fld(GL - 2, by + 10, 96, 18)
     y = by + 24 + gap }
   /* the measure | the tempo, their tops on one line */
@@ -94,8 +96,11 @@ SKINS.left.panel = () => {
     for (let k = 0; k < 48; k++) { const a = k / 48 * 2 * Math.PI - Math.PI / 2, l = k % 12 ? 2.4 : 6; s += P(`M${n(tx + Math.cos(a) * r)} ${n(cy + Math.sin(a) * r)}L${n(tx + Math.cos(a) * (r - l))} ${n(cy + Math.sin(a) * (r - l))}`, { stroke: INK, sa: k % 12 ? .25 : .55, sw: .8 }) }
     geo.dial = { tx, cy, r: r + 4 }
     { const a = ph * 2 * Math.PI - Math.PI / 2; s += Cc(tx + Math.cos(a) * (r + 4), cy + Math.sin(a) * (r + 4), 2.2, { fill: INK, x: ' id="tp-dial"' }) }
-    const big = String(Math.floor(S.tempo)), dec = '.' + (+S.tempo).toFixed(2).split('.')[1]
-    s += T(tx - 5, cy + 11 * z, big, { size: 34 * z, w: 500, anchor: 'middle', x: tpNum }) + T(tx - 5 + tw(big, 34 * z, 500) / 2 + 1, cy + 11 * z, dec, { size: 10, a: .55, x: tpNum }) + tpCaps(tx, cy + 25 * z, 'bpm', { anchor: 'middle', a: .4 }) + hit(tx - r, cy - r, 2 * r, 2 * r, 'tempo')
+    /* the tempo and its hundredths side by side, inside the ring: a tempo of three figures set smaller (his ask, 2026-10-21) */
+    const big = String(Math.floor(S.tempo)), dec = '.' + (+S.tempo).toFixed(2).split('.')[1], room = 2 * r - 16
+    let bs = 34 * z; while (bs > 16 && twTab(big, bs, 500) + 2 + twTab(dec, 10) > room) bs -= 1
+    const bw = twTab(big, bs, 500), x0 = tx - (bw + 2 + twTab(dec, 10)) / 2
+    s += T(x0, cy + 11 * z, big, { size: bs, w: 500, x: tpNum }) + T(x0 + bw + 2, cy + 11 * z, dec, { size: 10, a: .55, x: tpNum }) + tpCaps(tx, cy + 25 * z, 'bpm', { anchor: 'middle', a: .4 }) + hit(tx - r, cy - r, 2 * r, 2 * r, 'tempo')
     SKV.field.tempo = fld(tx - 34, cy - 14, 68, 24)
     y = mt + Math.max(ms + 12, 2 * r + 6) + gap }
   /* the cycle | the key, click, low latency */
@@ -128,14 +133,24 @@ SKINS.left.panel = () => {
   /* the foot, on the same two columns: how many tracks | what is chosen, a new one at the right edge; then the small capitals */
   { const st = S.tracks[S.sel], rs = S.focus === 'tracks' ? [] : selRegs(), r = rs.length ? rs[0][0] : null, look = r ? regLook(r, rs[0][1]) : st ? { c: st.c } : { c: INK }, ty = f0 + 6
     const nt = S.tracks.filter(t => t.kind === 'audio').length
-    s += T(GL - 2, ty, String(nt), { size: 38, w: 500, x: tpNum }) + tpCap(GL + tw(String(nt), 38, 500), ty, nt === 1 ? 'track' : 'tracks', { a: .45 })
+    s += T(GL - 2, ty, String(nt), { size: 38, w: 500, x: tpNum }) + tpCap(GL - 2 + twTab(String(nt), 38, 500) + 6, ty, nt === 1 ? 'track' : 'tracks', { a: .45 })
     s += Cc(RE - 11.5, ty - 13, 11.5, { stroke: INK, sa: .6, sw: 1 }) + P(`M${n(RE - 11.5)} ${n(ty - 19)}V${n(ty - 7)}M${n(RE - 17.5)} ${n(ty - 13)}H${n(RE - 5.5)}`, { stroke: INK, sa: .9, sw: 1.2 }) + hit(RE - 26, ty - 28, 30, 30, 'addtrack')
     if (st) {
-      const nm = r ? (rs.length > 1 ? `${rs.length} regions` : asGiven(r.tag || r.name || rs[0][1].name)) : asGiven(st.name)
+      const many = typeof chosen === 'function' ? chosen().length : 1, nm = r ? (rs.length > 1 ? `${rs.length} regions` : asGiven(r.tag || r.name || rs[0][1].name)) : many > 1 ? `${many} tracks` : asGiven(st.name)      // (several chosen: how many, as the tracks' bar said)
       s += R(GR, ty - 16, 7, 7, { fill: look.c }) + T(GR + 11, ty - 9.5, fit(nm, 56, 8.5), { size: 8.5, a: .8 }) + hit(GR - 3, ty - 20, 74, 14, 'look')
       SKV.field.look = { x: o + GR, y: ty - 20, w: 74, h: 14 }
-      if (r) { const sg = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v || 0), gw = `gain ${fmtDb(r.gain || 0)}`
-        s += tpCap(GR, ty, gw, { a: .55, x: tpNum }) + hit(GR - 3, ty - 9, tw(gw, 7.5) + 6, 12, 'rgain', '', 'ns-resize') + tpCap(GR + tw(gw, 7.5) + 8, ty, `tr ${sg(r.tr)}`, { a: .55, x: tpNum }) + hit(GR + tw(gw, 7.5) + 5, ty - 9, 30, 12, 'rtr', '', 'ns-resize') }
+      /* what the tracks' bar said of what is chosen, here now (the bar is gone): a crossfade's length and curve; in rubato
+         how its track is stretched, and quantize; else a region's gain, transpose, fine tune, fades and their curve, tempo */
+      const line = (y, items) => { let xx = GR; for (const [word, act, cur] of items) { if (!word) continue; const ww = tw(word, 7.5); if (xx + ww > RE + 2) break; s += tpCap(xx, y, word, { a: act ? .62 : .4, x: tpNum }) + (act ? hit(xx - 2, y - 9, ww + 4, 12, act, '', cur || 'pointer') : ''); xx += ww + 7 } }
+      const X = typeof DRAFT === 'object' && DRAFT.fades && S.selX ? [regOf(S.selX[0])[0], regOf(S.selX[1])[0]] : null, xf = X && X[0] && X[1] && typeof xfadeOf === 'function' ? xfadeOf(X[0], X[1]) : 0
+      const sg = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v || 0)
+      if (xf) { line(ty, [[`crossfade ${fadeLen(xf)}`]]); line(ty + 11, [[FADE_CURVES[X[0].foc || 0] + ' ▾', 'fcurve']]) }
+      else if (r && S.flex) { line(ty, [!r.loop && !r.notes && typeof stretchOf === 'function' ? [`stretch ${stretchOf(rs[0][1])} ▾`, 'rstretch'] : null].filter(Boolean)); line(ty + 11, [['quantize', 'qgo'], [qName(S.q) + ' ▾', 'qval']]) }
+      else if (r) {
+        line(ty, [[`gain ${fmtDb(r.gain || 0)}`, 'rgain', 'ns-resize'], [`tr ${sg(r.tr)}`, 'rtr', 'ns-resize']].concat(r.notes || rs[0][1].midi ? [] : [[`fine ${sg(r.ft)}`, 'rft', 'ns-resize']]))
+        const fades = (r.fi || 0) > 0 || (r.fo || 0) > 0
+        line(ty + 11, [[`fades ${+(r.fi || 0).toFixed(2)} ${+(r.fo || 0).toFixed(2)}`], fades ? [FADE_CURVES[(r.fi > 0 ? r.fic : r.foc) || 0] + ' ▾', 'fcurve'] : ['', null], !r.loop && r.bpm > 0 ? [`${+r.bpm.toFixed(1)} bpm`, 'rbpm'] : ['', null]])
+      }
       else s += tpCap(GR, ty, 'track', { a: .3 })
     } }
   const pick = (x, yy, label, v, a) => { const w = tw(v, 9.5); SKV.field[a] = fld(x - 2, yy + 1, Math.max(56, w + 14), 14); return tpCaps(x, yy, label) + T(x, yy + 12, v, { size: 9.5, a: .85, x: tpNum }) + tpChev(x + w + 4, yy + 8.5) + hit(x - 3, yy - 8, w + 16, 24, a) }
@@ -180,6 +195,16 @@ SKINS.frame.panel = p => {
     if (db >= -.05 && !TPX.clip) { TPX.clip = true; const c = $('tp-clip'); if (c) c.setAttribute('fill', REC) }
   }
 }
+/* a list opened from the panel (quantize, stretch, a fade's curve) stands beside where it was pressed, not where the
+   tracks' bar stood */
+{ const down0 = onDown
+  onDown = function (e) {
+    const el = e && e.target && e.target.closest ? e.target.closest('#tp-col [data-a]') : null, a = el && el.dataset.a
+    if (a === 'rbpm' && e.button === 0) { startRename('rbpm', 0, { x: +el.getAttribute('x') - TPX.CW, y: +el.getAttribute('y'), w: +el.getAttribute('width'), h: +el.getAttribute('height') }); return }      // (typed where it stands: the column's own x, counted from the room's)
+    const r = down0.apply(this, arguments)
+    if (a && ['qval', 'rstretch', 'fcurve'].includes(a) && S.menu) { const q = el.getBoundingClientRect(), b = $('board').getBoundingClientRect(), k = b.width / (W + (SKV.left || 0)); S.menu.x = (q.left - b.left) / k - (SKV.left || 0); S.menu.y = (q.bottom - b.top) / k + 3; uiDirty('menu') }
+    return r
+  } }
 /* the light pressed: the hold let go */
 { const down0 = onDown
   onDown = function (e) {

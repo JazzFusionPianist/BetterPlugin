@@ -69,11 +69,13 @@ await undo()
 { const p = await at('kick', 25, FOOT, 0); await b.click(p.x, p.y); await b.sleep(60) }
 const short = await ev(`return .02 / SPB()`)
 ok('the foot of a join pressed: a crossfade just long enough to heal the cut, and it is the thing chosen', await ev(`const A = ${reg('kick', 17)}, B = S.tracks.find(t => t.name === 'kick').regs.find(x => x !== A && xfadeOf(A, x)); return !!B && Math.abs(xfadeOf(A, B) - ${short}) < 1e-9 && !!S.selX && S.selX[0] === A.id && S.selX[1] === B.id && !S.selR.length`))
-ok('the tool row says so, and how it bends', await ev(`const t = [...document.querySelectorAll('#g-info text')].map(x => x.textContent); return t.includes('crossfade') && t.includes('20 ms') && !!document.querySelector('[data-a="fcurve"]')`), await ev(`return [...document.querySelectorAll('#g-info text')].map(x => x.textContent).slice(-8)`))
+await ev(`tpanelSet(true, false); flush(); return 1`)      // (the transport panel says it now: the tool row is gone)
+ok('the transport panel says so, and how it bends', await ev(`const t = [...document.querySelectorAll('#tp-col text')].map(x => x.textContent); return t.includes('crossfade 20 ms') && !!document.querySelector('#tp-col [data-a="fcurve"]')`), await ev(`return [...document.querySelectorAll('#g-info text')].map(x => x.textContent).slice(-8)`))
 { const p = await ev(`const el = document.querySelector('[data-a="fcurve"]').getBoundingClientRect(); return { x: el.left + el.width / 2, y: el.top + el.height / 2 }`); await b.click(p.x, p.y); await b.sleep(60)
   const i = await ev(`return S.menu ? S.menu.items.findIndex(it => it.t === 's curve') : -1`)
   const q = await ev(`const el = document.querySelector('[data-a="pick"][data-i="${i}"]').getBoundingClientRect(); return { x: el.left + el.width / 2, y: el.top + el.height / 2 }`); await b.click(q.x, q.y); await b.sleep(60)
   ok('its bend is picked there: both sides take it', await ev(`const A = regOf(S.selX[0])[0], B = regOf(S.selX[1])[0]; return A.foc === 2 && B.fic === 2`)) }
+await ev(`tpanelSet(false, false); flush(); return 1`)
 await undo()
 await key('Backspace', 'Backspace', 8)
 ok('delete with it chosen: a plain join again, both regions still there', same(await regs('kick'), [[5, 13, 4], [17, 25, 16], [25, 33, 24], [33, 41, 32]]) && await ev(`return !${reg('kick', 17)}.fo && !S.selX`), await regs('kick'))
@@ -134,7 +136,7 @@ ok('a marquee over the start of a region: it fades in over it', await ev(`const 
 await undo()
 
 // ── the modes ──
-ok('the mode is on the tool row', await ev(`return !!document.querySelector('[data-a="modemenu"]') && S.mode === 'smart'`))
+ok('the mode is in the transport panel', await ev(`tpanelSet(true, false); flush(); const on = !!document.querySelector('#tp-col [data-a="modemenu"]') && S.mode === 'smart'; tpanelSet(false, false); flush(); return on`))
 await ev(`S.selR = []; S.marq = null; __daw.redraw()`)
 // smart: a region let go near the end of another goes to that end
 { const p = await at('hats', 15, .5), q = await at('hats', 16.3, .5); await b.dragTo(p.x, p.y, q.x, q.y, 8); await b.sleep(60) }
@@ -157,11 +159,13 @@ await undo()
 await key('F2', 'F2', 113); ok('f2 from slip: back to the mode before it', await ev(`return S.mode === 'grid'`))
 await key('F2', 'F2', 113); ok('and again: slip', await ev(`return S.mode === 'slip'`))
 // the menu
+await ev(`tpanelSet(true, false); flush(); return 1`)      // (the mode's key is in the transport panel)
 { const p = await ev(`const el = document.querySelector('[data-a="modemenu"]').getBoundingClientRect(); return { x: el.left + el.width / 2, y: el.top + el.height / 2 }`); await b.click(p.x, p.y); await b.sleep(60)
   ok('the mode key opens the five of them', same(await ev(`return S.menu && S.menu.items.map(i => i.t)`), ['smart', 'grid', 'slip', 'shuffle', 'spot']))
   const i = await ev(`return S.menu.items.findIndex(it => it.t === 'shuffle')`)
   const q = await ev(`const el = document.querySelector('[data-a="pick"][data-i="${i}"]').getBoundingClientRect(); return { x: el.left + el.width / 2, y: el.top + el.height / 2 }`); await b.click(q.x, q.y); await b.sleep(60)
   ok('shuffle picked there', await ev(`return S.mode === 'shuffle' && !S.menu`)) }
+await ev(`tpanelSet(false, false); flush(); return 1`)
 await key('F1', 'F1', 112); ok('f1 is shuffle too', await ev(`return S.mode === 'shuffle'`))
 
 // ── shuffle ──
@@ -235,11 +239,13 @@ ok('the song runs', await ev(`return S.playing`))
 await key(' ', 'Space', 32); await undo()
 // ── how fast a file goes ──
 await ev(`S.selR = [__F.id]; S.focus = 'lanes'; __daw.redraw()`)
-ok('a file whose speed is known says it on the tool row', await ev(`const t = [...document.querySelectorAll('#g-info text')].map(x => x.textContent); return t.includes('bpm') && t.includes('144') && !!document.querySelector('[data-a="rbpm"]')`), await ev(`return [...document.querySelectorAll('#g-info text')].map(x => x.textContent).slice(-8)`))
+await ev(`tpanelSet(true, false); flush(); return 1`)      // (the transport panel says it now)
+ok('a file whose speed is known says it in the transport panel', await ev(`const t = [...document.querySelectorAll('#tp-col text')].map(x => x.textContent); return t.some(x => x === '144 bpm') && !!document.querySelector('[data-a="rbpm"]')`), await ev(`return [...document.querySelectorAll('#g-info text')].map(x => x.textContent).slice(-8)`))
 { const p = await ev(`const el = document.querySelector('[data-a="rbpm"]').getBoundingClientRect(); return { x: el.left + el.width / 2, y: el.top + el.height / 2 }`); await b.click(p.x, p.y); await b.sleep(120)
   ok('pressed: it can be typed', await ev(`const el = document.getElementById('rename'); return !el.hidden && el.value === '144'`), await ev(`const el = document.getElementById('rename'); return [el.hidden, el.value]`))
   await ev(`document.getElementById('rename').value = '72'`); await key('Enter', 'Enter', 13); await b.sleep(80)
   ok('heard at twice its speed, put right by hand', await ev(`return regOf(__F.id)[0].bpm === 72`)) }
+await ev(`tpanelSet(false, false); flush(); return 1`)
 { const t0 = await ev(`return S.tempo`)
   await ev(`S.selR = [__F.id]; await act.fitTempo()`); await b.sleep(80)
   ok('fitted to the song: it follows the tempo, stretched by the song’s speed over its own', await ev(`const r = regOf(__F.id)[0]; return r.fx === true && Math.abs(r.rate - S.tempo / 72) < 1e-9 && Math.abs((r.b - r.a) - 8 * 72 / S.tempo) < 1e-6 && Math.abs(r.srcBars - 8 * 72 / S.tempo) < 1e-6`), await ev(`const r = regOf(__F.id)[0]; return [r.rate, r.b - r.a, S.tempo]`))

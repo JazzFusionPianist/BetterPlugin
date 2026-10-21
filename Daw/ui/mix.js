@@ -355,10 +355,10 @@ function mixCounts (h, wide) {
   MIX_N = { key, nf, ns }
   return MIX_N
 }
-function stripGeom (y, h, wide, knob) {
-  const sp = 16, sh = 14, { nf, ns } = mixCounts(h - (knob ? PAN_KNOB - PAN_BAR : 0), wide)
+function stripGeom (y, h, wide, knob, counts) {      // (counts: { nf, ns } a strip of its own asks for — the inspector's)
+  const sp = 16, sh = 14, { nf, ns } = counts || mixCounts(h - (knob ? PAN_KNOB - PAN_BAR : 0), wide)
   const rws = (wide ? ['in'] : []).concat(Array.from({ length: nf }, (_, k) => 'fx' + k), ['send'], Array(ns - 1).fill(''), ['out'])
-  const y0 = y + 7, panY = y0 + rws.length * sp + 9, ft = panY + (knob ? PAN_KNOB : PAN_BAR), fb = Math.max(ft + 24, y + h - 67)
+  const y0 = y + 7, panY = y0 + rws.length * sp + 9, ft = panY + (knob ? PAN_KNOB : PAN_BAR), fb = Math.max(ft + 24, y + h - (knob ? 78 : 67))      // (the inspector's: room between its cells and its name)
   return { sp, sh, rows: rws, nf, ns, y0, panY, ft, fb, fh: fb - ft, yOf: db => fb - (fb - ft) * volF(db) }
 }
 /* what is on a track's patch, in order: the prints and plug-ins on its wall (a key's side is not a slot), else — no wall
@@ -377,8 +377,8 @@ function fxItems (t) {
   }
   return out
 }
-function stripGutter (x, w, y, h, wide, knob) {
-  const q = stripGeom(y, h, wide, knob)
+function stripGutter (x, w, y, h, wide, knob, counts) {
+  const q = stripGeom(y, h, wide, knob, counts)
   let s = ''
   q.rows.forEach((l, i) => { const said = l === 'fx0' ? 'fx' : /^fx\d/.test(l) ? '' : l; if (said) s += T(x + w - 6, q.y0 + i * q.sp + q.sh / 2 + 3.2, said, { size: 9, a: .4, anchor: 'end' }) })
   s += T(x + w - 6, q.panY + 4, 'pan', { size: 9, a: .4, anchor: 'end' })
@@ -401,7 +401,7 @@ const panBar = (x, y, w, pan) => { const cx = x + w / 2, px = cx + pan * w / 2; 
 /* what plays into a bus, or sits in a stack: said where a track says its input */
 const feedsOf = t => S.tracks.filter(x => x !== t && (x.sends || []).some(sd => sd.to === t.id)).length
 function strip (x, y, w, h, t, i, o = {}) {
-  const wide = !!o.wide, q = stripGeom(y, h, wide, !!o.knob), pad = wide ? 5 : 4, sx = x + pad, sw = w - pad * 2, fs = wide ? 9.5 : 9, sel = !!o.sel, tx = sx + (wide ? 6 : 2), di = ` data-i="${i}"`      // (tx: where everything in the strip begins, one edge from its colour down to its name)
+  const wide = !!o.wide, q = stripGeom(y, h, wide, !!o.knob, o.counts), pad = wide ? 5 : 4, sx = x + pad, sw = w - pad * 2, fs = wide ? 9.5 : 9, sel = !!o.sel, tx = sx + (wide ? 6 : 2), di = ` data-i="${i}"`      // (tx: where everything in the strip begins, one edge from its colour down to its name)
   let s = '', yy = q.y0, si = 0, hits = ''
   const short = v => wide ? v : (SHORT[v] || v)
   const word = (txt, room, it, a = .88) => T(tx, yy + q.sh / 2 + fs * .35, fit(txt, room, fs, 400, !!it), { size: fs, a, it: !!it })
@@ -498,10 +498,12 @@ function strip (x, y, w, h, t, i, o = {}) {
     /* as in his picture of a strip (2026-10-20): its colour along the top; what it reads large, from the left; record,
        monitor, mute and solo as squares; its name at the foot, in the middle */
     s += R(tx, y + 1.5, sx + sw - 2 - tx, 2.5, { fill: t.c, fa: !o.master && t.mute ? .4 : 1 })
-    s += T(tx, y + h - 50, fmtDb(vol), { size: wide ? 14 : 12, a: sel || (!o.master && autoPts(t, 'vol').length) ? 1 : .86 })      // (a little smaller, and further from the cells: his ask, 2026-10-20)
-    if (o.master || !autoPts(t, 'vol').length) hits += hit(sx, y + h - 63, sw, 16, 'volnum', di, 'default')                 // what it reads: pressed twice, a level can be typed
-    if (!o.master) { const gap = 1.5, cw = Math.min(wide ? 16 : 12, Math.floor((sx + sw - 2 - tx - gap * 3) / 4 * 10) / 10); s += squareCells(tx, y + h - 39, cellsOf(t), cw, wide ? 9 : 8.5, i, gap) }      // (as wide as four would be, in every strip: two are not larger than four)
-    s += T(x + w / 2, y + h - 11, fit(asGiven(t.name), sw, ns, sel ? 500 : 400), { size: ns, w: sel ? 500 : 400, a: !o.master && t.mute ? .42 : sel ? 1 : .86, anchor: 'middle' })      // (in the middle of its strip: his ask, 2026-10-20)
+    const lift = o.knob ? 11 : 0                                                            // (the inspector: more room between r i m s and its name — his ask, 2026-10-21)
+    s += T(tx, y + h - 50 - lift, fmtDb(vol), { size: wide ? 14 : 12, a: sel || (!o.master && autoPts(t, 'vol').length) ? 1 : .86 })      // (a little smaller, and further from the cells: his ask, 2026-10-20)
+    if (o.master || !autoPts(t, 'vol').length) hits += hit(sx, y + h - 63 - lift, sw, 16, 'volnum', di, 'default')                 // what it reads: pressed twice, a level can be typed
+    if (!o.master) { const gap = 1.5, cw = Math.min(wide ? 16 : 12, Math.floor((sx + sw - 2 - tx - gap * 3) / 4 * 10) / 10); s += squareCells(tx, y + h - 39 - lift, cellsOf(t), cw, wide ? 9 : 8.5, i, gap) }      // (as wide as four would be, in every strip: two are not larger than four)
+    const nsz = o.knob && typeof lkN === 'function' ? lkN('heads.size') || 10.5 : ns       // (the inspector's name in the size of the heads' names: his ask, 2026-10-21)
+    s += T(x + w / 2, y + h - 11, fit(asGiven(t.name), sw, nsz, sel ? 500 : 400), { size: nsz, w: sel ? 500 : 400, a: !o.master && t.mute ? .42 : sel ? 1 : .86, anchor: 'middle' })      // (in the middle of its strip: his ask, 2026-10-20)
   }
   if (con && con.box) s += con.box(x, y, w, h, sel, o.master ? null : t)
   if (!o.master) hits += hit(x, y + h - 27, w, 27, 'msel', di)

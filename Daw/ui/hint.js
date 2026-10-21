@@ -109,7 +109,7 @@ function lineOffers (typed) {
     if (t.kind !== 'stack') add(LINE_WHAT.pan, asGiven(panText(shown(t, 'pan'))), { k: 'what', key: 'pan' })
     if (t.patch) for (const k of ['tape', 'space', 'delay']) add(LINE_WHAT[k], asGiven(String(Math.round(shown(t, k)))), { k: 'what', key: k })
     for (const m of t.macros || []) add(String(m.name).toLowerCase(), m.to ? asGiven(`macro · ${String(m.to.plug || '').toLowerCase()}`) : 'macro', { k: 'what', key: 'mac' + m.id }, true)
-    ;(t.sends || []).forEach((sd, i) => { const bus = byId(sd.to); if (bus) add(`send ${String(bus.name).toLowerCase()}`, asGiven(`${fmtDb(sd.db)} db`), { k: 'what', key: 'send' + i }, true) })
+    ;(t.sends || []).forEach((sd, i) => { const bus = byId(sd.to); if (bus) add(`send ${String(bus.name).toLowerCase()}`, asGiven(`${fmtDb(sd.db)} dB`), { k: 'what', key: 'send' + i }, true) })
     if (!act) trackActs()
     return out
   }

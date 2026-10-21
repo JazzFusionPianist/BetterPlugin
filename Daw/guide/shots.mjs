@@ -146,10 +146,8 @@ const SHOTS = {
     await b.click(60, await b.Y(5)); await key(b, '⌃n')
     await b.ev(`const S = __daw.S, T = S.tracks; const bus = T[T.length - 1]; bus.name = 'plate'; bus.patch.A.space = 46; T[6].sends = [{ to: bus.id, db: -12 }]; T[4].sends = [{ to: bus.id, db: -18 }]; T[4].patch.A.tape = 24; T[4].patch.A.space = 30; T[4].patch.A.delay = 20; T[4].inserts = [{ uid: 9001, name: 'comp', fmt: 'au', id: 'x' }, { uid: 9002, name: 'equaliser', fmt: 'vst3', id: 'y' }]; T[2].mute = true; T[3].solo = false; __daw.repaint(); __daw.chooseTrack(4, ''); __daw.redraw()`)
     await key(b, 'x'); console.log('mixer', await b.names()); await b.pic('mixer', PANEL, 1.5)
-    /* the mixer with the transport panel (mixpanel.js): its own strips */
-    await b.ev(`if (typeof tpanelSet === 'function') { tpanelSet(true, false); flush() } return 1`); await b.sleep(250)
-    await b.pic('mixpanel', [248, H - 22 - 316, W - 248, 316], 1.5)
-    await b.ev(`if (typeof tpanelSet === 'function') { tpanelSet(false, false); flush() } return 1`); await b.sleep(150)
+    /* the room's one mixer (mixpanel.js) */
+    await b.pic('mixpanel', PANEL, 1.5)
     await key(b, 'b'); console.log('patch', await b.names()); await b.pic('patch', PANEL, 1.5)
     const o = await b.box('mout'); if (o) { await b.click(o[0] + o[2] / 2, o[1] + o[3] / 2); await b.pic('outlist', [760, 300, 420, 400], 1.5); await key(b, 'esc') }
     await b.click(60, await b.Y(1)); await b.pic('patch-empty', PANEL, 1.5)

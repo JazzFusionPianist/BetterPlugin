@@ -46,8 +46,13 @@ ok('eight tracks: all of them wide, each with its level, pan, a place for a plug
 { const p = await box('[data-a="mpan"][data-i="4"]'); await pull(p.x, p.y, p.x, p.y - 30); ok('the pan turned', await ev('return Math.abs(S.tracks[4].pan || 0) > .05'), await ev('return S.tracks[4].pan')); await ev(`S.tracks[4].pan = 0; uiDirty('dock'); flush(); return 1`) }
 { const p = await box('[data-a="mute"][data-i="4"]'); await click(p.x, p.y); ok('m, a square', await ev('return !!S.tracks[4].mute')); await click(p.x, p.y) }
 /* two meters, left and right apart */
-{ const r = await ev(`const id = S.tracks[0].id; METERS.ts = new Map([[id, [.9, .1]]]); SKINS.frame.panel(curPos()); const a = document.getElementById('mpm-' + id + '-0'), c = document.getElementById('mpm-' + id + '-1'); return [+a.getAttribute('height'), +c.getAttribute('height')]`)
+{ const r = await ev(`const id = S.tracks[0].id; METERS.ts = new Map([[id, [.9, .1]]]); drawMeters(); const a = document.getElementById('mpm-' + id + '-0'), c = document.getElementById('mpm-' + id + '-1'); return [+a.getAttribute('height'), +c.getAttribute('height')]`)
   ok('two meters a strip: the left louder than the right when it is', r[0] > r[1] * 2 && r[0] > 50, r) }
+/* the one mixer: the transport panel hidden, the same mixer */
+{ await b.press('h', 'KeyH', 72); await b.sleep(150)
+  const r = await ev(`flush(); return { panel: TPANEL.on, mixer: SKIN.k.mixer, own: !!document.querySelector('#g-dock [id^="mpm-"]'), bar: !!document.getElementById('rd') }`)
+  ok('the transport panel hidden: the same mixer', !r.panel && r.mixer === 'panel' && r.own && r.bar, r)
+  await b.press('h', 'KeyH', 72); await b.sleep(150); await ev('flush(); return 1') }
 /* many tracks: the chosen wide, the rest narrow, the mixer follows the arrangement */
 await ev(`const base = S.tracks.slice(); for (let k = 0; S.tracks.length < 36; k++) { const src = base[k % 8], t = mkTrack('t' + k, null, null, null, null, -6, [], NO_PATCH()); t.c = src.c; S.tracks.push(t) } S.sel = 20; S.selT = []; dirtyAll(); flush(); return 1`)
 { const r = await ev(`const w = i => { const el = document.querySelector('#g-dock [data-a="msel"][data-i="' + i + '"]'); return el ? el.getBoundingClientRect().width : 0 }; return { chosen: w(20), other: w(21), all: [...document.querySelectorAll('#g-dock [data-a="mvol"]')].length, n: rows().length, row: !!document.querySelector('#g-dock [data-a="mp-jump"]') }`)

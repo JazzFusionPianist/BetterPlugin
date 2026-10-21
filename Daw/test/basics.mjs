@@ -56,7 +56,7 @@ await undo(); ok('undo puts them back', same(await tracks(), ['kick', 'snare', '
 await key('x', 'KeyX', 88); await b.sleep(260)
 await click('[data-a="msel"][data-i="0"]'); await click('[data-a="msel"][data-i="2"]', SHIFT)
 ok('in the mixer too: shift and a press on a strip’s name', same(await names(), ['kick', 'snare', 'hats']), await names())
-ok('and each chosen strip is shown chosen', await ev(`flush(); return [...document.querySelectorAll('#g-dock rect')].filter(r => +r.getAttribute('width') === 56 && r.getAttribute('fill') === INK && +r.getAttribute('fill-opacity') < .1).length === 3`))
+ok('and each chosen strip is shown chosen: its number on ink', await ev(`flush(); const on = [...document.querySelectorAll('#g-dock text')].filter(t => t.getAttribute('fill') === K1 && /^0[0-9]$/.test(t.textContent)).map(t => t.textContent); return ['01', '02', '03'].every(k => on.includes(k)) && on.length === 3`))      // (the mixer of the transport panel, the room's one mixer: mixpanel.js)
 // the mixer's words can be read
 { const sizes = await ev(`flush(); return [...new Set([...document.querySelectorAll('#g-dock text')].map(t => +t.getAttribute('font-size')))].sort((x, y) => x - y)`)
   ok('no word in the mixer is set under 8.5', sizes[0] >= 8.5, sizes) }

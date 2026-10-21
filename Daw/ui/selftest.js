@@ -2181,9 +2181,9 @@ async function runSelfTest (mode) {
     res.mixer = { own: SKIN.k.mixer === 'panel', strips: document.querySelectorAll('#g-dock [data-a="mvol"]').length, tracks: rows().length, meters: document.querySelectorAll('#g-dock [id^="mpm-"]').length, sends: document.querySelectorAll('#g-dock [data-a="msendadd"]').length }
     await snap('selftest-mixpanel.png')
     /* the two meters apart: a track turned hard left is heard on the left only (Engine.h takeMeters "s") */
-    { const t = S.tracks.find(x => x.regs.some(r => r.a <= 6 && r.b > 6)) || S.tracks[0], pan0 = t.pan; t.pan = -1; pushTrack(t); await sleep(100)
-      let l = 0, r = 0; await playFrom(4); for (let k = 0; k < 16; k++) { await sleep(60); const v = METERS.ts && METERS.ts.get(t.id); if (v) { l = Math.max(l, v[0]); r = Math.max(r, v[1]) } }
-      halt(false); t.pan = pan0; pushTrack(t)
+    { const t = S.tracks.find(x => x.regs.some(r => r.a <= 6 && r.b > 6)) || S.tracks[0], pan0 = t.pan, line0 = t.autos.pan; delete t.autos.pan; t.pan = -1; pushTrack(t); await natSession(); await sleep(100)      // (a line drawn for its pan by an earlier step would keep it in the middle)
+      let l = 0, r = 0; if (METERS.ts) METERS.ts.clear(); await playFrom(4); for (let k = 0; k < 16; k++) { await sleep(60); const v = METERS.ts && METERS.ts.get(t.id); if (v) { l = Math.max(l, v[0]); r = Math.max(r, v[1]) } }
+      halt(false); t.pan = pan0; if (line0) t.autos.pan = line0; pushTrack(t); await natSession()
       res.stereo = { track: t.name, left: +l.toFixed(3), right: +r.toFixed(3), apart: l > .02 && r < l * .1 } }
     Object.assign(S.panel, pw); setView(true); dirtyAll(); flush()
     key(); await sleep(150); flush()

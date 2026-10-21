@@ -11,15 +11,16 @@
      past that (60 tracks and more, or a narrow window): a row of their numbers along the top in their colours (pressed:
        that track chosen, and brought into sight); the strips shown are those around the chosen one
      the tracks chosen in the arrangement are the ones opened here: the mixer follows them.
+   It is the room's one mixer, the transport panel up or not (his word, 2026-10-21); a theme's own mixer stays its own.
    The out the same as a wide strip, its name the word. The engine tells each track's two sides apart for the meters
    (Engine.h takeMeters "s"; native.js METERS.ts). Read after panel.js. */
 const MPX = { geo: new Map(), lv: new Map(), slice: [0, 0] }
 const MP_OUTW = 120, MP_WIDE = 150, MP_NARROW = 17
 MPX.base = 94                                                                            // (a wide strip's own part: its bars, its fader, its level; its send knobs stand beside)
 { const read0 = skinRead
-  skinRead = function () { read0(); if (SKIN.k.transport === 'panel' && SKIN.k.mixer === 'plain') SKIN.k.mixer = 'panel' } }
+  skinRead = function () { read0(); if (SKIN.k.mixer === 'plain') SKIN.k.mixer = 'panel' } }      // (the room's one mixer, the transport panel up or not: his word, 2026-10-21 — a theme's own mixer, bauhaus's, stays its own)
 const mpNum = ' style="font-variant-numeric: tabular-nums"'
-const mpCaps = (x, y, w, o = {}) => T(x, y, String(w), Object.assign({ size: 7.5, w: 600, a: .45, x: ' letter-spacing=".4"' }, o))      // (small words in small letters: his rule, 2026-10-21 — capitals only for what one names oneself)
+const mpCaps = (x, y, w, o = {}) => T(x, y, String(w), Object.assign({ size: 8.5, w: 600, a: .45, x: ' letter-spacing=".4"' }, o))      // (small words in small letters: his rule, 2026-10-21 — capitals only for what one names oneself)
 /* r i m s as the panel's shapes: record a ring, monitor a diamond, mute a square, solo a triangle — filled when on */
 const mpShape = (k, cx, cy, z, on) => {
   if (k === 'r') return on ? Cc(cx, cy, z / 2, { fill: REC }) : Cc(cx, cy, z / 2 - .4, { stroke: REC, sa: .9, sw: 1 })
@@ -37,8 +38,8 @@ const MP_SENDS = typeof MAX_SENDS === 'number' ? MAX_SENDS : 10                 
 /* a send's knob: the way it can go a ring of 270 degrees, how far it goes in the track's colour, a mark where it stands;
    its bus named in its title (pressed: where it goes) */
 const mpSendDb = (t, k, sd) => { try { const v = shown(t, 'send' + k); return isFinite(v) ? v : sd.db } catch (e) { return sd.db } }      // (a send the lines do not know yet: as it is kept)
-const mpKnobR = (ft, fb) => clamp(((fb - ft) / 6 - 18) / 2, 7, 12)                       // (six to a column at least)
-const mpPer = (ft, fb, r) => Math.max(1, Math.floor((fb - ft) / (2 * r + 18)))
+const mpKnobR = (ft, fb) => clamp(((fb - ft) / 6 - 20) / 2, 7, 12)                       // (six to a column at least)
+const mpPer = (ft, fb, r) => Math.max(1, Math.floor((fb - ft) / (2 * r + 20)))
 const mpSendKnob = (cx, cy, r, f, c, name) => {
   const at = (rr, v) => { const a = (-135 + 270 * v - 90) * Math.PI / 180; return [cx + rr * Math.cos(a), cy + rr * Math.sin(a)] }
   const arc = (v0, v1, rr) => { if (v1 - v0 < .005) return ''; const [x0, y0] = at(rr, v0), [x1, y1] = at(rr, v1); return `M${n(x0)} ${n(y0)}A${rr} ${rr} 0 ${(v1 - v0) * 270 > 180 ? 1 : 0} 1 ${n(x1)} ${n(y1)}` }
@@ -75,7 +76,7 @@ SKINS.mixer.panel = (y, h) => {
   /* past one screen: their numbers in a row along the top */
   if (many) {
     const cw = Math.min(26, (A - 8) / N)
-    list.forEach((i, k) => { const t = S.tracks[i], x = 8 + k * cw, on = isChosen(i); s += (on ? R(x - 1, y + 5, cw - 1, 15, { fill: INK }) : '') + T(x + (cw - 2) / 2, y + 16, pad2(i + 1), { size: Math.min(10, cw * .52), w: 600, c: on ? K1 : t.c, anchor: 'middle', x: mpNum }) + hit(x - 1, y + 3, cw, 19, 'mp-jump', ` data-i="${i}"`) })
+    list.forEach((i, k) => { const t = S.tracks[i], x = 8 + k * cw, on = isChosen(i); s += (on ? R(x - 1, y + 5, cw - 1, 15, { fill: INK }) : '') + T(x + (cw - 2) / 2, y + 16, pad2(i + 1), { size: Math.max(8.5, Math.min(10, cw * .6)), w: 600, c: on ? K1 : t.c, anchor: 'middle', x: mpNum }) + hit(x - 1, y + 3, cw, 19, 'mp-jump', ` data-i="${i}"`) })
     s += R(0, y + 25, RX, .6, { fill: INK, fa: .08 })
     top = y + 26
   }
@@ -83,7 +84,8 @@ SKINS.mixer.panel = (y, h) => {
   let shownL = list
   if (many) {
     const wideW = [...wideSet].reduce((q, i) => q + widthOf(i, g), 0), fitN = Math.max(wideSet.size + 1, Math.floor((A - wideW) / MP_NARROW) + wideSet.size), at = list.indexOf(lead)
-    if (at >= 0 && (at < S.panel.mx || at >= S.panel.mx + fitN)) S.panel.mx = at - Math.floor(fitN / 3)
+    if (lead !== MPX.lead && at >= 0 && (at < S.panel.mx || at >= S.panel.mx + fitN)) S.panel.mx = at - Math.floor(fitN / 3)      // (the track chosen elsewhere brought into sight; the wheel turns the rest)
+    MPX.lead = lead
     S.panel.mx = clamp(S.panel.mx, 0, Math.max(0, N - fitN)); shownL = list.slice(S.panel.mx, S.panel.mx + fitN)
   } else S.panel.mx = 0
   const { H, fb, ft } = g, yOf = db => fb - (fb - ft) * volF(db), maxRows = Math.max(2, Math.floor((ft - top - 76) / 15))
@@ -99,7 +101,7 @@ SKINS.mixer.panel = (y, h) => {
       s += (sel ? R(L - 3, top + 12, nwid + 6, 31, { fill: INK }) : '') + T(L, top + 39, num, { size: 30, w: 700, c: sel ? K1 : t.c, x: mpNum })
       s += T(L + nwid + 7, top + 38, fit(asGiven(t.name), w - nwid - 46, 12.5, 600), { size: 12.5, w: 600, a: heardT ? .95 : .45 })
       hits += hit(x, top + 6, w - 34, 42, 'msel', di)
-      if (t.kind !== 'stack') { s += mpKnob(x + w - 20, top + 30, 9, shown(t, 'pan')) + T(x + w - 20, top + 50, panText(shown(t, 'pan')), { size: 7, a: .5, anchor: 'middle' }); hits += hit(x + w - 33, top + 16, 28, 40, 'mpan', di, 'ns-resize') }
+      if (t.kind !== 'stack') { s += mpKnob(x + w - 20, top + 30, 9, shown(t, 'pan')) + T(x + w - 20, top + 51, panText(shown(t, 'pan')), { size: 8.5, a: .5, anchor: 'middle' }); hits += hit(x + w - 33, top + 16, 28, 40, 'mpan', di, 'ns-resize') }
       /* the patch and the sends: lists of names */
       let ly = top + 66, used = 0
       const items = fxItems(t), sends = t.sends || [], room = maxRows - 2
@@ -110,16 +112,17 @@ SKINS.mixer.panel = (y, h) => {
         ly += 15; used++
       })
       if (!t.theirs && t.kind !== 'stack') { s += mpPlus(L + 4, ly - 3.5) + T(L + 14, ly, 'plug-in', { size: 8.5, a: .4 }); hits += hit(x + 4, ly - 11, w - 8, 15, 'mfxadd', di); ly += 15 }
+      else if (t.theirs) { s += T(L, ly, 'patch →', { size: 8.5, a: .45 }); hits += hit(x + 4, ly - 11, w - 8, 15, 'm-patch', di); ly += 15 }      // (another program's track takes no plug-in here: its patch)
       /* its sends: round knobs (as Logic's) in a column right of the fader, how much each sends under it; one more, a + knob;
          when the column is full the strip widens by another (his asks, 2026-10-21) */
       if (t.kind !== 'stack') { const r = mpKnobR(ft, fb), per = mpPer(ft, fb, r), cw = 2 * r + 12, x0 = x + MPX.base + 1
-        sends.slice(0, MP_SENDS).forEach((sd, k) => { const cx = x0 + Math.floor(k / per) * cw + r + 4, cy = ft + (k % per) * (2 * r + 18) + r + 2, b = byId(sd.to), db = mpSendDb(t, k, sd), pulling = drag && drag.a === 'msend' && drag.moved && S.tracks[drag.i] === t && drag.k === k
+        sends.slice(0, MP_SENDS).forEach((sd, k) => { const cx = x0 + Math.floor(k / per) * cw + r + 4, cy = ft + (k % per) * (2 * r + 20) + r + 2, b = byId(sd.to), db = mpSendDb(t, k, sd), pulling = drag && drag.a === 'msend' && drag.moved && S.tracks[drag.i] === t && drag.k === k
           /* under it the bus it goes to; how much it sends only while the pointer is on it, or it is turned (his ask, 2026-10-21) */
           const much = (db <= -47.5 ? '−∞' : (pulling ? db.toFixed(1) : String(Math.round(db))).replace('-', '−')) + ' db', bus = b ? asGiven(b.name) : 'send'
-          s += `<g class="mpk${pulling ? ' on' : ''}">` + mpSendKnob(cx, cy, r, volF(db), t.c, bus) + T(cx, cy + r + 10, fit(bus, 2 * r + 12, 7.5, 500), { size: 7.5, w: 500, a: .62, anchor: 'middle', x: ' class="mpk-bus"' }) + T(cx, cy + r + 10, much, { size: 7.5, a: 1, anchor: 'middle', x: mpNum + ' class="mpk-db"' })
+          s += `<g class="mpk${pulling ? ' on' : ''}">` + mpSendKnob(cx, cy, r, volF(db), t.c, bus) + T(cx, cy + r + 11, fit(bus, 2 * r + 12, 8.5, 500), { size: 8.5, w: 500, a: .62, anchor: 'middle', x: ' class="mpk-bus"' }) + T(cx, cy + r + 11, much, { size: 8.5, a: 1, anchor: 'middle', x: mpNum + ' class="mpk-db"' })
             + hit(cx - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 16, 'mp-send', `${di} data-k="${k}"`, 'ns-resize') + '</g>' })
-        if (sends.length < MP_SENDS) { const k = sends.length, cx = x0 + Math.floor(k / per) * cw + r + 4, cy = ft + (k % per) * (2 * r + 18) + r + 2
-          s += Cc(cx, cy, r - .5, { stroke: INK, sa: .3, sw: .9, dash: '2 2' }) + P(`M${n(cx)} ${n(cy - 3.5)}V${n(cy + 3.5)}M${n(cx - 3.5)} ${n(cy)}H${n(cx + 3.5)}`, { stroke: INK, sa: .6, sw: 1 }) + T(cx, cy + r + 10, 'send', { size: 7, a: .35, anchor: 'middle' })
+        if (sends.length < MP_SENDS) { const k = sends.length, cx = x0 + Math.floor(k / per) * cw + r + 4, cy = ft + (k % per) * (2 * r + 20) + r + 2
+          s += Cc(cx, cy, r - .5, { stroke: INK, sa: .3, sw: .9, dash: '2 2' }) + P(`M${n(cx)} ${n(cy - 3.5)}V${n(cy + 3.5)}M${n(cx - 3.5)} ${n(cy)}H${n(cx + 3.5)}`, { stroke: INK, sa: .6, sw: 1 }) + T(cx, cy + r + 11, 'send', { size: 8.5, a: .35, anchor: 'middle' })
           hits += hit(cx - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 16, 'msendadd', di) } }
       /* its level: two bars of its colour, the fader's line, the white square, the level beside it */
       const bx0 = L + 1, lx = bx0 + 2 * 7 + 2 + 18
@@ -141,6 +144,10 @@ SKINS.mixer.panel = (y, h) => {
       s += T(L, top + 52, fit(asGiven(t.name), w - 14, 9.5, 600), { size: 9.5, w: 600, a: heardT ? .9 : .42 })
       hits += hit(x, top + 6, w, 52, 'msel', di)
       if (w >= 58 && t.kind !== 'stack') { s += mpKnob(x + w - 14, top + 26, 7, shown(t, 'pan')); hits += hit(x + w - 25, top + 14, 22, 26, 'mpan', di, 'ns-resize') }
+      /* its patch and its sends said as counts: the patch's pressed opens its patch, the sends' opens the strip */
+      if (t.kind !== 'stack') { const nf = fxItems(t).length, ns = (t.sends || []).length
+        s += T(L, top + 72, t.theirs ? 'patch →' : nf ? `${nf} fx` : '+ fx', { size: 8.5, a: nf ? .7 : .4 }); hits += hit(x + 2, top + 61, w - 4, 15, 'm-patch', di)
+        s += T(L, top + 88, ns ? `${ns} send${ns === 1 ? '' : 's'}` : '+ send', { size: 8.5, a: ns ? .7 : .4 }); hits += hit(x + 2, top + 77, w - 4, 15, 'msel', di) }
       const bx0 = L, lx = bx0 + 2 * 5 + 1.5 + 12, room = w >= 76
       s += mpBars(t.id, bx0, ft, fb, 5, 1.5, t.c, !heardT)
       for (const db of DBS) s += R(lx - 3.5, yOf(db) - .3, 2.2, .6, { fill: INK, fa: .3 })
@@ -170,7 +177,7 @@ SKINS.mixer.panel = (y, h) => {
     s += R(RX - MP_OUTW - 6, top, MP_OUTW + 6, H, { fill: K2, fa: .6 })
     s += T(L, top + 39, 'out', { size: 30, w: 700, c: INK }) + mpCaps(L + tw(LANG_WORDS('out'), 30, 700) + 7, top + 37, 'stereo') + hit(L - 4, top + 8, MP_OUTW - 8, 40, 'wall-out')
     s += mpBars('M', bx0, ft, fb, 7, 2, LEVEL, false)
-    for (const db of DBS) s += R(lx - 4, yOf(db) - .3, 2.5, .6, { fill: INK, fa: .3 }) + T(lx - 7, yOf(db) + 2.4, db === -48 ? '∞' : (db > 0 ? '+' : db < 0 ? '−' : '') + Math.abs(db), { size: 6.5, a: .35, anchor: 'end', x: mpNum })
+    for (const db of DBS) s += R(lx - 4, yOf(db) - .3, 2.5, .6, { fill: INK, fa: .3 }) + T(lx - 7, yOf(db) + 3, db === -48 ? '∞' : (db > 0 ? '+' : db < 0 ? '−' : '') + Math.abs(db), { size: 8.5, a: .35, anchor: 'end', x: mpNum })
     s += R(lx - .6, ft, 1.2, fb - ft, { fill: INK, fa: .85 }) + R(lx - 6, fy - 6, 12, 12, { fill: INK }) + T(lx + 12, fy + 4.5, fmtDb(vol), { size: 15, w: 600, x: mpNum })
     s += hit(bx0 - 4, ft - 8, lx + 10 - bx0, fb - ft + 16, 'mmaster', '', 'ns-resize') + hit(lx + 9, fy - 9, 50, 18, 'volnum', ' data-i="-1"', 'default')
     s += T(L, fb + 40, '→ output 1-2', { size: 8.5, a: .5 }) + (NAT ? hit(L - 3, fb + 30, 90, 14, 'audiokey') : '') }
@@ -178,10 +185,10 @@ SKINS.mixer.panel = (y, h) => {
 }
 
 /* ── each frame: the two bars of every strip shown, as loud as each side, falling back on their own ── */
-{ const frame0 = SKINS.frame.panel
-  SKINS.frame.panel = p => {
-    frame0(p)
-    if (SKIN.k.mixer !== 'panel' || !MPX.geo.size || typeof METERS !== 'object') return
+{ const meters0 = drawMeters
+  drawMeters = function () {
+    meters0.apply(this, arguments)
+    if (SKIN.k.mixer !== 'panel' || !MPX.geo.size || typeof METERS !== 'object' || VIEW.p <= .5) { if (typeof METERS === 'object' && METERS.ts && METERS.ts.size) METERS.ts.clear(); return }      // (nothing shown: what was heard meanwhile is not kept for later)
     const fall = .87, ts = METERS.ts
     const one = (key, l, r) => {
       const g = MPX.geo.get(key); if (!g) return

@@ -19,8 +19,29 @@ let natInit = null, natReady = async () => {}, natSendLoops = async () => {}, na
 let SONG_END = 42                        // the position, counted from zero, where the song is over
 /* scenes: each starts on a bar (counted from one) and runs to the next one, the last to the end of the song */
 const DEMO_SCENES = [['intro', 1], ['verse', 5], ['pre', 13], ['chorus', 17], ['verse 2', 25], ['chorus', 33], ['out', 41]]
-const mkScenes = list => list.slice().sort((x, y) => x[1] - y[1]).map(([name, a], i, all) => ({ i, name, a, b: i + 1 < all.length ? all[i + 1][1] : SONG_END + 1 }))
-let SCENES = mkScenes(DEMO_SCENES)
+const mkScenes = list => markColours(list.slice().sort((x, y) => x[1] - y[1]).map(([name, a, c], i, all) => ({ i, name, a, c: markColour(c), b: i + 1 < all.length ? all[i + 1][1] : SONG_END + 1 })))
+/* each marker wears a colour of its own (its line down the lanes: ui.js), kept with it as [family, step] the way a colour
+   set by hand is: one of the palette's lighter ones, at random, and none another marker wears while the palette has
+   others, nor the one of the marker beside it (his ask, 2026-10-21). A marker without one (a project from before, the
+   demo) is given one here, and keeps it from then on */
+const MARK_FAMS = ['drums', 'bass', 'keys', 'gtr', 'vox'], MARK_STEPS = [5, 6]
+const markColour = c => Array.isArray(c) && MARK_FAMS.includes(c[0]) && c[1] >= 0 && c[1] <= 6 ? [c[0], c[1] | 0] : null
+function markColours (list) {
+  const all = MARK_FAMS.flatMap(f => MARK_STEPS.map(k => [f, k])), key = c => c[0] + c[1]
+  const was = SCENES
+  list.forEach((sc, i) => {
+    if (sc.c) return
+    const same = was.find(o => o.c && o.a === sc.a && o.name === sc.name)            // (the same marker, rebuilt by a hand that did not carry its colour)
+    if (same) { sc.c = same.c; return }
+    const used = new Set(list.filter(o => o.c).map(o => key(o.c))), near = [list[i - 1], list[i + 1]].filter(o => o && o.c).map(o => o.c[0])
+    let from = all.filter(c => !used.has(key(c)) && !near.includes(c[0]))
+    if (!from.length) from = all.filter(c => !near.includes(c[0]))
+    sc.c = from[Math.floor(Math.random() * from.length)] || all[0]
+  })
+  return list
+}
+let SCENES = []                                                                         // (first empty: markColours looks at the markers there were)
+SCENES = mkScenes(DEMO_SCENES)
 /* how the window is cut: the control bar, the tracks' own bar, the markers, the bars; the heads at the left; the foot.
    Below the lanes a panel opens (patch or mixer); at the right, slur. VIEW says how far each is open, as it is drawn now.
    The bars are cut in two along their length: the top (RU_CY of it) is the cycle's, the rest is the playhead's.

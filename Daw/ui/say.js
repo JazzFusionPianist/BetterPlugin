@@ -806,17 +806,17 @@ function sayDo (a, out) {
       const bar1 = clamp(Math.round((a.at != null ? +a.at : curPos())) + 1, 1, SONG_END)
       if (SCENES.some(s => s.a === bar1)) { out.push({ k: 'word', text: `there is a marker at bar ${bar1}` }); return true }
       const name = String(a.name || `part ${SCENES.length + 1}`).slice(0, 40)
-      mark(null, () => { SCENES = mkScenes(SCENES.map(s => [s.name, s.a]).concat([[name, bar1]])) }); SAY.vocab = null
+      mark(null, () => { SCENES = mkScenes(SCENES.map(s => [s.name, s.a, s.c]).concat([[name, bar1]])) }); SAY.vocab = null
       word(`marker ${name} at bar ${bar1}`); return true
     }
     const sc = SCENES[a.i]
     if (!sc) { out.push({ k: 'word', text: 'no such marker' }); return true }
     if (a.op === 'delmark') { removeScene(a.i); SAY.vocab = null; uiDirty('scenes', 'ruler'); word(`marker ${sc.name} deleted`); return true }
-    if (a.op === 'namemark') { const name = String(a.name).slice(0, 40); mark(null, () => { SCENES = mkScenes(SCENES.map((s, k) => [k === a.i ? name : s.name, s.a])) }); SAY.vocab = null; word(`${sc.name} is ${name}`); return true }
+    if (a.op === 'namemark') { const name = String(a.name).slice(0, 40); mark(null, () => { SCENES = mkScenes(SCENES.map((s, k) => [k === a.i ? name : s.name, s.a, s.c])) }); SAY.vocab = null; word(`${sc.name} is ${name}`); return true }
     if (a.op === 'movemark') {
       const bar1 = clamp(Math.round(+a.at) + 1, 1, SONG_END)
       if (SCENES.some((s, k) => k !== a.i && s.a === bar1)) { out.push({ k: 'word', text: `there is a marker at bar ${bar1}` }); return true }
-      mark(null, () => { SCENES = mkScenes(SCENES.map((s, k) => [s.name, k === a.i ? bar1 : s.a])) })
+      mark(null, () => { SCENES = mkScenes(SCENES.map((s, k) => [s.name, k === a.i ? bar1 : s.a, s.c])) })
       word(`marker ${sc.name} at bar ${bar1}`); return true
     }
     return false

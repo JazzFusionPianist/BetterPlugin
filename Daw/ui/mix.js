@@ -515,10 +515,10 @@ function strip (x, y, w, h, t, i, o = {}) {
 function addScene (bar1, name) {
   const a = clamp(Math.round(bar1), 1, SONG_END)
   if (SCENES.some(s => s.a === a)) return
-  edit(() => { SCENES = mkScenes(SCENES.map(s => [s.name, s.a]).concat([[name || `part ${SCENES.length + 1}`, a]])) })
+  edit(() => { SCENES = mkScenes(SCENES.map(s => [s.name, s.a, s.c]).concat([[name || `part ${SCENES.length + 1}`, a]])) })
   startRename('scene', SCENES.findIndex(s => s.a === a))
 }
-function removeScene (i) { if (SCENES[i]) edit(() => { S.queued = null; S.selM = null; SCENES = mkScenes(SCENES.filter((s, k) => k !== i).map(s => [s.name, s.a])) }) }
+function removeScene (i) { if (SCENES[i]) edit(() => { S.queued = null; S.selM = null; SCENES = mkScenes(SCENES.filter((s, k) => k !== i).map(s => [s.name, s.a, s.c])) }) }
 /* the marker a key is about: the one that was pressed, else the one the playhead stands in */
 const markerNow = () => (S.focus === 'marker' && SCENES.find(s => s.a === S.selM)) || (sceneAt(curPos()).i >= 0 ? sceneAt(curPos()) : null)
 /* ⌥. and ⌥, : to the next marker or the one before; the cycle's two ends go with it (it is not turned on by this) */
@@ -545,7 +545,7 @@ function sceneMove (p) {
   const lo = d.i > 0 ? SCENES[d.i - 1].a + 1 : 1, hi = d.i + 1 < SCENES.length ? SCENES[d.i + 1].a - 1 : SONG_END
   const a = clamp(Math.round(barAt(p.x) - d.grab) + 1, lo, Math.max(lo, hi))
   if (a === sc.a) return
-  SCENES = mkScenes(SCENES.map((x, k) => [x.name, k === d.i ? a : x.a])); S.selM = a
+  SCENES = mkScenes(SCENES.map((x, k) => [x.name, k === d.i ? a : x.a, x.c])); S.selM = a
   uiDirty('scenes')
 }
 function sceneUp () { const d = drag; if (d.moved && SCENES[d.i] && SCENES[d.i].a !== d.a0) commit(d.before) }

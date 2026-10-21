@@ -283,6 +283,7 @@ function setLook (what, v) {
    along time. A press goes there (while the song runs: at the next bar line); twice makes it the cycle. ── */
 function pScenes () {
   if (typeof RTB !== 'undefined' && RTB.on) return ''
+  laneMarks()
   if (typeof SKIN === 'object' && SKINS.scenes[SKIN.k.markers]) return SKINS.scenes[SKIN.k.markers]()      // (a theme's markers: skins.js)                                 // (a realtime print writes the markers along its own top: realtime.js)
   const y0 = MK_Y, y = MK_Y + MK_C, cur = sceneAt(curPos()).i, xe = bx(SONG_END + 1)      // (y0: the row; y: what it holds, in its middle)
   const hx = typeof INSP === 'object' ? INSP.w || 0 : 0                                 // (the inspector stands at the left: the words go beside it — inspector.js)
@@ -302,6 +303,16 @@ function pScenes () {
     hits += hit(xl, y0 + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
   })
   return s + G(g, '', TL) + hline(0, RX, y0 + MK_H - .5, .06) + vline(Math.max(HEAD_W, X0) - .5, y0, y0 + MK_H, .08) + hits
+}
+/* where each marker begins, a line in its own colour down the lanes (engine.js: markColours): under the regions, so it is seen where a track has
+   no sound there (his ask, 2026-10-21). Drawn again with the markers' row, so it follows a marker pulled along and the
+   view while the hand zooms; the song's first bar has none, as the row has no divider there */
+function laneMarks () {
+  const el = $('ln-marks')
+  if (!el) return
+  let html = ''
+  for (const sc of SCENES) { const x = bx(sc.a); if (sc.a > 1 && x >= X0 - .5 && x <= X1 + .5) html += P(`M${n(x) + .5} ${TY}V${BY}`, { stroke: sc.c ? swatch(sc.c[0], sc.c[1] / 6).c : INK, sa: .85 }) }
+  if (LANES.marks !== html) { LANES.marks = html; el.innerHTML = html }
 }
 /* ── the bars. They are cut in two along their length: the top is the cycle's — a stretch of the top edge, with an end to take
    hold of at each side; taken by its middle it moves as it is, and a pull anywhere else along the top draws a new one. The
@@ -760,7 +771,7 @@ function pLanes () {
 }
 function pLanesIn () {
   const root = $('g-lanes')
-  if (!$('ln-rows')) { root.innerHTML = `<g id="ln-back"></g><g id="ln-clip"${LN}><g id="ln-grid"></g><g id="ln-rows"></g><g id="ln-over"></g></g><g id="ln-edge"></g>`; LANES.rows.clear() }
+  if (!$('ln-rows')) { root.innerHTML = `<g id="ln-back"></g><g id="ln-clip"${LN}><g id="ln-grid"></g><g id="ln-marks"></g><g id="ln-rows"></g><g id="ln-over"></g></g><g id="ln-edge"></g>`; LANES.rows.clear(); LANES.marks = null }
   if (typeof ZOOM !== 'undefined') { ZOOM.pxb = 0; for (const id of ['ln-grid', 'ln-rows', 'ln-over']) $(id).removeAttribute('transform') }      // (drawn for real: no longer stretched — viewLive)
   const L = rowTops(), sel = new Set(S.selR), xEnd = bx(SONG_END + 1), vis = L.r, span = (X1 - X0) / PXB
   const put = (id, html) => { if (LANES[id] !== html) { LANES[id] = html; $(id).innerHTML = html } }
@@ -776,6 +787,7 @@ function pLanesIn () {
   if (D) { for (const [x, named, p] of deepLines(D)) if (p <= SONG_END + 1e-9) { if (named) g2 += `M${n(x) + .5} ${TY}V${BY}`; else grid += `M${n(x) + .5} ${TY}V${BY}` } }
   else for (let b = Math.floor(VX / major) * major; b <= VX + span + 1 && b <= SONG_END; b += major) { const x = bx(b + 1); if (x < X0 || x > X1) continue; if (b % lab === 0) g2 += `M${n(x) + .5} ${TY}V${BY}`; else grid += `M${n(x) + .5} ${TY}V${BY}` }
   put('ln-grid', (typeof SKIN === 'object' && SKINS.lanes[SKIN.k.lanes] ? SKINS.lanes[SKIN.k.lanes](vis, L) : '') + (typeof gridLanes === 'function' ? gridLanes(D) : P(grid, { stroke: INK, sa: .03 * lkN('lanes.grid') / 100 }) + P(g2, { stroke: INK, sa: .06 * lkN('lanes.grid') / 100 })) + (xEnd >= X0 - 1 && xEnd <= X1 + 1 ? P(`M${n(xEnd) + .5} ${TY}V${BY}`, { stroke: INK, sa: Math.min(1, .2 * lkN('lanes.end') / 100) }) : ''))
+  laneMarks()
   const box = $('ln-rows'), seen = new Set()
   vis.forEach((i, k) => {
     const y = TY + L.tops[k] - VY

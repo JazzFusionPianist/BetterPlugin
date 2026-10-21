@@ -87,7 +87,7 @@ function placeTakes (list, start, end) {
 function drawRec (p) {
   const rec = S.rec, vis = rows()
   let s = ''
-  if (p > SONG_END - 2) { SONG_END += 16; SCENES = mkScenes(SCENES.map(x => [x.name, x.a])); pushTransport(); uiDirty('lanes', 'ruler', 'scenes') }      // the song grows under a long take
+  if (p > SONG_END - 2) { SONG_END += 16; SCENES = mkScenes(SCENES.map(x => [x.name, x.a, x.c])); pushTransport(); uiDirty('lanes', 'ruler', 'scenes') }      // the song grows under a long take
   for (const id of rec.ids) {
     const i = S.tracks.findIndex(t => t.id === id), k = vis.indexOf(i)
     if (k < 0 || p <= rec.start) continue

@@ -28,7 +28,7 @@ const keepRegs = list => list.map(r => Object.assign({}, r, r.flex ? { flex: r.f
 const editState = () => ({
   order: S.tracks.slice(), regs: S.tracks.map(t => keepRegs(t.regs)),
   props: S.tracks.map(t => { const o = { sends: copy(t.sends || []), autos: copy(t.autos || {}), alts: (t.alts || []).map(a => ({ name: a.name, regs: keepRegs(a.regs) })) }; for (const k of T_KEEP) o[k] = t[k]; return o }),
-  selR: S.selR.slice(), selP: S.selP.slice(), cycle: Object.assign({}, S.cycle), sel: S.sel, selT: S.selT.slice(), scenes: SCENES.map(s => [s.name, s.a]), end: SONG_END, tempo: S.tempo, selX: S.selX ? S.selX.slice() : null,
+  selR: S.selR.slice(), selP: S.selP.slice(), cycle: Object.assign({}, S.cycle), sel: S.sel, selT: S.selT.slice(), scenes: SCENES.map(s => [s.name, s.a, s.c]), end: SONG_END, tempo: S.tempo, selX: S.selX ? S.selX.slice() : null,
 })
 /* the levels of every track as they stand. A step made by the command line carries them (a line may move faders, and
    takes them back with everything else it did); a step made by hand does not, so going back over an edit leaves the
@@ -70,7 +70,7 @@ function growSong () {
   const far = Math.max(0, ...SCENES.map(s => s.a), S.cycle.on ? S.cycle.b : 0)           // (and it is no shorter than its last marker, which has a bar after it, nor than the cycle)
   const byRegs = end <= base ? base : Math.ceil((end + 8) / 8) * 8, want = far > byRegs ? Math.ceil(far / 8) * 8 : byRegs
   if (want === SONG_END) return
-  SONG_END = want; SCENES = mkScenes(SCENES.map(s => [s.name, s.a]))
+  SONG_END = want; SCENES = mkScenes(SCENES.map(s => [s.name, s.a, s.c]))
   PXB = Math.max(PXB, fitPXB()); VX = clamp(VX, 0, maxVX())
 }
 
@@ -92,7 +92,7 @@ function setMeter (b, u) {
   }
   const end = SONG_END * k
   SONG_END = Math.max(isDemo() ? 42 : 64, Math.ceil(end - 1e-9))
-  SCENES = mkScenes(SCENES.map(s => [s.name, at(s.a)]))
+  SCENES = mkScenes(SCENES.map(s => [s.name, at(s.a), s.c]))
   if (S.selM != null) S.selM = at(S.selM)                                              // (the marker that was pressed is known by its place: its place is counted anew with the rest)
   S.cycle.a *= k; S.cycle.b = Math.min(SONG_END, S.cycle.b * k)
   S.pos = Math.min(p * k, SONG_END); S.marq = null
@@ -951,7 +951,7 @@ function liftTime (a, b) {
     }
   }
   const marks = []
-  for (const s of SCENES) { if (s.a - 1 >= a - 1e-9 && s.a - 1 < b - 1e-9) held.marks.push([s.name, s.a - 1 - a]); else marks.push([s.name, s.a - 1 >= b - 1e-9 ? s.a - len : s.a]) }
+  for (const s of SCENES) { if (s.a - 1 >= a - 1e-9 && s.a - 1 < b - 1e-9) held.marks.push([s.name, s.a - 1 - a, s.c]); else marks.push([s.name, s.a - 1 >= b - 1e-9 ? s.a - len : s.a, s.c]) }
   SCENES = mkScenes(marks)
   const c = S.cycle                                                                     // the cycle and the playhead go with the time they stand in
   if (c.a >= b - 1e-9) { c.a -= len; c.b -= len }
@@ -979,7 +979,7 @@ function dropTime (at, len, held, fresh) {
       t.autos[k] = lineDrop(pts, at, len, line)
     }
   }
-  const marks = SCENES.map(s => [s.name, s.a - 1 >= at - 1e-9 ? s.a + len : s.a])
+  const marks = SCENES.map(s => [s.name, s.a - 1 >= at - 1e-9 ? s.a + len : s.a, s.c])
   if (held) {
     const made = []
     for (const [tid, r, d, on] of held.regs) {
@@ -992,7 +992,7 @@ function dropTime (at, len, held, fresh) {
       L.regs.push(x); dirtyReg(x)
     }
     if (fresh) freshGroups(made)
-    for (const [name, d] of held.marks) if (!marks.some(m => Math.abs(m[1] - (at + d + 1)) < 1e-6)) marks.push([name, at + d + 1])
+    for (const [name, d, c] of held.marks) if (!marks.some(m => Math.abs(m[1] - (at + d + 1)) < 1e-6)) marks.push([name, at + d + 1, c])
   }
   const end = Math.max(SONG_END, ...S.tracks.flatMap(lanesOf).flatMap(t => t.regs.map(r => r.b - 1)), ...marks.map(m => m[1] - 1))      // (the song is not shorter than its last marker)
   if (end > SONG_END) SONG_END = Math.ceil(end)

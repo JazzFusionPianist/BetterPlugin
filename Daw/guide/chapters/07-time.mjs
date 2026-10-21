@@ -7,7 +7,7 @@ export default () => chapter('time', t('the song’s time', '곡의 시간'),
   t('Markers divide the song into parts. A stretch of time can be cut out of every track at once, repeated, or made room for. Then tempo, measure, and what undo takes back.', '마커는 곡을 파트로 나눕니다. 시간 구간을 모든 트랙에서 한꺼번에 잘라내거나, 반복하거나, 빈 구간을 만들 수 있습니다. 이어서 템포, 박자, 그리고 실행 취소가 되돌리는 것.'), [
 
   page(t('markers and parts', '마커와 파트'), { kind: 'split', tw: 118, txt:
-    p('A marker begins on a whole bar; its part runs to the next marker, the last one to the end of the song. The part that is playing is the filled cell of the marker band.', '마커는 마디 시작에 놓이고, 그 파트는 다음 마커까지, 마지막 파트는 곡 끝까지 이어집니다. 마커 띠에서 채워진 칸이 지금 재생 중인 파트입니다.') +
+    p('A marker begins on a whole bar; its part runs to the next marker, the last one to the end of the song. The part that is playing is the filled cell of the marker band. Where each marker begins, a line in a colour of its own runs down the tracks, under the regions: it shows where a track has no sound.', '마커는 마디 시작에 놓이고, 그 파트는 다음 마커까지, 마지막 파트는 곡 끝까지 이어집니다. 마커 띠에서 채워진 칸이 지금 재생 중인 파트입니다. 마커가 시작하는 곳마다 마커마다 다른 색의 세로선이 트랙들을 따라 내려갑니다. 리전 밑에 깔려서, 소리가 없는 곳에서만 보입니다.') +
     table(null,
       ['[[⌥\']]', ['a marker on the bar nearest the playhead; its name box opens', '플레이헤드에서 가장 가까운 마디에 마커. 이름 칸이 열립니다']],
       ['[[⌥⇧\']]', ['a marker where what is chosen begins, named after it', '선택한 것이 시작하는 곳에 마커. 그 이름을 따릅니다']],

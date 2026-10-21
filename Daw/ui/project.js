@@ -90,7 +90,7 @@ function startRename (what, i, at) {
     const typed = el.value.trim().slice(0, 40), v = NAME_KINDS.has(what) ? typed : typed.toLowerCase()      // (a name is kept as it was typed, capitals and all)
     if (!keep || (!v && what !== 'key')) return
     if (what === 'track') { if (v !== t.name) edit(() => { t.name = v }) }
-    else if (what === 'scene') { if (SCENES[i] && v !== SCENES[i].name) edit(() => { SCENES = mkScenes(SCENES.map((s, k) => [k === i ? v : s.name, s.a])) }) }
+    else if (what === 'scene') { if (SCENES[i] && v !== SCENES[i].name) edit(() => { SCENES = mkScenes(SCENES.map((s, k) => [k === i ? v : s.name, s.a, s.c])) }) }
     else if (what === 'tempo') { const bpm = clamp(Math.round(parseFloat(v) * 100) / 100, 40, 240); if (isFinite(bpm) && bpm !== S.tempo) setTempo(bpm) }
     else if (what === 'key') S.key = v.slice(0, 8)
     else if (what === 'vol') {
@@ -245,7 +245,7 @@ const KEEP_T = ['id', 'name', 'col', 'shape', 'tone', 'theirs', 'kind', 'vol', '
 const KEEP_R = ['id', 'a', 'b', 'off', 'gain', 'mute', 'fi', 'fo', 'loop', 'rate', 'sec', 'srcBars', 'tag', 'name', 'file', 'tr', 'ft', 'flex', 'rev', 'fx', 'col', 'shape', 'fic', 'foc', 'grp', 'bpm', 'xo', 'sm', 'px', 'py', 'notes', 'ctl', 'q', 'qs', 'sw', 'vel', 'rep', 'chords']
 function serialize () {
   return JSON.stringify({
-    v: 3, name: PROJ.name, demo: PROJ.demo, fresh: PROJ.fresh ? true : undefined, tempo: S.tempo, meter: S.meter, key: S.key, smpte: S.smpte, end: SONG_END, scenes: SCENES.map(s => [s.name, s.a]), master: S.master, click: S.click, countIn: S.countIn,
+    v: 3, name: PROJ.name, demo: PROJ.demo, fresh: PROJ.fresh ? true : undefined, tempo: S.tempo, meter: S.meter, key: S.key, smpte: S.smpte, end: SONG_END, scenes: SCENES.map(s => [s.name, s.a, s.c]), master: S.master, click: S.click, countIn: S.countIn,
     cycle: S.cycle, sel: S.sel, view: { pxb: PXB, vx: VX, vy: VY, rh: S.rh, wz: S.wz || 1, panel: { on: S.panel.on, tab: S.panel.tab, h: S.panel.h }, slur: S.slur }, snap: S.snap, mode: S.mode, nudge: S.nudge, grid: S.grid, q: S.q,
     out: typeof wallOutSaved === 'function' ? wallOutSaved() : undefined,              // (wall.js: what stands on the stereo out's wall)
     ref: typeof refSaved === 'function' ? refSaved() : undefined,                      // (reference.js: the reference row)

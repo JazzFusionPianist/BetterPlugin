@@ -193,7 +193,7 @@ const rowH = i => { const t = S.tracks[i]; return (t && (t.hNow || t.h)) || S.rh
 const rowTops = () => { const r = rows(), tops = new Array(r.length); let y = 0; r.forEach((i, k) => { tops[k] = y; y += rowH(i) }); return { r, tops, all: y } }
 const rowY = i => { const L = rowTops(), k = L.r.indexOf(i); return TY + (k < 0 ? -S.rh : L.tops[k]) - VY }
 const laneAt = y => { const L = rowTops(), v = y - TY + VY; let k = 0; while (k < L.r.length - 1 && v >= L.tops[k + 1]) k++; return L.r[k] }
-const maxVY = () => Math.max(0, rowTops().all - LANES_H)
+const maxVY = () => Math.max(0, rowTops().all + (typeof outRowH === 'function' ? outRowH() : 0) - LANES_H)      // (and the stereo out's row under the last: wall.js)
 function showRow (i) { const L = rowTops(), k = L.r.indexOf(i); if (k < 0) return; const y = L.tops[k], h = rowH(i); if (y < VY) VY = y; else if (y + h > VY + LANES_H) VY = y + h - LANES_H; VY = clamp(VY, 0, maxVY()) }
 /* a fader: −∞ at the bottom, +6 at the top, most of its travel given to the last 30 dB */
 /* a fader's travel and its db: most of it where a mix is made (his ask, 2026-10-19: a little pull took the level down too

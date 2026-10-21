@@ -672,3 +672,70 @@ async function wallPick (p) {
   /* the walls are told to the engine when the room is (a project opened, the device changed) */
   if (typeof natSession === 'function') { const ns0 = natSession; natSession = async function (...a) { const r = await ns0(...a); WALL.sent.clear(); WALL.outTold = !!wallOutTrack(); wallPushAll(); return r } }
 }
+
+/* ── the stereo out as a row of its own, under the last track (his ask, 2026-10-21: "stereo out 도 채널로 메인 화면에 보이게
+   … 선택을 못하니까 패치를 못건다"): its colour, its name, its level as a track's (pulled across; with option, 0), what
+   it reads. Pressed, it is chosen: its patch below, to put things on (as its strip pressed by its name). Its lane is a
+   ground of its own, pressed the same; it holds no regions. Not one of the song's tracks, so nothing else counts it. ── */
+const outRowH = () => typeof SKIN === 'object' && SKINS.head[SKIN.k.heads] ? 0 : (typeof RTB !== 'undefined' && RTB.on ? 0 : S.rh)      // (a theme's own heads, a realtime print: none)
+const outRowY = () => TY + rowTops().all - VY
+function outHead () {
+  const rh = outRowH(), y = outRowY()
+  if (!rh || y >= BY || y + rh <= TY) return ''
+  const on = !!WALL.out, c = MASTER().c, by = y + rh / 2 + 3.9, ins = clamp(Math.round(rh * .22), 4, 11), hs = lkN('heads.size')
+  const two = rh >= HEAD_TWO, ny = two ? y + rh / 2 - 1.5 : by, lx = two ? 42 : HEAD_FX, lw = two ? HEAD_FW2 : HEAD_FW, ly = two ? y + rh / 2 + 9 : y + rh / 2 - 1, dbx = two ? lx + lw + 30 : HEAD_DB, dby = two ? ly + 3.6 : by - .4
+  let s = R(0, y, HEAD_W, rh, { fill: K0, fa: .4 })                                       // (a ground a step darker: not one of the song's tracks)
+  if (on) s += R(0, y, HEAD_W, rh, { fill: lkC('heads.chosen'), fa: lkA('heads.chosen') })
+  s += R(10, y + ins, lkN('heads.mark'), rh - 2 * ins, { fill: c })
+  s += hit(0, y, HEAD_W, rh, 'wall-out')
+  s += T(42, ny, 'stereo out', { size: hs, w: on ? 500 : 400, a: on ? 1 : .88 })
+  const held = OUT.wall && OUT.wall.nodes ? OUT.wall.nodes.length : 0
+  if (held) s += T(42 + tw(LANG_WORDS('stereo out'), hs, on ? 500 : 400) + 6, ny, 'patch', { size: 9, a: .4 })      // (something stands on its wall)
+  s += levelBar(lx, ly, lw, OUT, S.master).replace(`id="mt-${OUT.id}"`, 'id="mt-out"') + hit(lx - 6, ly - 7, lw + 12, 16, 'outvol', ` data-gx="${n(lx)}" data-gw="${n(lw)}"`, 'ew-resize')
+  s += T(dbx, dby, fmtDb(S.master), { size: 9, a: on ? .9 : .56, anchor: 'end' })
+  return s + hline(0, HEAD_W, y + rh - .5, .05)
+}
+{ const head0 = PARTS.head
+  PARTS.head = function () {
+    const s = head0.apply(this, arguments), o = outHead()
+    return !o || typeof s !== 'string' || (typeof SKIN === 'object' && SKIN.right) ? s : s + G(o, '', ' clip-path="url(#hdc)"')      // (in the heads' own clip, as the rows are)
+  } }
+{ const lanes0 = PARTS.lanes
+  PARTS.lanes = function () {
+    const r = lanes0.apply(this, arguments), clip = $('ln-clip'), edge = $('ln-edge')
+    if (!clip || !edge) return r
+    let g = $('ln-out'), h = $('ln-outhit')
+    if (!g) { g = document.createElementNS(SVG_NS, 'g'); g.id = 'ln-out'; clip.insertBefore(g, $('ln-rows')) }
+    const rh = outRowH(), y = outRowY(), shown = rh && y < BY && y + rh > TY
+    const html = shown ? R(X0, y, X1 - X0, rh, { fill: K0, fa: .4 }) + hline(X0, X1, y + rh - .5, .045) : ''
+    if (g.dataset.html !== html) { g.dataset.html = html; g.innerHTML = html }
+    if (!h || h.parentNode !== edge) { h = document.createElementNS(SVG_NS, 'g'); h.id = 'ln-outhit'; edge.appendChild(h) }
+    const hh = shown ? hit(X0, Math.max(TY, y), X1 - X0, Math.min(BY, y + rh) - Math.max(TY, y), 'wall-out', '', 'default') : ''
+    if (h.dataset.html !== hh) { h.dataset.html = hh; h.innerHTML = hh }
+    return r
+  } }
+/* its level pulled across, as a track's: where the hand is (with shift, finely; with option, 0) */
+{ const down0 = onDown, move0 = onMove
+  onDown = function (e) {
+    const el = e && e.target && e.target.closest ? e.target.closest('[data-a="outvol"]') : null
+    if (!el || e.button !== 0) return down0.apply(this, arguments)
+    e.preventDefault()
+    if (e.altKey) { S.master = 0; pushMaster(); uiDirty('top', 'dock', 'head'); return }
+    const p = pt(e), gx = +el.dataset.gx, gw = +el.dataset.gw
+    drag = { a: 'outvol', gx, gw, f: volF(S.master), lx: p.x }
+    if (!e.shiftKey) { drag.f = clamp((p.x - gx) / gw, 0, 1); S.master = fVol(drag.f); pushMaster(); uiDirty('top', 'dock', 'head') }
+    try { svg.setPointerCapture(e.pointerId) } catch (err) {}
+  }
+  onMove = function (e) {
+    const r = move0.apply(this, arguments)
+    if (drag && drag.a === 'outvol') { const d = drag, x = pt(e).x; d.f = e.shiftKey ? clamp(d.f + (x - d.lx) / d.gw * .2, 0, 1) : clamp((x - d.gx) / d.gw, 0, 1); d.lx = x; S.master = fVol(d.f); pushMaster(); uiDirty('top', 'dock', 'head') }
+    return r
+  } }
+/* what it reads, as the out's ring does */
+{ const meters0 = drawMeters
+  drawMeters = function () {
+    meters0.apply(this, arguments)
+    const el = $('mt-out')
+    if (el && typeof METERS === 'object') el.setAttribute('width', n(+el.dataset.w * volF(Math.min(6, linDb(Math.max(METERS.mm[0] || 0, METERS.mm[1] || 0))))))
+  } }
+

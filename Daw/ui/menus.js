@@ -129,6 +129,7 @@ const MENU_BAR = () => [
   ['Help', [
     ['Slur Studio Help', null, { id: 'guide' }],
     ['Key Commands', '⇧Slash', { id: 'keys' }],
+    ['Quick Help', null, { do: () => qhToggle(), on: () => typeof QH === 'object' && QH.on }],
     ['Say It', 'Slash'],
   ]],
 ]

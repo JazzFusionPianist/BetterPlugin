@@ -179,6 +179,7 @@ Object.assign(LANG.lists.ko, {
 })
 /* the Mac's menu bar (menus.js), as the Mac writes its menus in Korean: 파일, 편집, 보기, 윈도우, 도움말 */
 LANG.menuKo = {
+  'Quick Help': '빠른 도움말',
   'Settings': '설정', 'General': '일반', 'Display': '디스플레이', 'Audio': '오디오', 'Plug-ins': '플러그인', 'Key Commands': '단축키',
   'File': '파일', 'New': '새로 만들기', 'Open…': '열기…', 'Open Recent': '최근 사용 열기', 'No Projects Yet': '아직 프로젝트 없음', 'More…': '더 보기…',
   'Save': '저장', 'Save As…': '다른 이름으로 저장…', 'Rename…': '이름 변경…', 'Revert To…': '이전 버전으로 되돌리기…', 'Import Audio…': '오디오 가져오기…',

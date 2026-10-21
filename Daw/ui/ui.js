@@ -742,7 +742,8 @@ function laneRow (i, sel, xEnd) {
       if (r.fi > 0) { const fw = Math.min(w, r.fi * PXB); q += P(`M${x} ${ly}H${n(x + fw)}L${x} ${ly + lh}Z`, { fill: K0, fa: lkN('fade.shade') / 100 }) + P(`M${x} ${ly + lh}L${n(x + fw)} ${ly}`, { stroke: L.on, sa: .9 * lkA('fade.c') }) }
       if (r.fo > 0) { const fw = Math.min(w, r.fo * PXB), xe = n(x + w); q += P(`M${n(xe - fw)} ${ly}H${xe}V${ly + lh}Z`, { fill: K0, fa: lkN('fade.shade') / 100 }) + P(`M${n(xe - fw)} ${ly}L${xe} ${ly + lh}`, { stroke: L.on, sa: .9 * lkA('fade.c') }) }
     }
-    if (S.flex && !S.auto) q += flexLines(r, xa, xb, ly, lh, L)
+    if (S.flex && !S.auto && rubatoOn(r)) q += flexLines(r, xa, xb, ly, lh, L)
+    if (S.flex && !S.auto && !r.loop && !r.notes && w > 30 && lh >= 18) { const b = rubatoBoxAt(r, ly, lh), c = on ? K0 : INK; q += rubatoOn(r) ? R(b.x, b.y, b.w, b.h, { fill: c, fa: .9 }) : R(b.x + .5, b.y + .5, b.w - 1, b.h - 1, { stroke: c, sa: .7, sw: 1 }) }      // (rubato on or off for it: pressed, the other — flex.js)
     let tagQ = ''                                                                    // its name stands clear of a crossfade it is entered by, and over everything
     const ns = lkN('name.size'), nw = +lk('name.w')                                    // (its name: as large, as heavy and in the colour the look says — or not there)
     if (lh >= ns * 2 + 1 && x > X0 - 400 && lk('name.where') !== 'none') { const lead = fitShape(sh, w, lh)[0], lx = Math.max(lead[0] === 'sq' ? 0 : lead[1] * (lead[0] === 'round' ? .45 : 1), entered && entered.get(r.id) || 0), tg = regTag(r, t, w - 9 - lx); if (tg) tagQ = R(x + 1 + lx, ly + 1, tw(tg, ns, nw) + 6, ns + 2, { fill: body }) + T(x + 4 + lx, ly + .5 + ns, tg, { size: ns, w: nw, c: L.name, a: lkA('name.c') }) }

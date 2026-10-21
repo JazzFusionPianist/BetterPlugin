@@ -17,7 +17,7 @@ const set = await ev(`if (typeof START !== 'undefined') START.on = false
   S.rh = 60; setZoom(48, 0); S.tool = 'flex'; S.flex = true; S.auto = false; S.snap = false; VX = 0; VY = 0
   const spb = SPB(), sec = 4 * spb, N = Math.round(sec * 100), pk = new Float32Array(N); for (let k = 0; k < 4; k++) pk[Math.round(k * spb * 100) + 3] = .9
   const tA = S.tracks.find(t => t.kind === 'audio' && !t.inst), iA = S.tracks.indexOf(tA), tB = S.tracks.slice(iA + 1).find(t => t.kind === 'audio' && !t.inst)
-  const mk = () => mkReg({ a: 1, b: 5, key: 'file:clicks', file: 'clicks.wav', peaksAll: pk, loop: false, rate: 1, sec, srcBars: 4 })
+  const mk = () => mkReg({ a: 1, b: 5, key: 'file:clicks', file: 'clicks.wav', peaksAll: pk, loop: false, rate: 1, sec, srcBars: 4, rub: true })      // (rubato on for them: it is a region's own since 2026-10-22)
   tA.regs = [mk()]; tB.regs = [mk()]; tA.grp = 'q'; tB.grp = 'q'; S.grpOff = false
   TRANS.clear(); TRANS_ALL.clear(); heardTransients('file:clicks', [0, 1, 2, 3].map(k => ({ s: k * spb + .03, k: 0, v: 1 })).concat([{ s: 1.5 * spb, k: 0, v: .05 }, { s: 2.5 * spb, k: 1, v: .4 }]))
   S.sel = iA; S.selR = []; dirtyAll(); flush()

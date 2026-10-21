@@ -715,13 +715,13 @@ async function runSelfTest (mode) {
   await step('flex', async () => {
     const t = track('hats'), r = t.regs.find(x => x.file)
     if (!r) return { skipped: true }
-    toggleFlex(); await sleep(900)
+    S.selR = [r.id]; toggleFlex(); await sleep(900)                                       // (rubato on for it: a region's own — and the view shown)
     const found = (TRANS.get(r.key) || []).length
     S.selR = [r.id]; S.q = 1 / 16
     await quantize([r])
     await snap('selftest-7-flex.png')
     const pins = (r.flex || []).length, moved = (r.flex || []).filter(m => Math.abs(m.d - m.s / (r.rate || 1)) > 1e-3).length
-    toggleFlex()
+    S.selR = []; toggleFlex()                                                             // (nothing chosen: the view hidden, the region left as it is)
     return { transients: found, pins, moved, wkey: r.wkey, grid: +(SPB() / 16).toFixed(4), firstPins: (r.flex || []).slice(0, 6).map(m => [+m.s.toFixed(3), +m.d.toFixed(3)]) }
   })
   /* a project as it comes back from another Mac (selftest.sh lays two down): its folder renamed on the way — its sound is
@@ -848,7 +848,7 @@ async function runSelfTest (mode) {
     const t = track('hats'), i = S.tracks.indexOf(t), r = t.regs.find(x => x.file)
     if (!r) return { skipped: true }
     edit(() => { r.flex = [] }); await rewarp([r])
-    keyDown('KeyF', { metaKey: true }); await sleep(500)
+    S.focus = 'lanes'; if (!rubatoOn(r)) { S.selR = [r.id]; keyDown('KeyF', { metaKey: true }) } else if (!S.flex) { S.selR = []; keyDown('KeyF', { metaKey: true }) } await sleep(500)      // (rubato on for it — chosen, the key turns it on — and the view shown: with nothing chosen the key only shows it)
     setZoom(300, r.a - 1 + (r.b - r.a) / 2); VY = 0; showRow(i); flush(); await sleep(80)
     const tr = (TRANS.get(r.key) || []).slice().sort((a, b) => a - b), s = tr[4], x = xOfD(r, sToD(r, s)), y = rowY(i) + S.rh / 2
     await pull(x, y, x + 9, y, { ctrlKey: true, shiftKey: true })                     // control and shift: free of the grid
@@ -857,7 +857,7 @@ async function runSelfTest (mode) {
     const pin = (r.flex || []).find(m => Math.abs(m.s - s) < 1e-4), res = { transient: +s.toFixed(3), pins: (r.flex || []).length, movedBy: pin ? +(pin.d - s / (r.rate || 1)).toFixed(4) : null, pxAsSec: +(9 / PXB * SPB()).toFixed(4), wkey: r.wkey }
     keyDown('KeyZ', { metaKey: true }); await sleep(300)
     res.afterUndo = (regOf(r.id)[0].flex || []).length                                // an undo puts back the region as it was: another object with the same id
-    setZoom(0); keyDown('KeyF', { metaKey: true }); flush()
+    setZoom(0); S.selR = []; keyDown('KeyF', { metaKey: true }); flush()
     return res
   })
   await step('handsRouting', async () => {

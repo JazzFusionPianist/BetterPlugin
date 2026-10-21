@@ -107,9 +107,33 @@ function ensureTransients (r) {
   return TRANS_WAIT.get(k)
 }
 const forgetTransients = () => { TRANS.clear(); TRANS_ALL.clear(); TRANS_WAIT.clear(); TEMPO_WAIT.clear() }
+/* Rubato is a region's own (his word, 2026-10-22: one turned on turned every track on): a region it is on for shows
+   where things begin and takes pins; one it is off for plays as it is, its pins kept for when it is on again. The view
+   shows it; the key and the panel's word, with regions chosen, turn it on or off for them (and show the view); with none
+   chosen, show or hide the view. In the view each file's region has a small square at its foot, filled while it is on:
+   pressed, on or off. A region from before with pins on it is on. */
+const rubatoOn = r => !!r && !r.loop && !r.notes && (!!r.rub || !!(r.flex && r.flex.length))
+function rubatoSet (list, on) {
+  const changed = []
+  for (const r of list) {
+    if (!r || r.loop || r.notes || rubatoOn(r) === on) continue
+    if (on) { r.rub = true; if (r.flexOff) { r.flex = r.flexOff; delete r.flexOff } ensureTransients(r) }
+    else { r.rub = false; if (r.flex && r.flex.length) { r.flexOff = r.flex; r.flex = [] } }
+    changed.push(r)
+  }
+  if (changed.length) rewarp(changed)
+  return changed.length > 0
+}
+const RUBATO_BOX = 8                                                                          // (the square at a region's foot: its size, and how far in from its start)
+const rubatoBoxAt = (r, y, lh) => ({ x: bx(r.a) + 10, y: y + lh - RUBATO_BOX - 3, w: RUBATO_BOX, h: RUBATO_BOX })
 function toggleFlex () {
-  S.flex = !S.flex
-  if (S.flex) { if (S.auto) { S.auto = false; S.selP = [] } for (const t of S.tracks) for (const r of t.regs) ensureTransients(r) }
+  const rs = selRegs().filter(([r]) => !r.loop && !r.notes)
+  if (rs.length) {
+    const on = !rs.every(([r]) => rubatoOn(r))
+    edit(() => rubatoSet(rs.map(x => x[0]), on))
+    if (on && !S.flex) S.flex = true
+  } else S.flex = !S.flex
+  if (S.flex) { if (S.auto) { S.auto = false; S.selP = [] } for (const t of S.tracks) for (const r of t.regs) if (rubatoOn(r)) ensureTransients(r) }
   uiDirty('scenes', 'lanes', 'dock', 'head', 'info')
 }
 const Q_VALUES = [[1 / 4, '1/4'], [1 / 8, '1/8'], [1 / 12, '1/8 triplet'], [1 / 16, '1/16'], [1 / 24, '1/16 triplet'], [1 / 32, '1/32']]
@@ -193,7 +217,7 @@ function livePeaks (r, steps, g0, g1) {
 }
 function flexDbl (e, p) {                                                                                    // twice on a pin: it lets go
   const ti = laneAt(p.y), r = hitRegion(ti, barAt(p.x))
-  if (!r || !r.flex) return
+  if (!r || !r.flex || !rubatoOn(r)) return
   const m = r.flex.find(x => Math.abs(xOfD(r, x.d) - p.x) < 5)
   if (m) unpin(r, m)
 }

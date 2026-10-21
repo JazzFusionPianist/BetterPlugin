@@ -16,7 +16,7 @@ function stretchAt (e, p) {
   if (tool === 'smart') { const z = smartZone(ti, p).z; if (z === 'fi' || z === 'fo' || z === 'x') return null }      // (the corner along the top is the fade's, the foot of a join the crossfade's)
   const end = endAt(ti, p)
   if (!end || end[1] !== 'r' || !canStretch(end[0])) return null
-  if (S.flex && !end[0].notes && flexNear(end[0], p.x)) return null                      // (a pin standing there is the pin's)
+  if (S.flex && rubatoOn(end[0]) && flexNear(end[0], p.x)) return null                      // (a pin standing there is the pin's)
   return [end[0], t, ti]
 }
 const stretchWas = x => ({ id: x.id, a: x.a, b: x.b, off: x.off || 0, fi: x.fi || 0, fo: x.fo || 0, rate: rateOf(x), sec: x.sec || 0, srcBars: x.srcBars || 0, fx: !!x.fx, flex: x.flex ? x.flex.map(m => Object.assign({}, m)) : null, notes: x.notes || null, ctl: x.ctl || null, rep: x.rep || 0 })

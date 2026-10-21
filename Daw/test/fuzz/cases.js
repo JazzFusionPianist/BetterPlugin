@@ -186,14 +186,14 @@
     ok('the measure changed under a crossfade: its join is the moment it was, and taking the crossfade off leaves the two meeting there', Math.abs(j1 - j0) < 1e-9 && Math.abs(e1 - j0) < 1e-9, [j0, j1, e1]) }
   { fresh(); trk('kick').regs = []; const A = file('kick', 5, 13, 0, 8, 'file:take'); TRANS.set('file:take', Array.from({ length: 34 }, (_, j) => j * .61 + .13)); quantize.empty = true
     S.selR = [A.id]; S.pos = 8; act.splitAtPlayhead(); const B = trk('kick').regs.find(r => r !== A), src = (r, bar0) => dToS(r, dOfBar(r, bar0))
-    S.flex = true; S.tool = 'flex'; { const x = xOfD(B, sToD(B, 15.99)), y = hAt('kick', 1, .5).y; hPress({ x, y }); hMove({ x: x + 14, y }); hUp() } S.tool = 'pointer'; S.flex = false
+    A.rub = true; B.rub = true; S.flex = true; S.tool = 'flex'; { const x = xOfD(B, sToD(B, 15.99)), y = hAt('kick', 1, .5).y; hPress({ x, y }); hMove({ x: x + 14, y }); hUp() } S.tool = 'pointer'; S.flex = false
     const at = [8.2, 9.3, 10.1, 11.4], was = at.map(b => src(B, b)), pinned = A.flex.length
     S.selR = [A.id]; S.q = 1 / 16; await quantize([A])
     ok('a pin pulled by hand in one piece of a take, then the other piece alone quantized: the first plays what it played, everywhere', pinned === 3 && at.every((b, i) => Math.abs(src(B, b) - was[i]) < 1e-9) && A.flex.length > 4 && JSON.stringify(A.flex) === JSON.stringify(B.flex) && Math.abs(src(A, A.b - 1) - src(B, B.a - 1)) < 1e-9, [pinned, A.flex.length, at.map(b => src(B, b)), was]) }
   { fresh(); trk('kick').regs = []; const A = file('kick', 5, 13, 0, 8, 'file:take'); TRANS.set('file:take', Array.from({ length: 34 }, (_, j) => j * .61 + .13))
     S.selR = [A.id]; S.pos = 8; act.splitAtPlayhead(); const B = trk('kick').regs.find(r => r !== A), src = (r, bar0) => dToS(r, dOfBar(r, bar0))
     B.flex = [{ s: 14.77, d: 14.77 }, { s: 15.38, d: 15.60 }, { s: 15.99, d: 15.99 }]; const was = src(B, 9.95), pins = JSON.stringify(B.flex)
-    S.flex = true; S.tool = 'flex'; { const x = xOfD(A, sToD(A, 4.4)), y = hAt('kick', 1, .5).y; hPress({ x, y }); hMove({ x: x + 14, y }); hUp() } S.tool = 'pointer'; S.flex = false
+    A.rub = true; S.flex = true; S.tool = 'flex'; { const x = xOfD(A, sToD(A, 4.4)), y = hAt('kick', 1, .5).y; hPress({ x, y }); hMove({ x: x + 14, y }); hUp() } S.tool = 'pointer'; S.flex = false
     ok('a piece that has pins of its own (from before pieces shared theirs), and a pin moved on its sibling: its own pins stay, and it plays what it played', (A.flex || []).length > 0 && JSON.stringify(B.flex) === pins && Math.abs(src(B, 9.95) - was) < 1e-9, [A.flex, B.flex, src(B, 9.95), was]) }
   { const [A, B] = two(); edit(() => { crossfade(A, B, .5) }); A.fi = (A.b - A.a) - A.fo                       // the first is all fades: its own fade in, then the crossfade
     const P = file('kick', 9, 17 + 5e-5, 0, 20, 'file:p'), fo = A.fo; edit(() => { settle([[P, trk('kick'), P.a - 1, P.b - 1]]) })

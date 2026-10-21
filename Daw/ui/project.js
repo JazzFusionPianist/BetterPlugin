@@ -157,7 +157,7 @@ function placeDecoded (list, lane, bar) {
     placeDecoded.made.push({ r: nr, t, first, base })
     last = t; any = true
   })
-  if (any) { birthAll(); commit(before); refreshPool(); if (S.flex) for (const t of S.tracks) for (const r of t.regs) ensureTransients(r) }
+  if (any) { birthAll(); commit(before); refreshPool(); if (S.flex) for (const t of S.tracks) for (const r of t.regs) if (rubatoOn(r)) ensureTransients(r) }
   return any
 }
 const heardTempo = (r, base) => ensureTempo(r).then(heard => { if (heard) say(`${base.toLowerCase().slice(0, 28)} goes at ${+heard.toFixed(1)}`) })
@@ -187,7 +187,7 @@ async function bringPaths (paths, lane, bar) {
         for (const m of made) if (m.r.file === name && m.r.key) {                        // what was left for its sound: how it moves, how fast it goes, where it begins
           if (m.first && !m.t.tone) { const tone = readTone(f); if (tone) { m.t.tone = tone; uiDirty('head', 'lanes') } }
           if (!m.r.bpm && f.sec > 2) heardTempo(m.r, m.base)
-          if (S.flex) ensureTransients(m.r)
+          if (S.flex && rubatoOn(m.r)) ensureTransients(m.r)
         }
         done++; if (shown) printTell({ done })
         clearTimeout(SOUNDS.settle); SOUNDS.settle = setTimeout(soundsSettle, 150)
@@ -242,7 +242,7 @@ async function importAudio () {
 
 /* ── the project on disk (the app only) ── */
 const KEEP_T = ['id', 'name', 'col', 'shape', 'tone', 'theirs', 'kind', 'vol', 'def', 'pan', 'mute', 'solo', 'inp', 'out', 'parent', 'open', 'h', 'sends', 'autos', 'ap', 'patch', 'midi', 'buf0', 'grp', 'alt', 'inst', 'disabled']
-const KEEP_R = ['id', 'a', 'b', 'off', 'gain', 'mute', 'fi', 'fo', 'loop', 'rate', 'sec', 'srcBars', 'tag', 'name', 'file', 'tr', 'ft', 'flex', 'rev', 'fx', 'col', 'shape', 'fic', 'foc', 'grp', 'bpm', 'xo', 'sm', 'px', 'py', 'notes', 'ctl', 'q', 'qs', 'sw', 'vel', 'rep', 'chords']
+const KEEP_R = ['id', 'a', 'b', 'off', 'gain', 'mute', 'fi', 'fo', 'loop', 'rate', 'sec', 'srcBars', 'tag', 'name', 'file', 'tr', 'ft', 'flex', 'rev', 'fx', 'col', 'shape', 'fic', 'foc', 'grp', 'bpm', 'xo', 'sm', 'px', 'py', 'notes', 'ctl', 'q', 'qs', 'sw', 'vel', 'rep', 'chords', 'rub', 'flexOff']
 function serialize () {
   return JSON.stringify({
     v: 3, name: PROJ.name, demo: PROJ.demo, fresh: PROJ.fresh ? true : undefined, tempo: S.tempo, meter: S.meter, key: S.key, smpte: S.smpte, end: SONG_END, scenes: SCENES.map(s => [s.name, s.a, s.c]), master: S.master, click: S.click, countIn: S.countIn,

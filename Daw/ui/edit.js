@@ -1574,7 +1574,8 @@ function lanesPress (e, p) {
   if (tool === 'join' && S.marq && S.marq.b - S.marq.a >= MIN_LEN && pos >= S.marq.a - 1e-9 && pos <= S.marq.b + 1e-9 && marqTracks().includes(t)) { joinNow(); return }      // (the join tool pressed inside a marquee: its stretch is made one)
   if (tool !== 'marquee' && tool !== 'smart' && S.marq) S.marq = null
   S.selX = null
-  if (S.flex && r && !r.loop && !r.notes && (tool === 'flex' || tool === 'pointer' || tool === 'smart') && flexDown(e, p, r, t, tool, before)) { uiDirty('lanes', 'head', 'dock'); return }
+  if (S.flex && r && !r.loop && !r.notes && !S.auto) { const g = rubatoBoxAt(r, rowY(ti) + Math.min(lkN('reg.gap'), rowH(ti) / 2 - 4), rowH(ti) - 2 * Math.min(lkN('reg.gap'), rowH(ti) / 2 - 4)); if (p.x >= g.x - 2 && p.x <= g.x + g.w + 2 && p.y >= g.y - 2 && p.y <= g.y + g.h + 2) { edit(() => rubatoSet([r], !rubatoOn(r))); uiDirty('lanes', 'head', 'dock', 'info'); return } }      // (its square pressed: rubato on or off for it — flex.js)
+  if (S.flex && r && rubatoOn(r) && (tool === 'flex' || tool === 'pointer' || tool === 'smart') && flexDown(e, p, r, t, tool, before)) { uiDirty('lanes', 'head', 'dock'); return }
   if (tool === 'smart' && smartDown(e, p, ti, pos, before)) { uiDirty('lanes', 'head', 'dock'); return }
   const pick = () => (r ? (S.selR.includes(r.id) ? S.selR.slice() : withTheirs([r.id])) : [])
   if (tool === 'pointer' || tool === 'flex' || tool === 'smart') {
@@ -1825,8 +1826,8 @@ function lanesHover (e, p, el) {
   let c = { pencil: 'crosshair', eraser: 'cell', scissors: 'col-resize', join: 'copy', mute: 'not-allowed', gain: 'ns-resize', fade: 'ew-resize', marquee: 'crosshair', zoom: 'zoom-in', flex: 'col-resize' }[tool] || 'default'
   if (S.auto && tool !== 'zoom' && tool !== 'marquee') c = tool === 'eraser' ? 'cell' : 'crosshair'
   else if (tool !== 'zoom' && tool !== 'marquee' && (p.y - TY + VY) < rowTops().all && onOwnLine(laneAt(p.y), p)) c = tool === 'eraser' ? 'cell' : 'crosshair'
-  else if (tool === 'smart') { const ti = laneAt(p.y), r = S.flex ? hitRegion(ti, barAt(p.x)) : null; c = r && !r.loop && !r.notes && flexNear(r, p.x) ? 'col-resize' : SMART_CURSOR[smartZone(ti, p).z] || 'default' }
-  else if (tool === 'pointer') { const ti = laneAt(p.y), r = hitRegion(ti, barAt(p.x)); if (r) c = endAt(ti, p) ? 'ew-resize' : S.flex && !r.loop && !r.notes && flexNear(r, p.x) ? 'col-resize' : 'grab' }
+  else if (tool === 'smart') { const ti = laneAt(p.y), r = S.flex ? hitRegion(ti, barAt(p.x)) : null; c = r && rubatoOn(r) && flexNear(r, p.x) ? 'col-resize' : SMART_CURSOR[smartZone(ti, p).z] || 'default' }
+  else if (tool === 'pointer') { const ti = laneAt(p.y), r = hitRegion(ti, barAt(p.x)); if (r) c = endAt(ti, p) ? 'ew-resize' : S.flex && rubatoOn(r) && flexNear(r, p.x) ? 'col-resize' : 'grab' }
   if (el.style.cursor !== c) el.style.cursor = c
 }
 

@@ -146,7 +146,8 @@ if (NAT) {
   NAT.on('dawCut', d => { if (d && d.name) say(`only the first ${Math.round(d.held / 60)} of ${Math.round(d.whole / 60)} minutes of ${String(d.name).toLowerCase().slice(0, 28)} are held${d.disk ? ': the disk has no room for the rest' : ''}`) })
   NAT.on('dawTick', d => {
     if (d.c != null) { const now = performance.now(); if (now - (STAT.at || 0) > 600) { STAT.at = now; const v = Math.round(d.c * 100) / 100; if (v !== STAT.cpu) { STAT.cpu = v; uiDirty('cmd') } } }      // how hard the machine works, read about twice a second
-    if (d.m) { const m = d.m; METERS.m[0] = Math.max(METERS.m[0], m.m[0]); METERS.m[1] = Math.max(METERS.m[1], m.m[1]); METERS.i = Math.max(METERS.i, m.i); for (let k = 0; k + 1 < m.t.length; k += 2) if (m.t[k + 1] > (METERS.t.get(m.t[k]) || 0)) METERS.t.set(m.t[k], m.t[k + 1]) }
+    if (d.m) { const m = d.m; METERS.m[0] = Math.max(METERS.m[0], m.m[0]); METERS.m[1] = Math.max(METERS.m[1], m.m[1]); METERS.i = Math.max(METERS.i, m.i); for (let k = 0; k + 1 < m.t.length; k += 2) if (m.t[k + 1] > (METERS.t.get(m.t[k]) || 0)) METERS.t.set(m.t[k], m.t[k + 1])
+      if (m.s) { if (!METERS.ts) METERS.ts = new Map(); for (let k = 0; k + 2 < m.s.length; k += 3) { const o = METERS.ts.get(m.s[k]) || [0, 0]; METERS.ts.set(m.s[k], [Math.max(o[0], m.s[k + 1]), Math.max(o[1], m.s[k + 2])]) } } }      // (each track's two sides: the mixer's two meters — mixpanel.js)
     if (d.j !== N.jumps) { if (N.jumps !== -1 && S.queued != null) { S.queued = null; uiDirty('scenes') } N.jumps = d.j }
     if (!S.playing) return
     if (d.on) { N.armed = true; N.pos = d.p; N.at = performance.now() }

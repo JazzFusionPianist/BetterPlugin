@@ -2175,6 +2175,17 @@ async function runSelfTest (mode) {
     res.parts = ['play', 'stop', 'rec', 'pos', 'smpte', 'meter', 'tempo', 'loop', 'key', 'click', 'lowlat', 'master', 'addtrack', 'look', 'toolmenu', 'modemenu', 'grid', 'nudge', 'autokey', 'flexkey', 'zoomx', 'zoomy'].filter(a => !document.querySelector('#tp-col [data-a="' + a + '"]'))
     res.place = bar && rest ? { bar: bar.textContent, rest: rest.textContent, after: +rest.getAttribute('x') >= +bar.getAttribute('x') + bar.getComputedTextLength() } : null
     await snap('selftest-panel.png')
+    /* the mixer with it (mixpanel.js, his pick of design/mixer panel draft 3): its own, every strip with two meters */
+    const pw = { on: S.panel.on, tab: S.panel.tab, h: S.panel.h }
+    S.panel.on = true; S.panel.tab = 'mixer'; S.panel.h = 420; setView(true); dirtyAll(); flush(); await sleep(200); SKINS.frame.panel(curPos())
+    res.mixer = { own: SKIN.k.mixer === 'panel', strips: document.querySelectorAll('#g-dock [data-a="mvol"]').length, tracks: rows().length, meters: document.querySelectorAll('#g-dock [id^="mpm-"]').length, sends: document.querySelectorAll('#g-dock [data-a="msendadd"]').length }
+    await snap('selftest-mixpanel.png')
+    /* the two meters apart: a track turned hard left is heard on the left only (Engine.h takeMeters "s") */
+    { const t = S.tracks.find(x => x.regs.some(r => r.a <= 6 && r.b > 6)) || S.tracks[0], pan0 = t.pan; t.pan = -1; pushTrack(t); await sleep(100)
+      let l = 0, r = 0; await playFrom(4); for (let k = 0; k < 16; k++) { await sleep(60); const v = METERS.ts && METERS.ts.get(t.id); if (v) { l = Math.max(l, v[0]); r = Math.max(r, v[1]) } }
+      halt(false); t.pan = pan0; pushTrack(t)
+      res.stereo = { track: t.name, left: +l.toFixed(3), right: +r.toFixed(3), apart: l > .02 && r < l * .1 } }
+    Object.assign(S.panel, pw); setView(true); dirtyAll(); flush()
     key(); await sleep(150); flush()
     res.off = { panel: TPANEL.on, col: !!document.getElementById('tp-col'), bar: !!document.getElementById('rd') }
     return res

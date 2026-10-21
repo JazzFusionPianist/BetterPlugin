@@ -37,7 +37,7 @@ KEYS.KeyH = () => toggleTransportPanel()
 /* ── drawing ── */
 const tpNum = ' style="font-variant-numeric: tabular-nums"'
 const tpCap = (x, y, w, o = {}) => T(x, y, w, Object.assign({ size: 7.5, a: .38 }, o))
-const tpCaps = (x, y, w, o = {}) => T(x, y, LANG_WORDS(String(w)).toUpperCase(), Object.assign({ size: 6, w: 600, a: .45, x: ' letter-spacing="1.1"' }, o))
+const tpCaps = (x, y, w, o = {}) => T(x, y, String(w), Object.assign({ size: 7.5, w: 600, a: .45, x: ' letter-spacing=".4"' }, o))      // (small words in small letters: his rule, 2026-10-21 — capitals only for what one names oneself)
 /* a shape at rest in a hairline; on, filled */
 const tpTri = (cx, cy, w, h, on, c, up) => {
   const d = up ? `M${n(cx)} ${n(cy - h / 2)}L${n(cx + w / 2)} ${n(cy + h / 2)}L${n(cx - w / 2)} ${n(cy + h / 2)}Z` : `M${n(cx - w / 2)} ${n(cy - h / 2)}L${n(cx + w / 2)} ${n(cy)}L${n(cx - w / 2)} ${n(cy + h / 2)}Z`
@@ -187,3 +187,7 @@ SKINS.frame.panel = p => {
     if (el && e.button === 0) { TPX.pk = -100; TPX.clip = false; uiDirty('top'); return }
     return down0.apply(this, arguments)
   } }
+/* what the tracks' bar said (the tool, the mode, what is chosen…) is the panel's now: when that bar would be drawn again,
+   the panel is */
+{ const info0 = PARTS.info
+  PARTS.info = function () { if (TPANEL.on && typeof SKIN === 'object' && SKIN.k.transport === 'panel') uiDirty('top'); return info0.apply(this, arguments) } }

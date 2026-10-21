@@ -21,6 +21,18 @@ export default () => chapter('mixing', t('mixing', '믹싱'),
     p('One strip for every row of the track list, in the same order; the tracks of a closed stack are not shown. Scroll over the mixer to move along it. When the strip you act on is one of several chosen, the fader, pan, {{m}}, {{s}}, {{r}}, {{i}} and the input act on all of them. The tracks of a group that shares volume, mute or solo move with it as well (see “groups”).', '트랙 목록의 줄마다 스트립 하나, 같은 순서입니다. 닫힌 스택 안의 트랙은 보이지 않습니다. 믹서 위에서 스크롤하면 스트립이 옆으로 움직입니다. 조작하는 스트립이 여러 선택 중 하나면 페이더, 팬, {{m}}, {{s}}, {{r}}, {{i}}, 입력은 모두에게 적용됩니다. 볼륨, 뮤트, 솔로를 함께 하는 그룹의 트랙도 같이 움직입니다(“그룹” 참고).'),
     art: fig('mixer', { w: 232, calls: [[1, 'mfxadd#2', 't'], [2, [16, 54], 'l'], [3, [14, 102], 'l'], [4, 'mpan#3', 't'], [5, 'mvol#7', 't'], [6, 'volnum#2', 'b'], [7, 'mute#8', 'b'], [8, 'msel#8', 'b', 3], [9, 'mmaster', 't']] }) }),
 
+  page(t('the mixer with the transport panel', '트랜스포트 패널과 함께 쓰는 믹서'), { kind: 'wide', cc: 3, txt:
+    p('With the transport panel up ([[H]]) the mixer is drawn as the panel is: every track on one screen, each as large as there is room for. When they no longer fit, the tracks chosen in the arrangement stay wide and the rest go narrow: a large number, the name on its side, two meters and the handle. Choose a track above and its strip opens here. Past about sixty tracks a row of their numbers runs along the top; click one to choose that track and bring it into sight.', '트랜스포트 패널을 띄우면([[H]]) 믹서도 패널처럼 그려집니다. 모든 트랙이 한 화면에, 자리가 허락하는 만큼 크게. 다 들어가지 않으면 편곡 화면에서 고른 트랙만 넓게 남고 나머지는 좁아집니다: 큰 번호, 옆으로 눕힌 이름, 미터 두 개와 손잡이. 위에서 트랙을 고르면 여기서 그 스트립이 펴집니다. 60트랙쯤을 넘으면 맨 위에 번호 줄이 생기고, 번호를 누르면 그 트랙이 골라지고 화면에 들어옵니다.') +
+    table(null,
+      [1, ['the track’s number in its colour (chosen: on a block of ink) and its name. Click to choose it', '트랙 번호(트랙 색, 고르면 반전)와 이름. 클릭하면 선택']],
+      [2, ['{{pan}} a knob: drag up or down', '{{pan}} 노브: 위아래로 드래그']],
+      [3, ['the patch as a list of names: click one for its window, [[⌥]] drag to copy it; + plug-in opens the list', '패치를 이름 목록으로: 누르면 창이 열리고, [[⌥]] 드래그로 복사. + plug-in은 목록을 엽니다']]) +
+    table(null,
+      [4, ['the sends: round knobs beside the fader, how much each sends under it. Drag up or down; click to choose where it goes (its bus is named when the pointer rests on it). The + knob adds one. A full column of knobs makes the strip wider by another, up to ten sends', '센드: 페이더 오른쪽의 동그란 노브, 아래에 보내는 양. 위아래로 드래그, 클릭하면 어디로 보낼지 고릅니다(포인터를 올리면 버스 이름). + 노브로 추가. 노브 한 줄이 다 차면 스트립이 한 줄 더 넓어지고, 센드는 10개까지']],
+      [5, ['two meters, left and right, in the track’s colour; the fader’s line, the white square for a handle, the level beside it (double-click to type)', '왼쪽 오른쪽 미터 두 개(트랙 색), 페이더 선, 흰 사각형 손잡이, 옆에 레벨(더블 클릭해서 입력)']],
+      [6, ['record, monitor, mute, solo: a ring, a diamond, a square, a triangle, filled when on. Under them where the track goes', '녹음, 모니터, 뮤트, 솔로: 원, 마름모, 사각형, 삼각형, 켜지면 채워집니다. 그 아래 트랙이 나가는 곳']]),
+    art: fig('mixpanel', { w: 214, calls: [[1, 'msel', 't'], [2, 'mpan', 't'], [3, 'mfxadd', 't'], [4, 'msendadd', 'r'], [5, 'mvol', 'b'], [6, 'mute', 'b']] }) }),
+
   page(t('the way the sound takes', '소리가 지나는 길'), { kind: 'split', tw: 92, mid: true, txt:
     lead('Every track works the same way, whatever it holds.', '트랙은 무엇을 담든 같은 방식으로 동작합니다.') +
     legend(

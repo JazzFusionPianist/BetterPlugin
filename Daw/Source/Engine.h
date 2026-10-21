@@ -464,7 +464,7 @@ struct Track
     Hold outHold;                                // what goes its plain way out, held back when a send of its takes longer to arrive
     std::vector<Region> regs;
     std::vector<Auto> autos;
-    std::atomic<float> vol { 1.0f }, gate { 1.0f }, pan { 0.0f }, tape { 0.0f }, space { 0.0f }, delay { 0.0f }, peak { 0.0f };
+    std::atomic<float> vol { 1.0f }, gate { 1.0f }, pan { 0.0f }, tape { 0.0f }, space { 0.0f }, delay { 0.0f }, peak { 0.0f }, peakL { 0.0f }, peakR { 0.0f };      // (peakL, peakR: each side on its own, for the mixer's two meters)
     std::atomic<bool> mon { false };
     std::atomic<bool> frozen { false };          // frozen (his ask, 2026-10-21): it plays its print, the one region the page sends it; its instrument, plug-ins and patch rest, and are no later than nothing
     std::atomic<bool> dead { false };            // switched off (his ask, 2026-10-20: for the processor's sake): nothing of it is worked — no region read, no instrument, no plug-in, no patch — and it is silent
@@ -1136,6 +1136,9 @@ public:
         m.add (meterL.exchange (0.0f)); m.add (meterR.exchange (0.0f));
         if (++latencyTick % 20 == 0 && ! bouncing.load()) measureLatency();
         for (auto& tp : tracks) { t.add (tp->id); t.add (juce::roundToInt (tp->peak.exchange (0.0f) * 1000.0f) / 1000.0); }
+        juce::Array<juce::var> st;                                     // each track's two sides on their own: [id, left, right, …] (the mixer's meters)
+        for (auto& tp : tracks) { st.add (tp->id); st.add (juce::roundToInt (tp->peakL.exchange (0.0f) * 1000.0f) / 1000.0); st.add (juce::roundToInt (tp->peakR.exchange (0.0f) * 1000.0f) / 1000.0); }
+        o->setProperty ("s", st);
         if (fineOn.load())                                             // a realtime print: each track's peaks since the last call, two hundred a second, with their places (bars)
         {
             juce::Array<juce::var> f;
@@ -3982,7 +3985,7 @@ private:
         const float pn0 = t.panSm, pn1 = evalAuto (t, kAutoPan, barOut, v) ? juce::jlimit (-1.0f, 1.0f, v) : t.pan.load();
         float pl = pn0 <= 0.0f ? 1.0f : 1.0f - pn0, pr = pn0 >= 0.0f ? 1.0f : 1.0f + pn0;
         const float pls = ((pn1 <= 0.0f ? 1.0f : 1.0f - pn1) - pl) / (float) n, prs = ((pn1 >= 0.0f ? 1.0f : 1.0f + pn1) - pr) / (float) n;
-        float g = t.gainSm, pk = 0.0f;
+        float g = t.gainSm, pk = 0.0f, pkL = 0.0f, pkR = 0.0f;
         const bool fine = fineOn.load (std::memory_order_relaxed) && st.rolling;      // (a realtime print: what comes out, finely)
         const int fineStep = juce::jmax (1, (int) (sr / 200.0));
         for (int i = 0; i < n; ++i)
@@ -3990,8 +3993,10 @@ private:
             g += gs; pl += pls; pr += prs;
             const float l = L[i] * g * pl, r = R[i] * g * pr;
             L[i] = l; R[i] = r;
-            const float a = std::abs (l) > std::abs (r) ? std::abs (l) : std::abs (r);
+            const float al = std::abs (l), ar = std::abs (r), a = al > ar ? al : ar;
             if (a > pk) pk = a;
+            if (al > pkL) pkL = al;
+            if (ar > pkR) pkR = ar;
             if (fine)
             {
                 if (a > t.fineMax) t.fineMax = a;
@@ -4007,6 +4012,8 @@ private:
         }
         t.gainSm = target; t.panSm = pn1;
         if (pk > t.peak.load()) t.peak.store (pk);
+        if (pkL > t.peakL.load()) t.peakL.store (pkL);
+        if (pkR > t.peakR.load()) t.peakR.store (pkR);
         if (kept && ! tap->pre) { tap->buf.copyFrom (0, 0, L, n); tap->buf.copyFrom (1, 0, R, n); }
         if (t.printLive != nullptr && ! t.printLive->pre && n <= t.printLive->buf.getNumSamples()) { t.printLive->buf.copyFrom (0, 0, L, n); t.printLive->buf.copyFrom (1, 0, R, n); }      // (… after it)
         const float took = (float) juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0);

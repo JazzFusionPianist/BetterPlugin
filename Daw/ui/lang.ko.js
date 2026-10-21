@@ -258,5 +258,6 @@ Object.assign(LANG.lists.ko, {
 Object.assign(LANG.lists.ko, {
   'start': '처음으로', 'cycle off': '사이클 꺼짐', 'cycle # to #': '사이클 #–#', 'zoom across': '가로 줌', 'zoom down': '세로 줌', 'bpm': 'bpm',
   'peak #': '피크 #', 'peak −∞': '피크 −∞', 'gain #': '게인 #', 'tr #': '트랜스포즈 #', '# regions': '리전 #개',
+  '+# more': '+# 더',
 })
 Object.assign(LANG.menuKo, { 'Transport Panel': '트랜스포트 패널' })

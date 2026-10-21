@@ -67,7 +67,7 @@ if (NAT) {
     else if (rewind) S.pos = restBar()
   }
   jumpTo = bar => {
-    S.away = false; if (typeof JUMP !== 'undefined') JUMP.at = -1e9                     // (as in the browser's: the window goes with the playhead again, and the bar keys count from here)
+    S.away = false; if (typeof JUMP !== 'undefined') JUMP.at = -1e9; if (typeof CATCH === 'object') CATCH.sent = true      // (as in the browser's: the window goes with the playhead again, and the bar keys count from here)
     bar = clamp(bar, 0, SONG_END)
     if (!S.playing) { S.pos = bar; return }
     if (S.rec) return

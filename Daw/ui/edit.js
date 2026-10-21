@@ -1504,7 +1504,17 @@ function barStep (d) {
   JUMP.to = to; JUMP.at = now                                                           // (after the jump: any other sending of the playhead forgets it)
 }
 /* the window brought to the playhead, or to what is chosen */
-function showPlayhead () { S.away = false; const p = curPos(), span = (X1 - X0) / PXB; if (p < VX || p > VX + span) { VX = clamp(p - span / 4, 0, maxVX()); uiDirty('lanes', 'ruler', 'scenes') } }
+function showPlayhead () {
+  const p = curPos(), span = (X1 - X0) / PXB
+  if (p < VX || p > VX + span) { S.away = false; catchView(p); return }
+  /* the playhead in sight, the window brought here for it: back to where he was working (ui.js CATCH); while the song
+     plays the window then stays there, until ` brings it to the playhead again */
+  const w = CATCH.work
+  if (!w || !CATCH.mine || CATCH.mine.vx !== VX || CATCH.mine.pxb !== PXB) return
+  if (w.pxb !== PXB) setZoom(w.pxb)
+  VX = clamp(w.vx, 0, maxVX()); CATCH.mine = null; S.away = S.playing
+  uiDirty('lanes', 'ruler', 'scenes')
+}
 function showChosen () {
   const sp = selSpan(), span = (X1 - X0) / PXB, first = selRegs()[0]
   if (!sp) return

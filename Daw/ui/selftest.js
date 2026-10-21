@@ -302,6 +302,21 @@ async function runSelfTest (mode) {
     await note('page', { errors: window.__errs || [] })
     await NAT.call('testDone'); return
   }
+  if (mode === 'follow') {                                                         // only this: the window goes with the playhead when it is sent or the song is started out of sight (ui.js CATCH), and ` goes back to where he was working
+    await step('follow', async () => {
+      const res = {}, view = () => ({ vx: +VX.toFixed(2), pxb: +PXB.toFixed(2), span: +((X1 - X0) / PXB).toFixed(2), pos: +curPos().toFixed(2) }), shows = v => v.pos >= v.vx - .05 && v.pos <= v.vx + v.span
+      await sleep(800); halt(true); setZoom(fitPXB() * 6); VX = 30; S.pos = 34; uiDirty('lanes', 'ruler', 'scenes'); await sleep(400)
+      res.work = view()
+      KEYS.Enter(); await sleep(500); res.enter = view(); res.enterShown = shows(res.enter)
+      KEYS.Backquote(); await sleep(400); res.back = view(); res.backToWork = res.back.vx === res.work.vx && res.back.pxb === res.work.pxb
+      KEYS.Space(); await sleep(1600); res.playing = view(); res.playShown = shows(res.playing) && S.playing
+      KEYS.Backquote(); await sleep(1200); res.away = view(); res.stayedAtWork = res.away.vx === res.work.vx
+      KEYS.Space(); await sleep(500)
+      return res
+    })
+    await note('page', { errors: window.__errs || [] })
+    await NAT.call('testDone'); return
+  }
   if (mode === 'freeze') {                                                         // only this: a track frozen (freeze.js, Engine: Track::frozen) — it sounds as it did; saved and opened again it is still frozen and still sounds so; changed, it thaws
     await step('freeze', async () => {
       const res = {}

@@ -404,7 +404,7 @@ function halt (rewind) {
   } else if (rewind) S.pos = restBar()
 }
 function jumpTo (bar, T) {
-  if (T == null) { S.away = false; if (typeof JUMP !== 'undefined') JUMP.at = -1e9 }      // (the playhead is sent somewhere by hand — not the cycle coming round: the window goes with it again (ui.js, frame), and the bar keys count from here)
+  if (T == null) { S.away = false; if (typeof JUMP !== 'undefined') JUMP.at = -1e9; if (typeof CATCH === 'object') CATCH.sent = true }      // (the playhead is sent somewhere by hand — not the cycle coming round: the window goes with it again (ui.js, frame), and the bar keys count from here)
   if (!S.playing) { S.pos = clamp(bar, 0, SONG_END); return }
   T = T || E.ctx.currentTime + .05
   cutGen(E.gen, T); startGen(bar, T); E.jumpAt = T

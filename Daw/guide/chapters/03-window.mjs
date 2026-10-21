@@ -80,7 +80,7 @@ export default () => chapter('window', t('the window', '창'),
       [['the zoom tool', '줌 도구'], ['drag across a stretch to fill the window with it; a click zooms out by half', '구간을 드래그하면 그 구간이 창을 채웁니다. 클릭하면 절반으로 축소']],
       ['[[home]] [[end]]', ['a page left, right', '한 화면 왼쪽, 오른쪽']],
       ['[[pgup]] [[pgdn]]', ['a page of rows up, down', '줄 한 화면 위, 아래']],
-      ['[[`]]', ['find the playhead', '플레이헤드 찾기']],
+      ['[[`]]', ['to the playhead and back', '플레이헤드로, 다시 누르면 제자리로']],
       ['[[⇧`]]', ['find what is chosen', '선택한 것 찾기']]) +
     p('The view goes in as far as single samples: the bar numbers divide into beats, sixteenths, ticks and samples, and the grid and nudge follow. When a drag reaches the edge of the lanes, the view turns under your hand.', '확대는 샘플 하나까지 들어갑니다. 눈금이 박, 16분, 틱, 샘플로 나뉘고 그리드와 넛지도 따라갑니다. 드래그가 레인 가장자리에 닿으면 화면이 손 밑에서 넘어갑니다.'),
     art: `<div style="width:122mm">` + h('the panel under the lanes', '레인 아래 패널') +

@@ -2018,6 +2018,16 @@ function followAuto () {
   if (!drag) redrawTracks(moved)                                                     // (only those whose lines moved: their rows and their strips)
   else if (drag.a !== 'vol') for (const t of moved) { const i = S.tracks.indexOf(t), el = $('hd-' + i); if (el) el.innerHTML = headRow(i) }      // (while the hand has hold of something: the rows alone, as before)
 }
+/* The window goes to the playhead when the playhead is sent somewhere by hand (the start, a marker, a bar typed or
+   pressed on the bars), stopped as well as playing, and when the song is started — if the playhead is out of sight then;
+   otherwise it stays where it is, and it never moves for an edit (his ask, 2026-10-22). Where it was is kept as where he
+   was working, and ` goes between the two (edit.js showPlayhead). */
+const CATCH = { sent: false, until: 0, work: null, mine: null }
+function catchView (p) {
+  if (!CATCH.mine || CATCH.mine.vx !== VX || CATCH.mine.pxb !== PXB) CATCH.work = { vx: VX, pxb: PXB }      // (unless the window is still where the last one put it: then what was kept stays)
+  VX = clamp(p - (X1 - X0) / PXB / 4, 0, maxVX()); CATCH.mine = { vx: VX, pxb: PXB }
+  uiDirty('lanes', 'ruler', 'scenes')
+}
 function frame () {
   if (TWEEN.on) {                                                                    // a panel on its way open or shut
     const x = Math.min(1, (performance.now() - TWEEN.t0) / 170), e = 1 - Math.pow(1 - x, 3), tp = S.panel.on ? 1 : 0, ts = S.slur ? 1 : 0
@@ -2031,10 +2041,13 @@ function frame () {
      nearer, so that the playhead is no longer in it): then it stays where it was put, and the song plays on out of sight.
      It goes with the playhead again when the song is next started, when the playhead is sent somewhere (a bar key, a
      press on the bars), and when it is asked for (`: find the playhead). */
+  if (S.playing && !frame.was) CATCH.until = performance.now() + 900                   // (started: for a moment, while the place the song starts from comes in)
+  frame.was = S.playing
+  if ((CATCH.sent || performance.now() < CATCH.until) && !drag) { CATCH.sent = false; if (x > X1 - 1 || x < X0 - 1) { catchView(p); x = bx(p + 1) } }
   const off = x > X1 - 1 || x < X0 - 1
   if (!S.playing) S.away = false
   else if (off && frame.vx != null && (VX !== frame.vx || PXB !== frame.pxb) && !drag) S.away = true   // (the window was moved off it by hand)
-  if (S.playing && !drag && off && !S.away) { VX = clamp(x < X0 - 1 ? p - room / 2 : p, 0, maxVX()); uiDirty('lanes', 'ruler', 'scenes'); x = bx(p + 1) }
+  if (S.playing && !drag && off && !S.away) { VX = clamp(x < X0 - 1 ? p - room / 2 : p, 0, maxVX()); if (CATCH.mine) CATCH.mine = { vx: VX, pxb: PXB }; uiDirty('lanes', 'ruler', 'scenes'); x = bx(p + 1) }      // (a page turned: the window is still with the playhead, not somewhere he put it)
   frame.vx = VX; frame.pxb = PXB
   if (play) play.setAttribute('transform', `translate(${Math.round(x)} 0)`)
   if (rd && rd.textContent !== txt) { rd.textContent = txt; rd.setAttribute('x', n(DISP_X + BARC.pos[1] / 2 - tw(txt, 12.5, 500) / 2)) }

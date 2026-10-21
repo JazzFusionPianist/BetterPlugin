@@ -29,6 +29,7 @@ const editState = () => ({
   order: S.tracks.slice(), regs: S.tracks.map(t => keepRegs(t.regs)),
   props: S.tracks.map(t => { const o = { sends: copy(t.sends || []), autos: copy(t.autos || {}), alts: (t.alts || []).map(a => ({ name: a.name, regs: keepRegs(a.regs) })) }; for (const k of T_KEEP) o[k] = t[k]; return o }),
   selR: S.selR.slice(), selP: S.selP.slice(), cycle: Object.assign({}, S.cycle), sel: S.sel, selT: S.selT.slice(), scenes: SCENES.map(s => [s.name, s.a, s.c]), end: SONG_END, tempo: S.tempo, selX: S.selX ? S.selX.slice() : null,
+  ref: typeof refKeep === 'function' ? refKeep() : null,                                // (the reference's regions: reference.js)
 })
 /* the levels of every track as they stand. A step made by the command line carries them (a line may move faders, and
    takes them back with everything else it did); a step made by hand does not, so going back over an edit leaves the
@@ -51,6 +52,7 @@ function restoreEdit (st) {
   }
   S.selT = (st.selT || []).filter(id => S.tracks.some(t => t.id === id)); S.selM = null
   SONG_END = st.end; SCENES = mkScenes(st.scenes)
+  if (typeof refBack === 'function') refBack(st.ref)
 }
 const EVERY = ['lanes', 'head', 'ruler', 'scenes', 'top', 'hand', 'dock', 'info', 'look']
 /* what a region remembers of an edit of the song's time (see seamLane, partAt) is lengths in bars: counted anew with the rest */

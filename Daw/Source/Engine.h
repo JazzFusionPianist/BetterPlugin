@@ -934,12 +934,24 @@ public:
         return {};
     }
     /** The reference: its sound (a key the page brought in; empty: none), the bar its region begins on (from 0), its level,
-        and whether it is the one heard. */
-    void setRef (const String& key, double startBar, float vol, bool on)
+        and whether it is the one heard; and, since its regions can be edited as a track's are (his ask, 2026-10-22), the
+        pieces it is played as: each [a, b, off, gain, fadeIn, fadeOut, muted] — where it lies (bars from 0), where in the
+        file it begins (bars), its gain (as a factor), its fades (bars). None given: the file whole, from `startBar`. */
+    struct RefPiece { double a = 0, b = 0, off = 0, fi = 0, fo = 0; float g = 1.0f; bool mute = false; };
+    void setRef (const String& key, double startBar, float vol, bool on, const juce::var& pieces = juce::var())
     {
         auto b = key.isNotEmpty() ? buffer (key) : std::shared_ptr<Buf>();
-        std::shared_ptr<Buf> gone;
-        { const juce::ScopedLock sl (lock); gone = std::move (refBuf); refBuf = b; refStartBar = startBar; }
+        auto ps = std::make_shared<std::vector<RefPiece>>();
+        if (auto* list = pieces.getArray())
+            for (auto& v : *list)
+                if (auto* q = v.getArray(); q != nullptr && q->size() >= 7)
+                {
+                    RefPiece p; p.a = (double) (*q)[0]; p.b = (double) (*q)[1]; p.off = (double) (*q)[2]; p.g = (float) (double) (*q)[3]; p.fi = (double) (*q)[4]; p.fo = (double) (*q)[5]; p.mute = (int) (*q)[6] != 0;
+                    if (p.b > p.a) ps->push_back (p);
+                }
+        std::sort (ps->begin(), ps->end(), [] (const RefPiece& x, const RefPiece& y) { return x.a < y.a; });
+        std::shared_ptr<Buf> gone; std::shared_ptr<const std::vector<RefPiece>> was;
+        { const juce::ScopedLock sl (lock); gone = std::move (refBuf); refBuf = b; refStartBar = startBar; was = std::move (refPieces); refPieces = pieces.isArray() ? ps : nullptr; }
         refVol.store (vol); refOn.store (on && b != nullptr && b->data.getNumSamples() > 0);
     }
 
@@ -4319,8 +4331,11 @@ private:
             if (got <= 0) break;
             const float* mL = mix.getReadPointer (0); const float* mR = mix.getReadPointer (1); const float* ck = clk.getReadPointer (0);
             const Buf* rb = refBuf.get();
+            const auto* rps = refPieces.get();
             const bool rolling = posS != was;                                                  // (the song went on: the reference goes on with it; stopped, it is silent)
             const juce::int64 refAt = rb != nullptr ? posS - got - (juce::int64) std::llround (refStartBar * barSamples()) : 0;
+            const double refBarS = barSamples();
+            size_t refPi = 0;                                                                  // (the piece the stretch is in: found once, gone on from)
             const float rv = refVol.load(), rT = refOn.load() ? 1.0f : 0.0f, rStep = 1.0f / (0.02f * (float) sr);
             const int rLen = rb != nullptr ? rb->data.getNumSamples() : 0, rR = rb != nullptr ? juce::jmin (1, rb->data.getNumChannels() - 1) : 0;
             const float mT = master.load(), ms = (mT - masterSm) / (float) got;
@@ -4335,7 +4350,25 @@ private:
                 {
                     refX = refX < rT ? juce::jmin (rT, refX + rStep) : juce::jmax (rT, refX - rStep);
                     float a = 0.0f, b = 0.0f;
-                    if (rb != nullptr && rolling) { const juce::int64 k = refAt + i; if (k >= 0 && k < rLen) { a = rb->data.getSample (0, (int) k) * rv; b = rb->data.getSample (rR, (int) k) * rv; } }
+                    if (rb != nullptr && rolling && rps != nullptr)
+                    {
+                        /* its pieces: the one the song is in, read where it begins in the file, through its gain and fades */
+                        const double at = (double) (posS - got + i) / refBarS;
+                        while (refPi < rps->size() && (*rps)[refPi].b <= at) ++refPi;
+                        if (refPi < rps->size() && (*rps)[refPi].a <= at && ! (*rps)[refPi].mute)
+                        {
+                            const auto& p = (*rps)[refPi];
+                            const juce::int64 k = (juce::int64) std::llround ((at - p.a + p.off) * refBarS);
+                            if (k >= 0 && k < rLen)
+                            {
+                                float env = p.g;
+                                if (p.fi > 0.0 && at - p.a < p.fi) env *= (float) ((at - p.a) / p.fi);
+                                if (p.fo > 0.0 && p.b - at < p.fo) env *= (float) ((p.b - at) / p.fo);
+                                a = rb->data.getSample (0, (int) k) * rv * env; b = rb->data.getSample (rR, (int) k) * rv * env;
+                            }
+                        }
+                    }
+                    else if (rb != nullptr && rolling) { const juce::int64 k = refAt + i; if (k >= 0 && k < rLen) { a = rb->data.getSample (0, (int) k) * rv; b = rb->data.getSample (rR, (int) k) * rv; } }
                     if (refX > 0.0f) { l += (a - l) * refX; r += (b - r) * refX; }
                 }
                 const float al = std::abs (l), ar = std::abs (r);
@@ -4616,6 +4649,7 @@ private:
        stereo out's wall, its fader or the limiter. While it is the one chosen it is heard in the mix's place, at the song's
        place, from where its region begins; the two cross over in a fiftieth of a second (refX: how much of it is heard) */
     std::shared_ptr<Buf> refBuf;
+    std::shared_ptr<const std::vector<RefPiece>> refPieces;         // (null: the file whole, from refStartBar)
     double refStartBar = 0.0;
     std::atomic<float> refVol { 1.0f };
     std::atomic<bool> refOn { false };

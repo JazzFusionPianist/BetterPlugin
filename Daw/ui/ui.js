@@ -1269,7 +1269,7 @@ const SHEET = [
   [['the song’s time', [['cut the cycle out', '⌃⌘x'], ['make room at the cycle', '⌃⌘z'], ['put it in at the playhead', '⌃⌘v'], ['repeat the cycle', '⌃⌘r']]],
    ['rubato and lines', [['rubato view', '⌘f'], ['quantize', 'q'], ['let go of quantize', '⌥⌘q'], ['automation', 'a'], ['next parameter', '⌘y']]],
    ['view', [['zoom', '⌘←→'], ['taller, shorter rows', '⌘↓↑'], ['taller, lower waveforms', '⌘+ ⌘−'], ['fit, or what is chosen', 'z'], ['a page left, right', 'home end'], ['a page up, down', 'pgup pgdn'], ['find the playhead', '`'], ['find what is chosen', '⇧`'], ['close plug-in windows', 'v']]],
-   ['project', [['save', '⌘s'], ['save as', '⇧⌘s'], ['new', '⌘n'], ['open', '⌘o'], ['import audio', '⌘i'], ['hand off', '⌘b'], ['settings', '⌘,'], ['undo, redo', '⌘z ⇧⌘z'], ['say it', '/']]]],
+   ['project', [['save', '⌘s'], ['save as', '⇧⌘s'], ['new', '⌘n'], ['open', '⌘o'], ['import audio', '⌘i'], ['hand off', '⌘b'], ['settings', '⌘,'], ['undo, redo', '⌘z ⇧⌘z'], ['say it', '⌥/'], ['go to bar', '/']]]],
 ]
 const toggleSheet = () => { S.sheet = !S.sheet; uiDirty('sheet', 'cmd'); syncSlur() }
 function pSheet () {
@@ -1399,7 +1399,7 @@ function seekX (x, e) {
 }
 const fine = e => e && e.shiftKey ? .2 : 1                                           // with shift held, a pull moves a fifth as far
 /* the other chosen tracks a fader or a pan takes along, with where each stood when the hand came (a fader with a line drawn for it stays with its line) */
-const others = (i, k) => new Map(groupOf(i, k === 'vol' ? 'volume' : null).filter(t => t !== S.tracks[i] && !(k === 'vol' && autoPts(t, 'vol').length)).map(t => [t, t[k] || 0]))
+const others = (i, k) => new Map(groupOf(i, k === 'vol' ? 'volume' : k === 'pan' ? 'pan' : null).filter(t => t !== S.tracks[i] && !(k === 'vol' && autoPts(t, 'vol').length)).map(t => [t, t[k] || 0]))
 function carry (d, k, now) {
   if (!d.others || !d.others.size) return
   for (const [t, v] of d.others) { if (k === 'vol') { t.vol = clamp(Math.round((v + now - d.v0) * 10) / 10, -48, 6); t.ghost = null } else t.pan = clamp(Math.round((v + now - d.v0) * 64) / 64, -1, 1); pushTrack(t) }
@@ -1423,7 +1423,7 @@ function optReset (a, el, i) {
   if (a === 'rowh') { rowBack(i); return true }
   if (a === 'volnum' && i < 0) a = 'master'
   if (a === 'vol' || a === 'mvol' || a === 'volnum') { for (const tr of groupOf(i, 'volume')) if (!autoPts(tr, 'vol').length) { tr.vol = 0; tr.ghost = null } applyAll(); uiDirty('head', 'dock') }
-  else if (a === 'mpan') { for (const tr of groupOf(i)) tr.pan = 0; applyAll(); uiDirty('dock') }
+  else if (a === 'mpan') { for (const tr of groupOf(i, 'pan')) tr.pan = 0; applyAll(); uiDirty('dock') }
   else if (a === 'msend') { const tr = S.tracks[i], sd = tr && tr.sends[+el.dataset.k]; if (!sd) return false; sd.db = 0; pushTrack(tr); uiDirty('dock') }
   else if (a === 'master' || a === 'mmaster') { S.master = 0; pushMaster(); uiDirty('top', 'dock') }
   else if (a === 'rgain') edit(() => { const rs = selRegs(); if (!rs.some(([r]) => r.gain)) return false; for (const [r] of rs) { r.gain = 0; dirtyReg(r) } })
@@ -1749,7 +1749,7 @@ function twice (el, e, p) {
   else if (a === 'sel' || a === 'msel') startRename('track', i)
   else if (a === 'rowh') rowBack(i)                                                    // twice on the line under a row: the room's own height again
   else if (a === 'volnum') startRename('vol', i, { x: +el.getAttribute('x'), y: +el.getAttribute('y'), w: +el.getAttribute('width'), h: +el.getAttribute('height') })
-  else if (a === 'mpan') { for (const tr of groupOf(i)) { tr.pan = 0; pushTrack(tr) } uiDirty('dock') }
+  else if (a === 'mpan') { for (const tr of groupOf(i, 'pan')) { tr.pan = 0; pushTrack(tr) } uiDirty('dock') }
   else if (a === 'seek' || a === 'playhead') { if (S.playing) halt(false); else play(S.pos); uiDirty('top', 'scenes') }      // twice on the bars: the song plays from there (twice again: it stops)
   else if (a === 'master' || a === 'mmaster') { S.master = 0; pushMaster(); uiDirty('top', 'dock') }
   else if (a === 'rgain') edit(() => { for (const [r] of selRegs()) { r.gain = 0; dirtyReg(r) } })

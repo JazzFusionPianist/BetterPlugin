@@ -197,7 +197,9 @@ PARTS.ref = pRef
   /* delete: its chosen regions go (one step) */
   { const del0 = act.del
     act.del = function () { if (S.focus === 'ref' && REF.t && REF.sel.size) { const before = editState(); REF.t.regs = REF.t.regs.filter(r => !REF.sel.has(r.id)); REF.sel.clear(); commit(before); refTell(); uiDirty('ref'); return } return del0.apply(this, arguments) }
-    KEYS.Backspace = act.del; KEYS.Delete = act.del }
+    /* the delete keys go on to whoever had them before (the patch's wall takes them for its chosen wire or thing: wall.js,
+       wallorg.js) — only a reference region chosen is this one's */
+    for (const code of ['Backspace', 'Delete']) { const k0 = KEYS[code]; KEYS[code] = function () { if (S.focus === 'ref' && REF.t && REF.sel.size) return act.del(); return k0.apply(this, arguments) } } }
   function refVolX (x) { const f = clamp((x - refX0() - HEAD_FX) / HEAD_FW, 0, 1); REF.t.vol = fVol(f); refTell(); uiDirty('ref') }
   /* a new song: no reference */
   const reset0 = resetSession

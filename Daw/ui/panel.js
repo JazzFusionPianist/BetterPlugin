@@ -241,7 +241,11 @@ function tpStrip (top, h, GL, GR, RE) {
   hits += hit(vx - 2, ft - 2, 76, 26, 'tps-volnum', di, 'text') + hit(vx - 2, ft + 42, 72, 16, 'tps-clip')
   /* where its sound comes from (the patch's strips had it; gone with them, so here): pressed, the inputs */
   if (t.kind === 'audio' && !t.theirs && !t.inst && fb - ft >= 84) { const word = inputName(t.inp || 0), ww = tw(word, 8.5)
-    s += tpCaps(vx + 1, ft + 76, 'in', { a: .4 }) + T(vx + 14, ft + 76, word, { size: 8.5, a: .8 }) + tpChev(vx + 18 + ww, ft + 72.5); hits += hit(vx - 2, ft + 65, ww + 30, 15, 'min', di) }
+    s += tpCaps(vx + 1, ft + 76, 'in', { a: .4 }) + T(vx + 40, ft + 76, word, { size: 8.5, a: .8 }) + tpChev(vx + 44 + ww, ft + 72.5); hits += hit(vx - 2, ft + 65, ww + 56, 15, 'min', di) }      // (its value in one column with the group's under it)
+  /* its group (groups.js: pressed twice, named here; the other button, what it shares — his ask, 2026-10-22) */
+  if (t.grp && typeof grpMeta === 'function' && fb - ft >= 100) { const m = grpMeta(t.grp), off = S.grpOff || !m.on, gy = ft + 92, gn = fit(asGiven(m.name), 70, 8.5)
+    s += tpCaps(vx + 1, gy, 'group', { a: .4 }) + T(vx + 40, gy, gn, { size: 8.5, a: off ? .4 : .8 }) + Cc(vx + 40 + tw(gn, 8.5) + 6, gy - 3, 2.6, { fill: grpColour(t.grp), fa: off ? .35 : 1 })      // (its name in the in's column, its colour after it as the in's chevron is)
+    hits += hit(vx - 2, gy - 11, 56 + tw(gn, 8.5), 15, 'mgrp', `${di} data-x="${n(vx + 37)}" data-y="${n(gy - 11)}" data-w="80" data-h="13"`) }
   if (stack) return s + hits
   /* its plug-ins, a list of names; its sends, round knobs with the bus under each */
   const r = 8, rows = Math.max(1, Math.floor((h - 2 * r - 44) / 13) - 1)

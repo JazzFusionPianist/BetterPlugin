@@ -7,12 +7,16 @@
      rubato       pins and quantize, and how the tracks are stretched (flex.js, rubato.js)
      automation   a line drawn on one is drawn on the others: volume by as much (each keeps its own level), the rest as it is
      volume       a fader moved moves the others' by as much
+     pan          a pan moved moves the others' by as much
      mute, solo   pressed on one, pressed on all
      record       armed on one, armed on all (and listening to the input)
    Its name stands after each track's name, in the colour of its first track; pressed, the group's card opens. ⌘G makes a
    group of the chosen tracks (all of one group chosen: its card opens); ⇧G lets go of every group for a while.
+   A strip in the mixer and the inspector's say a track's group in a row of their own (mix.js). Pressed twice there, or on
+   the name after a track's name, the group is named where it stands; the other button gives what it can share, each on or
+   off, as Logic's group settings do (his ask, 2026-10-22).
    Read after edit.js, mix.js, rubato.js and ui.js. */
-const GRP_SHARES = ['editing', 'region gain', 'rubato', 'automation', 'volume', 'mute', 'solo', 'record']
+const GRP_SHARES = ['editing', 'region gain', 'rubato', 'automation', 'volume', 'pan', 'mute', 'solo', 'record']
 for (const keep of [typeof KEEP_T !== 'undefined' ? KEEP_T : null, typeof T_KEEP !== 'undefined' ? T_KEEP : null]) if (keep && !keep.includes('gm')) keep.push('gm')
 const GRP_LETTERS = 'abcdefghijklmnopqrstuvwxyz'
 const grpTracks = g => S.tracks.filter(t => t.grp === g && t.kind === 'audio')
@@ -99,13 +103,17 @@ function pGrpCard () {
   s += T(x + 12, y, 'delete the group', { size: 10.5, a: .6 }) + hit(x + 8, y - 13, 110, 18, 'gc-del') + T(x + w - 12, y, 'the tracks stay', { size: 9, a: .32, anchor: 'end' })
   return s
 }
-/* the group's name, typed where it stands */
+/* the group's name, typed where it stands: on its card, or in a strip's group row (at: the box, font: how it is set) */
 function grpName () {
-  const el = $('rename'), b = GCARD && grpCardBox()
-  if (!b || !el) return
+  const b = GCARD && grpCardBox()
+  if (!b) return
   flush()
-  const at = GCARD.nameAt, g = GCARD.g
-  el.style.cssText = `left:${n(at.x - 3)}px;top:${n(at.y)}px;width:${n(at.w)}px;height:${at.h}px;font:500 12.5px var(--f);text-align:left`
+  grpNameAt(GCARD.g, GCARD.nameAt, '500 12.5px')
+}
+function grpNameAt (g, at, font) {
+  const el = $('rename')
+  if (!el || !at || !g) return
+  el.style.cssText = `left:${n(at.x - 3)}px;top:${n(at.y)}px;width:${n(at.w)}px;height:${at.h}px;font:${font} var(--f);text-align:left`
   el.value = grpMeta(g).name; el.hidden = false; el.focus(); el.select()
   let live = false
   setTimeout(() => { live = true; if (!el.hidden && document.activeElement !== el) { el.focus(); el.select() } }, 0)
@@ -122,7 +130,14 @@ function grpName () {
 /* ── presses (ui.js hands them on through DOWN_MORE) ── */
 var DOWN_MORE = typeof DOWN_MORE === 'object' && DOWN_MORE ? DOWN_MORE : {}
 Object.assign(DOWN_MORE, {
-  'grp-chip': (e, el) => { const i = +el.dataset.i, t = S.tracks[i]; if (t && t.grp) { if (GCARD && GCARD.g === t.grp && GCARD.i === i) grpClose(); else grpOpen(t.grp, i) } },
+  'grp-chip': (e, el) => { const i = +el.dataset.i, t = S.tracks[i]; if (!t || !t.grp) return; if (grpTwice('chip' + i)) { grpOpen(t.grp, i, true); return } if (GCARD && GCARD.g === t.grp && GCARD.i === i) grpClose(); else grpOpen(t.grp, i) },
+  'mgrp': (e, el) => {                                                                   // a strip's group row: chosen; pressed twice, the group named there
+    const i = +el.dataset.i, t = S.tracks[i]
+    if (!t) return
+    if (!isChosen(i)) leadTrack(i); else S.sel = i
+    uiDirty('head', 'lanes', 'dock')
+    if (t.grp && grpTwice('row' + i)) grpNameAt(t.grp, { x: +el.dataset.x + 6, y: +el.dataset.y - 2, w: Math.max(60, +el.dataset.w - 4), h: +el.dataset.h + 4 }, '400 9.5px')
+  },
   'gc-close': () => grpClose(),
   'gc-pane': () => {},
   'gc-name': () => grpName(),
@@ -138,6 +153,34 @@ Object.assign(DOWN_MORE, {
   },
   'gc-del': () => { const g = GCARD.g; edit(() => { for (const t of grpTracks(g)) { t.grp = null; delete t.gm } }); grpClose(); say('the group is gone; its tracks stay') },
 })
+/* pressed twice on one thing within a moment */
+const GRP_TWICE = { k: '', at: 0 }
+function grpTwice (k) { const now = performance.now(), two = GRP_TWICE.k === k && now - GRP_TWICE.at < 380; GRP_TWICE.k = two ? '' : k; GRP_TWICE.at = now; return two }
+/* the other button on a group (its row in a strip, or the name after a track's): what it shares, each on or off — the
+   menu comes back after each, so several can be set in a row — its name, its card, and letting it go. On a track with no
+   group: a group of the chosen tracks. */
+function grpMenu (i, x, y) {
+  const t = S.tracks[i]
+  if (!t) return
+  if (!t.grp) { openMenu(x, y, [{ t: 'group the chosen tracks', k: '⌘g', v: 'make', dim: chosen().filter(c => c.kind === 'audio').length < 2 }], () => grpMake(), { w: 200 }); return }
+  const g = t.grp, m = grpMeta(g)
+  const items = [{ t: 'group on', v: 'on', on: m.on }].concat(GRP_SHARES.map((k, j) => ({ t: k, v: 's:' + k, on: m.share[k] !== false, sep: j === 0 })), [{ t: 'rename', v: 'name', sep: true }, { t: 'its card', v: 'card' }, { t: 'delete the group', v: 'del' }])
+  openMenu(x, y, items, it => {
+    if (it.v === 'on') { edit(() => grpSet(g, { on: !grpMeta(g).on })); uiDirty('head', 'dock'); grpMenu(i, x, y) }
+    else if (it.v.startsWith('s:')) { const k = it.v.slice(2), share = Object.assign({}, grpMeta(g).share); share[k] = !share[k]; edit(() => grpSet(g, { share })); uiDirty('head', 'dock'); grpMenu(i, x, y) }
+    else if (it.v === 'name') grpOpen(g, i, true)
+    else if (it.v === 'card') grpOpen(g, i)
+    else if (it.v === 'del') { edit(() => { for (const x of grpTracks(g)) { x.grp = null; delete x.gm } }); grpClose(); say('the group is gone; its tracks stay'); uiDirty('head', 'dock') }
+  }, { w: 168 })
+}
+{ const context0 = onContext
+  onContext = function (e) {
+    const el = e.target.closest ? e.target.closest('[data-a="mgrp"], [data-a="grp-chip"]') : null
+    if (!el) return context0(e)
+    e.preventDefault()
+    const p = pt(e), i = +el.dataset.i
+    grpMenu(i, p.x, p.y)
+  } }
 /* esc closes the card first */
 if (typeof KEYS === 'object' && KEYS.Escape) { const esc0 = KEYS.Escape; KEYS.Escape = function () { if (GCARD && !S.menu) { grpClose(); return } return esc0.apply(this, arguments) } }
 /* the card stands over everything, with the menus */

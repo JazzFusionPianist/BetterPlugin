@@ -107,6 +107,23 @@ function wallOrganize (t, ids) {
   }
   next(step)
 }
+/* the other button on one thing: taken off its wires, bypassed (or back on), deleted — and what a plug-in from outside
+   listens to, as that button used to give */
+function wallNodeMenu (t, node, x, y) {
+  const w = wallOf(t), wired = w.wires.some(e => (e.from === node.id || e.to === node.id) && !wallCtl(e)), can = wallCanBypass(node), id = node.id
+  WALL.sel = { t: t.id, node: id }; S.focus = 'wall'; uiDirty('dock')
+  const items = [{ t: 'disconnect', v: 'loose', dim: !wired }, { t: 'bypass', v: 'by', on: can && wallIsBypassed(node), dim: !can }, { t: 'delete', v: 'del', k: '⌫' }]
+  if (node.k === 'plug' && node.ins && typeof openKeyMenu === 'function') items.push({ t: 'what it listens to', v: 'key', sep: true })
+  openMenu(x, y, items, it => {
+    const nd = wallNode(wallOf(t), id)
+    if (!nd) return
+    if (it.v === 'loose') wallLoose(t, id)
+    else if (it.v === 'by') { wallSetBypass(t, nd, !wallIsBypassed(nd)); wallPush(t) }
+    else if (it.v === 'del') wallRemove(t, nd)
+    else if (it.v === 'key') openKeyMenu(t, t.inserts.indexOf(nd.ins), x, y)
+    uiDirty('dock')
+  }, { w: 150 })
+}
 function wallOrgMenu (t, x, y) {
   const w = wallOf(t), many = wallOrgMany(t), ids = many.size ? new Set(many) : null
   const list = w.nodes.filter(q => (!ids || ids.has(q.id)) && wallCanBypass(q)), allOff = list.length > 0 && list.every(wallIsBypassed)
@@ -192,7 +209,8 @@ function wallOrgMenu (t, x, y) {
     const t = wallTrack(), w = t && wallOf(t), k = el.dataset.k, id = el.dataset.id == null ? null : +el.dataset.id, node = w && (k === 'node' || k === 'cap') && id != null && id >= 0 ? wallNode(w, id) : null
     if (!w) return context0(e)
     if (node && e.ctrlKey) { e.preventDefault(); if (performance.now() - WALLORG.ctlAt > 600) { wallLoose(t, id); uiDirty('dock') } return }      // (control and a press was the wires': no list)
-    if (k === 'bg' || (node && WALLORG.many.has(id))) { e.preventDefault(); const p = pt(e); wallOrgMenu(t, p.x, p.y); return }
+    if (k === 'bg' || (node && WALLORG.many.has(id) && WALLORG.many.size > 1)) { e.preventDefault(); const p = pt(e); wallOrgMenu(t, p.x, p.y); return }
+    if (node) { e.preventDefault(); const p = pt(e); wallNodeMenu(t, node, p.x, p.y); return }      // a thing by itself: disconnect, bypass, delete (his ask, 2026-10-22)
     return context0(e)
   }
   /* the delete key, with several chosen: all of them go */

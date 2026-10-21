@@ -117,7 +117,7 @@ const MENU_BAR = () => [
     ['Page Left', 'Home'], ['Page Right', 'End'], ['Page Up', 'PageUp'], ['Page Down', 'PageDown'], ['Show the Playhead', 'Backquote'], ['Show the Selection', '⇧Backquote'],
     '-',
     ['Close Plug-in Windows', 'KeyV'],
-    ['Say It', 'Slash'],
+    ['Say It', '⌥Slash'],
   ]],
   ['Window', [
     ['Patch', null, { id: 'winpatch', do: () => togglePanel('patch'), on: () => S.panel.on && S.panel.tab === 'patch' }], ['Mixer', null, { id: 'winmixer', do: () => togglePanel('mixer'), on: () => S.panel.on && S.panel.tab === 'mixer' }], ['Slur', null, { id: 'winslur', do: () => toggleSlur(), on: () => !!S.slur }], ['Rubato Panel', 'KeyW', { id: 'winrubato', do: () => rubToggle(), on: () => S.panel.on && S.panel.tab === 'rubato' }],
@@ -130,7 +130,7 @@ const MENU_BAR = () => [
     ['Slur Studio Help', null, { id: 'guide' }],
     ['Key Commands', '⇧Slash', { id: 'keys' }],
     ['Quick Help', null, { do: () => qhToggle(), on: () => typeof QH === 'object' && QH.on }],
-    ['Say It', 'Slash'],
+    ['Say It', '⌥Slash'],
   ]],
 ]
 

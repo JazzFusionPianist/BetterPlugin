@@ -132,7 +132,8 @@ function promptPlace () {
     uiDirty('dock')
   }
   flush = function () { if (promptOn() && (dirty.has('hint') || dirty.has('cmd'))) dirty.add('dock'); flush0(); promptPlace() }      // (the list and the typing are drawn in the page)
-  KEYS.Slash = () => promptOpen()
+  KEYS['⌥Slash'] = () => promptOpen()                                                     // (/ is go to bar, as in Logic: his ask, 2026-10-22 — the prompt is option and /)
+  KEYS.Slash = () => startRename('pos')                                                   // go to bar: the place the playhead is, typed
   /* what was said is kept for the page (a line of cells once, though it is said through the line's reader) */
   runCommand = async function (text, ...more) { const words = String(text || '').trim(), was = S.think, r = await rc0.call(this, text, ...more); if (words && !was && !PROMPT.inLine) promptLog(words); return r }
   lineDo = async function () { const words = S.line.parts.map(p => p.t).join(' '); PROMPT.inLine = true; let r; try { r = await ld0() } finally { PROMPT.inLine = false } if (r) promptLog(words); return r }

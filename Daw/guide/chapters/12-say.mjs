@@ -25,7 +25,7 @@ export default () => chapter('say', t('the command line', '커맨드 라인'),
 
   page(t('saying it', '말로 하기'), { kind: 'split', tw: 112, txt:
     table(null,
-      ['[[/]]', ['opens the prompt page with the keys in its field: what can follow is listed under it at the left, what was said and what came of it at the right, newest first (the last 40, with the time). Click one to put it back in the field', 'prompt 페이지를 열고 입력칸에 키를 줍니다. 아래 왼쪽에 이어질 말, 오른쪽에 했던 말과 그 결과가 최근 것부터 나옵니다(최근 40줄, 시각과 함께). 하나를 클릭하면 입력칸에 다시 들어갑니다']],
+      ['[[⌥/]]', ['opens the prompt page with the keys in its field: what can follow is listed under it at the left, what was said and what came of it at the right, newest first (the last 40, with the time). Click one to put it back in the field', 'prompt 페이지를 열고 입력칸에 키를 줍니다. 아래 왼쪽에 이어질 말, 오른쪽에 했던 말과 그 결과가 최근 것부터 나옵니다(최근 40줄, 시각과 함께). 하나를 클릭하면 입력칸에 다시 들어갑니다']],
       ['[[↩]]', ['run the line; a word not yet whole (`rev`) is completed first', '줄 실행. 덜 친 낱말(`rev`)은 먼저 완성합니다']],
       [['a letter', '글자 하나'], ['a list opens of what begins with it: first the tracks and the acts for a value ({{lower}}, {{raise}}, {{set to}}…), then every word the line knows, in the order of the alphabet. [[↑]] [[↓]] go down it, past the rows shown; [[tab]] takes a word, [[esc]] closes it', '그 글자로 시작하는 것의 목록이 열립니다: 먼저 트랙과 값에 쓰는 동작({{lower}}, {{raise}}, {{set to}}…), 그다음 커맨드 라인이 아는 모든 낱말이 알파벳 순서로. [[↑]] [[↓]]로 보이는 줄 너머까지 내려가고, [[tab]]으로 넣고 [[esc]]로 닫습니다']],
       [['a space', '띄어쓰기'], ['what the line still lacks is offered: an act and whom first, then where and how much', '줄에 아직 빠진 것이 목록에 나옵니다: 먼저 동작과 대상, 그다음 어디와 얼마나']],

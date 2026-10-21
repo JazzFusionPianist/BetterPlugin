@@ -15,9 +15,9 @@ const foot = () => ev(`flush(); return { chevron: !!document.querySelector('#g-c
 
 await ev(`if (typeof START !== 'undefined') START.on = false; S.panel.on = false; setView(true); dirtyAll(); flush()`)
 ok('the foot has its line while the page is not up', (await foot()).chevron)
-await b.press('/', 'Slash', 191); await b.sleep(400)
+await b.press('/', 'Slash', 191, 1); await b.sleep(400)      // (⌥/: / is go to bar since 2026-10-22)
 const f = await el('#g-dock [data-a="prompt"][data-k="field"]')
-ok('/ opens the prompt\'s page, with the keys in its field', (await ev(`return S.panel.on && S.panel.tab === 'prompt' && document.activeElement === $('cmd')`)) && !!f)
+ok('⌥/ opens the prompt\'s page, with the keys in its field', (await ev(`return S.panel.on && S.panel.tab === 'prompt' && document.activeElement === $('cmd')`)) && !!f)
 { const c = await ev(`const r = $('cmd').getBoundingClientRect(); return { top: r.top, bottom: r.bottom }`)
   ok('…the typing stands in the field, not at the foot', c.top >= f.top && c.bottom <= f.bottom + 1, [c, f])
   ok('…and the foot keeps only the machine\'s state', !(await foot()).chevron) }

@@ -350,14 +350,14 @@ function mixCounts (h, wide) {
   if (MIX_N.key === key) return MIX_N
   const most = Math.max(0, ...S.tracks.map(t => fxItems(t).length)), sends = Math.max(0, ...S.tracks.map(t => (t.sends || []).length))
   let nf = clamp(most + 1, 3, 8), ns = clamp(sends + 1, 3, 6)
-  const room = h - (7 + 9 + PAN_BAR + 67) - 16 * (wide ? 2 : 1) - MIX_FADER_MIN
+  const room = h - (7 + 9 + PAN_BAR + 67) - 16 * (wide ? 3 : 2) - MIX_FADER_MIN      // (the rows that are always there: in on a wide strip, out, group)
   while ((nf + ns) * 16 > room && (nf > 2 || ns > 2)) { if ((nf > ns && nf > 2) || ns <= 2) nf--; else ns-- }
   MIX_N = { key, nf, ns }
   return MIX_N
 }
 function stripGeom (y, h, wide, knob, counts) {      // (counts: { nf, ns } a strip of its own asks for — the inspector's)
   const sp = 16, sh = 14, { nf, ns } = counts || mixCounts(h - (knob ? PAN_KNOB - PAN_BAR : 0), wide)
-  const rws = (wide ? ['in'] : []).concat(Array.from({ length: nf }, (_, k) => 'fx' + k), ['send'], Array(ns - 1).fill(''), ['out'])
+  const rws = (wide ? ['in'] : []).concat(Array.from({ length: nf }, (_, k) => 'fx' + k), ['send'], Array(ns - 1).fill(''), ['out', 'grp'])
   const y0 = y + 7, panY = y0 + rws.length * sp + 9, ft = panY + (knob ? PAN_KNOB : PAN_BAR), fb = Math.max(ft + 24, y + h - (knob ? 78 : 67))      // (the inspector's: room between its cells and its name)
   return { sp, sh, rows: rws, nf, ns, y0, panY, ft, fb, fh: fb - ft, yOf: db => fb - (fb - ft) * volF(db) }
 }
@@ -380,7 +380,7 @@ function fxItems (t) {
 function stripGutter (x, w, y, h, wide, knob, counts) {
   const q = stripGeom(y, h, wide, knob, counts)
   let s = ''
-  q.rows.forEach((l, i) => { const said = l === 'fx0' ? 'fx' : /^fx\d/.test(l) ? '' : l; if (said) s += T(x + w - 6, q.y0 + i * q.sp + q.sh / 2 + 3.2, said, { size: 9, a: .4, anchor: 'end' }) })
+  q.rows.forEach((l, i) => { const said = l === 'fx0' ? 'fx' : /^fx\d/.test(l) ? '' : l === 'grp' ? 'group' : l; if (said) s += T(x + w - 6, q.y0 + i * q.sp + q.sh / 2 + 3.2, said, { size: 9, a: .4, anchor: 'end' }) })
   s += T(x + w - 6, q.panY + 4, 'pan', { size: 9, a: .4, anchor: 'end' })
   if (!(typeof SKIN === 'object' && SKINS.strip[SKIN.k.mixer] && !SKINS.strip[SKIN.k.mixer].meters)) for (const db of DBS) s += T(x + w - 6, q.yOf(db) + 3, db === -48 ? '∞' : String(Math.abs(db)), { size: 8.5, a: db === 0 ? .66 : .36, anchor: 'end' })      // (a console's knobs carry their own scale)
   return s
@@ -452,6 +452,10 @@ function strip (x, y, w, h, t, i, o = {}) {
       else if (k === items.length) hits += hit(sx, yy, sw, q.sh, 'm-patch', di)      // (another program's track takes no plug-in here: its slot opens its patch)
     } else if (r === 'send' || r === '') { const k = si++, sd = (t.sends || [])[k]; if (sd) send(sd, k); else if (k === (t.sends || []).length) plus('msendadd') }
     else if (r === 'out') full(short(outName(t)), false, 'mout')
+    else if (r === 'grp') {                                                              // its group (groups.js): a dot of its colour and its name; pressed twice, named; the other button, what it shares
+      if (t.grp && typeof grpMeta === 'function') { const m = grpMeta(t.grp), off = S.grpOff || !m.on; s += Cc(tx + 2.5, yy + q.sh / 2, 2.5, { fill: grpColour(t.grp), fa: off ? .35 : 1 }) + T(tx + 9, yy + q.sh / 2 + fs * .35, fit(asGiven(m.name), sx + sw - tx - 10, fs - .5), { size: fs - .5, a: off ? .4 : .82 }) }
+      hits += hit(sx, yy, sw, q.sh, 'mgrp', `${di} data-x="${n(sx)}" data-y="${n(yy)}" data-w="${n(sw)}" data-h="${q.sh}"`)
+    }
     yy += q.sp
   }
   const fx = x + (wide ? 34 : o.master ? 28 : 23), vol = o.master ? S.master : shown(t, 'vol'), muted = !o.master && !heard(t)
@@ -528,7 +532,7 @@ function stepMarker (dir) {
   jumpTo(sc.a - 1); S.cycle.a = sc.a - 1; S.cycle.b = Math.min(SONG_END, sc.b - 1); pushTransport()
   uiDirty('scenes', 'top', 'ruler', 'hand')
 }
-function markerNumber (n) { const sc = SCENES[n - 1]; if (sc) { jumpTo(sc.a - 1); uiDirty('scenes', 'top') } }
+function markerNumber (n) { const sc = SCENES[n - 1]; if (sc) { jumpTo(sc.a - 1); setCycle(sc.a - 1, Math.min(SONG_END, sc.b - 1), true); uiDirty('scenes', 'top') } }      // (gone to by its number, it is cycled too: his ask, 2026-10-22 — pressed, a marker is only chosen)
 function cycleMarker () { const sc = markerNow(); if (sc) setCycle(sc.a - 1, Math.min(SONG_END, sc.b - 1), true) }
 /* ⌥⇧' : a marker where what is chosen begins, named after it */
 function markerForChosen () {

@@ -104,9 +104,15 @@ SKINS.mixer.panel = (y, h) => {
       s += T(L + nwid + 7, top + 38, fit(asGiven(t.name), w - nwid - 46, 12.5, 600), { size: 12.5, w: 600, a: heardT ? .95 : .45 })
       hits += hit(x, top + 6, w - 34, 42, 'msel', di)
       if (t.kind !== 'stack') { s += mpKnob(x + w - 20, top + 30, 9, shown(t, 'pan')) + T(x + w - 20, top + 51, panText(shown(t, 'pan')), { size: 8.5, a: .5, anchor: 'middle' }); hits += hit(x + w - 33, top + 16, 28, 40, 'mpan', di, 'ns-resize') }
+      /* its group, under its name: a dot of the group's colour and its name (groups.js: pressed twice, named here; the other
+         button, what it shares — his ask, 2026-10-22) */
+      if (t.grp && typeof grpMeta === 'function') { const m = grpMeta(t.grp), off = S.grpOff || !m.on, gn = fit(asGiven(m.name), Math.max(30, w - 64), 8.5, 500)
+        s += Cc(L + 3.5, top + 62.5, 3, { fill: grpColour(t.grp), fa: off ? .35 : 1 }) + T(L + 12, top + 66, gn, { size: 8.5, w: 500, a: off ? .35 : .62 })      // (the first row of the list: its dot on the squares' line, its name on the names')
+        hits += hit(L - 2, top + 55, Math.max(40, tw(gn, 8.5, 500) + 18), 15, 'mgrp', `${di} data-x="${n(L + 9)}" data-y="${n(top + 56)}" data-w="${n(Math.max(80, w - 60))}" data-h="12"`) }
       /* the patch and the sends: lists of names */
-      let ly = top + 66, used = 0
-      const items = fxItems(t), sends = t.sends || [], room = maxRows - 2
+      const gRow = t.grp && typeof grpMeta === 'function' ? 1 : 0
+      let ly = top + 66 + 15 * gRow, used = 0
+      const items = fxItems(t), sends = t.sends || [], room = maxRows - 2 - gRow
       const showF = Math.min(items.length, Math.max(1, room))
       items.slice(0, showF).forEach((it, k) => {
         if (k === showF - 1 && items.length > showF) { s += T(L, ly, `+${items.length - k} more`, { size: 9.5, a: .5 }); hits += hit(x + 4, ly - 11, w - 8, 15, 'm-patch', di) }

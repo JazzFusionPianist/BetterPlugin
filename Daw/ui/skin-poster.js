@@ -248,9 +248,11 @@ function bhMixer (y, h) {
       const at = j => ({ kx: x + sw - 22 + Math.floor(j / kp.inCol) * BMX_COL, cy: lt + per * (j % kp.inCol) + kr + 3 })
       const knob = (kx, cy, f) => { const a0 = -135 * Math.PI / 180, a1 = a0 + f * 270 * Math.PI / 180, on = (r, q) => `${n(kx + r * Math.sin(q))} ${n(cy - r * Math.cos(q))}`; return Cc(kx, cy, kr, { fill: BH.paper, stroke: BH.black, sw: 1.2 }) + (f > .004 ? P(`M${on(kr + 2.6, a0)}A${n(kr + 2.6)} ${n(kr + 2.6)} 0 ${f > 2 / 3 ? 1 : 0} 1 ${on(kr + 2.6, a1)}`, { stroke: BH.red, sw: 2.4 }) : '') + P(`M${n(kx)} ${n(cy)}L${on(kr - 1, a1)}`, { stroke: BH.black, sw: 1.6 }) }
       kp.sends.forEach((sd, k) => {
-        const { kx, cy } = at(k)
-        s += knob(kx, cy, volF(sd.db)) + T(kx, cy + kr + 9, fmtDb(sd.db), { size: 7.5, w: 600, a: .8, anchor: 'middle' })
-        s += hit(kx - kr - 5, cy - kr - 5, 2 * kr + 10, 2 * kr + 16, 'msend', `${di} data-k="${k}" data-rel="1" data-x="${n(kx - 60)}" data-pw="120"`, 'ns-resize')
+        const { kx, cy } = at(k), b = byId(sd.to), turning = drag && drag.a === 'msend' && drag.i === i && drag.k === k
+        /* under it the bus it goes to; the pointer over it (or turning it), how much it sends — his word, 2026-10-21 */
+        const nm = T(kx, cy + kr + 9, fit(asGiven(b ? b.name : 'send'), BMX_COL - 2, 7.5, 600), { size: 7.5, w: 600, a: .8, anchor: 'middle', x: ' class="bmk-name"' })
+        const db = T(kx, cy + kr + 9, fmtDb(sd.db), { size: 7.5, w: 600, c: BH.red, anchor: 'middle', x: ' class="bmk-db"' })
+        s += `<g class="bmk${turning ? ' on' : ''}">` + knob(kx, cy, volF(sd.db)) + nm + db + hit(kx - kr - 5, cy - kr - 5, 2 * kr + 10, 2 * kr + 16, 'msend', `${di} data-k="${k}" data-rel="1" data-x="${n(kx - 60)}" data-pw="120"`, 'ns-resize') + '</g>'
       })
       if (kp.canAdd) { const { kx, cy } = at(kp.sends.length); s += Cc(kx, cy, kr, { stroke: BH.black, sw: 1, dash: '2 2', sa: .5 }) + P(`M${n(kx)} ${n(cy - 4)}v8M${n(kx - 4)} ${n(cy)}h8`, { stroke: BH.black, sw: 1.2, sa: .6 }) + hit(kx - kr - 4, cy - kr - 4, 2 * kr + 8, 2 * kr + 8, 'msendadd', di) }
       /* the level */
@@ -286,6 +288,8 @@ function bhMixer (y, h) {
   return s
 }
 SKINS.mixer.poster = bhMixer
+/* a send's knob shows its bus; how much it sends, while the pointer is over it or it is turned */
+{ const st = document.createElement('style'); st.textContent = '.bmk .bmk-db{display:none}.bmk:hover .bmk-db,.bmk.on .bmk-db{display:inline}.bmk:hover .bmk-name,.bmk.on .bmk-name{display:none}'; document.head.appendChild(st) }
 /* the panel's tabs: words, the open one on a black block */
 SKINS.tabs.poster = (x, y, h, items, o = {}) => {
   let s = '', cx = x

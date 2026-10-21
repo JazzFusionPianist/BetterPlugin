@@ -30,6 +30,9 @@ const mpShape = (k, cx, cy, z, on) => {
 const mpKnob = (cx, cy, r, pan) => { const a = (pan * 135 - 90) * Math.PI / 180; return Cc(cx, cy, r - .5, { stroke: INK, sa: .85, sw: 1.1 }) + P(`M${n(cx)} ${n(cy)}L${n(cx + Math.cos(a) * (r - 2))} ${n(cy + Math.sin(a) * (r - 2))}`, { stroke: INK, sw: 1.2, cap: 'round' }) }
 const mpPlus = (cx, cy) => Cc(cx, cy, 5, { stroke: INK, sa: .55, sw: .9 }) + P(`M${n(cx)} ${n(cy - 3)}V${n(cy + 3)}M${n(cx - 3)} ${n(cy)}H${n(cx + 3)}`, { stroke: INK, sa: .85, sw: 1 })
 const MP_PRINT_C = () => ({ tape: CREAM, space: SPACE, delay: MINT })
+{ const st = document.createElement('style')                                            // a send's knob says how much only while the pointer is on it (or it is turned)
+  st.textContent = '.mpk .mpk-db{display:none}.mpk:hover .mpk-db,.mpk.on .mpk-db{display:inline}.mpk:hover .mpk-bus,.mpk.on .mpk-bus{display:none}'
+  document.head.appendChild(st) }
 const MP_SENDS = typeof MAX_SENDS === 'number' ? MAX_SENDS : 10                         // (ten at most: his word, 2026-10-21; the engine's own limit is Slur Studio 4's — mix.js/Engine.h)
 /* a send's knob: the way it can go a ring of 270 degrees, how far it goes in the track's colour, a mark where it stands;
    its bus named in its title (pressed: where it goes) */
@@ -111,8 +114,10 @@ SKINS.mixer.panel = (y, h) => {
          when the column is full the strip widens by another (his asks, 2026-10-21) */
       if (t.kind !== 'stack') { const r = mpKnobR(ft, fb), per = mpPer(ft, fb, r), cw = 2 * r + 12, x0 = x + MPX.base + 1
         sends.slice(0, MP_SENDS).forEach((sd, k) => { const cx = x0 + Math.floor(k / per) * cw + r + 4, cy = ft + (k % per) * (2 * r + 18) + r + 2, b = byId(sd.to), db = mpSendDb(t, k, sd), pulling = drag && drag.a === 'msend' && drag.moved && S.tracks[drag.i] === t && drag.k === k
-          s += mpSendKnob(cx, cy, r, volF(db), t.c, b ? asGiven(b.name) : 'send') + T(cx, cy + r + 10, db <= -47.5 ? '−∞' : (pulling ? db.toFixed(1) : String(Math.round(db))).replace('-', '−'), { size: 7.5, a: pulling ? 1 : .6, anchor: 'middle', x: mpNum })
-          hits += hit(cx - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 16, 'mp-send', `${di} data-k="${k}"`, 'ns-resize') })
+          /* under it the bus it goes to; how much it sends only while the pointer is on it, or it is turned (his ask, 2026-10-21) */
+          const much = (db <= -47.5 ? '−∞' : (pulling ? db.toFixed(1) : String(Math.round(db))).replace('-', '−')) + ' db', bus = b ? asGiven(b.name) : 'send'
+          s += `<g class="mpk${pulling ? ' on' : ''}">` + mpSendKnob(cx, cy, r, volF(db), t.c, bus) + T(cx, cy + r + 10, fit(bus, 2 * r + 12, 7.5, 500), { size: 7.5, w: 500, a: .62, anchor: 'middle', x: ' class="mpk-bus"' }) + T(cx, cy + r + 10, much, { size: 7.5, a: 1, anchor: 'middle', x: mpNum + ' class="mpk-db"' })
+            + hit(cx - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 16, 'mp-send', `${di} data-k="${k}"`, 'ns-resize') + '</g>' })
         if (sends.length < MP_SENDS) { const k = sends.length, cx = x0 + Math.floor(k / per) * cw + r + 4, cy = ft + (k % per) * (2 * r + 18) + r + 2
           s += Cc(cx, cy, r - .5, { stroke: INK, sa: .3, sw: .9, dash: '2 2' }) + P(`M${n(cx)} ${n(cy - 3.5)}V${n(cy + 3.5)}M${n(cx - 3.5)} ${n(cy)}H${n(cx + 3.5)}`, { stroke: INK, sa: .6, sw: 1 }) + T(cx, cy + r + 10, 'send', { size: 7, a: .35, anchor: 'middle' })
           hits += hit(cx - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 16, 'msendadd', di) } }

@@ -27,6 +27,10 @@ ok('eight tracks: all of them wide, each with its level, pan, a place for a plug
   ok('…a send to a new bus', await ev(`flush(); return S.tracks[4].sends.length === 1 && S.tracks.some(t => t.kind === 'bus')`))
   const sd = await box('[data-a="mp-send"][data-i="4"][data-k="0"]'); const d0 = await ev('return S.tracks[4].sends[0].db')
   ok('…its knob beside the fader, with the + knob under it', !!sd && !!(await box('[data-a="msendadd"][data-i="4"]')) && sd.l > (await box('[data-a="mvol"][data-i="4"]')).r, sd)
+  { const seen = () => ev(`const g = document.querySelector('#g-dock [data-a="mp-send"][data-i="4"][data-k="0"]').closest('.mpk'), on = el => getComputedStyle(el).display !== 'none'; return { bus: on(g.querySelector('.mpk-bus')), db: on(g.querySelector('.mpk-db')), busWord: g.querySelector('.mpk-bus').textContent, dbWord: g.querySelector('.mpk-db').textContent }`)
+    await mouse('mouseMoved', 20, 20, { buttons: 0 }); await b.sleep(80); const away = await seen()
+    await mouse('mouseMoved', sd.x, sd.y, { buttons: 0 }); await b.sleep(80); const over = await seen()
+    ok('under the knob its bus; the pointer on it: how much it sends instead', away.bus && !away.db && /bus/.test(away.busWord) && over.db && !over.bus && /db$/.test(over.dbWord), [away, over]) }
   if (sd) await pull(sd.x, sd.y, sd.x, sd.y - 40)
   ok('the knob pulled up sends more', sd && await ev('return S.tracks[4].sends[0].db') > d0, [d0, await ev('return S.tracks[4].sends[0].db')])
   if (sd) { await click(sd.x, sd.y); ok('…pressed and let go: where it goes', await ev('return !!S.menu')); await ev(`S.menu = null; uiDirty('menu'); flush(); return 1`) } }

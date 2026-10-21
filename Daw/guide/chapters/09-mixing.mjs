@@ -28,7 +28,7 @@ export default () => chapter('mixing', t('mixing', '믹싱'),
       [2, ['{{pan}} a knob: drag up or down', '{{pan}} 노브: 위아래로 드래그']],
       [3, ['the patch as a list of names: click one for its window, [[⌥]] drag to copy it; + plug-in opens the list', '패치를 이름 목록으로: 누르면 창이 열리고, [[⌥]] 드래그로 복사. + plug-in은 목록을 엽니다']]) +
     table(null,
-      [4, ['the sends: round knobs beside the fader, how much each sends under it. Drag up or down; click to choose where it goes (its bus is named when the pointer rests on it). The + knob adds one. A full column of knobs makes the strip wider by another, up to ten sends', '센드: 페이더 오른쪽의 동그란 노브, 아래에 보내는 양. 위아래로 드래그, 클릭하면 어디로 보낼지 고릅니다(포인터를 올리면 버스 이름). + 노브로 추가. 노브 한 줄이 다 차면 스트립이 한 줄 더 넓어지고, 센드는 10개까지']],
+      [4, ['the sends: round knobs beside the fader, the bus each goes to under it; with the pointer on a knob, how much it sends instead. Drag up or down; click to choose where it goes. The + knob adds one. A full column of knobs makes the strip wider by another, up to ten sends', '센드: 페이더 오른쪽의 동그란 노브, 아래에 보내는 버스 이름. 포인터를 올리면 대신 보내는 양이 나옵니다. 위아래로 드래그, 클릭하면 어디로 보낼지 고릅니다. + 노브로 추가. 노브 한 줄이 다 차면 스트립이 한 줄 더 넓어지고, 센드는 10개까지']],
       [5, ['two meters, left and right, in the track’s colour; the fader’s line, the white square for a handle, the level beside it (double-click to type)', '왼쪽 오른쪽 미터 두 개(트랙 색), 페이더 선, 흰 사각형 손잡이, 옆에 레벨(더블 클릭해서 입력)']],
       [6, ['record, monitor, mute, solo: a ring, a diamond, a square, a triangle, filled when on. Under them where the track goes', '녹음, 모니터, 뮤트, 솔로: 원, 마름모, 사각형, 삼각형, 켜지면 채워집니다. 그 아래 트랙이 나가는 곳']]),
     art: fig('mixpanel', { w: 214, calls: [[1, 'msel', 't'], [2, 'mpan', 't'], [3, 'mfxadd', 't'], [4, 'msendadd', 'r'], [5, 'mvol', 'b'], [6, 'mute', 'b']] }) }),

@@ -400,32 +400,27 @@ const panThin = (x, y, w, pan, c) => { const cx = x + w / 2, px = cx + pan * (w 
 const panBar = (x, y, w, pan) => { const cx = x + w / 2, px = cx + pan * w / 2; return R(x, y, w, 2, { fill: INK, fa: .12 }) + R(Math.min(cx, px), y, Math.abs(px - cx), 2, { fill: INK, fa: .7 }) + R(cx - .5, y - 2, 1, 6, { fill: INK, fa: .3 }) + R(px - 1, y - 3, 2, 8, { fill: INK }) }
 /* what plays into a bus, or sits in a stack: said where a track says its input */
 const feedsOf = t => S.tracks.filter(x => x !== t && (x.sends || []).some(sd => sd.to === t.id)).length
-/* how many columns a strip's sends take: as many sends as its rows hold go in each (mixCounts), the + after them while it
-   may have more; a strip whose sends run past its rows grows wider to the right, a column more for each (his word,
-   2026-10-21: and ten sends at most) */
-const sendCols = (t, ns) => { const n = (t.sends || []).length, k = Math.min(MAX_SENDS, n + (n < MAX_SENDS ? 1 : 0)); return Math.max(1, Math.ceil(k / Math.max(1, ns))) }
 function strip (x, y, w, h, t, i, o = {}) {
-  const whole = w; w = o.col || w                                                      // (o.col: a strip grown wider for its sends — everything but its further sends stands in its first column, that wide)
   const wide = !!o.wide, q = stripGeom(y, h, wide, !!o.knob), pad = wide ? 5 : 4, sx = x + pad, sw = w - pad * 2, fs = wide ? 9.5 : 9, sel = !!o.sel, tx = sx + (wide ? 6 : 2), di = ` data-i="${i}"`      // (tx: where everything in the strip begins, one edge from its colour down to its name)
   let s = '', yy = q.y0, si = 0, hits = ''
   const short = v => wide ? v : (SHORT[v] || v)
   const word = (txt, room, it, a = .88) => T(tx, yy + q.sh / 2 + fs * .35, fit(txt, room, fs, 400, !!it), { size: fs, a, it: !!it })
   const full = (txt, it, act) => { s += word(txt, sw - (wide ? 12 : 7), it, .74); if (act) hits += hit(sx, yy, sw, q.sh, act, di) }
-  const plus = (act, ox = 0) => { s += T(tx + ox, yy + q.sh / 2 + 3.5, '+', { size: 10, a: .4 }); hits += hit(sx + ox, yy, sw, q.sh, act, di) }      // (ox: in a further column of sends)
+  const plus = act => { s += T(tx, yy + q.sh / 2 + 3.5, '+', { size: 10, a: .4 }); hits += hit(sx, yy, sw, q.sh, act, di) }
   /* a send: which one it is (a narrow strip says it by its letter, a wide one by where it goes), and a thin bar filled in the
      track's colour as far as it sends */
-  const send = (sd, k, ox = 0) => {
+  const send = (sd, k) => {
     const db = shown(t, 'send' + k), f = volF(db), b = byId(sd.to)
     const pulling = drag && drag.a === 'msend' && drag.moved && S.tracks[drag.i] === t && drag.k === k      // (while it is pulled it says how much goes, to a tenth of a db: his ask, 2026-10-19)
     const much = db <= -47.5 ? '−∞' : (pulling ? db.toFixed(1) : String(Math.round(db))).replace('-', '−')
-    if (pulling && !wide) s += T(tx + ox, yy + q.sh / 2 + fs * .35, fit(`${much} db`, sw - 7, fs), { size: fs, a: .88 })
+    if (pulling && !wide) s += word(`${much} db`, sw - 7)
     else {
       const lab = wide ? (b ? b.name : 'send') : String.fromCharCode(97 + k), lw = wide ? Math.min(Math.round(sw * .42), Math.ceil(tw(lab, fs - 1)) + 8) : 10
-      const bx0 = tx + ox + lw, bw = sx + ox + sw - (wide ? 30 : 2) - bx0, by = yy + q.sh / 2 - 1.5
-      s += T(tx + ox, yy + q.sh / 2 + 3.2, fit(lab, lw - 4, fs - 1), { size: fs - 1, a: .5 }) + R(bx0, by, bw, 3, { fill: INK, fa: .12 }) + R(bx0, by, bw * f, 3, { fill: t.c, fa: autoPts(t, 'send' + k).length ? 1 : .86 })
+      const bx0 = tx + lw, bw = sx + sw - (wide ? 30 : 2) - bx0, by = yy + q.sh / 2 - 1.5
+      s += T(tx, yy + q.sh / 2 + 3.2, fit(lab, lw - 4, fs - 1), { size: fs - 1, a: .5 }) + R(bx0, by, bw, 3, { fill: INK, fa: .12 }) + R(bx0, by, bw * f, 3, { fill: t.c, fa: autoPts(t, 'send' + k).length ? 1 : .86 })
     }
-    if (wide) s += T(sx + ox + sw - 2, yy + q.sh / 2 + fs * .35, much, { size: 9, a: pulling ? .95 : .66, anchor: 'end' })
-    hits += hit(sx + ox, yy, sw, q.sh, 'msend', `${di} data-k="${k}" data-x="${n(sx + ox)}" data-pw="${n(sw)}"`, 'ew-resize')
+    if (wide) s += T(sx + sw - 2, yy + q.sh / 2 + fs * .35, much, { size: 9, a: pulling ? .95 : .66, anchor: 'end' })
+    hits += hit(sx, yy, sw, q.sh, 'msend', `${di} data-k="${k}" data-x="${n(sx)}" data-pw="${n(sw)}"`, 'ew-resize')
   }
   for (const r of q.rows) {
     if (o.master) { if (r === 'out') full(wide ? 'output 1-2' : 'out 1-2', false, NAT ? 'audiokey' : null) }
@@ -455,24 +450,9 @@ function strip (x, y, w, h, t, i, o = {}) {
       } else if (k === items.length && fd && fd.to && fd.to.includes(i)) s += R(sx + .5, yy + .5, sw - 1, q.sh - 1, { stroke: INK, sa: .7, dash: '2 2' }) + word(fd.word, sw - 7)      // (where a copy pulled with option would go)
       else if (k === items.length && !t.theirs) plus('mfxadd')
       else if (k === items.length) hits += hit(sx, yy, sw, q.sh, 'm-patch', di)      // (another program's track takes no plug-in here: its slot opens its patch)
-    } else if (r === 'send' || r === '') {
-      const k = si++, sends = t.sends || [], sd = sends[k], over = whole === w && sends.length > q.ns && k === q.ns - 1      // (over: a strip that cannot grow — the chosen one, wide — says how many more it has)
-      if (over) s += word(`+${sends.length - k} more`, sw - 7, false, .5)
-      else if (sd) send(sd, k); else if (k === sends.length && sends.length < MAX_SENDS) plus('msendadd')
-    }
+    } else if (r === 'send' || r === '') { const k = si++, sd = (t.sends || [])[k]; if (sd) send(sd, k); else if (k === (t.sends || []).length) plus('msendadd') }
     else if (r === 'out') full(short(outName(t)), false, 'mout')
     yy += q.sp
-  }
-  /* its further columns of sends, on the same rows as the first column's */
-  const cols = Math.round(whole / w)
-  if (cols > 1 && !o.master) {
-    const ys = q.rows.map((r, j) => r === 'send' || r === '' ? q.y0 + j * q.sp : null).filter(v => v != null), sends = t.sends || [], y1 = yy
-    for (let c = 1; c < cols; c++) ys.forEach((ry, j) => {
-      const k = c * ys.length + j, sd = sends[k]
-      yy = ry
-      if (sd) send(sd, k, c * w); else if (k === sends.length && sends.length < MAX_SENDS) plus('msendadd', c * w)
-    })
-    yy = y1
   }
   const fx = x + (wide ? 34 : o.master ? 28 : 23), vol = o.master ? S.master : shown(t, 'vol'), muted = !o.master && !heard(t)
   const con = typeof SKIN === 'object' && SKINS.strip[SKIN.k.mixer]                    // (a theme's strip: its level, pan, buttons and name — skins.js)
@@ -517,7 +497,7 @@ function strip (x, y, w, h, t, i, o = {}) {
   } else {
     /* as in his picture of a strip (2026-10-20): its colour along the top; what it reads large, from the left; record,
        monitor, mute and solo as squares; its name at the foot, in the middle */
-    s += R(tx, y + 1.5, sx + sw - 2 - tx + (whole - w), 2.5, { fill: t.c, fa: !o.master && t.mute ? .4 : 1 })      // (along the whole strip, its further sends too)
+    s += R(tx, y + 1.5, sx + sw - 2 - tx, 2.5, { fill: t.c, fa: !o.master && t.mute ? .4 : 1 })
     s += T(tx, y + h - 50, fmtDb(vol), { size: wide ? 14 : 12, a: sel || (!o.master && autoPts(t, 'vol').length) ? 1 : .86 })      // (a little smaller, and further from the cells: his ask, 2026-10-20)
     if (o.master || !autoPts(t, 'vol').length) hits += hit(sx, y + h - 63, sw, 16, 'volnum', di, 'default')                 // what it reads: pressed twice, a level can be typed
     if (!o.master) { const gap = 1.5, cw = Math.min(wide ? 16 : 12, Math.floor((sx + sw - 2 - tx - gap * 3) / 4 * 10) / 10); s += squareCells(tx, y + h - 39, cellsOf(t), cw, wide ? 9 : 8.5, i, gap) }      // (as wide as four would be, in every strip: two are not larger than four)
@@ -606,8 +586,7 @@ async function bounceInPlace (live) {                                           
    strip: copied there — a plug-in with its settings, a print with its amounts — and onto one of several chosen strips, to
    every one of them (design/mixer inserts draft 1, 2). */
 function fxTargets (from, p) {
-  let i = null
-  for (const a of STRIP_AT.values()) if (p.x >= a[0] && p.x < a[0] + a[2]) { i = a[4]; break }      // (strips are not all one width: one grown for its sends is wider)
+  const vis = rows(), k = Math.floor((p.x - NGUT) / NSTRIP) + S.panel.mx, i = vis[k]
   if (i == null || i === from || p.x < NGUT || p.x > RX - 8 - MSTRIP - 8) return []
   const t = S.tracks[i]
   if (!t || t.kind === 'stack' || t.theirs) return []

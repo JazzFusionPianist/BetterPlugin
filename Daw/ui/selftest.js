@@ -862,6 +862,7 @@ async function runSelfTest (mode) {
   })
   await step('handsRouting', async () => {
     const t = track('guitar'), i = S.tracks.indexOf(t), n0 = S.tracks.length
+    tpanelSet(false, false)                                                              // (the strip beside the patch, as it stands with the transport panel hidden or in a theme: panel.js has the panel's own)
     S.sel = i; S.panel.on = true; S.panel.tab = 'patch'; setView(true); __daw.redraw(); await sleep(80)
     tap(`[data-a="mout"][data-i="${i}"]`); const made = await pickMenu('new bus')            // out -> new bus
     const out = byId(destId(t)), afterOut = { made, out: out && out.name, tracks: S.tracks.length - n0 }
@@ -876,7 +877,7 @@ async function runSelfTest (mode) {
     const heard = await only(t, async () => { await playFrom(16); return listen(1000) })
     out.mute = true; applyAll(); const busMuted = await only(t, async () => { out.mute = true; applyAll(); await playFrom(16); return listen(1000) }); out.mute = false; applyAll()
     halt(false)
-    S.panel.on = false; setView(true)
+    S.panel.on = false; tpanelSet(true, false)
     return Object.assign(res, { heard, withTheBusMuted: busMuted })
   })
   await step('handsPanel', async () => {

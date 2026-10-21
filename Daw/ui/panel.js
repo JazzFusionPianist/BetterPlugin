@@ -22,7 +22,10 @@ SKIN_NO_TOOL.add('panel'); SKIN_NO_TOOL.add('none')
 /* the room's transport is the panel; hidden, nothing stands in its place — the control bar and the tracks' bar at the top are
    gone (his word, 2026-10-21: "transport를 닫았을 때 … 화면 상단 … 이제 필요없지 않나"): the song has all the room */
 { const read0 = skinRead
-  skinRead = function () { read0(); if (SKIN.k.transport === 'plain') { SKIN.k.transport = TPANEL.on ? 'panel' : 'none'; SKIN.noTool = true } } }
+  skinRead = function () {
+    read0(); if (SKIN.k.transport === 'plain') { SKIN.k.transport = TPANEL.on ? 'panel' : 'none'; SKIN.noTool = true }
+    SIDE = SKIN.k.transport === 'panel' ? 0 : 222                                         // (the chosen track's strip is the panel's: the patch keeps none at its right — ui.js)
+  } }
 function tpanelSet (on, keep = true) {
   TPANEL.on = !!on
   if (keep) try { localStorage.setItem('slur.tpanel', TPANEL.on ? '1' : '0') } catch (e) {}
@@ -62,7 +65,10 @@ SKINS.left.panel = () => {
   let s = R(0, 0, CW, H, { fill: K2 }) + R(CW - 1, 0, 1, H, { fill: INK, fa: .1 })
   /* the groups' heights; the room between them the same */
   const playH = 72 * z, bs0 = small ? 84 : 112, posH = bs0 * .72 + 24, timeH = Math.max(46 * z + 12, 92 * z + 6), cycH = 47 * z + 14, ring = small ? 50 : 62, outH = 2 * ring + 40, foot = 112
-  const gap = clamp((H - FOOT_H - 24 - foot - (playH + posH + timeH + cycH + outH)) / 5, 12, 40)
+  /* the chosen track's strip stands over the foot (36: the large count of tracks reaches that far above it); the groups'
+     gaps give it room, and a short window has it on one line */
+  const room0 = H - FOOT_H - 24 - foot - 36 - (playH + posH + timeH + cycH + outH), stripH = room0 - 6 * 10 >= 92 ? Math.min(124, room0 - 6 * 10) : 50
+  const gap = clamp((room0 - stripH) / 6, 6, 40), below = clamp(gap * .6, 8, 22)
   let y = 24
   /* play | stop, record, to the start */
   const playing = S.playing && !S.rec, stopped = !S.playing && !S.rec, pw = 62 * z
@@ -114,7 +120,7 @@ SKINS.left.panel = () => {
     y = ct + h + 14 + gap }
   /* the song a diagonal; the out a large ring on it */
   const f0 = H - FOOT_H - foot
-  { const r = ring, cx = CW / 2, cy = y + 20 + r, k = 1.05, top = y - gap / 2, bottom = f0 - 16
+  { const r = ring, cx = CW / 2, cy = y + 20 + r, k = 1.05, top = y - gap / 2, bottom = f0 - 36 - below - stripH - 10
     const A1 = cy - cx * k, t0 = Math.max(0, (top - A1) / k), t1 = Math.min(CW, (bottom - A1) / k)
     const L0 = [t0, A1 + t0 * k], L1 = [t1, A1 + t1 * k], len = Math.hypot(L1[0] - L0[0], L1[1] - L0[1]), hole = r + 22
     const g = geo.song = { L0, L1, len, hole, mid: Math.hypot(cx - L0[0], cy - L0[1]), shown: Math.max(1, len - 2 * hole) }
@@ -130,6 +136,7 @@ SKINS.left.panel = () => {
     if (S.cycle.on) { const seg = (a, b) => { const [x0, y0] = tpAt(g, a), [x1, y1] = tpAt(g, b); return P(`M${n(x0)} ${n(y0)}L${n(x1)} ${n(y1)}`, { stroke: SOLO, sw: 3.4, sa: .95 }) }, cut = SONG_END * (g.mid - g.hole) / g.shown
       s += S.cycle.a < cut && S.cycle.b > cut ? seg(S.cycle.a, cut - 1e-6) + seg(cut + 1e-6, S.cycle.b) : seg(S.cycle.a, S.cycle.b) }
     { const [x, yy] = tpAt(g, p); s += Cc(x, yy, 3.4, { fill: INK, x: ' id="tp-head"' }) } }
+  s += tpStrip(f0 - 36 - below - stripH, stripH, GL, GR, RE)
   /* the foot, on the same two columns: how many tracks | what is chosen, a new one at the right edge; then the small capitals */
   { const st = S.tracks[S.sel], rs = S.focus === 'tracks' ? [] : selRegs(), r = rs.length ? rs[0][0] : null, look = r ? regLook(r, rs[0][1]) : st ? { c: st.c } : { c: INK }, ty = f0 + 6
     const nt = S.tracks.filter(t => t.kind === 'audio').length
@@ -162,6 +169,145 @@ SKINS.left.panel = () => {
   s += sl(GL, GR - GL - 16, zoomF(), 'zoom across', 'zoomx') + sl(GR, RE - GR, clamp(((S.rh || 25) - 20) / 100, 0, 1), 'zoom down', 'zoomy')
   return G(G(s, '', ' id="tp-col"'), `translate(${o} 0)`)
 }
+
+/* ── the chosen track's strip, between the out and the foot: his pick of design/transport strip draft 1 (2026-10-21,
+   "1번 시안 좋아"). Its level short — two bars as loud as each side, the fader's line, the white square — its level large
+   beside them and its loudest peak under it (a light that fills red once it has clipped: pressed, let go); on the second
+   column its plug-ins, a list of names (+ plug-in), and its sends, round knobs with the bus each goes to under it (how much
+   while the pointer is on it or it is turned), a + for one more. A short window has it on one line. It stands for the
+   strips the patch had at its right, gone the same day. ── */
+const TPS = { key: null, lv: [0, 0], pk: -100, clip: false, was: false }
+function tpStrip (top, h, GL, GR, RE) {
+  const t = S.tracks[S.sel]
+  TPX.sg = null
+  if (!t || h < 30) return ''
+  if (TPS.key !== t.id) { TPS.key = t.id; TPS.lv = [0, 0]; TPS.pk = -100; TPS.clip = false }
+  const i = S.sel, di = ` data-i="${i}"`, vol = shown(t, 'vol'), heardT = heard(t), stack = t.kind === 'stack', short = h < 80
+  let s = '', hits = ''
+  const lvF = k => volF(Math.min(6, linDb(TPS.lv[k])))                                     // (drawn again, the bars stand where the meters had them)
+  const peak = (x, y) => Cc(x + 3.4, y - 2.6, 3.4, { stroke: REC, sa: .8, sw: 1, fill: TPS.clip ? REC : 'none', x: ' id="tps-clip"' }) + tpCap(x + 11, y, 'peak ' + (TPS.pk > -99 ? fmtDb(Math.round(TPS.pk * 10) / 10) : '−∞'), { a: .5, x: tpNum + ' id="tps-peak"' })
+  /* a send's knob, the bus under it (how much while the pointer is on it, or it is turned: mixpanel.js's rule) */
+  const knob = (k, sd, cx, cy, r, size, room) => {
+    const b = byId(sd.to), db = mpSendDb(t, k, sd), pulling = drag && drag.a === 'msend' && drag.moved && drag.i === i && drag.k === k
+    const bus = fit(b ? asGiven(b.name) : 'send', room, size, 500), much = (db <= -47.5 ? '−∞' : (pulling ? db.toFixed(1) : String(Math.round(db))).replace('-', '−')) + ' db'
+    return `<g class="mpk${pulling ? ' on' : ''}">` + mpSendKnob(cx, cy, r, volF(db), t.c, b ? b.name : 'send') + T(cx, cy + r + 9.5, bus, { size, w: 500, a: .6, anchor: 'middle', x: ' class="mpk-bus"' }) + T(cx, cy + r + 9.5, much, { size, anchor: 'middle', x: tpNum + ' class="mpk-db"' })
+      + hit(cx - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 14, 'mp-send', `${di} data-k="${k}"`, 'ns-resize') + '</g>'
+  }
+  const plusKnob = (cx, cy, r, word) => Cc(cx, cy, r - .5, { stroke: INK, sa: .3, sw: .9, dash: '2 2' }) + P(`M${n(cx)} ${n(cy - r / 2.6)}V${n(cy + r / 2.6)}M${n(cx - r / 2.6)} ${n(cy)}H${n(cx + r / 2.6)}`, { stroke: INK, sa: .6, sw: 1 }) + (word ? T(cx, cy + r + 9.5, word, { size: 7.5, a: .35, anchor: 'middle' }) : '') + hit(cx - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 14, 'msendadd', di)
+  /* its sends in a row on the second column: three knobs, then a + (or how many more, which opens the mixer) */
+  const sendRow = (cy, r, size, step) => {
+    if (stack) return ''
+    const sends = t.sends || [], shown3 = sends.slice(0, sends.length > 4 ? 3 : 4)
+    let q = ''
+    shown3.forEach((sd, k) => { q += knob(k, sd, GR + r + k * step, cy, r, size, step - 2) })
+    const k = shown3.length, cx = GR + r + k * step
+    if (sends.length > shown3.length) q += T(cx, cy + 3, `+${sends.length - k}`, { size: 8.5, a: .55, anchor: 'middle', x: tpNum }) + hit(cx - r, cy - r, 2 * r, 2 * r, 'tab-mixer')
+    else if (k < 4 && sends.length < MP_SENDS) q += plusKnob(cx, cy, r, short ? '' : 'send')
+    return q
+  }
+  const fxLine = (it, k, y) => R(GR, y - 6.5, 6.5, 6.5, { fill: it.c || MP_PRINT_C()[it.k] || t.c, fa: it.off ? .4 : 1 })
+  if (short) {
+    /* on one line: its level two bars across with the fader's line under them, its level and peak under that; its plug-ins
+       one line (the first named, how many more), its sends small knobs */
+    const w = GR - GL - 16, y0 = top + 3, ly = top + 20, hx = GL + w * volF(vol)
+    for (let k = 0; k < 2; k++) s += R(GL, y0 + k * 6, w, 4, { fill: INK, fa: .06 }) + R(GL, y0 + k * 6, w * lvF(k), 4, { fill: t.c, fa: heardT ? .95 : .4, x: ` id="tps-m-${k}"` })
+    TPX.sg = { across: true, x: GL, w, ft: y0, fb: y0 + 10 }
+    s += R(GL, ly - .6, w, 1.2, { fill: INK, fa: .85 }) + R(hx - 5, ly - 5, 10, 10, { fill: '#FFFFFF', fa: heardT ? 1 : .5 })
+    hits += hit(GL - 4, top - 2, w + 8, 30, 'tps-vol', di, 'ew-resize')
+    s += T(GL, top + 45, fmtDb(vol), { size: 17, w: 500, a: heardT ? 1 : .5, x: tpNum }) + peak(GL + 50, top + 43)
+    hits += hit(GL - 2, top + 30, 46, 20, 'tps-volnum', di, 'text') + hit(GL + 47, top + 32, 60, 16, 'tps-clip')
+    if (!stack) {
+      const items = fxItems(t), it = items[0]
+      if (t.theirs) { s += T(GR, top + 9.5, 'patch →', { size: 8.5, a: .45 }); hits += hit(GR - 3, top, 70, 14, 'm-patch', di) }
+      else {
+        if (it) { s += fxLine(it, 0, top + 9.5) + T(GR + 11, top + 9.5, fit(asGiven(it.t), 62, 8.5), { size: 8.5, a: it.off ? .4 : .85 }); hits += hit(GR - 3, top, 74, 14, 'mfx', `${di} data-k="0"`) }
+        if (items.length > 1) { s += T(GR + 78, top + 9.5, `+${items.length - 1}`, { size: 8.5, a: .55, x: tpNum }); hits += hit(GR + 74, top, 18, 14, 'm-patch', di) }
+        s += mpPlus(RE - 5, top + 6); hits += hit(RE - 12, top - 1, 14, 14, 'mfxadd', di)
+      }
+      s += sendRow(top + 28, 7, 7, 24)
+    }
+    return s + hits
+  }
+  /* its level: two short bars of its colour, the fader's line, the white square */
+  const ft = top + 4, fb = top + h - 4, yOf = db => fb - (fb - ft) * volF(db), fy = yOf(vol), bw = 5, lx = GL + 2 * bw + 2 + 14
+  for (let k = 0; k < 2; k++) { const x = GL + k * (bw + 2); s += R(x, ft, bw, fb - ft, { fill: INK, fa: .06 }) + R(x, fb - (fb - ft) * lvF(k), bw, (fb - ft) * lvF(k), { fill: t.c, fa: heardT ? .95 : .4, x: ` id="tps-m-${k}"` }) }
+  TPX.sg = { across: false, x: GL, ft, fb }
+  for (const db of DBS) s += R(lx - 5, yOf(db) - .3, db === 0 ? 3.5 : 2.5, .6, { fill: INK, fa: db === 0 ? .55 : .3 })
+  s += R(lx - .6, ft, 1.2, fb - ft, { fill: INK, fa: .85 }) + R(lx - 5, fy - 5, 10, 10, { fill: '#FFFFFF', fa: heardT ? 1 : .5 })
+  hits += hit(GL - 4, ft - 6, lx + 10 - GL, fb - ft + 12, 'tps-vol', di, 'ns-resize')
+  /* its level large, the loudest peak under it */
+  const vx = lx + 16
+  s += T(vx, ft + 20, fmtDb(vol), { size: 24, w: 500, a: heardT ? 1 : .5, x: tpNum }) + tpCaps(vx + 1, ft + 33, 'level', { a: .4 }) + peak(vx + 1, ft + 54.5)
+  hits += hit(vx - 2, ft - 2, 76, 26, 'tps-volnum', di, 'text') + hit(vx - 2, ft + 42, 72, 16, 'tps-clip')
+  /* where its sound comes from (the patch's strips had it; gone with them, so here): pressed, the inputs */
+  if (t.kind === 'audio' && !t.theirs && !t.inst && fb - ft >= 84) { const word = inputName(t.inp || 0), ww = tw(word, 8.5)
+    s += tpCaps(vx + 1, ft + 76, 'in', { a: .4 }) + T(vx + 14, ft + 76, word, { size: 8.5, a: .8 }) + tpChev(vx + 18 + ww, ft + 72.5); hits += hit(vx - 2, ft + 65, ww + 30, 15, 'min', di) }
+  if (stack) return s + hits
+  /* its plug-ins, a list of names; its sends, round knobs with the bus under each */
+  const r = 8, rows = Math.max(1, Math.floor((h - 2 * r - 44) / 13) - 1)
+  let ly = ft + 8
+  if (t.theirs) { s += T(GR, ly, 'patch →', { size: 8.5, a: .45 }); hits += hit(GR - 3, ly - 11, RE - GR + 6, 15, 'm-patch', di); ly += 13 }
+  else {
+    const items = fxItems(t), show = Math.min(items.length, rows)
+    items.slice(0, show).forEach((it, k) => {
+      if (k === show - 1 && items.length > show) { s += T(GR, ly, `+${items.length - k} more`, { size: 8.5, a: .5 }); hits += hit(GR - 3, ly - 11, RE - GR + 6, 15, 'm-patch', di) }
+      else { s += fxLine(it, k, ly) + T(GR + 11, ly, fit(asGiven(it.t), RE - GR - 11, 8.5), { size: 8.5, a: it.off ? .4 : .85 }); hits += hit(GR - 3, ly - 11, RE - GR + 6, 15, 'mfx', `${di} data-k="${k}"`) }
+      ly += 13
+    })
+    s += mpPlus(GR + 3, ly - 3) + T(GR + 11, ly, 'plug-in', { size: 8, a: .4 }); hits += hit(GR - 3, ly - 11, 70, 15, 'mfxadd', di)
+  }
+  s += sendRow(Math.min(ly + 14 + r, fb - r - 10), r, 7.5, 26)
+  return s + hits
+}
+/* the strip's bars, each frame: as loud as each side, falling back on their own; its peak since the song was started */
+{ const meters0 = drawMeters
+  drawMeters = function () {
+    meters0.apply(this, arguments)
+    const g = TPX.sg, t = S.tracks[S.sel]
+    if (!g || !t || t.id !== TPS.key || typeof METERS !== 'object' || !TPANEL.on) return
+    const two = METERS.ts && METERS.ts.get(t.id), mono = METERS.now.get(t.id) || 0, lr = two ? [two[0], two[1]] : [mono, mono], f = v => volF(Math.min(6, linDb(v)))
+    for (let c = 0; c < 2; c++) {
+      TPS.lv[c] = Math.max(lr[c], TPS.lv[c] * .87); if (TPS.lv[c] < 1e-4) TPS.lv[c] = 0
+      const el = $('tps-m-' + c), k = f(TPS.lv[c])
+      if (!el) continue
+      if (g.across) el.setAttribute('width', n(g.w * k))
+      else { const fh = (g.fb - g.ft) * k; el.setAttribute('y', n(g.fb - fh)); el.setAttribute('height', n(fh)) }
+    }
+    if (S.playing && !TPS.was) { TPS.pk = -100; TPS.clip = false; const pe = $('tps-peak'), c = $('tps-clip'); if (pe) pe.textContent = LANG_WORDS('peak −∞'); if (c) c.setAttribute('fill', 'none') }
+    TPS.was = S.playing
+    const db = linDb(Math.max(lr[0], lr[1]))
+    if (db > TPS.pk + .05 && db > -99) {
+      TPS.pk = db; const pe = $('tps-peak'); if (pe) pe.textContent = LANG_WORDS('peak ' + fmtDb(Math.round(db * 10) / 10))
+      if (db >= -.05 && !TPS.clip) { TPS.clip = true; const c = $('tps-clip'); if (c) c.setAttribute('fill', REC) }
+    }
+  } }
+/* its fader pulled (up and down; on one line, across), its level pressed to be typed, its light pressed to let go */
+{ const down0 = onDown
+  onDown = function (e) {
+    const el = e && e.target && e.target.closest ? e.target.closest('#tp-col [data-a^="tps-"]') : null
+    if (!el || e.button !== 0) return down0.apply(this, arguments)
+    e.preventDefault()
+    const a = el.dataset.a, i = +el.dataset.i, tr = S.tracks[i], p = pt(e), g = TPX.sg
+    if (a === 'tps-clip') { TPS.pk = -100; TPS.clip = false; uiDirty('top'); return }
+    if (!tr) return
+    if (a === 'tps-volnum') { startRename('vol', i, { x: +el.getAttribute('x') - TPX.CW, y: +el.getAttribute('y'), w: +el.getAttribute('width'), h: +el.getAttribute('height') }); return }      // (typed where it stands: the column's own x, counted from the room's)
+    if (e.altKey) { for (const x of groupOf(i, 'volume')) if (!autoPts(x, 'vol').length) { x.vol = 0; x.ghost = null } applyAll(); uiDirty('head', 'dock', 'top'); return }      // (with option: 0 db, as every fader)
+    tr.ghost = null
+    const across = !!(g && g.across)
+    drag = { a: across ? 'tps-volx' : 'mvol', i, ly: across ? -p.x : p.y, f0: volF(shown(tr, 'vol')), acc: 0, v0: tr.vol, others: others(i, 'vol'), g: { fh: g ? (across ? g.w : g.fb - g.ft) : 100 }, before: autoPts(tr, 'vol').length ? editState() : null }
+    try { svg.setPointerCapture(e.pointerId) } catch (err) {}
+  } }
+{ const move0 = onMove, up0 = onUp
+  onMove = function (e) {
+    const r = move0.apply(this, arguments)
+    if (drag && drag.a === 'tps-volx') stripVolY(drag, -pt(e).x, e)                         // (across: the hand's x read as a fader reads its y)
+    if (drag && TPX.sg && (drag.a === 'mvol' || drag.a === 'tps-volx' || drag.a === 'msend')) uiDirty('top')
+    return r
+  }
+  onUp = function (e) { const d = drag, r = up0.apply(this, arguments); if (d && d.a === 'tps-volx' && d.before) commit(d.before); return r } }
+/* what the strip shows changes where the heads and the panel below change (a level, a send, a plug-in): drawn again with them */
+{ const dirty0 = uiDirty
+  uiDirty = function () { dirty0.apply(this, arguments); if (TPANEL.on && TPX.sg) for (const q of arguments) if (q === 'head' || q === 'dock') { dirty0('top'); break } } }
 
 /* ── each frame: where the song is, the beat, the tempo's dot, the playhead on the song's line, the out ── */
 SKINS.frame.panel = p => {
@@ -202,7 +348,7 @@ SKINS.frame.panel = p => {
     const el = e && e.target && e.target.closest ? e.target.closest('#tp-col [data-a]') : null, a = el && el.dataset.a
     if (a === 'rbpm' && e.button === 0) { startRename('rbpm', 0, { x: +el.getAttribute('x') - TPX.CW, y: +el.getAttribute('y'), w: +el.getAttribute('width'), h: +el.getAttribute('height') }); return }      // (typed where it stands: the column's own x, counted from the room's)
     const r = down0.apply(this, arguments)
-    if (a && ['qval', 'rstretch', 'fcurve'].includes(a) && S.menu) { const q = el.getBoundingClientRect(), b = $('board').getBoundingClientRect(), k = b.width / (W + (SKV.left || 0)); S.menu.x = (q.left - b.left) / k - (SKV.left || 0); S.menu.y = (q.bottom - b.top) / k + 3; uiDirty('menu') }
+    if (a && ['qval', 'rstretch', 'fcurve', 'min', 'msendadd'].includes(a) && S.menu) { const q = el.getBoundingClientRect(), b = $('board').getBoundingClientRect(), k = b.width / (W + (SKV.left || 0)); S.menu.x = (q.left - b.left) / k - (SKV.left || 0); S.menu.y = (q.bottom - b.top) / k + 3; uiDirty('menu') }
     return r
   } }
 /* the light pressed: the hold let go */

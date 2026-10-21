@@ -12,11 +12,11 @@ export default () => chapter('patch', t('the patch', '패치'),
       [5, 'a plug-in from outside. Click it for its window', '외부 플러그인. 클릭하면 창이 열립니다'],
       [6, '{{out}}', '{{out}}'],
       [7, '{{add}} opens the list of prints and plug-ins', '{{add}} 프린트와 플러그인 목록을 엽니다'],
-      [8, 'the chosen track’s strip, and the stereo out', '선택한 트랙의 스트립, 그리고 스테레오 아웃'],
-      [9, 'the macros’ column: {{+}} makes one (see “macros”)', '매크로 열: {{+}}로 하나 만듭니다(“매크로” 참고)'],
-      [10, 'the patch that is up, kept under a name (see “presets”)', '지금 올라온 패치. 이름을 붙여 저장합니다(“프리셋” 참고)']) +
+      [8, 'the macros’ column: {{+}} makes one (see “macros”)', '매크로 열: {{+}}로 하나 만듭니다(“매크로” 참고)'],
+      [9, 'the patch that is up, kept under a name (see “presets”)', '지금 올라온 패치. 이름을 붙여 저장합니다(“프리셋” 참고)']) +
+    p('The chosen track’s strip is in the transport panel at the left; with the panel hidden, or in a theme with a transport of its own, it stands at the patch’s right with the stereo out’s.', '선택한 트랙의 스트립은 왼쪽 트랜스포트 패널에 있습니다. 패널을 숨기거나 자체 트랜스포트가 있는 테마에서는 패치 오른쪽에 스테레오 아웃 스트립과 함께 나옵니다.') +
     p('A patch begins with {{in}} at the left of the wall, {{out}} at its right and one wire between them: the sound goes by untouched. Double-click something in the list and it is set on that wire, at its end, and wired in; the next one goes to its right. A print that plays other prints’ hands stands by itself, to be wired by hand. Sixteen things fit on a wall.', '패치는 벽 왼쪽의 {{in}}, 오른쪽의 {{out}}, 그리고 그 둘을 잇는 선 하나로 시작합니다. 소리는 그대로 지나갑니다. 목록에서 더블 클릭한 것은 그 선의 끝에 올라가 연결되고, 다음 것은 그 오른쪽에 붙습니다. 다른 프린트의 손잡이를 움직이는 프린트는 따로 놓이고 직접 연결합니다. 벽 하나에 열여섯 개까지 놓입니다.'),
-    art: fig('patch', { w: 226, calls: [[1, 'wall:port#1', 'b'], [2, 'wall:node#1', 't'], [3, 'wall:node#2', 't'], [4, 'wall:node#4', 't'], [5, 'wall:node#5', 't'], [6, 'wall:end', 'b'], [7, 'plugs', 'b'], [8, 'mvol', 't'], [9, 'macro:add', 't'], [10, 'pre:box', 't']] }) }),
+    art: fig('patch', { w: 178, calls: [[1, 'wall:port#1', 'b'], [2, 'wall:node#1', 't'], [3, 'wall:node#2', 't'], [4, 'wall:node#4', 't'], [5, 'wall:node#5', 't'], [6, 'wall:end', 'b'], [7, 'plugs', 'b'], [8, 'macro:add', 't'], [9, 'pre:box', 't']] }) }),
 
   page(t('working on the wall', '벽에서 하는 일'), { kind: 'text', cc: 2, txt:
     table(null,

@@ -391,7 +391,9 @@ function wallPatch (y, h) {
     s += wallFoot(t, w, y + h - 26, cw, sel)
     if (!w.nodes.length && !pickerIn()) s += T(cw / 2, y + h - 40, 'nothing on this patch yet', { size: 9.5, a: .3, anchor: 'middle' })
   }
-  /* at the right: the chosen track's strip, and the strip of where the whole room plays */
+  /* at the right: the chosen track's strip, and the strip of where the whole room plays (none while the transport panel
+     has the chosen track's: SIDE) */
+  if (!SIDE) { MGEOM = null; return s }
   s += R(rx, y, RX - rx, h, { fill: K2, fa: .6 }) + vline(rx - .5, y, y + h, .08)
   const x1 = rx + GUT, x2 = x1 + WSTRIP + 6
   MGEOM = stripGeom(y, h, true)

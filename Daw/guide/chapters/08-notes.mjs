@@ -27,7 +27,7 @@ export default () => chapter('notes', t('notes and instruments', '노트와 악�
       [7, '{{chain}} back to the patch', '{{chain}} 패치로 돌아가기']) +
     p('Take hold of the drawing itself; small ink squares show what can be moved. [[⇧]] drag is finer. [[⌥]] click puts a thing back to the value the sound has by itself.', '그림 자체를 잡습니다. 작은 검은 네모가 움직일 수 있는 곳입니다. [[⇧]] 드래그는 더 미세하게. [[⌥]] 클릭은 그 소리의 기본값으로 되돌립니다.') +
     p('Played, it answers to velocity (louder and brighter), pitch bend (two semitones each way), the mod wheel (vibrato) and the sustain pedal. It plays up to 16 notes at once.', '연주할 때 벨로시티(더 크고 밝게), 피치 벤드(위아래 두 반음), 모듈레이션 휠(비브라토), 서스테인 페달에 반응합니다. 동시에 16음까지 냅니다.'),
-    art: fig('synth', { w: 240, calls: [[1, [160, 78], 't'], [2, 'iv:wave1', 'b', -4], [3, 'iv:filter', 't'], [4, 'iv:env', 't'], [5, 'iv:vib', 't'], [6, 'iv:mono', 'b'], [7, 'iv:chain', 't']] }) }),
+    art: fig('synth', { w: 190, calls: [[1, [160, 78], 't'], [2, 'iv:wave1', 'b', -4], [3, 'iv:filter', 't'], [4, 'iv:env', 't'], [5, 'iv:vib', 't'], [6, 'iv:mono', 'b'], [7, 'iv:chain', 't']] }) }),
 
   page(t('the kit', '킷'), { kind: 'wide', cc: 3, txt:
     legend(
@@ -40,7 +40,7 @@ export default () => chapter('notes', t('notes and instruments', '노트와 악�
       ['kick', 'c1', 'high tom', 'c2'], ['rim', 'c#1', 'crash', 'c#2'], ['snare', 'd1', 'ride', 'd#2'], ['clap', 'd#1', 'tambourine', 'f#2'],
       ['low tom', 'f1', 'cowbell', 'g#2'], ['hat', 'f#1', 'conga', 'd#3'], ['mid tom', 'a1', 'shaker', 'a#3'], ['open hat', 'a#1', 'clave', 'd#4']) +
     p('Hat and open hat cut each other off. Velocity makes a pad louder; the kit does not answer to bend, wheel or pedal. A file must already be in the project (imported, recorded or bounced) to be given to a pad.', 'hat과 open hat은 서로를 끊습니다. 벨로시티가 클수록 패드 소리가 커지고, 킷은 벤드, 휠, 페달에는 반응하지 않습니다. 패드에 줄 파일은 이미 프로젝트 안에 있어야 합니다(가져오기, 녹음, 바운스).'),
-    art: fig('kit', { w: 226, calls: [[1, 'iv:pad#6', 't'], [2, [511, 100], 't'], [3, [915, 126], 't'], [4, 'iv:padsound', 'b'], [5, [564, 246], 'b']] }) }),
+    art: fig('kit', { w: 178, calls: [[1, 'iv:pad#6', 't'], [2, [560, 100], 't'], [3, [886, 126], 't'], [4, 'iv:padsound', 'b'], [5, [508, 246], 'b']] }) }),
 
   page(t('the sampler', '샘플러'), { kind: 'wide', cc: 3, txt:
     legend(
@@ -53,7 +53,7 @@ export default () => chapter('notes', t('notes and instruments', '노트와 악�
     p('One sound, played up and down the keys from its own key. With no sound it is silent. It answers to velocity, pitch bend (two semitones) and the sustain pedal.', '소리 하나를 원래 음을 기준으로 건반 위아래로 연주합니다. 소리가 없으면 조용합니다. 벨로시티, 피치 벤드(두 반음), 서스테인 페달에 반응합니다.') +
     h('plug-in instruments', '플러그인 악기') +
     p('An Audio Unit or VST3 instrument is chosen from the same list. Its window opens when it is chosen; click its frame in the patch to open it again, and [[V]] closes all plug-in windows. If it will not open with a project, it is drawn faint with {{left out}}; click it to choose an instrument again.', 'Audio Unit이나 VST3 악기도 같은 목록에서 고릅니다. 고르면 창이 열립니다. 패치에서 테두리를 클릭하면 다시 열리고, [[V]]는 모든 플러그인 창을 닫습니다. 프로젝트와 함께 열리지 않으면 {{left out}}과 함께 흐리게 그려집니다. 클릭해서 악기를 다시 고릅니다.'),
-    art: fig('sampler', { w: 240, calls: [[1, 'iv:smsound', 't'], [2, 'iv:sm', 't'], [3, 'iv:senv', 't'], [4, 'iv:oneShot', 'b'], [5, 'iv:loop', 'b'], [6, 'iv:root', 'b']] }) }),
+    art: fig('sampler', { w: 190, calls: [[1, 'iv:smsound', 't'], [2, 'iv:sm', 't'], [3, 'iv:senv', 't'], [4, 'iv:oneShot', 'b'], [5, 'iv:loop', 'b'], [6, 'iv:root', 'b']] }) }),
 
   page(t('playing', '연주하기'), { kind: 'split', tw: 104, txt:
     h('who hears the keyboard', '건반 소리를 듣는 트랙') +

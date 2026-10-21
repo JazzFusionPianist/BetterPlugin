@@ -831,7 +831,11 @@ function pDrop () {
 const pPlay = () => { if (typeof RTB !== 'undefined' && RTB.on) return ''; const y = RU_Y + RU_CY + 1, c = lkC('play.c', INK); if (typeof SKIN === 'object' && SKINS.play[SKIN.k.playhead]) return G(SKINS.play[SKIN.k.playhead](c, lkN('play.w')), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"'); return G(P(`M.5 ${y + 6}V${BY}`, { stroke: c, sw: lkN('play.w') }) + P(`M-4.5 ${y + 1}H5.5V${y + 7}L.5 ${y + 12}L-4.5 ${y + 7}Z`, { fill: c }) + hit(-10.5, y, 22, RU_H - RU_CY, 'playhead', '', 'ew-resize'), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"') }
 
 /* ── the bottom panel: the chosen track's patch, with its strip beside it; or the mixer ── */
-const SIDE = 222, GUT = 34, WSTRIP = 86, NSTRIP = 56, NGUT = 36, MSTRIP = 64, MAX_INS = 4
+/* SIDE: the room the patch keeps at its right for the chosen track's strip and the out's — none while the transport panel
+   shows the chosen track's strip (since 2026-10-21: panel.js sets it); a theme with a transport of its own, or the panel
+   hidden, keeps them */
+let SIDE = 222
+const GUT = 34, WSTRIP = 86, NSTRIP = 56, NGUT = 36, MSTRIP = 64, MAX_INS = 4
 function pPanelHead (y, tab) {
   const t = S.tracks[S.sel], by = y + 16.6
   let s = R(0, y, RX, PH, { fill: K2 }) + hline(0, RX, y, .14) + hline(0, RX, y + PH - .5, .08)
@@ -842,7 +846,7 @@ function pPanelHead (y, tab) {
     s += R(nx, y + 10, 6, 6, { fill: t.c }) + T(nx + 12, by, fit(asGiven(t.name), 160, 10.5, 500), { size: 10.5, w: 500 }) + T(nx + 12 + tw(fit(asGiven(t.name), 160, 10.5, 500), 10.5, 500) + 7, by, `track ${S.sel + 1}`, { size: 9.5, a: .4 })
     const rx = RX - SIDE
     if (NAT) { const full = (t.inserts || []).length >= MAX_INS && PRINTS3.every(k => printOn(t, k)), o = { armed: S.picker.open, dim: full, a: full ? null : 'plugs' }; s += key(rx - 12 - keyW('plug-ins', o), y + 4, 'plug-ins', o)[0] }
-    s += vline(rx - .5, y, y + PH, .08) + T(rx + 12, by, 'strip', { size: 9.5, a: .4 })
+    if (SIDE) s += vline(rx - .5, y, y + PH, .08) + T(rx + 12, by, 'strip', { size: 9.5, a: .4 })
   } else if (tab === 'mixer') s += field(nx, by, 'strips', String(rows().length))[0]
   return s
 }
@@ -908,7 +912,9 @@ function pPatch (y, h) {
   g += wire(from, MID, outX - 7, MID) + Cc(outX, MID, 4, { stroke: INK, sa: .8, sw: 1.2 }) + T(outX, MID + 20, 'out', { size: 9.5, a: .46, anchor: 'middle' })
   for (const q of nodes) g += plate(q.k, q.x, MID + q.y, NR) + label(q.x, MID + q.y + NR + 17, caps[q.k][0], caps[q.k][1]) + hit(q.x - NR - 4, MID + q.y - NR - 4, 2 * NR + 8, 2 * NR + 8, 'print', ` data-k="${q.k}"`, 'ns-resize')
   s += G(G(g, `translate(${shiftX} ${n(MID * (1 - k))}) scale(${n(k)})`), '', ` clip-path="url(#${cid})"`)
-  /* at the right: the chosen track's strip, and the strip of where the whole room plays */
+  /* at the right: the chosen track's strip, and the strip of where the whole room plays (none while the transport panel
+     has the chosen track's: SIDE) */
+  if (!SIDE) { MGEOM = null; return s }
   s += R(rx, y, RX - rx, h, { fill: K2, fa: .6 }) + vline(rx - .5, y, y + h, .08)
   const x1 = rx + GUT, x2 = x1 + WSTRIP + 6
   MGEOM = stripGeom(y, h, true)

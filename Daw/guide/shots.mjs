@@ -72,6 +72,8 @@ async function fresh (o) {
   return b
 }
 const PANEL = [0, H - 22 - 316, W, 316]
+const PATCH = [248, H - 22 - 316, W - 248, 316]                                     // the patch as the app shows it: the transport panel at the left (and no strips at the patch's right)
+const tpanel = (b, on) => b.ev(`if (typeof tpanelSet === 'function') { tpanelSet(${on}, false); flush() } return 1`)
 const SHOTS = {
   /* settings > display: the room wearing a look of its own (light ground, dark ink, round corners, the sound standing on the region's foot) */
   'display-room': async b => {
@@ -162,10 +164,17 @@ const SHOTS = {
     await key(b, 'x'); console.log('mixer', await b.names()); await b.pic('mixer', PANEL, 1.5)
     /* the room's one mixer (mixpanel.js) */
     await b.pic('mixpanel', PANEL, 1.5)
-    await key(b, 'b'); console.log('patch', await b.names()); await b.pic('patch', PANEL, 1.5)
-    const o = await b.box('mout'); if (o) { await b.click(o[0] + o[2] / 2, o[1] + o[3] / 2); await b.pic('outlist', [760, 300, 420, 400], 1.5); await key(b, 'esc') }
-    await b.click(60, await b.Y(1)); await b.pic('patch-empty', PANEL, 1.5)
+    /* where a strip plays, and its list: from the mixer (the patch has no strips at its right since 2026-10-21) */
+    { const o = await b.box('mout', 1)
+      if (o) { await b.click(o[0] + o[2] / 2, o[1] + o[3] / 2); await b.sleep(200)
+        const m = await b.ev(`const q = [...document.querySelectorAll('#g-menu [data-a="pick"]')].map(e => e.getBoundingClientRect()); if (!q.length) return null; return [Math.min(...q.map(r => r.left)), Math.min(...q.map(r => r.top)), Math.max(...q.map(r => r.right)), Math.max(...q.map(r => r.bottom))]`)
+        if (m) { const x = Math.max(0, Math.round(Math.min(o[0], m[0]) - 24)), y = Math.max(0, Math.round(Math.min(o[1], m[1]) - 24)), x2 = Math.round(Math.max(o[0] + o[2], m[2]) + 24), y2 = Math.round(Math.max(o[1] + o[3], m[3]) + 24); await b.pic('outlist', [x, y, x2 - x, y2 - y], 1.5) }
+        await key(b, 'esc') } }
+    await tpanel(b, true); await b.sleep(250)
+    await key(b, 'b'); console.log('patch', await b.names()); await b.pic('patch', PATCH, 1.5)
+    await b.click(248 + 60, await b.Y(1)); await b.pic('patch-empty', PATCH, 1.5)
     await b.hit('plugs'); await b.pic('addlist', [600, 300, 580, 398], 1.5); await key(b, 'esc')
+    await tpanel(b, false)
   },
   async handoff (b) {
     await b.ev(`const S = __daw.S; S.cycle = { on: true, a: 16, b: 24 }; S.pos = 19; __daw.redraw()`)
@@ -180,13 +189,15 @@ const SHOTS = {
     await b.ev(`__daw.S.rh = 44; __daw.redraw()`)
     { const L = await b.lay(), i = await b.ev(`return __daw.S.sel`); await b.pic('notes', [0, L.TY + i * 44 - 2, W, 44 + 4], 1.5) }
     await b.ev(`__daw.S.rh = 25; __daw.redraw()`)
-    await key(b, 'b'); await b.pic('inst-patch', PANEL, 1.5)
+    await tpanel(b, true); await b.sleep(250)
+    await key(b, 'b'); await b.pic('inst-patch', PATCH, 1.5)
     await b.hit('inst-pick'); await b.sleep(300); { const r = await b.ev(`const e = document.getElementById('picker'); const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]`); await b.pic('instlist', [Math.round(r[0]) - 10, Math.round(r[1]) - 34, Math.round(r[2]) + 20, Math.round(r[3]) + 44], 2) } await key(b, 'esc')
-    await b.hit('inst'); await b.pic('synth', PANEL, 1.5)
+    await b.hit('inst'); await b.pic('synth', PATCH, 1.5)
     await b.ev(`const S = __daw.S, t = S.tracks[S.sel]; t.inst = { kind: 'drums', sound: 'kit', p: {}, pads: {} }; t.name = 'drums'; __daw.repaint(); __daw.redraw()`)
-    await b.pic('kit', PANEL, 1.5)
+    await b.pic('kit', PATCH, 1.5)
     await b.ev(`const S = __daw.S, t = S.tracks[S.sel]; t.inst = { kind: 'sampler', sound: '', p: { loop: 1, la: .3, lb: .7 }, sample: null }; t.name = 'sampler'; __daw.repaint(); __daw.redraw()`)
-    await b.pic('sampler', PANEL, 1.5)
+    await b.pic('sampler', PATCH, 1.5)
+    await tpanel(b, false)
     await b.ev(`const S = __daw.S, t = S.tracks[S.sel]; t.inst = { kind: 'synth', sound: 'e piano', p: {} }; t.name = 'e piano'; __daw.repaint(); __daw.redraw()`)
     await b.hit('iv:chain'); await key(b, 'b')
     await key(b, '⌘k'); await b.pic('keyboard', [0, 0, W, 700]); await b.pic('keyboard-sheet', 'kb:none|10', 2)

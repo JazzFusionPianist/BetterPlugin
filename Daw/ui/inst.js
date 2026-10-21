@@ -90,6 +90,7 @@ function instPlate (t, cx, cy, r) { const x = cx - r, y = cy - r, w = 2 * r; ret
 
 /* the track's own strip and the room's, at the right (as the patch has them) */
 function ivStrips (y, h) {
+  if (!SIDE) { MGEOM = null; return '' }                                               // (none while the transport panel has the chosen track's)
   const t = S.tracks[S.sel], rx = RX - SIDE, x1 = rx + GUT, x2 = x1 + WSTRIP + 6
   let s = R(rx, y, RX - rx, h, { fill: K2, fa: .6 }) + vline(rx - .5, y, y + h, .08)
   MGEOM = stripGeom(y, h, true)

@@ -62,10 +62,8 @@ export default () => chapter('mixing', t('mixing', '믹싱'),
         ['Plain up to −6 dB, yellow from −6 dB, red over 0 dB. A thin line holds the highest level and sinks slowly.', '−6 dB까지는 기본색, −6 dB부터 노랑, 0 dB를 넘으면 빨강. 가는 선이 최고 레벨에 머물렀다가 천천히 내려옵니다.'],
         ['The {{out}} ring in the transport panel shows left (outside) and right (inside) apart, after the out fader and the guard.', '트랜스포트 패널의 {{out}} 링은 아웃 페이더와 가드 뒤의 왼쪽(바깥)과 오른쪽(안쪽)을 따로 보여 줍니다.']) +
       note('A fader, a pan, a send level, mute and solo moved by hand are not steps of undo, except a fader that moves a volume line: that is one step.', '손으로 움직인 페이더, 팬, 센드 레벨, 뮤트, 솔로는 실행 취소 단계가 아닙니다. 볼륨 라인을 움직이는 페이더는 예외로, 한 단계입니다.')),
-    art: fig('outlist', { w: 88, calls: [[1, [258, 120], 'l'], [2, [258, 152], 'l'], [3, [258, 200], 'l'], [4, [392, 250], 'r']] }) +
+    art: fig('outlist', { w: 88, calls: [[1, 'mout', 'l'], [2, 'pick', 'r']] }) +
       `<div style="width:88mm">` + legend(
-        [1, '{{in}} on the wide strip beside the patch: the input', '패치 옆 넓은 스트립의 {{in}}: 입력'],
-        [2, 'a send to the bus plate, at −18 dB', 'plate 버스로 가는 센드, −18 dB'],
-        [3, '{{out}}', '{{out}}'],
-        [4, 'the list it opens', '클릭하면 열리는 목록']) + `</div>` }),
+        [1, 'where the strip plays, at its foot', '스트립 아래쪽, 소리가 가는 곳'],
+        [2, 'the list it opens', '클릭하면 열리는 목록']) + `</div>` }),
 ])

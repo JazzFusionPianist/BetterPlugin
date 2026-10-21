@@ -18,7 +18,7 @@ export default () => chapter('window', t('the window', '창'),
     art: fig('window', { w: 158, calls: [[1, 'pos', 'l'], [2, 'scene#5', 'r', -10], [3, 'seek', 'r'], [4, 'sel#2', 't'], [5, 'lanes', 'r'], [6, 'playhead', 't', 6], [7, 'cycle#1', 't', -6], [8, 'cmdline', 'b'], [9, 'sheet', 'b']] }) }),
 
   page(t('the transport panel', '트랜스포트 패널'), { kind: 'split', tw: 112, txt:
-    p('The app begins with the transport panel down the left: what is pressed to play, where the song is, the tools and what is chosen, in one column, each thing as large as it matters. [[H]] hides it (and brings it back); hidden, nothing stands in its place, and the song has all the room. ((View)) > ((Transport Panel)) does the same. The app remembers which.', '앱은 왼쪽에 트랜스포트 패널을 띄운 채 시작합니다. 재생, 곡의 위치, 도구, 선택된 것을 한 열에 모아, 중요한 것일수록 크게 그렸습니다. [[H]]로 숨기고 다시 띄웁니다. 숨기면 그 자리에 아무것도 없고 곡이 창 전체를 씁니다. ((View)) > ((Transport Panel))도 같습니다. 앱이 어느 쪽이었는지 기억합니다.') +
+    p('The app begins with the transport panel down the left: what is pressed to play, where the song is, the tools and what is chosen, in one column, each thing as large as it matters. [[H]] hides it (and brings it back); hidden, the song has all the room. ((View)) > ((Transport Panel)) does the same.', '앱은 왼쪽에 트랜스포트 패널을 띄운 채 시작합니다. 재생, 곡의 위치, 도구, 선택된 것을 한 열에 모아, 중요한 것일수록 크게 그렸습니다. [[H]]로 숨기고 다시 띄웁니다. 숨기면 곡이 창 전체를 씁니다. ((View)) > ((Transport Panel))도 같습니다.') +
     table(null,
       [1, ['play, stop, record: a triangle, a square, a ring. The one the room is doing is filled. Beside them, to the start', '재생, 정지, 녹음: 삼각형, 사각형, 원. 지금 하고 있는 것이 채워집니다. 옆에 처음으로']],
       [2, ['the bar the song is in, large, with beat . division . tick at its foot. Click to type a place (17.3.2.120)', '지금 마디를 크게, 그 옆에 박 . 16분 . 틱. 클릭해서 위치 입력(17.3.2.120)']],
@@ -31,8 +31,9 @@ export default () => chapter('window', t('the window', '창'),
       [8, ['{{out}}: a ring filled as loud as the mix; the white square is its level, drag up or down. The light fills red once the mix has clipped, the loudest peak beside it; click the light to let go of it', '{{out}}: 믹스 소리만큼 차는 링. 흰 사각형이 레벨이고 위아래로 드래그. 믹스가 클립하면 빨간 불이 켜지고 옆에 가장 큰 피크가 나옵니다. 불을 클릭하면 초기화']],
       [9, ['how many tracks; the circle adds one. Beside it what is chosen: its colour opens the look list; a region shows its gain and transpose (drag them)', '트랙 수, 원으로 새 트랙. 옆에 선택된 것: 색을 누르면 모양 목록, 리전이면 게인과 트랜스포즈(드래그)']],
       [10, ['the tool, the mode, the grid, the nudge: click for their lists', '도구, 모드, 그리드, 넛지: 클릭하면 목록']],
-      [11, ['automation and rubato, the two views [[A]] [[⌘F]]; the zoom along the song and the rows’ height', '오토메이션과 루바토 두 보기 [[A]] [[⌘F]]. 가로 줌과 줄 높이']]),
-    art: fig('panel', { w: 48, calls: [[1, 'play', 'l'], [2, 'pos', 'l', 4], [3, 'smpte', 'l'], [4, 'meter', 'l'], [5, 'tempo', 'r'], [6, 'loop', 'l'], [7, [40, 398], 'l'], [8, 'master', 'r'], [9, 'addtrack', 'r'], [10, 'toolmenu', 'l'], [11, 'autokey', 'l']] }) }),
+      [11, ['automation and rubato, the two views [[A]] [[⌘F]]; the zoom along the song and the rows’ height', '오토메이션과 루바토 두 보기 [[A]] [[⌘F]]. 가로 줌과 줄 높이']],
+      [12, ['the chosen track’s strip, as in the mixer; click its level to type, its light to let go of the peak; {{in}} its input', '선택한 트랙의 스트립(믹서와 같음). 레벨을 클릭해서 입력, 불을 클릭하면 피크 초기화, {{in}}은 입력']]),
+    art: fig('panel', { w: 48, calls: [[1, 'play', 'l'], [2, 'pos', 'l', 4], [3, 'smpte', 'l'], [4, 'meter', 'l'], [5, 'tempo', 'r'], [6, 'loop', 'l'], [7, [40, 398], 'l'], [8, 'master', 'r'], [9, 'addtrack', 'r'], [10, 'toolmenu', 'l'], [11, 'autokey', 'l'], [12, 'tps-vol', 'l']] }) }),
 
   page(t('markers, bars, cycle, playhead', '마커, 마디 눈금, 사이클, 플레이헤드'), { kind: 'wide', cc: 3, txt:
     h('markers', '마커') +

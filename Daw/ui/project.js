@@ -136,7 +136,7 @@ function placeDecoded (list, lane, bar) {
   placeDecoded.made = []
   good.forEach((d, k) => {
     const base = String(d.name || 'audio'), nums = [...base.matchAll(/(?<![0-9a-z])(\d{2,3})(\s?bpm)?(?![0-9])/gi)].map(x => ({ v: +x[1], tag: !!x[2] })).filter(x => x.v >= 60 && x.v <= 200), bpm = (nums.find(x => x.tag) || nums[0] || { v: 0 }).v
-    const rate = bpm >= 60 && bpm <= 200 && Math.abs(S.tempo / bpm - 1) <= .08 ? S.tempo / bpm : 1, sec = d.sec / rate, len = sec / SPB()
+    const rate = 1, sec = d.sec, len = sec / SPB()                                      // as it is: never made to go at the song's tempo by itself (his word, 2026-10-22 — a file of 104 named so was sped up to a song at 107; Region > Tempo > Fit Region to Project Tempo does it when asked)
     let t = k === 0 ? last : null
     if (!t && S.tracks.length >= MAX_TRACKS) t = last || S.tracks.filter(own).pop()
     if (!t) {

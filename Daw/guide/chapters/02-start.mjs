@@ -91,7 +91,7 @@ export default () => chapter('start', t('the start page and projects', '시작 �
       [['on a sampler', '샘플러 위에'], ['One file dropped on a sampler’s lane becomes the sound the sampler plays', '샘플러 트랙의 레인에 파일 하나를 떨어뜨리면 그 샘플러가 연주할 소리가 됩니다']]) +
     h('the tempo of what comes in', '들어오는 소리의 템포') +
     list(
-      ['A number from 60 to 200 in the file’s name (“loop 92 bpm”) is taken as its tempo. Within 8 % of the song’s tempo, the file is fitted to the song as it lands.', '파일 이름 속 60~200 사이 숫자(“loop 92 bpm”)를 그 파일의 템포로 읽습니다. 곡 템포와 8 % 이내면 놓이면서 곡에 맞춰집니다.'],
+      ['A number from 60 to 200 in the file’s name (“loop 92 bpm”) is taken as its tempo. It lands at its own speed; [[⌃⌥F]] fits it to the song.', '파일 이름 속 60~200 사이 숫자(“loop 92 bpm”)를 그 파일의 템포로 읽습니다. 원래 속도 그대로 놓이고, [[⌃⌥F]]로 곡에 맞춥니다.'],
       ['When the name says nothing and the file is longer than 2 seconds, the app listens, and says what it heard: “guitar goes at 92.0”.', '이름에 단서가 없고 파일이 2초보다 길면 앱이 들어 보고 알려 줍니다. “guitar goes at 92.0”.'],
       ['A new track is named after its file. Its colour comes from its name, or from its first sound: struck things read as drums, a low held sound as bass.', '새 트랙은 파일 이름을 따릅니다. 색은 이름에서, 또는 첫 소리에서 정해집니다. 때리는 소리는 드럼, 낮게 끄는 소리는 베이스로 읽습니다.']) +
     note('A file longer than 20 minutes is held only in part when the disk has no room to keep it ready; the app says so.', '20분이 넘는 파일은 디스크에 준비해 둘 공간이 없으면 일부만 올려 두며, 앱이 그렇게 알려 줍니다.'),

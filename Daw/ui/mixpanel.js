@@ -237,6 +237,6 @@ SKINS.mixer.panel = (y, h) => {
 { const ctx0 = onContext
   onContext = function (e) {
     const el = e && e.target && e.target.closest ? e.target.closest('[data-a="mp-send"]') : null
-    if (el) { e.preventDefault(); const p = pt(e), t = S.tracks[+el.dataset.i]; if (t) openSendMenu(t, +el.dataset.k, p.x, p.y); return }
+    if (el && e.button === 2) { e.preventDefault(); const p = pt(e), t = S.tracks[+el.dataset.i]; if (t) openSendMenu(t, +el.dataset.k, p.x, p.y); return }      // (a press with control is a press — turned, finely: ui.js pt — not the right button)
     return ctx0.apply(this, arguments)
   } }

@@ -1356,7 +1356,31 @@ function pAsk () {
 const PARTS = { ask: pAsk, new: pNew, back: pBack, lanes: pLanes, head: pHead, ruler: pRuler, scenes: pScenes, info: pTool, drop: pDrop, play: pPlay, dock: pDock, slur: pSlur, top: pTop, cmd: pCmd, hand: pHand, look: pLook, sheet: pSheet, menu: pMenu }
 
 /* ── hands ── */
-function pt (e) { const r = board.getBoundingClientRect(), left = typeof SKV === 'object' ? SKV.left || 0 : 0; return { x: (e.clientX - r.left) / (r.width / (W + left)) - left, y: (e.clientY - r.top) / (r.height / H) } }
+function ptRaw (e) { const r = board.getBoundingClientRect(), left = typeof SKV === 'object' ? SKV.left || 0 : 0; return { x: (e.clientX - r.left) / (r.width / (W + left)) - left, y: (e.clientY - r.top) / (r.height / H) } }
+/* Where the pointer is. While something is pulled with control held it goes a quarter as far as the hand (his ask,
+   2026-10-21): every knob, fader, ring and line, every hand on a wall, and every edit — a region's edge, a stretch, a
+   fade, a marquee, a point — finer; let go of control, it goes as far as the hand again from where it got to. What
+   only points follows the hand (a band, the zoom tool, a row or a plug-in moved, a swipe across m and s, a wire, the
+   wall moved or a node on it). Control and shift together stay as they were (free of the grid; the fade tool). An event
+   is read once: asked again, the same place. */
+const SLOW_K = .25, SLOW = { e: null, raw: null, v: null }
+const POINTING = { a: new Set(['band', 'aband', 'zoom', 'reorder', 'swipe', 'mfx']), wall: new Set(['band', 'pan', 'wire', 'move']), roll: new Set(['band', 'key']), mac: new Set(['wire']) }
+function finePulling () {
+  if (drag) return !POINTING.a.has(drag.a)
+  const held = [[typeof WALL === 'object' ? WALL.drag : null, POINTING.wall], [typeof ROLL === 'object' ? ROLL.drag : null, POINTING.roll], [typeof MAC === 'object' ? MAC.drag : null, POINTING.mac],
+    [typeof STUDY === 'object' ? STUDY.drag : null], [typeof IV === 'object' ? IV.drag : null], [typeof REF === 'object' ? REF.drag : null]]
+  for (const [d, not] of held) if (d) return !(not && not.has(d.k))
+  return false
+}
+function pt (e) {
+  if (!e || e.clientX == null) return ptRaw(e)
+  if (SLOW.e === e && SLOW.v) return { x: SLOW.v.x, y: SLOW.v.y }
+  const raw = ptRaw(e)
+  if (!SLOW.raw || !finePulling()) SLOW.v = raw
+  else { const k = e.ctrlKey && !e.shiftKey ? SLOW_K : 1; SLOW.v = { x: SLOW.v.x + (raw.x - SLOW.raw.x) * k, y: SLOW.v.y + (raw.y - SLOW.raw.y) * k } }
+  SLOW.raw = raw; SLOW.e = e
+  return { x: SLOW.v.x, y: SLOW.v.y }
+}
 let drag = null
 /* a marker pressed while the song runs is gone to at the next bar line, never in the middle of a bar (pressed again
    before then, it is let go); with the song stopped the playhead simply moves there */
@@ -1383,7 +1407,7 @@ function setVolX (i, x, e) {
   const t = S.tracks[i], d = drag && drag.a === 'vol' ? drag : null
   const gx = d && d.gx != null ? d.gx : HEAD_FX, gw = d && d.gw ? d.gw : HEAD_FW                // (where the level lies in its row: headRow says it on the press)
   let f = clamp((x - gx) / gw, 0, 1)
-  if (d) { if (d.rel && d.f != null) f = clamp(d.f + (x - d.lx) / (e && e.shiftKey ? 600 : 160), 0, 1); else if (e && e.shiftKey && d.f != null) f = clamp(d.f + (x - d.lx) / gw * .2, 0, 1); d.f = f; d.lx = x }
+  if (d) { if (d.rel && d.f != null) f = clamp(d.f + (x - d.lx) / (e && e.shiftKey ? 600 : 160), 0, 1); else if (e && e.shiftKey && d.f != null) f = clamp(d.f + (x - d.lx) / gw * .2, 0, 1); else if (e && e.ctrlKey && d.f != null) f = clamp(d.f + (x - d.lx) / gw, 0, 1); d.f = f; d.lx = x }      // (control: from where it stands, as far as the pointer goes — a quarter of the hand: pt)
   volSet(t, fVol(f))
   if (d && d.others.size) carry(d, 'vol', t.vol)
   redrawTracks([t].concat(d && d.others ? [...d.others.keys()] : []))
@@ -1499,7 +1523,7 @@ function onDown (e) {
     case 'm-patch': if (!isChosen(i)) leadTrack(i); else S.sel = i; S.panel.tab = 'patch'; uiDirty('head', 'lanes', 'dock', 'top'); break
     case 'mvol': tr.ghost = null; drag = { a, i, ly: p.y, f0: volF(shown(tr, 'vol')), acc: 0, v0: tr.vol, others: others(i, 'vol'), g: stripGeom(BY + PH, S.panel.h - PH, el.dataset.w === '1'), before: autoPts(tr, 'vol').length ? editState() : null }; break
     case 'mpan': drag = { a, i, v0: tr.pan || 0, pv: tr.pan || 0, lx: p.x, ly: p.y, others: others(i, 'pan') }; break      // (taken where it is: it moves by how far the hand goes, right or up for the right — never thrown to the pointer)
-    case 'msend': drag = { a, i, k: +el.dataset.k, x0: +el.dataset.x, w: +el.dataset.pw, px: p.x, moved: false, f: e.shiftKey && tr.sends[+el.dataset.k] ? volF(tr.sends[+el.dataset.k].db) : null, lx: p.x, rel: !!el.dataset.rel, py: p.y, f0: tr.sends[+el.dataset.k] ? volF(tr.sends[+el.dataset.k].db) : 0 }; break      // (rel: a knob, turned from where it stands, up and to the right — skin-poster.js)
+    case 'msend': drag = { a, i, k: +el.dataset.k, x0: +el.dataset.x, w: +el.dataset.pw, px: p.x, moved: false, f: (e.shiftKey || e.ctrlKey) && tr.sends[+el.dataset.k] ? volF(tr.sends[+el.dataset.k].db) : null, lx: p.x, rel: !!el.dataset.rel, py: p.y, f0: tr.sends[+el.dataset.k] ? volF(tr.sends[+el.dataset.k].db) : 0 }; break      // (rel: a knob, turned from where it stands, up and to the right — skin-poster.js)
     case 'msendadd': openSendMenu(tr, tr.sends.length, p.x - 10, p.y + 10); break
     case 'mfx': drag = { a, i, k: +el.dataset.k, x0: p.x, y0: p.y, alt: e.altKey, moved: false, to: [] }; break      // (let go where pressed: opened; pulled with option: copied — fxUp)
     case 'mfxadd': if (!isChosen(i)) leadTrack(i); else S.sel = i; S.picker.at = { x: p.x - 20, y: p.y + 12 }; openPicker('fx'); uiDirty('head', 'lanes', 'dock'); break
@@ -1531,7 +1555,7 @@ function onDown (e) {
       if (!only) drag = { a: 'swipe', what: a, to, seen: new Set(g.map(t => t.id)) }
       break
     }
-    case 'vol': S.tracks[i].ghost = null; drag = { a, i, v0: S.tracks[i].vol, others: others(i, 'vol'), before: autoPts(S.tracks[i], 'vol').length ? editState() : null, rel: !!el.dataset.rel, py: p.y, gx: el.dataset.gx != null ? +el.dataset.gx : null, gw: +el.dataset.gw || 0 }; if (e.shiftKey || drag.rel) { drag.f = volF(shown(S.tracks[i], 'vol')); drag.lx = p.x } else setVolX(i, p.x, e); break      // (rel: a knob — turned from where it stands, up and to the right: skins.js)
+    case 'vol': S.tracks[i].ghost = null; drag = { a, i, v0: S.tracks[i].vol, others: others(i, 'vol'), before: autoPts(S.tracks[i], 'vol').length ? editState() : null, rel: !!el.dataset.rel, py: p.y, gx: el.dataset.gx != null ? +el.dataset.gx : null, gw: +el.dataset.gw || 0 }; if (e.shiftKey || e.ctrlKey || drag.rel) { drag.f = volF(shown(S.tracks[i], 'vol')); drag.lx = p.x } else setVolX(i, p.x, e); break      // (rel: a knob — turned from where it stands, up and to the right: skins.js)
     case 'print': drag = { a, k: pk(el.dataset.k), ly: p.y, acc: 0, v0: patchNow(cur)[pk(el.dataset.k)] }; break
     case 'ho': S.ho.open = !S.ho.open; S.ho.note = ''; S.ho.done = 0; uiDirty('top', 'hand'); break
     case 'ho-close': S.ho.open = false; uiDirty('top', 'hand'); break
@@ -1594,7 +1618,7 @@ function onMove (e) {
   const p = pt(e)
   S.px = p.x; S.py = p.y
   if (drag && e !== LASTE) { LASTE = e; drag.live = true }
-  if (LASTP && (Math.abs(p.x - LASTP.x) > 4 || Math.abs(p.y - LASTP.y) > 4)) LASTP = null          // a pointer that has moved is not pressing twice
+  if (LASTP) { const q = ptRaw(e); if (Math.abs(q.x - LASTP.x) > 4 || Math.abs(q.y - LASTP.y) > 4) LASTP = null }          // a pointer that has moved is not pressing twice (the hand's own way: pulled with control, what it moves goes less far)
   if (!drag) { const el = e.target && e.target.closest ? e.target.closest('[data-a="lanes"]') : null; if (el) lanesHover(e, p, el); return }
   const t = S.tracks[S.sel]
   if (drag.a === 'vol') setVolX(drag.i, drag.rel ? p.x - (p.y - drag.py) : p.x, e)
@@ -1611,7 +1635,7 @@ function onMove (e) {
   else if (drag.a === 'msend') {
     const d = drag, tk = S.tracks[d.i], sd = tk.sends[d.k]
     if (Math.abs(p.x - d.px) > 2 || (d.rel && Math.abs(p.y - d.py) > 2)) d.moved = true
-    if (d.moved && sd) { let f = d.rel ? clamp(d.f0 + ((p.x - d.px) - (p.y - d.py)) / (e.shiftKey ? 600 : 160), 0, 1) : clamp((p.x - d.x0) / d.w, 0, 1); if (!d.rel && e.shiftKey && d.f != null) f = clamp(d.f + (p.x - d.lx) / d.w * .2, 0, 1); d.f = f; d.lx = p.x; sd.db = fVol(f); pushTrack(tk); uiDirty('dock') }
+    if (d.moved && sd) { let f = d.rel ? clamp(d.f0 + ((p.x - d.px) - (p.y - d.py)) / (e.shiftKey ? 600 : 160), 0, 1) : clamp((p.x - d.x0) / d.w, 0, 1); if (!d.rel && e.shiftKey && d.f != null) f = clamp(d.f + (p.x - d.lx) / d.w * .2, 0, 1); else if (!d.rel && e.ctrlKey && d.f != null) f = clamp(d.f + (p.x - d.lx) / d.w, 0, 1); d.f = f; d.lx = p.x; sd.db = fVol(f); pushTrack(tk); uiDirty('dock') }
   }
   else if (drag.a === 'pgrip') { S.panel.h = Math.round(drag.h0 + (drag.y0 - p.y)); relayout(); dirtyAll() }
   else if (drag.a === 'rowh') { const h = clamp(Math.round(drag.h0 + (p.y - drag.y0)), ROW_MIN, ROW_MAX); for (const t of drag.who) t.h = h; VY = clamp(VY, 0, maxVY()); uiDirty('head', 'lanes') }

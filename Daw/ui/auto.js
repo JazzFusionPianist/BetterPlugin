@@ -104,12 +104,15 @@ async function openAutoMenu (t, x, y) {
    it can be taken hold of without the lines being shown. Then it is their volume (what the head beside it shows); with
    the lines shown it is the one asked for, as on any track. */
 const lineOwn = t => !!t && (t.kind === 'bus' || t.kind === 'stack')
+/* a place inside the marquee that is up, on one of its tracks */
+const inMarq = (t, pos) => !!S.marq && S.marq.b - S.marq.a >= MIN_LEN && pos >= S.marq.a - 1e-9 && pos <= S.marq.b + 1e-9 && marqTracks().includes(t)
 const shownKey = t => S.auto ? apOf(t) : 'vol'
 /* one track's line, over its lane */
 const autoGeom = (t, y, rh) => { const k = shownKey(t), A = AUTO[k], m = Math.min(6, Math.max(3, rh * .16)), ly = y + m, lh = rh - 2 * m; return { k, A, ly, lh, yOf: v => ly + lh - A.f(v) * lh, vOf: yy => A.inv(clamp((ly + lh - yy) / lh, 0, 1)) } }
 function autoLane (t, y, rh, xEnd = X1) {
-  const { k, A, yOf } = autoGeom(t, y, rh), pts = autoPts(t, k), own = lineOwn(t), ink = own ? t.c : INK, pale = own && !heard(t) ? .45 : 1, xe = Math.min(xEnd, X1)
-  if (!pts.length) return own ? (xe > X0 ? P(`M${X0} ${n(yOf(A.now(t))) + .5}H${n(xe)}`, { stroke: ink, sa: OWN_LINE * pale }) : '') : ''      // (no line until one is made: his ask, 2026-10-19 — the dashed one is gone)
+  const { k, A, yOf } = autoGeom(t, y, rh), pts = autoPts(t, k), own = lineOwn(t), ink = own ? t.csel || t.c : INK, pale = own && !heard(t) ? .45 : 1, xe = Math.min(xEnd, X1)
+  const sw = own ? OWN_W : .9                                                               // (a bus's or a stack's own line: a step lighter than its colour and thicker, over a dark edge — in some colours it could not be seen: his ask, 2026-10-21)
+  if (!pts.length) return own ? (xe > X0 ? P(`M${X0} ${n(yOf(A.now(t))) + .5}H${n(xe)}`, { stroke: K0, sa: .55, sw: sw + 1.6 }) + P(`M${X0} ${n(yOf(A.now(t))) + .5}H${n(xe)}`, { stroke: ink, sa: OWN_LINE * pale, sw }) : '') : ''      // (no line until one is made: his ask, 2026-10-19 — the dashed one is gone)
   let d = `M${X0 - 2} ${n(yOf(pts[0].v))}`, dots = ''
   for (const [b, v] of autoBent(pts)) d += `L${n(bx(b + 1))} ${n(yOf(v))}`
   d += `L${n(own ? Math.max(xe, bx(pts[pts.length - 1].b + 1)) : Math.max(X1, bx(pts[pts.length - 1].b + 1)) + 2)} ${n(yOf(pts[pts.length - 1].v))}`
@@ -125,9 +128,9 @@ function autoLane (t, y, rh, xEnd = X1) {
     const said = A.fmt(q.v), w = tw(said, 8.5)
     if (rh >= 18 && x + 5 >= free && x + 5 + w < X1) { words += T(x + 5, clamp(py + 3, top + 7, bottom), said, { size: 8.5, c: ink, a: on ? .95 : .62 }); free = x + 5 + w + 6 }      // (right of it, at its height)
   }
-  return P(d, { stroke: K0, sa: .55, sw: 2.2 }) + P(d, { stroke: ink, sa: pale, sw: .9 }) + dots + chosenDots + words
+  return P(d, { stroke: K0, sa: .55, sw: sw + 1.3 }) + P(d, { stroke: ink, sa: pale, sw }) + dots + chosenDots + words
 }
-const OWN_LINE = .75
+const OWN_LINE = .9, OWN_W = 1.8
 /* is the pointer on such a row's own line, or on one of its points (the lines not shown) */
 function onOwnLine (ti, p) {
   const t = S.tracks[ti]
@@ -159,9 +162,11 @@ function autoDown (e, p, tool) {
     if (tool === 'pencil') {                                                             // the pencil: a new point, already in the hand
       const nq = addPoint(t, g.k, clamp(snapPos(pos, e), 0, SONG_END), g.vOf(p.y))
       S.selP = [nq.id]; startDrag(nq); drag.moved = true
-    } else if (Math.abs(p.y - g.yOf(lineV)) <= 7) {
-      /* on the line, away from its points. Let go where it was pressed: a point there. Pulled: that stretch of the line
-         goes up or down whole (autoSeg says which stretch), and nothing of it moves along the song. */
+    } else if (Math.abs(p.y - g.yOf(lineV)) <= 7 || inMarq(t, pos)) {
+      /* on the line, away from its points — or anywhere inside a marquee on its track (a line with no points too: on a
+         stack the press went to a point where it was made, his report 2026-10-21). Let go where it was pressed: a point
+         there. Pulled: that stretch of the line goes up or down whole (autoSeg says which stretch), and nothing of it
+         moves along the song. */
       drag = { a: 'apt', seg: true, ti, k: g.k, x0: p.x, y0: p.y, pos, at: clamp(snapPos(pos, e), 0, SONG_END), lineV, before, lead: null, orig: new Map() }
     } else if (!pts.length) {                                                            // a lane with no line yet: pressed, a point there, at the height pressed (the line begins with it)
       const nq = addPoint(t, g.k, clamp(snapPos(pos, e), 0, SONG_END), g.vOf(p.y))
@@ -233,8 +238,8 @@ function autoDbl (e, p) {                                                       
 /* delete: the chosen points, or every shown point under the marquee */
 function autoDelete () {
   let any = false
-  if (S.selP.length) { const s = new Set(S.selP); for (const t of S.tracks) for (const k in t.autos) { const n0 = t.autos[k].length; t.autos[k] = t.autos[k].filter(q => !s.has(q.id)); any = any || t.autos[k].length !== n0 } S.selP = [] }
-  else if (S.marq) { const m = S.marq; for (const t of marqTracks()) { const k = t.ap, n0 = autoPts(t, k).length; if (n0) { t.autos[k] = t.autos[k].filter(q => q.b < m.a - 1e-9 || q.b > m.b + 1e-9); any = any || t.autos[k].length !== n0 } } S.marq = null }
+  if (S.selP.length) { const s = new Set(withTwins(S.selP)); for (const t of S.tracks) for (const k in t.autos) { const n0 = t.autos[k].length; t.autos[k] = t.autos[k].filter(q => !s.has(q.id)); any = any || t.autos[k].length !== n0 } S.selP = [] }
+  else if (S.marq) { const m = S.marq; for (const t of marqTracks()) { const k = shownKey(t), n0 = autoPts(t, k).length; if (n0) { t.autos[k] = t.autos[k].filter(q => q.b < m.a - 1e-9 || q.b > m.b + 1e-9); any = any || t.autos[k].length !== n0 } } S.marq = null }
   return any
 }
 function autoNudge (dir) {
@@ -248,13 +253,18 @@ function autoNudge (dir) {
    A step in a line is two points a hair apart (where it falls, where it rises): one of them chosen, both go — else the
    other would stop it at once, and the step could never be nudged (his DRESS, a stack cut in and out every half bar). */
 const POINT_TWIN = 1 / 64
-function nudgePoints (dir) {
-  const d0 = nudgeBars() * dir, ids = new Set(S.selP)
-  for (const t of S.tracks) for (const k of Object.keys(t.autos || {})) {                // (their twins are chosen with them, and stay chosen)
+/* the chosen points and the twin of each that stands in a step (a delete takes the step whole, as a nudge does) */
+function withTwins (sel) {
+  const ids = new Set(sel)
+  for (const t of S.tracks) for (const k of Object.keys(t.autos || {})) {
     const pts = t.autos[k]
     if (!Array.isArray(pts)) continue
     for (let round = 0; round < 3; round++) for (let i = 0; i < pts.length; i++) if (ids.has(pts[i].id)) for (const j of [i - 1, i + 1]) if (pts[j] && Math.abs(pts[j].b - pts[i].b) <= POINT_TWIN && Math.abs(pts[j].b - pts[i].b) > 1e-6) ids.add(pts[j].id)      // (a hair apart: a step; at the very same place is a point stopped against another, and stays apart from it)
   }
+  return [...ids]
+}
+function nudgePoints (dir) {
+  const d0 = nudgeBars() * dir, ids = new Set(withTwins(S.selP))                       // (their twins are chosen with them, and stay chosen)
   if (ids.size > S.selP.length) S.selP = [...ids]
   let any = false
   edit(() => {

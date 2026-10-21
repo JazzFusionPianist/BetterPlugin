@@ -1077,14 +1077,16 @@ const act = {
     if (S.focus === 'marker') { const sc = SCENES.find(x => x.a === S.selM); if (sc) { removeScene(sc.i); return } S.focus = 'lanes'; S.selM = null }      // (the marker that was pressed is no longer there)
     if (S.selX && S.focus === 'lanes' && !S.selR.length && !S.marq) { const [A, t] = regOf(S.selX[0]), B = regOf(S.selX[1])[0]; S.selX = null; if (A && B) edit(() => { let any = false; for (const [a, b] of [[A, B]].concat(joinMates(A, B, t))) any = uncross(a, b) || any; return any }); uiDirty('lanes', 'dock'); return }
     if (S.auto && (S.selP.length || S.marq || S.focus !== 'tracks')) { edit(() => autoDelete()); return }      // the lines up: a delete is the lines' — the chosen points, else those in the marquee's stretch — and never the sound (his ask, 2026-10-19)
-    if (S.selP.length && S.focus !== 'tracks' && !S.marq) { edit(() => autoDelete()); return }      // (the lines away: a marquee up is the marquee's stretch that goes)
+    if (S.selP.length && S.focus !== 'tracks') { edit(() => autoDelete()); return }      // (the lines away: chosen points go — a marquee up as well: a stack's points chosen inside one stayed, his report 2026-10-21)
     if (S.marq || S.selR.length) {
       edit(() => {
         const m = S.marq, mts = m ? marqTracks().filter(t => t.kind === 'audio') : null
         S.selX = null
         if (!m) partCrossed(new Set(S.selR))                                             // (of two that share a stretch, one goes: the one that stays ends, or begins, on the plain join)
+        let pts = false                                                                  // (a bus's or a stack's own line under the marquee: its points in the stretch go with the sound — they stayed, his report 2026-10-21)
+        if (m) for (const t of marqTracks().filter(lineOwn)) { const was = autoPts(t, 'vol'), keep = was.filter(q => q.b < m.a - 1e-9 || q.b > m.b + 1e-9); if (keep.length !== was.length) { t.autos.vol = keep; pts = true } }
         const list = m ? cutByMarquee().map(r => r.id) : S.selR.slice()
-        if (!list.length && !(m && (shuffling() || cutByMarquee.changed))) return false
+        if (!list.length && !pts && !(m && (shuffling() || cutByMarquee.changed))) return false
         const spans = new Map()
         if (shuffling() && !m) for (const id of list) { const [r, t] = regOf(id); if (r) { if (!spans.has(t)) spans.set(t, []); spans.get(t).push([r.a, r.b]) } }
         removeRegs(list); S.marq = null
@@ -1119,7 +1121,7 @@ const act = {
       freshGroups(put.map(x => x[0])); S.selR = ids; S.focus = 'lanes'; settle(put)
     })
   },
-  selectAll () { S.focus = 'lanes'; S.selX = null; if (S.auto) { S.selP = S.tracks.flatMap(t => autoPts(t, t.ap).map(q => q.id)); uiDirty('lanes'); return } S.selR = S.tracks.flatMap(t => t.regs.map(r => r.id)); S.marq = null; uiDirty('lanes', 'dock') },
+  selectAll () { S.focus = 'lanes'; S.selX = null; if (S.auto) { S.selP = S.tracks.flatMap(t => autoPts(t, shownKey(t)).map(q => q.id)); uiDirty('lanes'); return } S.selR = S.tracks.flatMap(t => t.regs.map(r => r.id)); S.marq = null; uiDirty('lanes', 'dock') },
   /* choosing by key (his Logic set): none; the others; all that follow (on every track, or on the same ones); what lies in the cycle; what is muted; the first, the last; one more to a side */
   deselect () { S.selR = []; S.selP = []; S.selX = null; S.marq = null; S.focus = 'lanes'; uiDirty('lanes', 'dock') },
   invert () { const s = new Set(S.selR); pickRegs(S.tracks.flatMap(t => t.regs).filter(r => !s.has(r.id))) },
@@ -1555,7 +1557,7 @@ function lanesPress (e, p) {
   if (S.auto && tool !== 'zoom' && tool !== 'marquee') { autoDown(e, p, tool); return }
   const ti = laneAt(p.y), t = S.tracks[ti], pos = barAt(p.x)
   /* a bus's or a stack's own line is taken where it is, the lines shown or not (auto.js: lineOwn) */
-  if (tool !== 'zoom' && tool !== 'marquee' && lineOwn(t) && (tool === 'pencil' || tool === 'eraser' || onOwnLine(ti, p))) { if (S.selR.length || S.selX) { S.selR = []; S.selX = null; uiDirty('dock') } autoDown(e, p, tool); return }
+  if (tool !== 'zoom' && tool !== 'marquee' && lineOwn(t) && (tool === 'pencil' || tool === 'eraser' || onOwnLine(ti, p) || (tool === 'pointer' && inMarq(t, pos)))) { if (S.selR.length || S.selX) { S.selR = []; S.selX = null; uiDirty('dock') } autoDown(e, p, tool); return }
   if (!S.auto && S.selP.length && !e.shiftKey) { S.selP = []; uiDirty('lanes') }                // (a press elsewhere lets go of such a line's points)
   let r = hitRegion(ti, pos), before = editState()
   /* a press with the pointer inside a marquee, as in Logic: the stretch becomes regions of its own — cut at both its edges,

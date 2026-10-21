@@ -16,9 +16,10 @@ const seen = i => ev(`flush(); const t = S.tracks[${i}], rh = rowH(${i}), num = 
   const hd = [...document.getElementById('hd-${i}').querySelectorAll('rect')].find(r => r.getAttribute('fill') === t.c && +r.getAttribute('width') > 100)
   const el = LANES.rows.get(t.id).el
   const gr = [...el.querySelectorAll(':scope > rect')].find(r => r.getAttribute('fill') === t.c && +r.getAttribute('width') > 100)
-  const ln = [...el.querySelectorAll(':scope > path')].find(p => p.getAttribute('stroke') === t.c && /^M[-\\d.]+ [-\\d.]+H[-\\d.]+$/.test(p.getAttribute('d')))
+  const lc = t.csel || t.c                                                                  // (its own line a step lighter than its colour: 2026-10-21)
+  const ln = [...el.querySelectorAll(':scope > path')].find(p => p.getAttribute('stroke') === lc && /^M[-\\d.]+ [-\\d.]+H[-\\d.]+$/.test(p.getAttribute('d')))
   const d = ln ? /^M([-\\d.]+) ([-\\d.]+)H([-\\d.]+)$/.exec(ln.getAttribute('d')).slice(1).map(Number) : null
-  const dots = [...el.querySelectorAll(':scope > circle')].filter(c => c.getAttribute('stroke') === t.c).length, curve = [...el.querySelectorAll(':scope > path')].some(p => p.getAttribute('stroke') === t.c && /L/.test(p.getAttribute('d')))
+  const dots = [...el.querySelectorAll(':scope > circle')].filter(c => c.getAttribute('stroke') === lc).length, curve = [...el.querySelectorAll(':scope > path')].some(p => p.getAttribute('stroke') === lc && /L/.test(p.getAttribute('d')))
   return { c: t.c, rh, dots, curve, auto: S.auto, volY: autoGeom(t, 0, rh).yOf(t.vol) + .5, head: hd ? { x: num(hd, 'x'), w: num(hd, 'width'), h: num(hd, 'height'), a: num(hd, 'fill-opacity') } : null, ground: gr ? { x: num(gr, 'x'), w: num(gr, 'width'), h: num(gr, 'height'), a: num(gr, 'fill-opacity') } : null, line: d ? { x0: d[0], y: d[1], x1: d[2], a: num(ln, 'stroke-opacity') } : null, X0, X1, HEAD_W }`)
 
 await ev(`if (typeof START !== 'undefined') START.on = false; setView(true); S.rh = 25; for (const t of S.tracks) delete t.h; VY = 0; S.auto = false; newTrack('bus', 'plate', true); VY = maxVY(); dirtyAll(); flush()`)
@@ -28,7 +29,7 @@ ok('there is a bus and a track to tell it from', bi >= 0 && ai >= 0, [bi, ai])
 const s0 = await seen(bi)
 ok('the head of a bus is washed with its colour, from its colour strip to the lanes', !!s0.head && s0.head.x === 3 && s0.head.w === s0.HEAD_W - 3 && s0.head.h === s0.rh - 1 && s0.head.a === .1, s0.head)
 ok('…and so is its lane, as wide as the lanes', !!s0.ground && s0.ground.x === s0.X0 && s0.ground.w === s0.X1 - s0.X0 && s0.ground.h === s0.rh - 1 && s0.ground.a === .1, s0.ground)
-ok('one line of its colour runs along the lane from its start, at the height of its volume: its own line, with the lines not shown', !!s0.line && s0.auto === false && s0.line.x0 === s0.X0 && Math.abs(s0.line.y - s0.volY) < .6 && s0.line.x1 > s0.X0 && s0.line.x1 <= s0.X1 && s0.line.a === .75, [s0.line, s0.volY])
+ok('one line of its colour runs along the lane from its start, at the height of its volume: its own line, with the lines not shown', !!s0.line && s0.auto === false && s0.line.x0 === s0.X0 && Math.abs(s0.line.y - s0.volY) < .6 && s0.line.x1 > s0.X0 && s0.line.x1 <= s0.X1 && s0.line.a === .9, [s0.line, s0.volY])
 const a0 = await seen(ai)
 ok('a track that is not a bus has neither', !a0.head && !a0.ground && !a0.line, a0)
 
@@ -40,7 +41,7 @@ ok('a track that is not a bus has neither', !a0.head && !a0.ground && !a0.line, 
 /* not heard: paler */
 { await ev(`S.tracks[${bi}].mute = true; dirtyAll(); flush()`)
   const s = await seen(bi)
-  ok('a muted bus is paler, wash and line', !!s.head && s.head.a < .06 && s.ground.a < .06 && s.line.a < .4, [s.head, s.line])
+  ok('a muted bus is paler, wash and line', !!s.head && s.head.a < .06 && s.ground.a < .06 && s.line.a < .5, [s.head, s.line])
   await ev(`S.tracks[${bi}].mute = false; dirtyAll(); flush()`) }
 
 /* the fader moved: the line is where the volume is */

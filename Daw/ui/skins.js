@@ -30,6 +30,7 @@ const skinHas = part => SKIN.k[part] && SKIN.k[part] !== 'plain'
 const skinTabs = (x, y, h, items, o = {}) => SKINS.tabs[SKIN.k.mixer] ? SKINS.tabs[SKIN.k.mixer](x, y, h, items, o) : null
 /* the window cut again (ui.js relayout asks first): the bands of the transport and the bridge of meters */
 const SKIN_NO_TOOL = new Set(['poster'])                                           // (transports that hold the tool row's things themselves: it folds away)
+const SKIN_OWN_STRIP = new Set(['panel'])                                          // (transports that hold the chosen track's strip themselves: the patch keeps none at its right — panel.js SIDE)                                           // (transports that hold the tool row's things themselves: it folds away)
 function skinLayout () {
   skinRead()
   SKIN.noTool = SKIN_NO_TOOL.has(SKIN.k.transport)

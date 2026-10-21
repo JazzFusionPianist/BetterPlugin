@@ -24,7 +24,7 @@ SKIN_NO_TOOL.add('panel'); SKIN_NO_TOOL.add('none')
 { const read0 = skinRead
   skinRead = function () {
     read0(); if (SKIN.k.transport === 'plain') { SKIN.k.transport = TPANEL.on ? 'panel' : 'none'; SKIN.noTool = true }
-    SIDE = SKIN.k.transport === 'panel' ? 0 : 222                                         // (the chosen track's strip is the panel's: the patch keeps none at its right — ui.js)
+    SIDE = (typeof SKIN_OWN_STRIP === 'object' ? SKIN_OWN_STRIP.has(SKIN.k.transport) : SKIN.k.transport === 'panel') ? 0 : 222                                         // (the chosen track's strip is the panel's: the patch keeps none at its right — ui.js)
   } }
 function tpanelSet (on, keep = true) {
   TPANEL.on = !!on

@@ -11,7 +11,7 @@ const args = process.argv.slice(2)
 const only = args.find(a => LANGS.includes(a))
 const look = (args.find(a => a.startsWith('--look=')) || '').slice(7)
 const lookDir = process.env.GUIDE_LOOK || join(here, 'pdf', 'look')
-const VERSION = '0.1.5', DATE = '2026-10'
+const VERSION = '0.1.6', DATE = '2026-10'
 const NAME = { en: 'Slur Studio User Guide', ko: 'Slur Studio 사용 설명서' }
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 const word = readFileSync(join(here, '..', 'design', 'logo', 'slur studio, white.svg'), 'utf8').replace(/ id="sheet"/, '').replace(/ width="\d+" height="\d+"/, '')

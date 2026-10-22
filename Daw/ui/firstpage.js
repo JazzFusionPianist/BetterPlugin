@@ -8,7 +8,7 @@
    Kept in the app's settings: firstChoice {kind: plug-in id | 'own'}, used, learnt, shareUse. */
 const FC_LIMIT = /limit|maxim|clip|\bpro-l\b|\bl[123]\b/i
 const FC_ROLES = [
-  { k: 'eq', learn: 'eq', own: 'the mac’s eq', ownId: 'AudioUnit:Effects/aufx,nbeq,appl', is: p => pgKind(p) === 'eq' },
+  { k: 'eq', learn: 'eq', own: 'the room’s eq', is: p => pgKind(p) === 'eq' },      // (the room's own: its bands and tone prints — never the Mac's eq, his word 2026-10-21)
   { k: 'compressor', learn: 'comp', own: 'the room’s comp', is: p => pgKind(p) === 'dynamics' && !FC_LIMIT.test(p.name) && !/gate|expand|de-?ess|\bds\b|transient|duck|\bpro-g\b/i.test(p.name) },
   { k: 'limiter', learn: 'comp', own: 'the room’s glue', is: p => pgKind(p) === 'dynamics' && FC_LIMIT.test(p.name) },
   { k: 'de-esser', learn: null, own: 'the room’s carve', is: p => /de-?ess|\bds\b|sibil/i.test(p.name) },

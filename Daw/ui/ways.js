@@ -7,11 +7,12 @@
    swaps the plug-in for another eq on this Mac whose controls the room knows.
    What the ways are, and how far each is turned, is the planner's (plan.js: targets along the ears' lines, moves, ways
    that differ in how); this page asks, puts them on and takes them off, and draws them. Kick and bass apart: A carve the
-   lows (his first choice of eq, else the Mac's own), B duck the bass under the kick (the room's comp), C only where they
+   lows (his first choice of eq, else the room's own: eqOwnPut), B duck the bass under the kick (the room's comp), C only where they
    meet (the room's carve) — B and C keyed by the kick through the wall's side; which of the two gives way is heard.
    Read after wall.js, side.js, macro.js, hint.js, prompt.js, probe.js, ears.js and plan.js. */
 const WAYS = { on: false, want: '', words: '', a: 0, b: 0, range: null, heard: null, ways: [], hear: 0, used: 0, busy: '', base: null, edit: null, list: null, top: 0 }
 const MAC_EQ = 'AudioUnit:Effects/aufx,nbeq,appl'
+const OWN_EQ = 'own'                                                                       // an eq made of the room's own prints (eqOwnPut)
 const WAYS_H = 372
 const db2p = db => Math.pow(10, db / 10), p2db = p => 10 * Math.log10(Math.max(p, 1e-14))
 const qToOct = q => 2 / Math.LN2 * Math.asinh(1 / (2 * q))                                // (an eq's q as the octaves its bandwidth spans)
@@ -141,6 +142,73 @@ async function eqPut (t, st) {
   st._uid = ins.uid
   return { ok: true, ins }
 }
+/* an eq of the room's own (his word, 2026-10-21: what the prompt does to a sound it does with the room's prints, never the
+   Mac's eq). A lean of the whole — a band down low and one up high, the one raised as the other is lowered — is the tone
+   print. Anything else is the bands print, cut at the edges of each bell (the octaves its q spans), with the band between
+   them raised or lowered by a gain print and the rest going by as it is: no lateness, nothing learnt. */
+const eqEdges = b => { const half = Math.max(.3, qToOct(b.q) / 2); return [clamp(b.f / Math.pow(2, half), 20, 20000), clamp(b.f * Math.pow(2, half), 20, 20000)] }      // (never narrower than 0.6 of an octave: the bands' own slopes would leave a narrower band hardly touched)
+const gainAmount = db => db >= 0 ? clamp(.75 + db / 48, .75, 1) : clamp(.75 * (1 + db / 60), 0, .75)      // (the gain print: .75 unity, the top quarter +12 dB, the bottom −60)
+const eqTilted = st => st.bands.length === 2 && Math.round(st.bands[0].f) === 120 && Math.round(st.bands[1].f) === 6000 && st.bands[0].g === -st.bands[1].g
+function eqSplit (st) {                                                                   // where the bands print cuts (five at most), and how far each band is raised or lowered
+  const edges = [...new Set(st.bands.flatMap(eqEdges).map(Math.round))].sort((a, b) => a - b)
+  while (edges.length > PC.MAX_CROSS) { let k = 0, best = Infinity; for (let i = 0; i + 1 < edges.length; i++) if (edges[i + 1] / edges[i] < best) { best = edges[i + 1] / edges[i]; k = i } edges.splice(k, 2, Math.round(Math.sqrt(edges[k] * edges[k + 1]))) }
+  const gains = Array.from({ length: edges.length + 1 }, (_, r) => {
+    const mid = Math.sqrt((r ? edges[r - 1] : 20) * (r < edges.length ? edges[r] : 20000))
+    return st.bands.reduce((g, b) => { const [l, h] = eqEdges(b); return mid >= l && mid <= h ? g + b.g : g }, 0)
+  })
+  return { edges, gains }
+}
+const wallPut = (w, k) => { const id = wallFree(w); if (id < 0) return null; const at = wallSpot(w), node = Object.assign(wallNew(k, at.x, at.y), { id }); w.nodes.push(node); return node }
+async function eqOwnPut (t, st) {
+  const w = wallOf(t)
+  st._nodes = []
+  if (eqTilted(st)) {
+    const node = wallPut(w, 'tone')
+    if (!node) return { ok: false, why: 'no room on the wall' }
+    node.amount = clamp(.5 + st.bands[1].g / 12, 0, 1)                                 // (the tone print: ±6 db, a shelf at 300 hz down as one at 2.8 khz goes up)
+    st._nodes = [node.id]; st._shape = 'tilt'
+    wallAppend(w, node.id); await wallPush(t)
+    return { ok: true }
+  }
+  /* a narrow bell (a ring) is cut a second time, by a split of its own after the first: one split alone takes too little of
+     a band that narrow (the others are cut once) */
+  const splits = eqSplits(st)
+  st._shape = eqShape(splits)
+  let outs = null
+  for (const { edges, gains } of splits) {
+    const B = wallPut(w, 'bands')
+    if (!B) return { ok: false, why: 'no room on the wall' }
+    B.aux = PC.bandsPut(B.aux || [0, 0, 0, 0, 0, 0, 0, 0], edges)
+    st._nodes.push(B.id)
+    if (!outs) { wallAppend(w, B.id); w.wires = w.wires.filter(e => !(e.from === B.id && e.to === WALL_OUT)) }      // (what went to the out goes into the bands; each band goes on from there)
+    else for (const o of outs) w.wires.push({ from: o.id, to: B.id, gain: 1, port: o.port })
+    outs = []
+    for (let r = 0; r <= edges.length; r++) {
+      if (Math.abs(gains[r]) < .05) { outs.push({ id: B.id, port: r }); continue }
+      const G = wallPut(w, 'gain')
+      if (!G) return { ok: false, why: 'no room on the wall' }
+      G.amount = gainAmount(gains[r]); st._nodes.push(G.id)
+      w.wires.push({ from: B.id, to: G.id, gain: 1, port: r }); outs.push({ id: G.id, port: 0 })
+    }
+  }
+  for (const o of outs) w.wires.push({ from: o.id, to: WALL_OUT, gain: 1, port: o.port })
+  await wallPush(t)
+  return { ok: true }
+}
+const eqSplits = st => { const narrow = st.bands.filter(b => b.q >= 3); return [eqSplit(st)].concat(narrow.length ? [eqSplit({ bands: narrow })] : []) }
+const eqShape = splits => splits.map(({ edges, gains }) => edges.join(',') + '|' + gains.map(g => Math.abs(g) < .05 ? 0 : 1).join('')).join(' ')
+/* the same eq turned (its gains only): false when it must be made again (where it cuts has moved) */
+async function eqOwnRe (t, st) {
+  const nodes = (st._nodes || []).map(id => (wallOf(t).nodes || []).find(n => n.id === id))
+  if (!nodes.length || nodes.some(n => !n)) return false
+  if (st._shape === 'tilt') { if (!eqTilted(st)) return false; nodes[0].amount = clamp(.5 + st.bands[1].g / 12, 0, 1); await wallPush(t); return true }
+  const splits = eqSplits(st)
+  if (st._shape !== eqShape(splits)) return false
+  let k = 0
+  for (const { gains } of splits) { k++; for (const g of gains) if (Math.abs(g) >= .05) nodes[k++].amount = gainAmount(g) }      // (each split: its bands, then its gains)
+  await wallPush(t)
+  return true
+}
 /* a print's node on the wall set from its step (a duck keyed through the side, a carve, a compressor, the stereo) */
 function stepNode (st, node) {
   if (st.kind === 'print') node.amount = clamp(st.amount, 0, 1)
@@ -154,6 +222,7 @@ async function stepRe (st) {
   if (!t) return false
   if (st.kind === 'gain') { const b = WAYS.base.find(x => x.id === t.id); t.vol = clamp(Math.round(((b ? b.vol : t.vol) + st.db) * 10) / 10, -48, 6); pushTrack(t); return true }
   if (st.kind === 'patch') { setPrint(t, st.print, clamp(st.value, 0, 100)); flush(); wallOf(t); await wallPush(t); pushTrack(t); return true }
+  if (st.kind === 'eq' && (!st.plug || st.plug === OWN_EQ)) return eqOwnRe(t, st)
   if (st.kind === 'eq') {
     const ins = t.inserts.find(i => i.uid === st._uid), map = ins ? await learntOf(ins) : null
     if (!ins || !map || map.kind !== 'eq') return false
@@ -170,6 +239,7 @@ async function stepRe (st) {
 async function stepDo (st) {
   const t = byId(st.track)
   if (!t) return { ok: false, why: 'the track is gone' }
+  if (st.kind === 'eq' && (!st.plug || st.plug === OWN_EQ)) return eqOwnPut(t, st)
   if (st.kind === 'eq') { if (!NAT) return { ok: false, why: 'plug-ins are put on in the app' }; return eqPut(t, st) }
   if (st.kind === 'gain') { t.vol = clamp(Math.round((t.vol + st.db) * 10) / 10, -48, 6); pushTrack(t); return { ok: true } }
   if (st.kind === 'patch') { setPrint(t, st.print, clamp(st.value, 0, 100)); flush(); wallOf(t); await wallPush(t); pushTrack(t); return { ok: true } }      // (space, tape: the patch's own, one of each)
@@ -245,8 +315,8 @@ async function waysAsk (want, ids, words) {
   for (const tg of targets) if (tg.line === 'over') tg.pair = [H.pair.a, H.pair.b]          // (the one with the hits keeps its place)
   if (H.pair) { WAYS.heard = H.pair; WAYS.a = H.pair.a; WAYS.b = H.pair.b }
   WAYS.ways = planWays(targets, H)
-  const EQ = WAYS.eq || { plug: MAC_EQ, plugName: 'mac eq' }                               // (his first choice of eq, settings > plug-ins; the Mac's own else)
-  for (const w of WAYS.ways) for (const st of w.steps) if (st.kind === 'eq' && !st.plug) { st.plug = EQ.plug; st.plugName = EQ.plugName }
+  const EQ = WAYS.eq && WAYS.eq.plug !== MAC_EQ ? WAYS.eq : { plug: OWN_EQ, plugName: 'the room’s eq' }      // (his first choice of eq, settings > plug-ins; the room's own else — never the Mac's: his word, 2026-10-21)
+  for (const w of WAYS.ways) for (const st of w.steps) if (st.kind === 'eq' && !st.plug) { st.plug = EQ.plug; st.plugName = EQ.plug === OWN_EQ ? (eqTilted(st) ? 'tone' : 'bands') : EQ.plugName }
   await waysMeasure()
   WAYS.busy = ''
   /* room for the longest way's rows of cells (a way with a helper has more): the page grows, and is given back when it goes */
@@ -349,7 +419,7 @@ async function waysPlugList (wi, si, x, y) {
   const L = await learntAll()
   const eqs = list.filter(p => typeof plugCat === 'function' && plugCat(p) === 'eq' && !p.inst).map(p => ({ id: p.id, name: String(p.name).toLowerCase(), maker: String(p.maker || p.manufacturer || '').toLowerCase(), known: !!(L[learntKey(p)] && L[learntKey(p)].kind === 'eq') }))
   eqs.sort((a, b) => (b.known - a.known) || a.name.localeCompare(b.name))
-  WAYS.list = { wi, si, x, y, rows: eqs.slice(0, 12) }
+  WAYS.list = { wi, si, x, y, rows: [{ id: OWN_EQ, name: 'the room’s eq', maker: '', known: true }].concat(eqs.filter(p => p.id !== MAC_EQ).slice(0, 11)) }      // (the room's own first; the Mac's never)
   uiDirty('dock')
 }
 async function waysPlugPick (row) {
@@ -357,7 +427,7 @@ async function waysPlugPick (row) {
   WAYS.list = null
   if (!L) return
   const st = WAYS.ways[L.wi - 1].steps[L.si]
-  st.plug = row.id; st.plugName = row.name
+  st.plug = row.id; st.plugName = row.id === OWN_EQ ? (eqTilted(st) ? 'tone' : 'bands') : row.name
   if (WAYS.hear === L.wi) await waysHear(L.wi)
   uiDirty('dock')
 }

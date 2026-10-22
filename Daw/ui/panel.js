@@ -80,7 +80,8 @@ SKINS.left.panel = () => {
   s += R(sx, sy - 5, 1.2, 10, { fill: INK, fa: .7 }) + P(`M${n(sx + 10)} ${n(sy - 5)}L${n(sx + 2.5)} ${n(sy)}L${n(sx + 10)} ${n(sy + 5)}Z`, { stroke: INK, sa: .7, sw: .9, x: ' stroke-linejoin="round"' }) + tpCap(sx + 15, sy + 3, 'start', { a: .45 }) + hit(sx - 4, sy - 10, 54, 20, 'tostart')
   y += playH + gap
   /* where the song is: the bar very large, the rest at its foot, the time under it */
-  { const pl = place(p).split('.'), bar = pl[0], bs = clamp(196 / (bar.length * .62), 56, bs0), by = y + bs0 * .72
+  { const pl = place(p).split('.'), bar = pl[0], bs = (() => { const fix = v => String(v).replace(/\d/g, '0'), tail = twTab(fix('.' + pl[1] + '.' + pl[2]), 17, 500) + 4 + twTab(fix('.' + pl[3]), 12) + 8, room = RE + 6 - (GL - 3); let k = bs0; while (k > 36 && twTab(fix(bar), k, 500) - 5 * bar.length + tail > room) k -= 2; return k })(), by = y + bs0 * .72
+    /* (the bar as large as fits, beat . division . tick and all, inside the column: at three figures they ran past its edge — his word, 2026-10-22) */
     geo.bar = { x: GL - 3, y: by, bs }
     s += T(GL - 3, by, bar, { size: bs, w: 500, x: tpNum + ' letter-spacing="-5" id="tp-bar"' })
     const fig = v => String(v).replace(/\d/g, '0')                                        // (figures all as wide: measured as they are drawn)
@@ -240,12 +241,13 @@ function tpStrip (top, h, GL, GR, RE) {
   s += T(vx, ft + 20, fmtDb(vol), { size: 24, w: 500, a: heardT ? 1 : .5, x: tpNum }) + tpCaps(vx + 1, ft + 33, 'level', { a: .4 }) + peak(vx + 1, ft + 54.5)
   hits += hit(vx - 2, ft - 2, 76, 26, 'tps-volnum', di, 'text') + hit(vx - 2, ft + 42, 72, 16, 'tps-clip')
   /* where its sound comes from (the patch's strips had it; gone with them, so here): pressed, the inputs */
-  if (t.kind === 'audio' && !t.theirs && !t.inst && fb - ft >= 84) { const word = inputName(t.inp || 0), ww = tw(word, 8.5)
-    s += tpCaps(vx + 1, ft + 76, 'in', { a: .4 }) + T(vx + 40, ft + 76, word, { size: 8.5, a: .8 }) + tpChev(vx + 44 + ww, ft + 72.5); hits += hit(vx - 2, ft + 65, ww + 56, 15, 'min', di) }      // (its value in one column with the group's under it)
+  const vc = vx + 31, vr = GR - 8 - vc                                                  // (in and group: their values in one column, kept out of the plug-ins' column beside them — his word, 2026-10-22: they ran into it)
+  if (t.kind === 'audio' && !t.theirs && !t.inst && fb - ft >= 84) { const word = fit(inputName(t.inp || 0).replace(/^input /, '').replace(' and ', '–'), vr - 10, 8.5), ww = tw(word, 8.5)      // (input 3 and 4 said 3–4)
+    s += tpCaps(vx + 1, ft + 76, 'in', { a: .4 }) + T(vc, ft + 76, word, { size: 8.5, a: .8, x: tpNum }) + tpChev(vc + 4 + ww, ft + 72.5); hits += hit(vx - 2, ft + 65, vc - vx + ww + 14, 15, 'min', di) }
   /* its group (groups.js: pressed twice, named here; the other button, what it shares — his ask, 2026-10-22) */
-  if (t.grp && typeof grpMeta === 'function' && fb - ft >= 100) { const m = grpMeta(t.grp), off = S.grpOff || !m.on, gy = ft + 92, gn = fit(asGiven(m.name), 70, 8.5)
-    s += tpCaps(vx + 1, gy, 'group', { a: .4 }) + T(vx + 40, gy, gn, { size: 8.5, a: off ? .4 : .8 }) + Cc(vx + 40 + tw(gn, 8.5) + 6, gy - 3, 2.6, { fill: grpColour(t.grp), fa: off ? .35 : 1 })      // (its name in the in's column, its colour after it as the in's chevron is)
-    hits += hit(vx - 2, gy - 11, 56 + tw(gn, 8.5), 15, 'mgrp', `${di} data-x="${n(vx + 37)}" data-y="${n(gy - 11)}" data-w="80" data-h="13"`) }
+  if (t.grp && typeof grpMeta === 'function' && fb - ft >= 100) { const m = grpMeta(t.grp), off = S.grpOff || !m.on, gy = ft + 92, gn = fit(asGiven(m.name), vr - 10, 8.5)
+    s += tpCaps(vx + 1, gy, 'group', { a: .4 }) + T(vc, gy, gn, { size: 8.5, a: off ? .4 : .8 }) + Cc(vc + tw(gn, 8.5) + 6, gy - 3, 2.6, { fill: grpColour(t.grp), fa: off ? .35 : 1 })      // (its name in the in's column, its colour after it as the in's chevron is)
+    hits += hit(vx - 2, gy - 11, vc - vx + 16 + tw(gn, 8.5), 15, 'mgrp', `${di} data-x="${n(vc - 3)}" data-y="${n(gy - 11)}" data-w="80" data-h="13"`) }
   if (stack) return s + hits
   /* its plug-ins, a list of names; its sends, round knobs with the bus under each */
   const r = 8, rows = Math.max(1, Math.floor((h - 2 * r - 44) / 13) - 1)

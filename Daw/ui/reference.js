@@ -9,7 +9,7 @@
    pulled along to line it up. `close` puts the row away (the reference is kept: ⌥⌘R brings it back).
    Read after inspector.js. */
 const REF = { t: null, on: false, shown: true, drag: null, top: 4, gap: 6, told: '', sel: new Set() }      // (top: room between the bars and its edge; gap: between it and track 1; sel: its regions chosen)
-const refH = () => 2 * S.rh
+const refH = () => 50                                                                    // (twice a row as the room begins: the rows zoomed taller or shorter, it stays — his ask, 2026-10-22)
 const refShown = () => !!(REF.t && REF.shown) && !(typeof RTB !== 'undefined' && RTB.on)
 const refY = () => TY - REF.gap - refH()
 const refX0 = () => (typeof INSP === 'object' ? INSP.w || 0 : 0)                         // (where the heads begin: the inspector stands left of them)

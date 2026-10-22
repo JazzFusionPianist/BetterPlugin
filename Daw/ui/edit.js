@@ -610,7 +610,18 @@ function settleTrack (t, was) {
    plays both. Where the two are one sound cut in two, the plain curve gives back exactly what was there; where they are
    different sounds, the equal-power curve keeps the level from sagging in the middle. ── */
 const FADE_CURVES = ['linear', 'equal power', 's curve']
-const fadeShape = (c, x) => c === 1 ? Math.sin(clamp(x, 0, 1) * Math.PI / 2) : c === 2 ? (x = clamp(x, 0, 1), x * x * (3 - 2 * x)) : clamp(x, 0, 1)
+const fadeShape = (c, x, bend = 0) => c === 1 ? Math.sin(clamp(x, 0, 1) * Math.PI / 2) : c === 2 ? (x = clamp(x, 0, 1), x * x * (3 - 2 * x)) : bend ? Math.pow(clamp(x, 0, 1), Math.pow(2, 2 * bend)) : clamp(x, 0, 1)
+/* how a straight fade is bent (Engine.h fadeShape): as pulled by hand — control and a pull up or down (r.fib, r.fob,
+   −1…1) — else, for a fade of its own, as the ear hears an even fall to silence: a plain line of level was loud to the
+   last moment and then gone (his ear, 2026-10-22); half of a crossfade stays straight, its two halves adding up */
+const FADE_BEND = .66
+function fadeBend (r, left, t) {
+  const own = left ? r.fib : r.fob
+  if (own != null) return own
+  if (left ? r.fic : r.foc) return 0
+  const tt = t || regOf(r.id)[1]
+  return tt && (left ? crossBefore(r, tt) : crossAfter(r, tt)) ? 0 : FADE_BEND
+}
 const headRoom = r => r.notes ? 0 : r.loop ? Infinity : Math.max(0, r.off || 0)                                         // sound it has before its start, in bars
 const tailRoom = r => r.notes ? 0 : r.loop ? Infinity : Math.max(0, (r.srcBars || 0) - (r.off || 0) - (r.b - r.a))      // and after its end
 /* is B the same sound as A, carrying on exactly where A stops (a region cut in two)? */
@@ -783,7 +794,7 @@ function smartDown (e, p, ti, pos, before) {
     drag = over ? { a: 'join', A: q.A.id, B: q.B.id, len: over, curve: q.A.foc || 0, at: joinOf(q.A, q.B), grab: pos - (joinOf(q.A, q.B) - 1), before } : { a: 'xfade', A: q.A.id, B: q.B.id, x0: p.x, before, moved: false }
     drag.mates = mateIds(q.A, q.B, S.tracks[ti])
   }
-  else if (q.z === 'fi' || q.z === 'fo') { drag = fadeGrab(q.r, S.tracks[ti], q.z === 'fi', before, pos); drag.x0 = p.x }
+  else if (q.z === 'fi' || q.z === 'fo') { drag = fadeGrab(q.r, S.tracks[ti], q.z === 'fi', before, pos); drag.x0 = p.x; drag.y0 = p.y }
   else if (q.z === 'range') { marqStart(e, ti, pos, true); return true }
   else { S.marq = null; return false }
   S.marq = null
@@ -1646,7 +1657,7 @@ function lanesPress (e, p) {
       if (pair) { for (const [a, b] of [pair].concat(joinMates(pair[0], pair[1], t))) uncross(a, b); commit(before) }
       else if (left ? r.fi : r.fo) { for (const x of [r].concat(fadeWith(r, t).filter(x => { const xt = regOf(x.id)[1]; return !(left ? crossBefore(x, xt) : crossAfter(x, xt)) }))) { if (left) x.fi = 0; else x.fo = 0; dirtyReg(x) } commit(before) }      // (one taken along whose end there is half of a crossfade keeps it, as in a drag)
     }
-    else if (r) { drag = fadeGrab(r, t, pos - (r.a - 1) < (r.b - r.a) / 2, before); drag.x0 = p.x }
+    else if (r) { drag = fadeGrab(r, t, pos - (r.a - 1) < (r.b - r.a) / 2, before); drag.x0 = p.x; drag.y0 = p.y }
   }
   else if (tool === 'marquee') marqStart(e, ti, pos, false)
   else if (tool === 'zoom') drag = { a: 'zoom', x0: p.x, x1: p.x }
@@ -1744,6 +1755,14 @@ function lanesMove (e, p) {
     d.moved = Math.abs(at - d.at) > 1e-9
     if (d.moved) for (const w of d.was) { joinAt(w.a, w.b, at); if (w.len) crossfade(w.a, w.b, w.len, w.curve); else { fitFades(w.a, regOf(w.a.id)[1]); fitFades(w.b, regOf(w.b.id)[1]) } }      // (on a track edited along with this one the same join moves; it is a crossfade there only if it was one — where the two only meet, the fades of their own must still fit in them)
   } else if (d.a === 'gain') { for (const [id, g] of d.orig) { const [r] = regOf(id); r.gain = clamp(Math.round((g - (p.y - d.y0) * .1) * 10) / 10, -30, 12); dirtyReg(r) } d.moved = true }
+  else if (d.a === 'fade' && (d.mode || (d.mode = e.ctrlKey && !e.shiftKey && d.y0 != null && Math.abs(p.y - d.y0) >= Math.abs(p.x - (d.x0 != null ? d.x0 : p.x)) ? 'bend' : 'len')) === 'bend') {      // (which, said by the first move out of the dead zone)
+    /* control, pulled up or down: the fade bent — up, fuller sooner; down, quieter longer (his ask, 2026-10-22) */
+    const [r] = regOf(d.id)
+    if (!d.bend) d.bend = { b0: fadeBend(r, d.left), y0: p.y }
+    const b = clamp(Math.round((d.bend.b0 - (d.bend.y0 - p.y) / 15) * 100) / 100, -1, 1)
+    for (const x of [r].concat((d.also || []).map(id => regOf(id)[0]).filter(Boolean))) { if (d.left) { x.fib = b; x.fic = 0 } else { x.fob = b; x.foc = 0 } dirtyReg(x) }
+    d.moved = true
+  }
   else if (d.a === 'fade') {
     const [r] = regOf(d.id), len = r.b - r.a, s = fadeSnap(pos - (d.dx || 0), e)
     if (d.left) r.fi = clamp(s - (r.a - 1), 0, fadeRoom(r, r.fo)); else r.fo = clamp((r.b - 1) - s, 0, fadeRoom(r, r.fi))
@@ -1807,7 +1826,7 @@ function lanesUp () {
         else if (r) { fitFades(r, t); if (d.fresh) settle([[r, t, r.a - 1, r.b - 1]]); else if (d.a === 'trimL' && r.a < q.o.a) settle([[r, t, r.a - 1, q.o.a - 1]]); else if (d.a === 'trimR' && r.b > q.o.b) settle([[r, t, q.o.b - 1, r.b - 1]]) }
       }
     }
-    else if (d.a === 'fade') { if ([d.id].concat(d.also || []).every(id => { const [r] = regOf(id); return !r || asWas(d, r, ['fi', 'fo']) })) { uiDirty('lanes', 'dock'); return } }
+    else if (d.a === 'fade') { if ([d.id].concat(d.also || []).every(id => { const [r] = regOf(id); return !r || asWas(d, r, ['fi', 'fo', 'fib', 'fob', 'fic', 'foc']) })) { uiDirty('lanes', 'dock'); return } }      // (a fade bent is a change too)
     else if (d.a === 'gain') { if ([...d.orig].every(([id, g]) => { const [r] = regOf(id); return !r || (r.gain || 0) === g })) { uiDirty('lanes', 'dock'); return } }
     commit(d.before)
   }

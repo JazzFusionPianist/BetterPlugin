@@ -423,16 +423,17 @@ struct Region
     float  gain = 1.0f;
     double fi = 0.0, fo = 0.0;    // fades, bars
     int    fic = 0, foc = 0;      // the curve each fade takes: 0 straight (equal gain), 1 equal power, 2 an s
+    float  fib = 0.0f, fob = 0.0f; // how a straight one is bent, −1…1 (the page gives a fade of its own a bend the ear hears as even — his ask, 2026-10-22)
 };
 /** How far a fade has come (0 at silence, 1 at full), bent to its curve. Two regions that share a stretch — one falling,
     one rising — add up to the same level all the way with the straight curve when they are the same sound, and with the
     equal-power curve when they are different sounds. */
-inline float fadeShape (int curve, double x)
+inline float fadeShape (int curve, double x, float bend = 0.0f)
 {
     x = juce::jlimit (0.0, 1.0, x);
     if (curve == 1) return (float) std::sin (x * juce::MathConstants<double>::halfPi);
     if (curve == 2) return (float) (x * x * (3.0 - 2.0 * x));
-    return (float) x;
+    return bend == 0.0f ? (float) x : (float) std::pow (x, std::pow (2.0, 2.0 * (double) bend));      // (bent: slower or faster to begin, as far as the hand pulled it)
 }
 
 /** A line drawn along the song for one thing on a track: bars against a value. Volumes and sends in dB, pan −1..1, the prints 0..1. */
@@ -1004,7 +1005,7 @@ public:
                             r.off = (double) rv["off"];
                             r.gain = rv.hasProperty ("gain") ? (float) (double) rv["gain"] : 1.0f;
                             r.fi = juce::jmax (0.0, (double) rv["fi"]); r.fo = juce::jmax (0.0, (double) rv["fo"]);
-                            r.fic = juce::jlimit (0, 2, (int) rv["fic"]); r.foc = juce::jlimit (0, 2, (int) rv["foc"]);
+                            r.fic = juce::jlimit (0, 2, (int) rv["fic"]); r.foc = juce::jlimit (0, 2, (int) rv["foc"]); r.fib = juce::jlimit (-1.0f, 1.0f, (float) (double) rv["fib"]); r.fob = juce::jlimit (-1.0f, 1.0f, (float) (double) rv["fob"]);
                             if (auto it = bufIndex.find (rv["buf"].toString()); it != bufIndex.end()) r.buf = it->second;      // (only this thread ever adds a key while no print runs)
                             if (r.buf >= 0 && r.b > r.a) t.regs.push_back (r);
                         }
@@ -3099,7 +3100,7 @@ public:
                         r.off = (double) rv["off"];
                         r.gain = rv.hasProperty ("gain") ? (float) (double) rv["gain"] : 1.0f;
                         r.fi = juce::jmax (0.0, (double) rv["fi"]); r.fo = juce::jmax (0.0, (double) rv["fo"]);
-                        r.fic = juce::jlimit (0, 2, (int) rv["fic"]); r.foc = juce::jlimit (0, 2, (int) rv["foc"]);
+                        r.fic = juce::jlimit (0, 2, (int) rv["fic"]); r.foc = juce::jlimit (0, 2, (int) rv["foc"]); r.fib = juce::jlimit (-1.0f, 1.0f, (float) (double) rv["fib"]); r.fob = juce::jlimit (-1.0f, 1.0f, (float) (double) rv["fob"]);
                         if (auto it = bufIndex.find (rv["buf"].toString()); it != bufIndex.end()) r.buf = it->second;
                         if (r.buf >= 0 && r.b > r.a) j.regs.push_back (r);
                     }
@@ -3813,7 +3814,32 @@ private:
         return false;
     }
 
-    float dbGainOf (const Track& t, double bar) const { float v; return (evalAuto (t, kAutoVol, bar, v) ? dbGain (v) : t.vol.load()) * t.gate.load(); }
+    /** A line of levels (dB) read as a gain. Between two points it goes evenly in dB, as ever; into silence or out of it
+        (a point at the fader's foot, −∞) it goes on to nothing as the ear hears a fade — it used to fall evenly in dB to
+        −48 and then drop to nothing at once, heard as a cut (his ear, 2026-10-22). */
+    static float lineGainAt (const Auto& a, double bar)
+    {
+        const auto& p = a.pts;
+        if (bar <= p.front().first) return dbGain (p.front().second);
+        if (bar >= p.back().first)  return dbGain (p.back().second);
+        size_t lo = 0, hi = p.size() - 1;
+        while (hi - lo > 1) { const size_t mid = (lo + hi) / 2; if (p[mid].first <= bar) lo = mid; else hi = mid; }
+        const double span = p[hi].first - p[lo].first;
+        if (span <= 1.0e-9) return dbGain (p[hi].second);
+        const float va = p[lo].second, vb = p[hi].second;
+        const double x = (bar - p[lo].first) / span;
+        const bool qa = va <= -47.5f, qb = vb <= -47.5f;
+        if (! qa && ! qb) return dbGain (va + (vb - va) * (float) x);
+        if (qa && qb) return 0.0f;
+        return qb ? dbGain (va) * (float) std::pow (1.0 - x, 2.5) : dbGain (vb) * (float) std::pow (x, 2.5);
+    }
+    static bool evalAutoGain (const Track& t, int param, double bar, float& g)
+    {
+        for (auto& a : t.autos) if (a.param == param) { g = lineGainAt (a, bar); return true; }
+        return false;
+    }
+
+    float dbGainOf (const Track& t, double bar) const { float g; return (evalAutoGain (t, kAutoVol, bar, g) ? g : t.vol.load()) * t.gate.load(); }
 
     /** Add what a region sounds like over [pos, pos + n) into L/R. `endBar` cuts it off. */
     void addRegion (const std::vector<std::shared_ptr<Buf>>& held, const Region& r, juce::int64 pos, int n, double barS, float* L, float* R, double endBar) const
@@ -3834,8 +3860,8 @@ private:
         auto level = [&] (int i) -> float          // the region's own gain, shaped by its fades
         {
             float g = r.gain;
-            if (fiS > 0.0) { const double t = (double) (from - rs + i); if (t < fiS) g *= fadeShape (r.fic, t / fiS); }
-            if (foS > 0.0) { const double t = (double) (reTrue - from - i); if (t < foS) g *= fadeShape (r.foc, t / foS); }
+            if (fiS > 0.0) { const double t = (double) (from - rs + i); if (t < fiS) g *= fadeShape (r.fic, t / fiS, r.fib); }
+            if (foS > 0.0) { const double t = (double) (reTrue - from - i); if (t < foS) g *= fadeShape (r.foc, t / foS, r.fob); }
             return g;
         };
         /*  Where the sound's own beginning lies along the song, to the sample. Every piece cut from one region has the
@@ -4150,7 +4176,7 @@ private:
         {
             auto& s = t.sends[k];
             if (s.dst == nullptr) continue;
-            const float st = evalAuto (t, kAutoSend0 + k, rolling ? bar1 + (double) t.early.load() / barS : bar1, v) ? dbGain (v) : s.gain.load();      // (read as early as the sound is here, like the fader)
+            const float st = evalAutoGain (t, kAutoSend0 + k, rolling ? bar1 + (double) t.early.load() / barS : bar1, v) ? v : s.gain.load();      // (read as early as the sound is here, like the fader)
             s.hold.add (L, R, s.dst->work.getWritePointer (0), s.dst->work.getWritePointer (1), n, s.sm, st);
             s.sm = st;
         }

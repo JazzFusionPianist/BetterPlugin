@@ -574,7 +574,7 @@ function wavePath (r, w, yc, hmax, outline, lh, v0, v1, slot = '') {
   const len = r.b - r.a, blocks = typeof SKIN === 'object' && SKINS.sound[SKIN.k.sound], k = `${blocks ? SKIN.k.sound : ''}${live ? (r.flex || []).map(m => m.d.toFixed(5)).join(',') : ''}|${S.tempo}|${n(w)}|${n(hmax)}|${n(yc)}|${n(len * 1000)}|${n((r.off || 0) * 1000)}|${r.gain || 0}|${r.wsig || ''}|${outline}|${v0}|${v1}|${n(fiP)}|${n(foP)}|${r.fic || 0}|${r.foc || 0}|${fine ? fine.stamp + ':' + n(PXB) : ''}|${S.wz || 1}|${LOOK_STAMP}`
   if (r['_p' + slot] && r['_k' + slot] === k) return r['_p' + slot]
   const steps = Math.max(1, v1 - v0), gk = dbLin(r.gain || 0) * (S.wz || 1), room = roomOf(SHAPES[outline], w, lh), half = lk('snd.drawn') === 'half'      // (half: the sound stands on the region's foot, as tall as the region; yc is then its foot)
-  const taper = x => (fiP && x < fiP ? fadeShape(r.fic || 0, x / fiP) : 1) * (foP && w - x < foP ? fadeShape(r.foc || 0, (w - x) / foP) : 1)
+  const bi = fiP ? fadeBend(r, true) : 0, bo = foP ? fadeBend(r, false) : 0, taper = x => (fiP && x < fiP ? fadeShape(r.fic || 0, x / fiP, bi) : 1) * (foP && w - x < foP ? fadeShape(r.foc || 0, (w - x) / foP, bo) : 1)
   let pk, norm, d = ''
   if (r.loop) { const lp = LOOPS[r.buf]; norm = lp.peak || (lp.peak = peakOf(lp.ch)) } else norm = r.peak || 1
   if (fine && !r.loop && !r.peak) { bufPeaks(r, 1, 0, 1); norm = r.peak || 1 }
@@ -629,8 +629,8 @@ function fadeMarks (r, x, w, ly, lh, L) {
   let s = ''
   const lo = X0 - 8, hi = X1 + 8                                                        // (only the part of a fade that shows is drawn: close up, a fade is longer than the window many times over)
   const mark = (a, b, gain) => { if (b - a < .5) return; const pts = fadeLine(a, b, ly, lh, gain); s += P(`M${n(a)} ${n(ly)}H${n(b)}` + ptsD(pts.slice().reverse(), false) + 'Z', { fill: K0, fa: .5 }) + fadeStroke(ptsD(pts, true), L) }
-  if (r.fi * PXB >= 3) { const fw = Math.min(w, r.fi * PXB); mark(Math.max(x, lo), Math.min(x + fw, hi), px => fadeShape(r.fic || 0, (px - x) / fw)) }
-  if (r.fo * PXB >= 3) { const fw = Math.min(w, r.fo * PXB), xe = x + w; mark(Math.max(xe - fw, lo), Math.min(xe, hi), px => fadeShape(r.foc || 0, (xe - px) / fw)) }
+  if (r.fi * PXB >= 3) { const fw = Math.min(w, r.fi * PXB), bi = fadeBend(r, true); mark(Math.max(x, lo), Math.min(x + fw, hi), px => fadeShape(r.fic || 0, (px - x) / fw, bi)) }
+  if (r.fo * PXB >= 3) { const fw = Math.min(w, r.fo * PXB), xe = x + w, bo = fadeBend(r, false); mark(Math.max(xe - fw, lo), Math.min(xe, hi), px => fadeShape(r.foc || 0, (xe - px) / fw, bo)) }
   return s
 }
 /* where two regions of a track share a stretch on purpose, one falling as the other rises: one body through the stretch,
@@ -652,7 +652,7 @@ function crossMarks (t, ly, lh, xEnd, sel) {
     }
     const LA = regLook(A, t), LB = regLook(B, t), on = !!S.selX && S.selX[0] === A.id && S.selX[1] === B.id
     const xa = bx(A.a) + .5, wa = bx(A.b) - bx(A.a) - 1, xb = x0 + .5, wb = bx(B.b) - x0 - 1, fa = A.fo * PXB, fb = B.fi * PXB
-    const gA = px => fadeShape(A.foc || 0, (bx(A.b) - px) / fa), gB = px => fadeShape(B.fic || 0, (px - x0) / fb)
+    const bA = fadeBend(A, false, t), bB = fadeBend(B, true, t), gA = px => fadeShape(A.foc || 0, (bx(A.b) - px) / fa, bA), gB = px => fadeShape(B.fic || 0, (px - x0) / fb, bB)
     const s0 = Math.max(x0, X0 - 8), s1 = Math.min(x1, X1 + 8)                         // the part of it that shows
     const la = fadeLine(s0, s1, ly, lh, gA), lb = fadeLine(s0, s1, ly, lh, gB), top = la.map(([px, py], k) => [px, Math.min(py, lb[k][1])])
     let q = R(s0, ly, s1 - s0, lh, { fill: on || (sel && sel.has(A.id) && sel.has(B.id)) ? LA.sel : LA.c })      // (lit with the two regions when both are chosen)

@@ -316,7 +316,7 @@ function schedule (ctx, t, bus, fromBar, atTime, endBar, bufOf) {
     /* a fade is drawn into the gain as a short run of points along its curve (a straight one too, so all are made the same way).
        Nothing else may be set inside a run, so the level is only set by itself where no run begins at the very start */
     const run = (b0, b1, f) => { const N = 48, pts = new Float32Array(N + 1); for (let i = 0; i <= N; i++) pts[i] = lvl * f(b0 + (b1 - b0) * i / N); const d = tAt(b1) - tAt(b0); if (d > 2e-4) g.gain.setValueCurveAtTime(pts, tAt(b0), d - 1e-4); else g.gain.setValueAtTime(pts[N], tAt(b0)) }
-    const inAt = b => fadeShape(r.fic || 0, (b - ra) / fi), outAt = b => fadeShape(r.foc || 0, (rb - b) / fo)
+    const bi = fadeBend(r, true), bo = fadeBend(r, false), inAt = b => fadeShape(r.fic || 0, (b - ra) / fi, bi), outAt = b => fadeShape(r.foc || 0, (rb - b) / fo, bo)
     const rising = fi > 0 && st < fiEnd, s0 = fo > 0 ? Math.max(rising ? fiEnd : st, foStart) : Infinity
     if (rising) run(st, fiEnd, inAt)
     else if (!(s0 <= st + 1e-9)) g.gain.setValueAtTime(lvl, when)                                  // it begins at its full level

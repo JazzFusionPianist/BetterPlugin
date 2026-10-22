@@ -36,14 +36,14 @@ const autoParams = t => ['vol', 'pan', 'tape', 'space', 'delay'].concat((t.macro
    stretch that begins at it goes — none straight, 'exp' slow then fast, 'log' fast then slow, 's' slow at both ends.
    Drawn and played as it bends: the app is told the bent stretch as a run of points. */
 const AUTO_CURVES = { exp: x => (Math.exp(4 * x) - 1) / (Math.exp(4) - 1), log: x => 1 - (Math.exp(4 * (1 - x)) - 1) / (Math.exp(4) - 1), s: x => x * x * (3 - 2 * x) }
-const curveAt = (c, x) => (AUTO_CURVES[c] || (y => y))(clamp(x, 0, 1))
+const curveAt = (c, x) => typeof c === 'number' ? Math.pow(clamp(x, 0, 1), Math.pow(2, 2 * c)) : (AUTO_CURVES[c] || (y => y))(clamp(x, 0, 1))      // (a number: bent by hand, −1…1 — control and a pull up or down)
 /* a line as straight pieces: a bent stretch is laid out in small steps (for the app, and to be drawn) */
 function autoBent (pts) {
   const out = []
   pts.forEach((q, i) => {
     out.push([q.b, q.v])
     const nx = pts[i + 1]
-    if (!q.c || !AUTO_CURVES[q.c] || !nx || nx.b - q.b < 1e-6) return
+    if (!q.c || (typeof q.c !== 'number' && !AUTO_CURVES[q.c]) || !nx || nx.b - q.b < 1e-6) return
     const steps = clamp(Math.round((nx.b - q.b) * 16), 8, 96)
     for (let k = 1; k < steps; k++) { const x = k / steps; out.push([q.b + (nx.b - q.b) * x, q.v + (nx.v - q.v) * curveAt(q.c, x)]) }
   })
@@ -162,6 +162,11 @@ function autoDown (e, p, tool) {
     if (tool === 'pencil') {                                                             // the pencil: a new point, already in the hand
       const nq = addPoint(t, g.k, clamp(snapPos(pos, e), 0, SONG_END), g.vOf(p.y))
       S.selP = [nq.id]; startDrag(nq); drag.moved = true
+    } else if (e.ctrlKey && !e.shiftKey && Math.abs(p.y - g.yOf(lineV)) <= 9 && pts.length > 1 && pos > pts[0].b && pos < pts[pts.length - 1].b) {
+      /* control, on the line between two points: that stretch bent — pulled up, the line there rises; down, it sinks
+         (his ask, 2026-10-22) */
+      const q = pts.filter(x => x.b <= pos).pop(), nx = pts.find(x => x.b > pos)
+      drag = { a: 'apt', curve: true, ti, k: g.k, q: q.id, x0: p.x, y0: p.y, c0: typeof q.c === 'number' ? q.c : 0, sign: Math.sign(nx.v - q.v) || 1, before, moved: false }
     } else if (Math.abs(p.y - g.yOf(lineV)) <= 7 || inMarq(t, pos)) {
       /* on the line, away from its points — or anywhere inside a marquee on its track (a line with no points too: on a
          stack the press went to a point where it was made, his report 2026-10-21). Let go where it was pressed: a point
@@ -188,6 +193,13 @@ function autoMove (e, p) {
     })
     S.selP = [...new Set(d.base.concat(got))]
     uiDirty('lanes')
+    return
+  }
+  if (d.curve) {
+    const q = autoPts(S.tracks[d.ti], d.k).find(x => x.id === d.q)
+    if (!q || (!d.moved && Math.abs(p.y - d.y0) < 3)) return
+    q.c = clamp(Math.round((d.c0 - d.sign * (d.y0 - p.y) / 15) * 100) / 100, -1, 1); if (Math.abs(q.c) < .02) delete q.c
+    d.moved = true; uiDirty('lanes', 'head', 'dock')
     return
   }
   const t = S.tracks[d.ti], g = autoGeom(t, rowY(d.ti), rowH(d.ti))

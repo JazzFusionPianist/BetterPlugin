@@ -71,7 +71,7 @@ const MENU_BAR = () => [
     ['New Tracks…', '⌥⌘KeyN', { id: 'newtracks' }], ['New Audio Track', '⌥⌘KeyA', { id: 'newaudio' }], ['New Instrument Track', '⌥⌘KeyS'], ['New Bus', '⌃KeyN', { id: 'newbus' }],
     ['Create Reference Track', '⌥⌘KeyR'], ['Disable Track', null, { do: () => trackOffToggle(groupOf(S.sel)), on: () => !!(chosenTrack() && chosenTrack().disabled) }], ['Freeze Track', null, { do: () => freezeTrack(S.sel), on: () => !!(chosenTrack() && chosenTrack().frozen) }],
     '-',
-    ['Duplicate', '⌘KeyD', { id: 'duptrack' }], ['Duplicate with Its Regions', '⌥⇧⌘KeyD'], ['Rename…', null, { id: 'renametrack', k: '⇧Enter' }], ['Delete', '⌘Backspace', { id: 'deltrack' }], ['Delete Empty Tracks', '⇧⌘Backspace'],
+    ['Duplicate', '⌘KeyD', { id: 'duptrack' }], ['Duplicate with Its Regions', '⌥⇧⌘KeyD'], ['Rename…', null, { id: 'renametrack', k: '⇧Enter' }], ['Delete', '⌘Backspace', { id: 'deltrack' }], ['Delete Empty Tracks', '⇧⌘Backspace'], ['Tidy Tracks', null, { do: () => tidyTracks() }],
     '-',
     ['Mute', 'KeyM', { on: () => !!(chosenTrack() && chosenTrack().mute) }], ['Solo', 'KeyS', { on: () => !!(chosenTrack() && chosenTrack().solo) }],
     ['Record Enable', null, { do: () => toggleArm(S.sel), on: () => !!(chosenTrack() && chosenTrack().arm) }], ['Hear the Input', '⌃KeyI', { on: () => !!(chosenTrack() && chosenTrack().mon) }],
@@ -107,7 +107,7 @@ const MENU_BAR = () => [
   ]],
   ['View', [
     ['Patch', 'KeyB', { on: () => S.panel.on && S.panel.tab === 'patch' }], ['Mixer', 'KeyX', { on: () => S.panel.on && S.panel.tab === 'mixer' }],
-    ['Notes', 'KeyP', { on: () => S.panel.on && S.panel.tab === 'notes' }], ['Prompt', null, { do: () => { if (typeof promptOpen === 'function') promptOpen() }, on: () => S.panel.on && S.panel.tab === 'prompt' }], ['Rubato Panel', 'KeyW', { on: () => S.panel.on && S.panel.tab === 'rubato' }],
+    ['Notes', 'KeyP', { on: () => S.panel.on && S.panel.tab === 'notes' }], ['Rubato Panel', 'KeyW', { on: () => S.panel.on && S.panel.tab === 'rubato' }],
     ['Slur', 'KeyO', { on: () => !!S.slur }], ['Inspector', null, { do: () => toggleInspector(), on: () => !!INSP.on }], ['Transport Panel', 'KeyH', { on: () => typeof TPANEL === 'object' && TPANEL.on }],
     '-',
     ['Automation', 'KeyA', { on: () => !!S.auto }], ['Next Automation Parameter', '⌘KeyY'], ['Rubato View', '⌘KeyF', { on: () => !!S.flex }],

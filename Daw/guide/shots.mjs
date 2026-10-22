@@ -214,39 +214,18 @@ const SHOTS = {
     await b.sleep(250)
     { const L = await b.lay(); await b.pic('roll-kit', [0, L.BY, W, H - L.BY]) }
   },
-  /* the command line's own page in the panel (/ opens it): three lines said, a fourth being typed with what can follow it;
-     then a word two tracks answer to, and the question it asks */
+  /* the command line at the foot (option and / give it the keys): a line said, and what came of it beside it; then a word
+     two tracks answer to, and the question it asks */
   async say (b) {
-    for (const line of ['kick -3', 'drums 2db down then solo bass', 'select chorus']) { await key(b, '/'); await b.type(line); await key(b, '↩'); await b.sleep(350) }
-    await key(b, '/'); await b.type('fade out guitar '); await b.sleep(400)
-    console.log('prompt', await b.names())
-    await b.pic('prompt', [0, H - 22 - 316, 830, 316], 1.5)
-    await key(b, 'esc')
+    const line = async (text, name) => { await key(b, '⌥/'); await b.type(text); await key(b, '↩'); await b.sleep(350); await b.pic(name, [0, H - 22, 620, 22], 2.5); await key(b, 'esc') }
+    await line('kick -3', 'say-1')
+    await line('drums 2db down then solo bass', 'say-2')
+    await line('select chorus', 'say-3')
     await b.ev(`const T = __daw.S.tracks; T[0].name = 'kick in'; T[1].name = 'kick out'; __daw.repaint(); __daw.redraw()`)
-    await key(b, '/'); await b.ev(`const e = document.activeElement; if (e && 'value' in e) { e.value = ''; e.dispatchEvent(new Event('input', { bubbles: true })) } return 1`); await b.type('kick mute'); await key(b, '↩'); await b.sleep(400)
-    await b.pic('prompt-ask', [370, H - 22 - 316 + 92, W - 370, 56], 1.5)
-  },
-  /* a request made by its sound: the prompt page answers with three ways. In a browser no app listens, so what was heard
-     is set by hand, in numbers like the app's own on the demo song (they meet at 36 to 140 hz, both lows at 50 hz, the bass
-     over every hit of the kick); A is being heard, and its gain is being typed over */
-  async ways (b) {
-    await key(b, '/'); await b.type('kick and bass sound apart'); await key(b, '↩'); await b.sleep(400)
-    await b.ev(`document.getElementById('cmd').blur()
-      const T = __daw.S.tracks, kick = T.find(t => t.name === 'kick'), bass = T.find(t => t.name === 'bass')
-      const C = [20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000]
-      const kickM = [-62, -46, -31, -13, -6, -6.5, -7.5, -9, -12, -17, -22, -25, -27, -29, -31, -33, -35, -36, -37, -38, -39, -40, -41, -42, -44, -46, -48, -50, -53, -56, -60]
-      const bassM = [-62, -45, -29, -13.5, -5, -5.5, -7, -9.5, -14, -16, -18, -21, -24, -26.5, -28, -30, -32, -34, -36, -38, -40, -42, -44, -46, -48, -50, -52, -54, -56, -58, -60]
-      const hd = { centres: C, hop: 2048, a: kick.id, b: bass.id, A: { id: kick.id, mean: kickM, mx: -4, hits: [] }, B: { id: bass.id, mean: bassM, mx: -5, hits: [] }, fA: 50, fB: 50, lo: 36, hi: 140, loB: 3, hiB: 8, hits: 32, covered: 32, longer: true }
-      WAYS.heard = hd; WAYS.range = [4, 12]; WAYS.ways = waysMake(hd)
-      WAYS.ways.forEach((w, i) => { w.gave = [-2.9, -4.1, -4.0][i]; w.out = [.4, .6, .3][i] })
-      WAYS.hear = 1; WAYS.busy = ''; uiDirty('dock'); __daw.redraw(); return 1`)
-    await b.sleep(200)
-    await b.hit('ways-edit', 2); await b.type('-1.5')                                     // (A's gain, −3 db, typed over)
-    console.log('ways', await b.names())
-    const L = await b.lay(); await b.pic('ways', [0, L.BY + 2, L.W, L.H - 22 - L.BY - 2], 1.5)
+    await line('kick mute', 'say-4')
   },
 }
-const SIZE = { ways: { w: 1440, h: 900 } }                                                 // (the ways page as it was drawn and approved: three cards need the width)
+const SIZE = {}
 async function standIn () {
   // the app as far as the page asks it anything, borrowed from the start page's own check, with the names changed
   const { readFileSync } = await import('node:fs')

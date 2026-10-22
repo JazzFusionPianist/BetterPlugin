@@ -162,7 +162,6 @@ function wordKind (tok) {
     case 'color': case 'shade': return 'colour'
     case 'howhat': case 'fmt': case 'hoprint': case 'horange': return 'hand off'
     case 'printname': return 'print'
-    case 'want': return 'sound'
     case 'what': return 'value'
     case 'plug': return 'plug-in'
     case 'ctlname': return 'control'
@@ -243,9 +242,9 @@ function hintFresh (open) {
   S.hint = null
   if (document.activeElement === cmd && !L.done) {
     const typed = cmd.value.trim().toLowerCase(), t = lineTrack(), what = linePart('what')
-    const page = typeof promptUp === 'function' && promptUp(), short = open === true && !typed && t && (!what || (what.plug && !linePart('param')) || (lineKey() && linePart('much') && !linePart('act')))
-    if (typed || short || page) {                                                    // (the prompt's page has room for the list at every step, with nothing typed too: prompt.js)
-      const items = lineList(typed, cmd.value.toLowerCase()).slice(0, 200)                 // (the list goes down the rest with the arrows: drawn so many at a time)                  // (the page shows as many as it has room for, and goes down the rest with the arrows: prompt.js)
+    const short = open === true && !typed && t && (!what || (what.plug && !linePart('param')) || (lineKey() && linePart('much') && !linePart('act')))
+    if (typed || short) {
+      const items = lineList(typed, cmd.value.toLowerCase()).slice(0, 200)                 // (the list goes down the rest with the arrows: drawn so many at a time)
       if (items.length) { const keep = was ? items.findIndex(x => x.t === (was.items[was.at] || {}).t) : -1; S.hint = { items, at: Math.max(0, keep) } }
     }
   }
@@ -344,7 +343,7 @@ async function lineDo () {
 
 /* ── drawn: the cells in the foot, the list over them, and on the lanes the stretch and the line that would be drawn ── */
 function lineCells () {
-  const P = S.line.parts, at = (typeof promptAt === 'function' && promptAt()) || { x: 26, y: H - FOOT_H + 3, h: 16, size: 9.5 }, cy = at.y, h = at.h, sz = at.size, pad = Math.round(sz * .74)      // (prompt.js: in the prompt's own page, larger)
+  const P = S.line.parts, at = { x: 26, y: H - FOOT_H + 3, h: 16, size: 9.5 }, cy = at.y, h = at.h, sz = at.size, pad = Math.round(sz * .74)
   let s = '', x = at.x, i = 0
   while (i < P.length) {
     const p = P[i]
@@ -378,7 +377,7 @@ function pHint () {
     }
     s += G(lanes, '', LN)
   }
-  if (!h || (typeof promptOn === 'function' && promptOn())) return s                     // (with the prompt's page up, the list is drawn in it: prompt.js)
+  if (!h) return s
   const rowH_ = 20, cnt = h.items.length, room = Math.min(cnt, HINT_MAX), more = cnt > room, wide = Math.max(...h.items.map(it => tw(asGiven(it.t), 10.5, 500) + (it.d ? tw(it.d, 9.5) + 26 : 0)))
   S.hintTop = clamp(Math.min(S.hintTop || 0, h.at), Math.max(0, h.at - room + 1), Math.max(0, cnt - room))      // (a longer list than the rows shown goes down with the arrows: the row chosen is always in view)
   const w = clamp(Math.ceil(wide) + 30, 150, 360), hh = room * rowH_ + 12 + (more ? 14 : 0)

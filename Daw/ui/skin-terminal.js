@@ -35,7 +35,7 @@ SKINS.top.terminal = () => {
   /* the first line: the tabs; at the right the tempo, metre, key */
   let x = x0
   const now = !S.panel.on ? 'arrange' : S.panel.tab
-  const tabs = [['arrange', 'arrange'], ['mixer', 'mixer'], ['patch', 'patch']].concat(typeof pRoll === 'function' ? [['notes', 'tab-notes']] : [], typeof pPrompt === 'function' ? [['prompt', 'tab-prompt']] : [])
+  const tabs = [['arrange', 'arrange'], ['mixer', 'mixer'], ['patch', 'patch']].concat(typeof pRoll === 'function' ? [['notes', 'tab-notes']] : [])
   tabs.forEach(([t, a], k) => { const w = ` ${k + 1}:${t} `; s += (now === t ? tmInv(x, 22, w) : tmT(x, 22, w, { a: .75 })) + hit(x - 4, 8, tw(w, 11) + 8, 20, a); x += tw(w, 11) + cw })
   let rx = W - 22
   const right = (w, a, field, al = .8) => { const ww = tw(w, 11); s += tmT(rx - ww, 22, w, { a: al }); if (a) { s += hit(rx - ww - 4, 8, ww + 8, 20, a); SKV.field[field || a] = { x: rx - ww - 4, y: 8, w: Math.max(60, ww + 8), h: 20 } } rx -= ww + cw * 3 }

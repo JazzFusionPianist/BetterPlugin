@@ -1569,26 +1569,23 @@ async function runSelfTest (mode) {
     res.expectFrames = Math.floor((a1 - a0) * SPB() / r.hop)
     return res
   })
-  /* the Mac's own band eq (AUNBandEQ, on every Mac): its controls, as the command line's ways would set them */
-  /* the planner (plan.js): requests other than two apart, each answered by ways that differ in how, each turned until it
-     gives what was asked; closed, the tracks are as they were */
-  await step('plan', async () => {
-    const keys = S.tracks.find(x => /keys/i.test(x.name)), hum = S.tracks.find(x => /hum/i.test(x.name)), res = {}
-    if (!keys || !hum || !NAT) return { skipped: 'no keys or hum' }
-    const nodes = t => (wallOf(t).nodes || []).map(n => n.k === 'plug' ? 'plug:' + String(n.ins && n.ins.name).toLowerCase() : n.k).join(' ')
-    const state = t => JSON.stringify({ n: nodes(t), v: t.vol, p: t.patch, i: t.inserts.length })
-    const before = { keys: state(keys), hum: state(hum) }
-    for (const line of (window.PLAN_ONLY || [`${keys.name} further back`, `${keys.name} wider`, `${hum.name} more transparent`, `${hum.name} more embedded`, `${keys.name} brighter`]).map(l => l.replace('$keys', keys.name).replace('$hum', hum.name))) {
-      const t0 = performance.now()
-      await runCommand(line)
-      for (let k = 0; k < 900 && (!WAYS.on || WAYS.busy); k++) await sleep(100)
-      res[line] = { ms: Math.round(performance.now() - t0), busy: WAYS.busy, targets: (WAYS.targets || []).map(tg => planSaid(tg, tg.amount)), ways: WAYS.ways.map(w => ({ letter: w.letter, name: w.name, gave: (WAYS.targets || []).map((tg, j) => w.left.includes(tg) ? 'left' : planSaid(tg, w.gave[j] || 0)), out: w.out, why: w.why || '', steps: w.steps.map(st => Object.assign({}, st, { plug: undefined })), trace: w.trace, drives: w.drives.map(d => d.move) })) }
-      if (line.includes('transparent')) await snap('selftest-plan.png')
-      if (WAYS.ways.length) { await waysHear(1); res[line].heardA = { keys: nodes(keys), hum: nodes(hum) } }
-      S.panel.on = false; setView(); flush(); for (let k = 0; k < 50 && WAYS.on; k++) await sleep(100)
-      S.panel.on = true; setView(); flush()
-    }
-    res.back = { keys: state(keys) === before.keys, hum: state(hum) === before.hum }
+  /* the session tidied (tidy.js): the tracks called audio 1… are heard through the app's own buffers (the pcm call) by the
+     ear in its worker, named for what they are, put in order, and one step back puts every name and place back */
+  await step('tidy', async () => {
+    if (!NAT || typeof tidyTracks !== 'function') return { skipped: 'no app' }
+    const res = {}, ts = S.tracks.filter(t => t.kind === 'audio' && !t.theirs && !t.disabled), was = S.tracks.map(t => [t.id, t.name])
+    res.ear = await tidyStart()
+    { const r0 = ts.find(t => (t.regs || []).some(r => r.key || r.buf)), reg = r0 && r0.regs.find(r => r.key || r.buf), p = reg ? await NAT.call('pcm', { key: reg.key || reg.buf, from: 0, sec: 1 }) : null; res.pcm = p ? { ok: p.ok, rate: p.rate, n: p.n, b64: (p.pcm || '').length } : null }
+    ts.forEach((t, i) => { t.name = 'Audio ' + (i + 1) }); repaint(); flush()
+    const t0 = performance.now(), r = await tidyTracks()
+    res.ms = Math.round(performance.now() - t0)
+    res.found = r ? r.found.map(f => [f.name, f.what, f.by, f.heard ? f.heard.map(h => h[0] + ' ' + h[1].toFixed(2)).join(', ') : '', 'low ' + (f.low || 0).toFixed(2), 'high ' + (f.high || 0).toFixed(2), 'struck ' + (f.struck || 0).toFixed(1), 'crest ' + (f.crest || 0).toFixed(1)].join(' | ')) : null
+    res.order = S.tracks.map(t => t.name + ':' + (t.what || '-'))
+    await snap('selftest-tidy.png')
+    undoEdit(); flush()
+    res.back = S.tracks.every(t => { const w = was.find(x => x[0] === t.id); return !w || t.name === 'Audio ' + (ts.indexOf(t) + 1) || t.name === w[1] || !ts.includes(t) })
+    for (const [id, name] of was) { const t = byId(id); if (t) t.name = name }      // (the song's own names again, for the steps after)
+    repaint(); flush()
     return res
   })
   /* the room's ears (ears.js): a change made on purpose moves its own line, by about what was done, and the others little */
@@ -1647,6 +1644,7 @@ async function runSelfTest (mode) {
       res.onItsOwn = { kind: m.kind, bands: m.bands && m.bands.length, ms: Math.round(performance.now() - t0), song: S.tracks.map(x => x.inserts.length).join(',') === before, gone: await NAT.call('params', { track: LEARN_TRACK, uid: 9999 }) } }
     return res
   })
+  /* the Mac's own band eq (AUNBandEQ, on every Mac): its controls, as the ways would set them */
   await step('nbeq', async () => {
     const t = S.tracks.find(x => x.kind === 'audio' && !x.theirs), ti = S.tracks.indexOf(t), list = await NAT.call('plugins'), eq = (list || []).find(p => /nbandeq|n-band|aunbandeq/i.test(p.name + ' ' + p.id))
     if (!eq) return { found: false, names: (list || []).filter(p => /appl/i.test(p.id)).map(p => p.name + ' ' + p.id).slice(0, 30) }
@@ -1655,41 +1653,6 @@ async function runSelfTest (mode) {
     res.scales = {}
     for (const i of [0, 1, 2, 3, 4, 5]) { const sc = await NAT.call('paramScale', { track: t.id, uid: ins.uid, index: i }); res.scales[i] = sc && sc.texts ? [sc.unit, sc.texts[0], sc.texts[25], sc.texts[50], sc.texts[75], sc.texts[100]] : null }
     await NAT.call('remove', { track: t.id, uid: ins.uid }); t.inserts = t.inserts.filter(x => x.uid !== ins.uid); await natSession()
-    return res
-  })
-  /* a request by its sound (ways.js, design/choices draft 1): "kick and bass sound apart" — heard, three ways made, each heard
-     on the tracks, one used and taken back and brought again in one step each */
-  await step('ways', async () => {
-    const kick = S.tracks.find(t => /kick/i.test(t.name)), bass = S.tracks.find(t => /bass/i.test(t.name)), res = {}
-    if (!kick || !bass) return { skipped: 'no kick and bass in the check' }
-    const nodes = t => (wallOf(t).nodes || []).map(n => n.k === 'plug' ? 'plug:' + String(n.ins && n.ins.name).toLowerCase() : n.k).join(' ')
-    res.before = { bass: nodes(bass), kick: nodes(kick), side: bass.sideFrom || 0, vol: bass.vol }
-    const t0 = performance.now()
-    await runCommand(`${kick.name} and ${bass.name} sound apart`)
-    for (let k = 0; k < 600 && (!WAYS.on || WAYS.busy); k++) await sleep(100)
-    res.ms = Math.round(performance.now() - t0); res.busy = WAYS.busy
-    const hd = WAYS.heard
-    res.heard = hd && { a: byId(hd.a).name, b: byId(hd.b).name, fA: hd.fA, fB: hd.fB, lo: hd.lo, hi: hd.hi, hits: hd.hits, covered: hd.covered, range: WAYS.range, fastHits: hd.fastHits && hd.fastHits.length, near: !!hd.B0 }
-    res.ways = WAYS.ways.map(w => ({ letter: w.letter, name: w.name, gave: w.gave, out: w.out, why: w.why || '', steps: w.steps.map(s => Object.assign({}, s, { bands: s.bands })) })); res.mix = hd && hd.mix; res.master0 = WAYS.master0
-    await snap('selftest-ways.png')
-    res.heard_as = {}
-    for (const i of [1, 2, 3]) { await waysHear(i); res.heard_as['ABC'[i - 1]] = { hear: WAYS.hear, bass: nodes(bass), kick: nodes(kick), side: bass.sideFrom ? byId(bass.sideFrom).name : '', vol: bass.vol, master: S.master } }
-    await waysHear(0); res.as_it_is = { bass: nodes(bass), kick: nodes(kick), side: bass.sideFrom || 0, vol: bass.vol, master: S.master }
-    { await waysHear(2)                                                                            // a depth typed over as it is written (−1.5): heard again, and turned until it gives that
-      waysEdit(2, 0, 'depth'); await sleep(50); const el = document.getElementById('ways-edit'), shownAt = !!document.querySelector('[data-a="ways-edit"][data-f="depth"]')
-      res.depthField = { value: el.value, open: el.style.display !== 'none', cell: shownAt }; el.value = '-1.5'; await waysEditDone(true)
-      res.depth = { depth: WAYS.ways[1].steps[0].depth, gave: WAYS.ways[1].gave, hear: WAYS.hear, bass: nodes(bass) }
-      el.style.display = 'none'; WAYS.ways[1].steps[0].depth = 4; delete WAYS.ways[1].steps[0].fix; await waysMeasure(2); await waysHear(0) }
-    const u0 = UNDO.length
-    await waysUse(3); res.used = { used: WAYS.used, bass: nodes(bass), steps: UNDO.length - u0, master: S.master }
-    undoEdit(); await sleep(800); res.undone = { bass: nodes(bass), side: bass.sideFrom || 0, vol: bass.vol }
-    redoEdit(); await sleep(800); res.redone = { bass: nodes(bass), side: bass.sideFrom ? byId(bass.sideFrom).name : '' }
-    undoEdit(); await sleep(800); await waysClose(); res.after = { bass: nodes(bass), kick: nodes(kick) }
-    { await runCommand(`${kick.name} and ${bass.name} sound apart`)                                 // asked again, a way heard, and the panel shut by the hand: the way comes off, the out comes back
-      for (let k = 0; k < 600 && (!WAYS.on || WAYS.busy); k++) await sleep(100)
-      await waysHear(3); const heardC = nodes(bass)
-      S.panel.on = false; setView(); uiDirty("dock"); flush(); for (let k = 0; k < 50 && WAYS.on; k++) await sleep(100)      // (flush by hand: a window the check hides is not drawn by the frame)
-      res.shut = { heard: heardC, on: WAYS.on, bass: nodes(bass), side: bass.sideFrom || 0, master: S.master, master0: WAYS.master0 } }
     return res
   })
   await step('grammar', async () => {
@@ -2581,21 +2544,6 @@ async function runSelfTest (mode) {
     return res
   })
 
-  /* the prompt's own page, in the app's own web view: / opens it with the keys in its field; a thing said is listed with what came of it */
-  await step('promptPage', async () => {
-    if (typeof promptOpen !== 'function') return { skipped: 'this page has no prompt page' }
-    const t = S.tracks.find(x => x.kind === 'audio'), was = t && t.vol
-    KEYS.Slash(); await sleep(500)
-    const res = { open: S.panel.tab === 'prompt' && S.panel.on, keys: document.activeElement === $('cmd') }
-    if (t) { await runCommand(`${t.name} -2`); await sleep(200) }
-    res.said = PROMPT.said.slice(0, 1).map(q => [q.words, q.res])
-    relayout(); flush()
-    res.inField = (() => { const c = $('cmd').getBoundingClientRect(), f = document.querySelector('#g-dock [data-a="prompt"][data-k="field"]'); if (!f) return false; const r = f.getBoundingClientRect(); return c.top >= r.top - 1 && c.bottom <= r.bottom + 1 })()
-    dirtyAll(); flush(); await sleep(150); await snap('selftest-prompt-page.png')
-    if (t) { t.vol = was; pushTrack(t) }
-    $('cmd').value = ''; $('cmd').blur(); S.panel.tab = 'patch'; S.panel.on = false; setView(true); dirtyAll(); flush()
-    return res
-  })
 
   /* a print's study, in the app's own web view: a gain print on a track's wall, pressed open; 25 typed into its amount —
      the track is printed quieter by as much as the print says, and the study is drawn (a picture) */

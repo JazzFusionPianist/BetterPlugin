@@ -39,6 +39,7 @@ DerivedData
 # Slur DAW alpha build artifacts
 Daw/build/
 Daw/build.noindex/
+Daw/ui/yamnet/
 Daw/vendor/JUCE/
 Daw/vendor/JUCE.new/
 Daw/build-configure.log

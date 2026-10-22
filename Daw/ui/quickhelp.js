@@ -64,7 +64,6 @@ const QH_SAY = {
   'tab-patch': ['patch', '패치', 'the chosen track\'s patch: prints and plug-ins', '고른 트랙의 패치: 프린트와 플러그인', 'View > Patch'],
   'tab-mixer': ['mixer', '믹서', 'every track\'s strip', '모든 트랙의 스트립', 'View > Mixer'],
   'tab-notes': ['notes', '노트', 'the notes of the chosen region', '고른 리전의 노트', 'View > Notes'],
-  'tab-prompt': ['prompt', '프롬프트', 'asks Slur for a sound in words', '말로 소리를 요청합니다', 'View > Prompt'],
   'tab-rubato': ['rubato', '루바토', 'the rubato panel', '루바토 패널', 'View > Rubato Panel'],
   pgrip: ['panel height', '패널 높이', 'drag up or down', '위아래로 끕니다', ''],
   /* the lanes: what a press would do just there */

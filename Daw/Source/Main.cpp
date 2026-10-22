@@ -598,6 +598,7 @@ private:
         }
         if (op == "dropBuffer") { engine.dropBuffer (d["key"].toString()); done (okVar()); return; }
         if (op == "wave") { done (engine.wave (d["key"].toString(), (double) d["from"], (double) d["to"], (int) d["n"])); return; }      // a stretch of a sound, close up, for drawing
+        if (op == "pcm") { done (engine.pcm (d["key"].toString(), (double) d["from"], (double) d["sec"])); return; }      // a stretch of a sound as it is, for the page to hear what it is (ui/tidy.js)
         if (op == "closeEditors") { engine.closeEditors(); done (okVar()); return; }
         if (op == "testPlugWindows") { done (juce::JSON::parse (juce::String (slur::PlugWindow::check ((bool) d["space"], d.hasProperty ("code") ? (int) d["code"] : 49, (int) d["post"] != 0)))); return; }      // (for the self-test)
         if (op == "plugins") { done (engine.listPlugins ([] (const juce::String& id) { return auMaker (id); })); return; }

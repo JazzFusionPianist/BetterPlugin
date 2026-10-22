@@ -2681,6 +2681,29 @@ public:
         return result;
     }
 
+    /** A stretch of a sound as it is, one channel (the mean of its channels), sixteen bits, in base64 — for the page to hear
+        what a track is (ui/tidy.js: YAMNet hears it at 16 kHz). from and sec in seconds, at most 30 at a time. */
+    juce::var pcm (const String& key, double from, double sec)
+    {
+        auto* o = new juce::DynamicObject();
+        juce::var result (o);
+        const auto src = buffer (key);
+        if (src == nullptr || src->data.getNumSamples() < 1) { o->setProperty ("ok", false); return result; }
+        const auto& b = src->data;
+        const int len = b.getNumSamples(), ch = juce::jmax (1, b.getNumChannels());
+        const int i0 = juce::jlimit (0, len, (int) std::floor (from * sr)), n = juce::jlimit (0, len - i0, (int) std::ceil (juce::jlimit (0.0, 30.0, sec) * sr));
+        std::vector<juce::int16> p ((size_t) n);
+        for (int i = 0; i < n; ++i)
+        {
+            float s = 0.0f;
+            for (int c = 0; c < ch; ++c) s += b.getSample (c, i0 + i);
+            p[(size_t) i] = (juce::int16) juce::jlimit (-32768, 32767, (int) std::lround (s / (float) ch * 32767.0f));
+        }
+        o->setProperty ("ok", true); o->setProperty ("rate", sr); o->setProperty ("from", (double) i0 / sr); o->setProperty ("n", n);
+        o->setProperty ("pcm", juce::Base64::toBase64 (p.data(), p.size() * sizeof (juce::int16)));
+        return result;
+    }
+
     /** How fast a buffer goes, heard from its sound: {bpm, sure, first, loop} (see tempoOf). Runs on its own thread. */
     void findTempo (const String& key, std::function<void (juce::var)> done)
     {

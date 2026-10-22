@@ -63,7 +63,7 @@ function rubHead (y) {
   return s + k
 }
 /* the panel's tabs, as every page of it draws them */
-const panelTabs = on => [{ t: 'patch', a: 'tab-patch' }, { t: 'mixer', a: 'tab-mixer' }].concat(typeof pRoll === 'function' ? [{ t: 'notes', a: 'tab-notes' }] : [], typeof pPrompt === 'function' ? [{ t: 'prompt', a: 'tab-prompt' }] : [], [{ t: 'rubato', a: 'tab-rubato' }]).map(x => Object.assign(x, { on: x.t === on }))
+const panelTabs = on => [{ t: 'patch', a: 'tab-patch' }, { t: 'mixer', a: 'tab-mixer' }].concat(typeof pRoll === 'function' ? [{ t: 'notes', a: 'tab-notes' }] : [], [{ t: 'rubato', a: 'tab-rubato' }]).map(x => Object.assign(x, { on: x.t === on }))
 
 function pRubato (y, h) {
   const [r, t] = rubReg()

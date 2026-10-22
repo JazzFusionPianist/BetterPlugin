@@ -1926,7 +1926,7 @@ const KEYS = {
   '⌃KeyB': () => bounceInPlace(), '⌘Comma': () => { if (NAT) NAT.call('audioSettings') },
   '⌥Quote': () => addScene(Math.round(curPos()) + 1), '⌥Backspace': () => { const sc = sceneAt(curPos()); if (sc.i >= 0) removeScene(sc.i) },
   '⇧Quote': () => { const sc = markerNow(); if (sc) startRename('scene', sc.i) }, '⌥⇧Quote': () => markerForChosen(),
-  Slash: () => $('cmd').focus(),
+  Slash: () => startRename('pos'), '⌥Slash': () => $('cmd').focus(),      // (/ is go to bar, as in Logic: his ask, 2026-10-22; option and / is the line at the foot)
   Escape: () => { if (S.menu) S.menu = null; else if (S.back) { S.back = null; uiDirty('back') } else if (S.newT) S.newT = null; else if (S.look) S.look = null; else if (S.sheet) { S.sheet = false; syncSlur() } else if (S.picker.open) closePicker(); else if (S.ho.open) S.ho.open = false; else { S.marq = null; S.selR = []; S.selP = []; S.selX = null; S.selT = []; S.selM = null; S.focus = 'lanes' } uiDirty('menu', 'new', 'look', 'lanes', 'head', 'scenes', 'top', 'hand', 'dock', 'sheet', 'cmd', 'info') },
 }
 for (let k = 1; k <= 9; k++) KEYS['Numpad' + k] = () => markerNumber(k)                 // the number pad goes to the markers by their place

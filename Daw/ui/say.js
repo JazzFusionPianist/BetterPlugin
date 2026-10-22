@@ -105,13 +105,6 @@ const SAY_FIXED = [
   [{ k: 'verb', v: 'put' }, ['put', 'load']], [{ k: 'pword' }, ['prints', 'print']],
   [{ k: 'verb', v: 'bypass' }, ['bypass', 'turn off', 'switch off']], [{ k: 'verb', v: 'unbypass' }, ['unbypass', 'turn on', 'switch on']], [{ k: 'verb', v: 'open' }, ['open', 'show']],
   [{ k: 'opt', v: 'parallel' }, ['in parallel', 'parallel', 'alongside']], [{ k: 'opt', v: 'series' }, ['in series', 'in line']],
-  /* asked for by how it should sound: answered with ways of doing it (ways.js) */
-  [{ k: 'want', v: 'apart' }, ['sound apart', 'sound separate', 'sound separated', 'apart', 'separate', 'separated', 'unmask', 'untangle']],
-  [{ k: 'want', v: 'embedded' }, ['more embedded', 'embedded', 'sit in the mix', 'sit in', 'blend in', 'blended in', 'more blended']],
-  [{ k: 'want', v: 'wider' }, ['sound wider', 'wider', 'more wide', 'broader']],
-  [{ k: 'want', v: 'back' }, ['further back', 'farther back', 'further away', 'more distant', 'pushed back', 'behind the rest']],
-  [{ k: 'want', v: 'transparent' }, ['more transparent', 'transparent', 'clearer', 'more clear', 'more open']],
-  [{ k: 'want', v: 'brighter' }, ['brighter']], [{ k: 'want', v: 'darker' }, ['darker']], [{ k: 'want', v: 'warmer' }, ['warmer']],
 ]
 /* a print said as a track word after a track (kick delay 30, guitar reverb 40): the print, unless it is sent to */
 const SAY_PRINT_TRK = { reverb: 'space', delay: 'delay' }
@@ -516,7 +509,6 @@ function sayClause (toks, who0, s, made0) {
     if (t.k === 'str') { items.push({ t: 'str', v: t.v }); i++; continue }
     if (t.k === 'rword' || t.k === 'notes' || t.k === 'tword' || t.k === 'mword' || t.k === 'pword') { items.push({ t: t.k }); i++; continue }
     if (t.k === 'printname') { items.push({ t: 'printname', v: t.v }); i++; continue }
-    if (t.k === 'want') { items.push({ t: 'want', v: t.v }); i++; continue }
     if (t.k === 'tkind' || t.k === 'tfilt' || t.k === 'tpos' || t.k === 'color' || t.k === 'shade' || t.k === 'howhat' || t.k === 'fmt' || t.k === 'hoprint' || t.k === 'horange') { items.push({ t: t.k, v: t.v }); i++; continue }
     if (t.k === 'qopt') { items.push({ t: 'qopt', v: t.v }); i++; continue }
     if (t.k === 'pitch') { items.push({ t: 'pitch', n: t.v, role: role() }); i++; continue }
@@ -629,8 +621,6 @@ function sayClause (toks, who0, s, made0) {
   if (who) more.who = who; if (span) more.span = span; if (name) more.name = name; if (after != null) more.after = after; if (before != null) more.before = before
   { const r = sayValue({ items, verbs, mods, amts, who, said, who0, span, after, before, s }); if (r) return r }
   { const rf = {}; for (const x of items.filter(x => x.t === 'rfilt')) rf[x.v] = x.v === 'long' || x.v === 'short' ? x.bars : x.v === 'named' ? x.s : x.v === 'first' || x.v === 'last' ? x.n : true; if (Object.keys(rf).length) more.rf = rf }
-  { const want = items.find(x => x.t === 'want')                                               // asked for by its sound: ways of doing it (ways.js)
-    if (want) { const ids = items.filter(x => x.t === 'who').flatMap(x => x.ids || []); if (want.v === 'apart' && ids.length !== 2) return { say: 'which two tracks' }; if (!ids.length) return { say: 'which track' }; return { acts: [{ do: 'ways', want: want.v, ids, words: s }], who } } }
   { const r = sayPatch({ items, verbs, who, said, who0, toks, s }); if (r) return r }
   { const r = sayProject({ items, verbs, amts, who, said, who0, places, s }); if (r) return r }
   { const r = sayTime({ items, verbs, amts, who, said, who0, places, span, destPos, after, s }); if (r) return r }
@@ -754,7 +744,6 @@ function sayDo (a, out) {
   const word = (text, more) => out.push(Object.assign({ k: 'word', text, step: 1 }, more || {})), none = () => out.push({ k: 'word', text: sayWho(a) ? 'nothing there' : 'choose a region first' })
   if (a.do === 'note') { out.push({ k: 'word', text: String(a.text).slice(0, 90), quiet: 1 }); return true }
   if (a.do === 'chords') return typeof chordDo === 'function' ? chordDo(a, out) : false
-  if (a.do === 'ways') { if (typeof waysAsk !== 'function') return false; waysAsk(a.want, a.ids, String(a.words || '').trim()); out.push({ k: 'word', text: `listening to ${sayList(a.ids.map(byId).filter(Boolean))}` }); return true }      // (no step: the ways are offered on the prompt's page)
   if (a.do === 'patch2') {                                                                         // the patch, by words: what the wall's own hands do
     const ts = (a.ids || []).map(byId).filter(Boolean), name = a.plug || a.print, said = []
     if (a.op === 'add' && a.plug) { out.push({ k: 'word', text: a.result || 'plug-ins are put on in the app' }); return true }      // (put on before the line: sayReady)

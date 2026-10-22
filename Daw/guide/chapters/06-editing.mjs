@@ -251,7 +251,7 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
       [['make, move', '만들기, 옮기기'], ['with the pointer or the smart tool, drag from a mark or a pin; with the rubato tool, press anywhere in a region. While the pin moves the sound is drawn as it will be', '포인터나 스마트 도구로 표시나 핀에서 드래그. 루바토 도구로는 리전 어디든 누르면 됩니다. 핀을 움직이는 동안 바뀐 파형이 그대로 그려집니다']],
       [['what moves', '움직이는 것'], ['a new pin also pins the nearest mark on either side, so only what lies between them is stretched', '새 핀은 양옆의 가장 가까운 표시도 함께 고정하므로 그 사이만 늘어납니다']],
       [['limits', '한계'], ['a stretch cannot be squeezed below a quarter nor pulled beyond four times', '구간은 4분의 1보다 줄일 수 없고 4배보다 늘릴 수 없습니다']],
-      [['let one go', '하나 풀기'], ['double-click the pin', '핀 더블 클릭']],
+      [['double-click', '더블 클릭'], ['on a pin: it lets go. Where there is none: a pin that holds', '핀 위: 풀림. 핀이 없는 곳: 그 자리를 잡는 핀']],
       [['let all go', '모두 풀기'], ['[[⌥⌘Q]] for the chosen regions', '선택한 리전에 [[⌥⌘Q]]']]) +
     h('quantize', '퀀타이즈') +
     p('[[Q]] pulls every place shown in the chosen files to the nearest line of the quantize value, and says how many: “12 pulled to 1/16”. The value is set from the key beside {{quantize}}: 1/4, 1/8, 1/8 triplet, 1/16, 1/16 triplet, 1/32.', '[[Q]]는 선택한 파일에 표시된 모든 위치를 퀀타이즈 값의 가장 가까운 선으로 당기고 개수를 알려 줍니다. “12 pulled to 1/16”. 값은 {{quantize}} 옆 키로 정합니다. 1/4, 1/8, 1/8 triplet, 1/16, 1/16 triplet, 1/32.') +

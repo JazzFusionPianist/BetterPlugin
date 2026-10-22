@@ -43,6 +43,17 @@ await ev(`S.selR = [RA.id]; toggleFlex(); flush(); return 1`)
 { const s = await st(); ok('the key again with it chosen: off, its pins kept aside, nothing stretched', !s.a && s.pa === 0 && s.ka >= 1 && !(await ev(`return warped(RA)`)), s) }
 await ev(`toggleFlex(); flush(); return 1`)
 { const s = await st(); ok('…and on again: its pins back', s.a && s.pa >= 1 && s.ka === 0, s) }
+/* pressed twice where there is no pin: one is set there, the sound left as it lies; twice on it: gone */
+{ const twice = async q => { await b.sleep(450); for (let k = 0; k < 2; k++) { await mouse('mouseMoved', q.x, q.y, { buttons: 0 }); await mouse('mousePressed', q.x, q.y, { clickCount: k + 1 }); await mouse('mouseReleased', q.x, q.y, { clickCount: k + 1 }); await b.sleep(60) } await b.sleep(150) }
+  await ev(`S.tool = 'pointer'; S.flex = true; flush(); return 1`)
+  const spot = await ev(`flush(); const far = b => (RA.flex || []).every(m => Math.abs(xOfD(RA, m.d) - bx(b)) > 15) && transOf(RA).every(t => Math.abs(xOfD(RA, sToD(RA, t)) - bx(b)) > 15); return [1.6, 2.6, 3.6, 4.6, 1.3, 2.3, 3.3, 4.3].find(far) || 0`)      // (a place with no pin and nothing heard near it)
+  const n0 = (await st()).pa, q = await xy(ia, spot), at0 = await ev(`return dToS(RA, dOfBar(RA, ${spot - 1}))`)
+  await twice(q)
+  const s1 = await st(), same = await ev(`return Math.abs(dToS(RA, dOfBar(RA, ${spot - 1})) - ${at0}) < 1e-6`)
+  ok('pressed twice where it has no pin: one is set there, and nothing moves', spot > 0 && s1.pa === n0 + 1 && same, [spot, n0, s1, same])
+  const q2 = await ev(`flush(); const m = RA.flex.find(x => Math.abs(x.s - ${at0}) < .05) || RA.flex[RA.flex.length - 1], b0 = board.getBoundingClientRect(), k = b0.width / (W + (SKV.left || 0)); return { x: b0.left + (xOfD(RA, m.d) + (SKV.left || 0)) * k, y: b0.top + (rowY(IA) + rowH(IA) * .5) * k }`)
+  await twice(q2)
+  ok('…pressed twice on it: it lets go', (await st()).pa === n0, await st()) }
 /* nothing chosen: the view only */
 await ev(`S.selR = []; flush(); return 1`)
 { const before = await st(); await ev(`toggleFlex(); flush(); return 1`); const s = await st(); ok('nothing chosen: the key only shows or hides the view', s.flex === !before.flex && s.a === before.a && s.b === before.b, [before, s]) }

@@ -217,9 +217,16 @@ function livePeaks (r, steps, g0, g1) {
 }
 function flexDbl (e, p) {                                                                                    // twice on a pin: it lets go
   const ti = laneAt(p.y), r = hitRegion(ti, barAt(p.x))
-  if (!r || !r.flex || !rubatoOn(r)) return
-  const m = r.flex.find(x => Math.abs(xOfD(r, x.d) - p.x) < 5)
-  if (m) unpin(r, m)
+  if (!r || !rubatoOn(r)) return
+  const m = (r.flex || []).find(x => Math.abs(xOfD(r, x.d) - p.x) < 5)
+  if (m) { unpin(r, m); return }
+  /* twice where there is no pin: one is set there, holding the sound as it lies — on the place heard there if one is near
+     (his ask, 2026-10-22: a marker made where the app heard none) */
+  const pk = flexPick(r, p.x), s = pk && pk.s != null ? pk.s : dToS(r, dOfBar(r, barAt(p.x)))
+  if (!(s > 1e-3 && s < srcSec(r) - 1e-3)) return
+  let ms = []
+  edit(() => { const was = (r.flex || []).map(q => Object.assign({}, q)), d = sToD(r, s); r.flex = was.map(q => Object.assign({}, q)).concat({ s, d }).sort((x, y) => x.s - y.s); ms = flexShare(r, was) })
+  rewarp([r].concat(ms)); uiDirty('lanes', 'dock')
 }
 function unpin (r, m) { let ms = []; edit(() => { const was = r.flex; r.flex = r.flex.filter(x => x !== m); ms = flexShare(r, was) }); rewarp([r].concat(ms)) }
 /* the regions that are stretched as one with r, and so carry the very same pins:

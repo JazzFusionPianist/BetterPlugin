@@ -140,7 +140,7 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
     p('((File > Revert To…)) lists the song as it was at up to 24 earlier moments.', '((File > Revert To…))는 최대 24개의 이전 시점을 보여 줍니다.') }),
 
   page(t('not in this version', '이 버전에 없는 것'), { kind: 'text', cc: 3, txt:
-    p('Slur Studio 0.1.6 is an alpha and a sketch tool. Knowing what is not there yet saves looking for it.', 'Slur Studio 0.1.6는 알파이자 스케치 도구입니다. 아직 없는 것을 알아 두면 찾느라 헤매지 않습니다.') +
+    p('Slur Studio 0.1.7 is an alpha and a sketch tool. Knowing what is not there yet saves looking for it.', 'Slur Studio 0.1.7는 알파이자 스케치 도구입니다. 아직 없는 것을 알아 두면 찾느라 헤매지 않습니다.') +
     h('time', '시간') +
     list(
       ['tempo changes or measure changes along the song: one tempo, one measure', '곡 중간의 템포, 박자 변경: 템포 하나, 박자 하나'],

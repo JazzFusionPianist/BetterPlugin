@@ -5,7 +5,7 @@ export default () => chapter('welcome', t('before you begin', '시작하기 전�
 
   page(t('what slur studio is', 'slur studio는 어떤 프로그램인가'), { kind: 'split', tw: 100, mid: true, txt:
     lead('Slur Studio is a place to sketch a song: record, drag sound in, play an instrument, cut and move, set a rough mix, then hand the whole thing off to the program you finish in.', 'Slur Studio는 곡을 스케치하는 곳입니다. 녹음하고, 소리를 끌어다 놓고, 악기를 치고, 자르고 옮기고, 대략 믹스를 잡은 다음 마무리할 프로그램으로 통째로 넘깁니다.') +
-    p('It runs on a Mac with macOS 12 or later. This guide is written for version 0.1.6, an alpha: the app is still growing, and a page is added here whenever a feature is.', 'macOS 12 이상의 Mac에서 돌아갑니다. 이 책은 0.1.6 알파 버전 기준입니다. 앱은 아직 자라는 중이고, 기능이 생길 때마다 이 책에도 쪽이 더해집니다.') +
+    p('It runs on a Mac with macOS 12 or later. This guide is written for version 0.1.7, an alpha: the app is still growing, and a page is added here whenever a feature is.', 'macOS 12 이상의 Mac에서 돌아갑니다. 이 책은 0.1.7 알파 버전 기준입니다. 앱은 아직 자라는 중이고, 기능이 생길 때마다 이 책에도 쪽이 더해집니다.') +
     h('three things to know first', '먼저 알아 둘 세 가지') +
     list(
       ['__One window.__ The song, the mixer, the patch of each track and the Slur panel all stand on one board. Only a plug-in’s window and the meter’s float over it; the settings open in a window of their own.', '__창은 하나.__ 곡, 믹서, 트랙마다의 패치, Slur 패널이 모두 한 판 위에 있습니다. 그 위에 떠 있는 것은 플러그인 창과 미터 창뿐이고, 설정은 따로 창 하나로 열립니다.'],

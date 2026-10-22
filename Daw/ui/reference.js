@@ -102,6 +102,9 @@ function refLoad (d) {
     REF.t = refTrack(String(d.name || 'reference'), +d.vol || 0); REF.shown = d.shown !== false
     const one = q => mkReg({ a: +q.a || 1, b: +q.b || ((+q.a || 1) + d.sec / SPB()), off: +q.off || 0, gain: +q.gain || 0, fi: +q.fi || 0, fo: +q.fo || 0, mute: !!q.mute, file: d.file, loop: false, rate: 1, sec: d.sec, srcBars: d.srcBars, name: String(d.name || '').toLowerCase(), wait: true, missing: true })
     REF.t.regs = (Array.isArray(d.regs) && d.regs.length ? d.regs : [d]).map(one)                // (a project from before its regions could be edited: one, the file whole)
+    /* its file is as many bars as its seconds are at the song's tempo: one kept before the tempo moved it along with the
+       tracks (it did not, till 2026-10-22: drawn too long) is measured again here */
+    { const r0 = REF.t.regs[0], k = r0 && r0.srcBars > 0 && d.sec > 0 ? d.sec / SPB() / r0.srcBars : 1; if (Math.abs(k - 1) > 1e-6) for (const r of REF.t.regs) retimeReg(r, k) }
     if (NAT) NAT.call('audioLoad', { project: projKey(), file: d.file }).then(f => { if (REF.t && f && f.ok) { for (const r of REF.t.regs) { r.key = f.key; r.peaksAll = f.peaks; delete r.wait; delete r.missing; dirtyReg(r) } refTell(); uiDirty('ref') } })
   }
   setView(true); dirtyAll(); refTell()
@@ -201,6 +204,10 @@ PARTS.ref = pRef
        wallorg.js) — only a reference region chosen is this one's */
     for (const code of ['Backspace', 'Delete']) { const k0 = KEYS[code]; KEYS[code] = function () { if (S.focus === 'ref' && REF.t && REF.sel.size) return act.del(); return k0.apply(this, arguments) } } }
   function refVolX (x) { const f = clamp((x - refX0() - HEAD_FX) / HEAD_FW, 0, 1); REF.t.vol = fVol(f); refTell(); uiDirty('ref') }
+  /* the tempo (or the measure) moved: its file keeps its seconds, as a track's does — so its bars change (his word,
+     2026-10-22: it was drawn on at the old length while the tracks beside it, and its sound, ended together) */
+  const retime0 = retimeBy
+  retimeBy = function (k) { const r = retime0.apply(this, arguments); if (REF.t) { for (const q of REF.t.regs) retimeReg(q, k); refTell(); uiDirty('ref') } return r }
   /* a new song: no reference */
   const reset0 = resetSession
   resetSession = function () { const r = reset0.apply(null, arguments); REF.t = null; REF.on = false; REF.shown = true; REF.drag = null; refTell(); return r }

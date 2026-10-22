@@ -71,6 +71,11 @@ ok('…undone: back', (await regs()).length === 1, await regs())
 /* kept with the project */
 { const kept = await ev(`REF.t.regs[0].file = 'a song.wav'; REF.t.regs[0].sec = 60; const d = refSaved(); return d && d.regs`)
   ok('kept with the project: each region with its place in the file, gain, fades, mute', Array.isArray(kept) && kept.length === 1 && kept[0].a === 1 && kept[0].off === 0, kept) }
+/* the tempo moved: its file keeps its seconds, as the tracks' files do; one kept at a stale length is measured again */
+{ const r = await ev(`const q = REF.t.regs[0]; q.sec = (q.b - q.a) * SPB(); const sec0 = q.sec, sp0 = (q.b - q.a) * SPB(); setTempo(S.tempo * 1.25); const sp1 = (REF.t.regs[0].b - REF.t.regs[0].a) * SPB(); return { sp0, sp1 }`)
+  ok('the tempo moved: its region keeps its seconds (as many more bars as it takes)', Math.abs(r.sp1 - r.sp0) < 1e-6, r) }
+{ const r = await ev(`const sec = 40 * SPB(); refLoad({ name: 'a song', vol: 0, file: 'a song.wav', sec, srcBars: 30, a: 1, b: 31, regs: [{ a: 1, b: 31, off: 0 }] }); const q = REF.t.regs[0]; return { bars: q.b - q.a, want: 40, src: q.srcBars }`)
+  ok('a project with its reference kept at a stale length: measured again when opened', Math.abs(r.bars - r.want) < 1e-6 && Math.abs(r.src - 40) < 1e-6, r) }
 { const errs = await ev(`return window.__errs || []`); ok('nothing went wrong on the page', !errs.length && !b.errors.length, [errs, b.errors]) }
 console.log(out.join('\n')); console.log(bad.length ? `\n${bad.length} FAILED` : '\nall passed')
 await b.close(); process.exit(bad.length ? 1 : 0)

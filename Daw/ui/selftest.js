@@ -1681,6 +1681,57 @@ async function runSelfTest (mode) {
     res.back = { vol: t.vol === vol0, pan: (t.pan || 0) === pan0, ins: t.inserts.length, patch: JSON.stringify(t.patch) === patch0 }
     return res
   })
+  /* every track heard in one pass (Engine::listenEvery, for the rough mix and the mix doctor): the same lines as a pass a
+     track gave, in a fraction of the time; the stretch in pieces of a bar, each read on its own; two that meet, as both
+     loud at once in a band */
+  await step('listenAll', async () => {
+    if (!NAT) return { skipped: 'no app' }
+    const ts = S.tracks.filter(t => t.kind === 'audio' && !t.theirs && !t.disabled && (t.regs || []).length), ids = ts.map(t => t.id), a0 = 4, a1 = 12
+    if (!ids.length) return { skipped: 'no track' }
+    const res = { tracks: ts.length, bars: a1 - a0 }
+    let t0 = performance.now()
+    const one = {}
+    for (const id of ids) { const r = await earsListen([id], a0, a1); if (r) one[id] = r[id] }
+    const mixOne = await earsListen([0], a0, a1)
+    res.msEach = Math.round(performance.now() - t0)
+    t0 = performance.now()
+    const all = await earsListen(ids.concat([0]), a0, a1, 'own', { all: true, seg: 1 })
+    res.msOnce = Math.round(performance.now() - t0)
+    res.faster = res.msOnce ? Math.round(res.msEach / res.msOnce * 10) / 10 : null
+    if (!all) return Object.assign(res, { error: 'no answer' })
+    const lines = ['loud', 'tilt', 'low', 'mud', 'presence', 'air', 'crest', 'width', 'mono', 'pan']
+    res.worst = {}
+    for (const k of lines) {
+      let w = 0, at = ''
+      for (const t of ts) { const a = one[t.id], b = all[t.id]; if (a && b && a[k] != null && b[k] != null && Math.abs(a[k] - b[k]) > w) { w = Math.abs(a[k] - b[k]); at = t.name } }
+      res.worst[k] = Math.round(w * 100) / 100 + (at ? ' ' + at : '')
+    }
+    res.mix = { each: mixOne && mixOne[0].loud, once: all[0] && all[0].loud }
+    const h0 = all.res.tracks.find(x => x.id === ids[0]), pieces = earsPieces(h0, all.res)
+    res.pieces = { n: pieces.length, loud: pieces.map(p => p && p.loud) }
+    const kick = ts.find(t => /kick/i.test(t.name)), bass = ts.find(t => /bass/i.test(t.name))
+    if (kick && bass) {
+      const hk = all.res.tracks.find(x => x.id === kick.id), hb = all.res.tracks.find(x => x.id === bass.id)
+      const tg = earsTogether(hk, hb, all.res)
+      res.kickBass = { together: tg && tg.together, hz: tg && [tg.lo, tg.hi], first: (() => { const p = earsTogether(hk, hb, all.res, 0, h0.segs[0].frames); return p && p.together })() }
+    }
+    /* a heavier song: every track three more times, each with the room's tape and space on (a session of twenty, worked
+       as plug-ins work a track): a pass a track against one pass, over the same eight bars */
+    const u0 = UNDO.length
+    for (const t of ts.slice()) for (let k = 0; k < 3; k++) await duplicateTrack(S.tracks.indexOf(t), true)
+    const heavy = S.tracks.filter(t => t.kind === 'audio' && !t.theirs && !t.disabled && (t.regs || []).length)
+    const patches = heavy.map(t => [t, JSON.stringify(t.patch)])
+    for (const t of heavy) { setPrint(t, 'tape', 30); setPrint(t, 'space', 40) }
+    applyAll(); flush(); await natSession(); await sleep(300)
+    t0 = performance.now(); for (const t of heavy) await earsListen([t.id], a0, a1); res.heavyEach = Math.round(performance.now() - t0)
+    t0 = performance.now(); const hv = await earsListen(heavy.map(t => t.id).concat([0]), a0, a1, 'own', { all: true }); res.heavyOnce = Math.round(performance.now() - t0)
+    res.heavy = { tracks: heavy.length, faster: res.heavyOnce ? Math.round(res.heavyEach / res.heavyOnce * 10) / 10 : null, answered: !!hv }
+    for (const [t, p] of patches) t.patch = JSON.parse(p)
+    while (UNDO.length > u0) undoEdit()
+    applyAll(); flush(); await natSession()
+    res.back = S.tracks.filter(t => t.kind === 'audio' && !t.theirs && !t.disabled && (t.regs || []).length).length === ts.length
+    return res
+  })
   /* plug-ins learnt by what they do (probe.js): Apple's eqs and compressor (on every Mac), and FabFilter's where they are
      on this Mac; a learnt eq then set to a bell and measured: it gives what was asked */
   await step('learn', async () => {

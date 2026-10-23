@@ -30,6 +30,9 @@ namespace daw
       bandCorr   the whole stretch's likeness of its two sides, each third of an octave (hundredths, 1 the same, 0
              unrelated): how wide it is low and high — a sound panned to one side is as narrow as one in the middle
       lr     the whole stretch's power of its left and of its right, in tenths of a dB: where it stands
+      segs   asked for by a length (in samples: a bar, for the mix doctor): ltas, mid, sideBands, bandCorr and lr again,
+             for each such piece of the stretch in turn, with the frames it ends at (frames), so a bar can be read on
+             its own as the whole is
     The dB are the same for every sound (one window, one scale), so sounds are compared by them; their zero is not a
     standard's (but kl's). The transform is the room's own (a radix-2 FFT here): nothing outside is asked for. */
 struct Listen
@@ -44,7 +47,7 @@ struct Listen
     /** The twelfths of an octave the long spectrum is told in: 20 Hz times 2^(k/12). */
     static double fineCentre (int k) { return 20.0 * std::pow (2.0, (double) k / 12.0); }
 
-    explicit Listen (double sampleRate, double lo = 0, double hi = 0) : sr (sampleRate), ringL (N, 0.0f), ringR (N, 0.0f), win (N), fft (N)
+    explicit Listen (double sampleRate, double lo = 0, double hi = 0, double segSamples = 0) : sr (sampleRate), segLen (segSamples), ringL (N, 0.0f), ringR (N, 0.0f), win (N), fft (N)
     {
         band = lo > 0 && hi > lo;
         if (band) { hp.make (sr, lo, true); lp.make (sr, hi, false); }
@@ -84,6 +87,7 @@ struct Listen
                 if (band) nears.push_back (tenths (fastB / FAST));
                 fastLR = fastB = 0; fastPk = 0; fastN = 0;
             }
+            ++pushed;
             if (++fill >= HOP) frame();
         }
     }
@@ -108,11 +112,36 @@ struct Listen
         juce::Array<juce::var> lr; lr.add (tenths (allL / juce::jmax (1.0, count))); lr.add (tenths (allR / juce::jmax (1.0, count)));
         o->setProperty ("lr", lr);
         if (band) o->setProperty ("near", list (nears));
+        if (segLen > 0)
+        {
+            juce::Array<juce::var> sg (segs);
+            if (seg.frames > 0) sg.add (seg.read ((int) frames.size()));      // (the last piece, however short)
+            o->setProperty ("segs", sg);
+        }
         return juce::var (o);
     }
 
 private:
-    double sr;
+    double sr, segLen = 0;
+    juce::int64 pushed = 0;
+    /** One piece of the stretch's sums: what the whole keeps only once, kept again for each piece. */
+    struct Piece
+    {
+        double fine[FINE] {}, mid[BANDS] {}, side[BANDS] {}, l[BANDS] {}, r[BANDS] {}, x[BANDS] {}, allL = 0, allR = 0, count = 0;
+        int frames = 0;
+        juce::var read (int endFrame) const
+        {
+            auto* o = new juce::DynamicObject();
+            const double nf = juce::jmax (1.0, (double) frames);
+            juce::Array<juce::var> lt, md, sd, bc, lr;
+            for (int k = 0; k < FINE; ++k) lt.add (tenths (fine[k] / nf));
+            for (int b = 0; b < BANDS; ++b) { md.add (tenths (mid[b] / nf)); sd.add (tenths (side[b] / nf)); bc.add ((int) std::lround (100.0 * (l[b] > 1e-20 && r[b] > 1e-20 ? x[b] / std::sqrt (l[b] * r[b]) : 1.0))); }
+            lr.add (tenths (allL / juce::jmax (1.0, count))); lr.add (tenths (allR / juce::jmax (1.0, count)));
+            o->setProperty ("ltas", lt); o->setProperty ("mid", md); o->setProperty ("sideBands", sd); o->setProperty ("bandCorr", bc); o->setProperty ("lr", lr); o->setProperty ("frames", endFrame);
+            return juce::var (o);
+        }
+    } seg;
+    juce::Array<juce::var> segs;
     std::vector<float> ringL, ringR, win;
     std::vector<std::complex<float>> fft;
     int at = 0, fill = 0;
@@ -172,15 +201,18 @@ private:
             {
                 parts (k, pm, ps); p += pm; q += ps;
                 lSum[b] += (double) std::norm (Lk); rSum[b] += (double) std::norm (Rk); xSum[b] += (double) (Lk * std::conj (Rk)).real();
+                if (segLen > 0) { seg.l[b] += (double) std::norm (Lk); seg.r[b] += (double) std::norm (Rk); seg.x[b] += (double) (Lk * std::conj (Rk)).real(); }
             }
             row[(size_t) b] = db (p * scale);
             midSum[b] += p * scale; sideSum[b] += q * scale;
+            if (segLen > 0) { seg.mid[b] += p * scale; seg.side[b] += q * scale; }
         }
         for (int k = 0; k < FINE; ++k)
         {
             double p = 0, pm, ps;
             for (int j = fineLo[k]; j <= fineHi[k]; ++j) { parts (j, pm, ps); p += pm; }
             fineSum[k] += p * scale / (double) (fineHi[k] - fineLo[k] + 1);      // (per bin: a twelfth high up holds many, one low down a few)
+            if (segLen > 0) seg.fine[k] += p * scale / (double) (fineHi[k] - fineLo[k] + 1);
         }
         frames.push_back (std::move (row));
         levels.push_back (db (sumLR / (2.0 * fill)));
@@ -188,6 +220,11 @@ private:
         sides.push_back ((int) std::lround (100.0 * (sumM + sumS > 1e-14 ? sumS / (sumM + sumS) : 0.0)));      // (in hundredths)
         corrs.push_back ((int) std::lround (100.0 * (sumL > 1e-14 && sumR > 1e-14 ? sumX / std::sqrt (sumL * sumR) : 1.0)));
         allL += sumL; allR += sumR; count += fill;
+        if (segLen > 0)
+        {
+            seg.allL += sumL; seg.allR += sumR; seg.count += fill; ++seg.frames;
+            if ((double) pushed >= segLen * (double) (segs.size() + 1)) { segs.add (seg.read ((int) frames.size())); seg = Piece(); }      // (a piece ends at the frame that reaches its length)
+        }
         sumLR = sumM = sumS = sumL = sumR = sumX = sumK = 0; fill = 0;
     }
 

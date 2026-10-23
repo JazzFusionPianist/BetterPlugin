@@ -2,6 +2,7 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <set>
+#include <map>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -2968,6 +2969,75 @@ public:
         `solo` the track as the stereo out has it — through the buses it plays into and what it sends to, alone in them
         (how far back its sends put it); `rest` the stereo out without it (what it has to be heard against). The command
         line's ways are chosen and measured by it (design/choices draft 1, ui/ears.js). */
+    /** Every asked-for track heard in ONE offline pass of the song (his rough mix and mix doctor, 2026-10-23: a pass a
+        track, forty tracks over a whole song, took far too long): each track taken where it leaves its fader, with
+        everything sounding as the stereo out has it, and the mix (id 0) as it reaches the out before the out's own
+        fader. A track's sound comes out early by what its way on makes up for (Track::early), so each is heard over a
+        window of the pass of its own. seg (bars): the ears keep each piece of that length apart too (daw::Listen segs).
+        Only `own` is heard so (solo and rest still take a pass each). */
+    bool listenEvery (const juce::var& opts, double a0, double a1, juce::int64 s0, juce::int64 s1, juce::Array<juce::var>& heard)
+    {
+        const double barS = barSamples(), segBars = (double) opts["seg"];
+        const auto* band = opts["band"].getArray();
+        const double lo = band != nullptr && band->size() == 2 ? (double) (*band)[0] : 0.0, hi = band != nullptr && band->size() == 2 ? (double) (*band)[1] : 0.0;
+        std::map<const Track*, juce::AudioBuffer<float>> outs;
+        struct One { int id; Track* t; juce::int64 E; std::unique_ptr<daw::Listen> ear; juce::AudioBuffer<float> got; int fill = 0; };
+        std::vector<One> ones;
+        if (auto* list = opts["tracks"].getArray())
+            for (auto& tv : *list)
+            {
+                const int id = (int) tv;
+                Track* t = id != 0 ? find (id) : nullptr;
+                if (id != 0 && t == nullptr) continue;
+                if (t != nullptr && outs.count (t) == 0) { auto& b = outs[t]; b.setSize (2, maxBlock); b.clear(); }
+                ones.push_back ({ id, t, 0, std::make_unique<daw::Listen> (sr, lo, hi, segBars > 0 ? segBars * barS : 0.0), {}, 0 });
+            }
+        Tap tap;
+        tap.many = &outs;
+        for (auto& tp : tracks) tap.only.insert (tp.get());
+        for (auto& tp : tracks) { tp->gainSm = dbGainOf (*tp, a0); tp->panSm = tp->pan.load(); quietNotes (*tp); }
+        for (juce::int64 k = 0; k < (juce::int64) (sr * 1.5) && ! leaving.load(); k += maxBlock) renderGraph (s0, maxBlock, false, true, nullptr, a1, &tap);      // (old tails die away first, as for a print)
+        measureLatency();
+        int lead = 0; for (auto& tp : tracks) lead = juce::jmax (lead, tp->ahead.load());
+        juce::int64 eMax = 0;
+        for (auto& o : ones) { o.E = o.t != nullptr ? (juce::int64) o.t->early.load() : 0; eMax = juce::jmax (eMax, o.E); }
+        /* what each one hears is gathered a while (kChunk samples) and then heard by all the ears at once, a share of them on
+           each core: hearing (a long transform every HOP samples, for every track) costs more than playing them */
+        constexpr int kChunk = 1 << 15;
+        for (auto& o : ones) { o.got.setSize (2, kChunk); o.fill = 0; }
+        const int cores = juce::jlimit (1, 16, (int) std::thread::hardware_concurrency() - 1);
+        auto hearAll = [&ones, cores]
+        {
+            std::vector<std::thread> hands;
+            const int k = juce::jmin (cores, (int) ones.size());
+            for (int h = 0; h < k; ++h)
+                hands.emplace_back ([&ones, h, k] { for (size_t i = (size_t) h; i < ones.size(); i += (size_t) k) { auto& o = ones[i]; if (o.fill > 0) o.ear->push (o.got.getReadPointer (0), o.got.getReadPointer (1), o.fill); o.fill = 0; } });
+            for (auto& th : hands) th.join();
+        };
+        for (juce::int64 p = s0 - eMax - lead; p < s1 && ! leaving.load(); )
+        {
+            const int n = (int) juce::jmin ((juce::int64) maxBlock, s1 - p);
+            renderGraph (p, n, true, true, nullptr, a1, &tap);
+            bool full = false;
+            for (auto& o : ones)
+            {
+                const juce::int64 w0 = juce::jmax (p, s0 - o.E), w1 = juce::jmin (p + n, s1 - o.E);      // (the part of this block that is its stretch of the song)
+                if (w1 <= w0) continue;
+                const auto& src = o.t != nullptr ? outs.at (o.t) : mix;
+                const int i0 = (int) (w0 - p), m = (int) (w1 - w0);
+                o.got.copyFrom (0, o.fill, src, 0, i0, m); o.got.copyFrom (1, o.fill, src, 1, i0, m);
+                o.fill += m;
+                if (o.fill + maxBlock > kChunk) full = true;
+            }
+            if (full) hearAll();
+            p += n;
+        }
+        hearAll();
+        if (leaving.load()) return false;
+        for (auto& o : ones) { auto v = o.ear->result(); if (auto* d = v.getDynamicObject()) d->setProperty ("id", o.id); heard.add (v); }
+        return true;
+    }
+
     void listen (const juce::var& opts, std::function<void (juce::var)> done)
     {
         if (recording.load() || bouncing.exchange (true)) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); o->setProperty ("error", "busy"); done (juce::var (o)); return; }
@@ -2981,6 +3051,17 @@ public:
             for (auto& tp : tracks) tp->eachPlug ([] (Insert& i) { i.offline (true); });
             measureLatency();
             juce::Array<juce::var> heard;
+            if ((bool) opts["all"])                                         // (every asked-for track in one pass: listenEvery)
+            {
+                const bool every = s1 > s0 && listenEvery (opts, a0, a1, s0, s1, heard);
+                end.finish();
+                auto* o = new juce::DynamicObject();
+                juce::Array<juce::var> cs; for (int b = 0; b < daw::Listen::BANDS; ++b) cs.add (daw::Listen::centres()[b]);
+                o->setProperty ("ok", every && ! leaving.load()); o->setProperty ("hop", (double) daw::Listen::HOP / sr); o->setProperty ("fast", (double) daw::Listen::FAST / sr); o->setProperty ("centres", cs); o->setProperty ("tracks", heard);
+                logLine ("listen: " + String (heard.size()) + " tracks in one pass, bars " + String (a0 + 1.0, 2) + " to " + String (a1 + 1.0, 2));
+                end.answer (juce::var (o));
+                return;
+            }
             bool ok = s1 > s0;
             const auto* band = opts["band"].getArray();
             const String as = opts["as"].toString();
@@ -3409,13 +3490,15 @@ public:
     int chainCount() const { int n = 0; for (auto& t : tracks) if (t->chain != nullptr) ++n; return n; }
 
 private:
-    /** What an offline pass keeps: one track's sound (before or after its fader), with only what feeds it sounding. */
+    /** What an offline pass keeps: one track's sound (before or after its fader), with only what feeds it sounding — or
+        (many) several tracks' at once, each after its fader, with everything sounding (listenEvery). */
     struct Tap
     {
         Track* t = nullptr;
         bool pre = false, dry = false;
         std::set<const Track*> only;
         juce::AudioBuffer<float> buf;
+        std::map<const Track*, juce::AudioBuffer<float>>* many = nullptr;
     };
 
     /** A bar in samples: its beats, each a 1/unit note, at so many quarter notes a minute. */
@@ -4140,6 +4223,7 @@ private:
         if (pkL > t.peakL.load()) t.peakL.store (pkL);
         if (pkR > t.peakR.load()) t.peakR.store (pkR);
         if (kept && ! tap->pre) { tap->buf.copyFrom (0, 0, L, n); tap->buf.copyFrom (1, 0, R, n); }
+        if (tap != nullptr && tap->many != nullptr) { const auto it = tap->many->find (&t); if (it != tap->many->end()) { it->second.copyFrom (0, 0, L, n); it->second.copyFrom (1, 0, R, n); } }      // (each its own buffer: tracks of one rank may be played at the same time)
         if (t.printLive != nullptr && ! t.printLive->pre && n <= t.printLive->buf.getNumSamples()) { t.printLive->buf.copyFrom (0, 0, L, n); t.printLive->buf.copyFrom (1, 0, R, n); }      // (… after it)
         const float took = (float) juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0);
         t.cost += (took - t.cost) * 0.2f;

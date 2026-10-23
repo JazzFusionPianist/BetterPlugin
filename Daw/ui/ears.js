@@ -125,12 +125,55 @@ function earsMoved (a, b) {
   return out
 }
 
-/* the engine asked: these tracks heard over [a0, a1] bars, as own | solo | rest; id 0 the whole mix */
-async function earsListen (ids, a0, a1, as) {
+/* the engine asked: these tracks heard over [a0, a1] bars, as own | solo | rest; id 0 the whole mix. o.all: every one of
+   them (own) in one pass of the song (Engine::listenEvery: what a rough mix or the mix doctor hears, forty tracks at
+   once); o.seg: the stretch in pieces of so many bars, each kept apart too (earsPiece) */
+async function earsListen (ids, a0, a1, as, o = {}) {
   if (!NAT) return null
-  const res = await NAT.call('listen', { a0, a1, tracks: ids, as: as || 'own' })
+  const ask = { a0, a1, tracks: ids, as: as || 'own' }
+  if (o.all && (!as || as === 'own')) ask.all = true
+  if (o.seg) ask.seg = o.seg
+  const res = await NAT.call('listen', ask)
   if (!res || !res.ok) return null
   const out = { res }
   for (const t of res.tracks) out[t.id] = earsOf(t, res)
   return out
+}
+
+/* one piece of what was heard with o.seg: its frames, its 5 ms steps, and what the whole keeps only once (its long
+   spectrum, its sides) kept again for the piece — read into the same lines as the whole (the mix doctor's bars) */
+function earsPiece (h, res, k) {
+  const sg = h && h.segs && h.segs[k]
+  if (!sg) return null
+  const f0 = k ? h.segs[k - 1].frames : 0, f1 = sg.frames, per = Math.round(res.hop / res.fast)
+  const cut = a => (a || []).slice(f0, f1), cutF = a => (a || []).slice(f0 * per, f1 * per)
+  const e = earsOf({ bands: cut(h.bands), level: cut(h.level), kl: cut(h.kl), side: cut(h.side), corr: cut(h.corr), fast: cutF(h.fast), peak: cutF(h.peak), ltas: sg.ltas, mid: sg.mid, sideBands: sg.sideBands, bandCorr: sg.bandCorr, lr: sg.lr }, res)
+  if (e) e.lt = sg.ltas                                                                    // (its long spectrum, kept: a piece's ringing is read against the song's)
+  return e
+}
+const earsPieces = (h, res) => ((h && h.segs) || []).map((_, k) => earsPiece(h, res, k))
+
+/* two sounds at once, each heard alone (the patent search, mixlab/patents-1.md: what is measured is that both are loud in
+   the same band at the same time — never how much one is lost under the other): in each third of an octave that matters
+   to both (within 20 db of each one's own strongest), the share of the frames f0…f1 either is near its loudest there
+   (within `near` db) in which both are; then the stretch of two to four bands where that share is highest */
+function earsTogether (ha, hb, res, f0 = 0, f1 = Infinity, near = 12) {
+  const C = res.centres, from = Math.max(0, f0), to = Math.min(ha.bands.length, hb.bands.length, f1)
+  if (to - from < 2) return null
+  const mean = (h, b) => { let p = 0; for (let i = from; i < to; i++) p += earPow(h.bands[i][b]); return earDb(p / (to - from)) }
+  const top = (h, b) => { let m = -Infinity; for (let i = from; i < to; i++) m = Math.max(m, h.bands[i][b]); return m }
+  const avA = C.map((_, b) => mean(ha, b)), avB = C.map((_, b) => mean(hb, b)), pkA = Math.max(...avA), pkB = Math.max(...avB)
+  const share = C.map((_, b) => {
+    if (avA[b] < pkA - 20 || avB[b] < pkB - 20) return 0
+    const ta = top(ha, b), tb = top(hb, b)
+    let both = 0, any = 0
+    for (let i = from; i < to; i++) { const a = ha.bands[i][b] > ta - near, bb = hb.bands[i][b] > tb - near; if (a || bb) any++; if (a && bb) both++ }
+    return any ? both / any : 0
+  })
+  let best = null
+  for (let w = 2; w <= 4; w++) for (let b = 0; b + w <= C.length; b++) {
+    const v = share.slice(b, b + w).reduce((x, y) => x + y, 0) / w
+    if (!best || v > best.together + 1e-9) best = { together: v, lo: C[b], hi: C[b + w - 1] }
+  }
+  return { share: share.map(v => Math.round(v * 100) / 100), together: best ? Math.round(best.together * 100) / 100 : 0, lo: best && best.lo, hi: best && best.hi }
 }

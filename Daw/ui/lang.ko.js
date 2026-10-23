@@ -48,7 +48,7 @@ LANG.lists.ko = {
   'import audio': '오디오 가져오기', 'settings': '설정', 'say it': '말로 하기',
   'new audio track': '새 오디오 트랙', 'new bus': '새 버스', 'put in a stack': '스택에 넣기', 'take the stack apart': '스택 풀기', 'open, close a stack': '스택 열기, 닫기',
   'duplicate with what is on it': '담긴 것까지 복제', 'with what is on it': '담긴 것까지', 'on the same track': '같은 트랙에',
-  'delete the track': '트랙 삭제', 'delete, regions first': '삭제, 리전 먼저', 'delete the empty ones': '빈 트랙 삭제', 'delete the one here': '여기 있는 것 삭제', 'delete the pressed one': '누른 것 삭제',
+  'delete the track': '트랙 삭제', 'delete, regions first': '삭제, 리전 먼저', 'delete the empty ones': '빈 트랙 삭제', 'tidy the tracks': '트랙 정리', 'delete the one here': '여기 있는 것 삭제', 'delete the pressed one': '누른 것 삭제',
   'group, ungroup': '그룹, 그룹 해제', 'groups off, on': '그룹 끄기, 켜기',
   'new marker at the playhead': '플레이헤드에 새 마커', 'a marker here': '여기에 마커', 'delete the marker': '마커 삭제',
   'cycle it': '사이클로', 'cycle this part': '이 파트를 사이클로', 'round what is chosen': '선택한 것을 사이클로', 'goes round': '반복 재생',

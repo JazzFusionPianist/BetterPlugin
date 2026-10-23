@@ -421,10 +421,17 @@ async function trackWhat (t) {
    sound stripped of silence in whole bars, each against its own loudest (a quiet part is not silence: a part 43 dB down
    is kept), and a track left with no sound at all taken out; the tracks that stand alone put in the order a session is
    read in, and those of one family, two or more, into a stack of their own. Stacks, buses and what already stands in a
-   stack keep their places. */
+   stack keep their places.
+   With several tracks chosen (his ask, 2026-10-24: "일부 트랙을 선택해서 … 그 선택된 트랙만 … 아예 분리되게"), only they are
+   tidied: they leave the stacks they stood in and stand together where the first of them stood, those of a family in a
+   stack of their own — never the stacks already there, whatever those are called; a stack they leave with nothing in it
+   goes too. A chosen stack stands for what is in it. ⌃T, Track > Tidy Tracks, or said. */
+const tidyStackName = f => { let nm = f, k = 2; while (S.tracks.some(t => t.kind === 'stack' && t.name === nm)) nm = `${f} ${k++}`; return nm }
 async function tidyTracks () {
   if (S.playing) halt(false)
-  const ts = S.tracks.filter(t => t.kind === 'audio' && !t.theirs && !t.disabled)
+  const own = t => t.kind === 'audio' && !t.theirs && !t.disabled, pick = chosen()
+  const picked = S.tracks.filter(t => own(t) && pick.some(c => c === t || (c.kind === 'stack' && insideOf(t, c))))
+  const scoped = picked.length >= 2, ts = scoped ? picked : S.tracks.filter(own)
   if (!ts.length) { say('no track to tidy'); return null }
   say(`hearing ${ts.length} track${ts.length === 1 ? '' : 's'}`)
   /* how far along: the card that says a print's progress (his ask, 2026-10-23: "tidying 작업할 때도 progress bar"), track by
@@ -451,7 +458,7 @@ async function tidyTracks () {
   } finally { printEnd() }
   const before = Object.assign(editState(), { mix: mixState() }), n0 = UNDO.length
   let named = 0, known = 0, cut = { cut: 0, pieces: 0 }, stacks = 0
-  const emptied = []
+  const emptied = [], left = [], newStacks = []
   edit(() => {
     /* the silence */
     const had = new Map(ts.map(t => [t, t.regs.length]))
@@ -462,37 +469,59 @@ async function tidyTracks () {
     const clean = tidyClean(own.map(([, b]) => b))
     for (const [t, b] of own) { const nm = clean.get(b).toLowerCase().slice(0, 64); if (nm && nm !== t.name) { t.name = nm; named++ } }
     for (const [t, w] of found) { t.what = w.what; t.tone = TIDY_FAM(w.what) || t.tone; known++ }
-    /* order: the tracks that stand alone, in the order a session is read in, in the places they stood */
-    const free = t => t.kind === 'audio' && !t.parent && !S.tracks.some(x => x.parent === t.id)
-    const slots = S.tracks.map((t, i) => free(t) ? i : -1).filter(i => i >= 0), list = slots.map(i => S.tracks[i])
-    const rank = t => { const v = t.what || tidyByWords(t.name); const i = v ? TIDY_ORDER.indexOf(v) : -1; return i < 0 ? TIDY_ORDER.length : i }
-    const sorted = list.map((t, i) => [t, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]), lead = S.tracks[S.sel]
-    slots.forEach((i, k) => { S.tracks[i] = sorted[k] })
-    /* stacks: each family of two or more of them (not the ones about to be taken out) */
-    const fam = new Map()
-    for (const t of sorted) { if (emptied.includes(t) || !ts.includes(t)) continue; const f = tidyStackOf(t.what || tidyByWords(t.name)); if (!f) continue; if (!fam.has(f)) fam.set(f, []); fam.get(f).push(t) }
-    for (const f of TIDY_STACKS) {
-      const members = fam.get(f)
-      if (!members || members.length < 2 || S.tracks.length >= MAX_TRACKS) continue
-      const st = mkTrack(f, null, null, null, null, 0, [], mkPatch(0, 0, 0, [0, 0, 0]), { kind: 'stack' })
-      st.patch0 = copy(st.patch); st.parent = null; st.tone = members[0].tone
-      for (const t of members) { t.parent = st.id; t.out = 0 }
-      S.tracks.splice(Math.min(...members.map(t => S.tracks.indexOf(t))), 0, st)
-      birth(st); stacks++
+    const rank = t => { const v = t.what || tidyByWords(t.name); const i = v ? TIDY_ORDER.indexOf(v) : -1; return i < 0 ? TIDY_ORDER.length : i }, lead = S.tracks[S.sel]
+    const inOrder = list => list.map((t, i) => [t, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0])
+    /* a new stack for each family of two or more (not the ones about to be taken out), named apart from the stacks there */
+    const stackUp = list => {
+      const fam = new Map(), made = new Map()
+      for (const t of list) { if (emptied.includes(t)) continue; const f = tidyStackOf(t.what || tidyByWords(t.name)); if (!f) continue; if (!fam.has(f)) fam.set(f, []); fam.get(f).push(t) }
+      for (const f of TIDY_STACKS) {
+        const members = fam.get(f)
+        if (!members || members.length < 2 || S.tracks.length >= MAX_TRACKS) continue
+        const st = mkTrack(tidyStackName(f), null, null, null, null, 0, [], mkPatch(0, 0, 0, [0, 0, 0]), { kind: 'stack' })
+        st.patch0 = copy(st.patch); st.parent = null; st.tone = members[0].tone
+        for (const t of members) { t.parent = st.id; t.out = 0 }
+        made.set(st, members); newStacks.push(st); birth(st); stacks++
+      }
+      return made
+    }
+    if (!scoped) {
+      /* the whole session: the tracks that stand alone, in the order a session is read in, in the places they stood */
+      const free = t => t.kind === 'audio' && !t.parent && !S.tracks.some(x => x.parent === t.id)
+      const slots = S.tracks.map((t, i) => free(t) ? i : -1).filter(i => i >= 0), sorted = inOrder(slots.map(i => S.tracks[i]))
+      slots.forEach((i, k) => { S.tracks[i] = sorted[k] })
+      for (const [st, members] of stackUp(sorted.filter(t => ts.includes(t)))) S.tracks.splice(Math.min(...members.map(t => S.tracks.indexOf(t))), 0, st)
+    } else {
+      /* the chosen: out of the stacks they stood in, together where the first of them stood, in order, in stacks of their own */
+      const set = new Set(ts), was = new Set(ts.map(t => t.parent).filter(Boolean)), first = S.tracks.find(t => set.has(t))
+      for (const t of ts) t.parent = null
+      const sorted = inOrder(ts), made = stackUp(sorted), block = [], put = new Set()
+      for (const t of sorted) {
+        if (put.has(t)) continue
+        const st = [...made.keys()].find(x => made.get(x).includes(t))
+        if (st) { block.push(st, ...made.get(st)); for (const m of made.get(st)) put.add(m) } else { block.push(t); put.add(t) }
+      }
+      const out = []
+      for (const t of S.tracks) { if (t === first) out.push(...block); if (!set.has(t)) out.push(t) }
+      S.tracks = out
+      for (const id of was) { const st = byId(id); if (st && st.kind === 'stack' && !S.tracks.some(x => x.parent === id)) left.push(st) }      // (a stack left with nothing in it)
     }
     normalizeOrder(); S.sel = Math.max(0, S.tracks.indexOf(lead))
   })
-  if (emptied.length) await deleteTracks(emptied)
+  if (emptied.length || left.length) await deleteTracks(emptied.concat(left))
+  for (const st of newStacks) { const base = st.name.replace(/ \d+$/, ''); if (st.name !== base && !S.tracks.some(t => t !== st && t.kind === 'stack' && t.name === base)) st.name = base }      // (the stack it was called apart from has gone: its own name back)
   if (UNDO.length > n0) { UNDO.length = n0; UNDO.push(before); if (UNDO.length > 120) UNDO.shift(); REDO.length = 0 }      // (one step back for all of it)
   if (typeof SAY === 'object') SAY.vocab = null
   repaint(); dirtyAll()
-  const left = ts.length - known
-  say(`${known} of ${ts.length} tracks known${named ? `, ${named} named` : ''}${stacks ? `, ${stacks} stack${stacks === 1 ? '' : 's'}` : ''}${cut.cut ? `, ${cut.pieces} pieces in whole bars` : ''}${emptied.length ? `, ${emptied.length} empty taken out` : ''}`)
-  return { known, named, left, stacks, pieces: cut.pieces, cut: cut.cut, emptied: emptied.map(t => t.name), found: [...found].map(([t, w]) => ({ name: t.name, what: w.what, by: w.by, sure: w.sure, heard: w.heard, low: w.low, high: w.high, struck: w.struck, crest: w.crest })) }
+  const unknown = ts.length - known
+  say(`${known} of ${ts.length}${scoped ? ' chosen' : ''} tracks known${named ? `, ${named} named` : ''}${stacks ? `, ${stacks} stack${stacks === 1 ? '' : 's'}` : ''}${cut.cut ? `, ${cut.pieces} pieces in whole bars` : ''}${emptied.length ? `, ${emptied.length} empty taken out` : ''}`)
+  return { known, named, left: unknown, scoped, stacks, pieces: cut.pieces, cut: cut.cut, emptied: emptied.map(t => t.name), found: [...found].map(([t, w]) => ({ name: t.name, what: w.what, by: w.by, sure: w.sure, heard: w.heard, low: w.low, high: w.high, struck: w.struck, crest: w.crest })) }
 }
 
-/* ── joined to the room: the command line's words, and what a track answers to ── */
+/* ── joined to the room: ⌃T (his ask, 2026-10-24: free in the room and in Logic's keys), the command line's words, and what a
+   track answers to ── */
 {
+  if (typeof KEYS === 'object') KEYS['⌃KeyT'] = () => tidyTracks()
   const rc0 = runCommand
   runCommand = async function (text, ...more) {
     if (/^\s*(tidy( up)?( the)?( session| tracks)?|(세션|트랙)\s*(을|를)?\s*정리(해\s*줘|해|하자|좀)?|정리해\s*줘)\s*[.!]?\s*$/i.test(String(text || ''))) { await tidyTracks(); uiDirty('cmd', 'head'); return }

@@ -100,6 +100,33 @@ ok('…stacks by family: the drums (crash too), the voices (lead and the chorus)
 await b.shot('tidy-stems.png')
 await ev(`undoEdit(); flush(); return 1`)
 ok('…one step back: every track, name, region and place as it was, no stacks', JSON.stringify(await ev(`return S.tracks.map(t => t.id)`)) === JSON.stringify(stems0) && await ev(`return UNDO.length === ${u0} && S.tracks.some(t => t.name === 'pad - 0078') && S.tracks.find(t => t.name === 'strings - 0036').regs.length === 1 && !S.tracks.some(t => t.kind === 'stack' && ['drums', 'vox'].includes(t.name))`), await ev(`return S.tracks.map(t => t.name)`))
+/* ── only the chosen (his ask, 2026-10-24): after the whole session was tidied, new tracks and one from the drums stack
+   are chosen and tidied with ⌃T — they stand apart, in stacks of their own; the rest is as it was ── */
+await ev(`await tidyTracks(); flush(); return 1`)
+const NEW = [['kick new - 0200', 'Kick New - 0200', [[2, 3, .6]]], ['snare new - 0201', 'Snare New - 0201', [[2, 3, .5]]], ['synth pad - 0202', 'Synth Pad - 0202', [[2, 6, .4]]]]
+await ev(`const spb = SPB(), sec = 24 * spb, N = Math.round(sec * 100)
+  for (const [name, file, parts] of ${JSON.stringify(NEW)}) {
+    const pk = new Array(N).fill(0)
+    for (const [a, b, v] of parts) for (let i = Math.round(a * spb * 100); i < Math.round(b * spb * 100); i++) pk[i] = v * (.6 + .4 * Math.abs(Math.sin(i / 7)))
+    const t = addTrack('audio', name, S.tracks.length - 1); t.parent = null; t.regs.push(mkReg({ a: 1, b: 25, key: 'k' + name, file: file + '.wav', peaksAll: pk, loop: false, rate: 1, sec, srcBars: 24, name: file.toLowerCase() }))
+  }
+  normalizeOrder(); flush(); return 1`)
+const shape = () => ev(`return S.tracks.map(t => (t.kind === 'stack' ? '[' + t.name + ']' : (t.parent ? '  ' + (S.tracks.find(x => x.id === t.parent) || {}).name + '/' : '') + t.name))`)
+const keep = await ev(`const t = S.tracks.find(x => x.name === '2 drums'); return { parent: (S.tracks.find(x => x.id === t.parent) || {}).name, regs: t.regs.map(r => [r.a, r.b]) }`)
+const u1 = await ev(`return UNDO.length`)
+await ev(`const ids = S.tracks.filter(t => ['kick new - 0200', 'snare new - 0201', 'synth pad - 0202', '1 drums'].includes(t.name)).map(t => t.id); S.selT = ids; S.sel = S.tracks.findIndex(t => t.id === ids[0]); S.focus = 'tracks'; flush(); return 1`)
+await b.press('t', 'KeyT', 84, 2); await b.sleep(1500)
+const after = await shape()
+ok('⌃T with four tracks chosen: only they are tidied — the new kick, snare and 1 drums in a drums stack of their own, apart from the drums stack there', after.includes('[drums 2]') && after.includes('  drums 2/kick new') && after.includes('  drums 2/snare new') && after.includes('  drums 2/1 drums') && after.includes('[drums]') && !after.some(x => /^  drums\/(kick new|snare new|1 drums)$/.test(x)), after)
+ok('…the synth pad, alone of its family, stands by itself, its name cleaned', after.includes('synth pad'), after)
+ok('…what was not chosen is as it was (2 drums still in the first drums stack, its regions the same); one step', JSON.stringify(await ev(`const t = S.tracks.find(x => x.name === '2 drums'); return { parent: (S.tracks.find(x => x.id === t.parent) || {}).name, regs: t.regs.map(r => [r.a, r.b]) }`)) === JSON.stringify(keep) && (await ev('return UNDO.length')) === u1 + 1, keep)
+ok('…said as the chosen', /chosen tracks known/.test(await ev(`return (S.last || {}).say || ''`)), await ev(`return S.last`))
+/* the voices: both chosen, so the vox stack they leave is empty — it goes, and theirs takes the name */
+await ev(`const ids = S.tracks.filter(t => ['lead vocals', 'bgv chorus 1l'].includes(t.name)).map(t => t.id); S.selT = ids; S.sel = S.tracks.findIndex(t => t.id === ids[0]); flush(); await tidyTracks(); flush(); return 1`)
+{ const v = await shape(); ok('…a stack left with nothing in it goes, and the new one is called vox again', v.filter(x => x === '[vox]').length === 1 && !v.includes('[vox 2]') && v.includes('  vox/lead vocals') && v.includes('  vox/bgv chorus 1l'), v) }
+await ev(`undoEdit(); undoEdit(); flush(); return 1`)
+ok('…and back, a step each', (await ev(`return S.tracks.filter(t => t.kind === 'stack' && /^drums 2$/.test(t.name)).length`)) === 0 && (await ev(`return S.tracks.some(t => t.name === 'kick new - 0200')`)), await shape())
+ok('Track > Tidy Tracks shows ⌃T, and the key sheet lists it', await ev(`const l = MENU_BAR().find(m => m[0] === 'Track')[1].find(x => Array.isArray(x) && x[0] === 'Tidy Tracks'); return !!l && l[1] === '⌃KeyT' && typeof KEYS['⌃KeyT'] === 'function'`) && await ev(`return JSON.stringify(SHEET).includes('tidy the tracks')`))
 ok('no errors on the page', !b.errors.length, b.errors.slice(0, 3))
 console.log(out.join('\n'))
 console.log(bad.length ? `\n${bad.length} failed` : '\nall passed')

@@ -71,7 +71,7 @@ const MENU_BAR = () => [
     ['New Tracks…', '⌥⌘KeyN', { id: 'newtracks' }], ['New Audio Track', '⌥⌘KeyA', { id: 'newaudio' }], ['New Instrument Track', '⌥⌘KeyS'], ['New Bus', '⌃KeyN', { id: 'newbus' }],
     ['Create Reference Track', '⌥⌘KeyR'], ['Disable Track', null, { do: () => trackOffToggle(groupOf(S.sel)), on: () => !!(chosenTrack() && chosenTrack().disabled) }], ['Freeze Track', null, { do: () => freezeTrack(S.sel), on: () => !!(chosenTrack() && chosenTrack().frozen) }],
     '-',
-    ['Duplicate', '⌘KeyD', { id: 'duptrack' }], ['Duplicate with Its Regions', '⌥⇧⌘KeyD'], ['Rename…', null, { id: 'renametrack', k: '⇧Enter' }], ['Delete', '⌘Backspace', { id: 'deltrack' }], ['Delete Empty Tracks', '⇧⌘Backspace'], ['Tidy Tracks', null, { do: () => tidyTracks() }],
+    ['Duplicate', '⌘KeyD', { id: 'duptrack' }], ['Duplicate with Its Regions', '⌥⇧⌘KeyD'], ['Rename…', null, { id: 'renametrack', k: '⇧Enter' }], ['Delete', '⌘Backspace', { id: 'deltrack' }], ['Delete Empty Tracks', '⇧⌘Backspace'], ['Tidy Tracks', '⌃KeyT', { do: () => tidyTracks() }],
     '-',
     ['Mute', 'KeyM', { on: () => !!(chosenTrack() && chosenTrack().mute) }], ['Solo', 'KeyS', { on: () => !!(chosenTrack() && chosenTrack().solo) }],
     ['Record Enable', null, { do: () => toggleArm(S.sel), on: () => !!(chosenTrack() && chosenTrack().arm) }], ['Hear the Input', '⌃KeyI', { on: () => !!(chosenTrack() && chosenTrack().mon) }],

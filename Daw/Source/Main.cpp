@@ -596,6 +596,8 @@ private:
                               d.hasProperty ("pre") ? (double) d["pre"] : 0.01, d.hasProperty ("post") ? (double) d["post"] : 0.06, [done] (juce::var r) { done (r); });
             return;
         }
+        if (op == "levels") { engine.findLevels (d["key"].toString(), [done] (juce::var r) { done (r); }); return; }      // how loud a buffer is along its length, for ui/silence.js: {key}
+        if (op == "zeroCross") { done (engine.zeroCross (d["key"].toString(), d["at"], d.hasProperty ("within") ? (double) d["within"] : 0.01)); return; }      // edges onto zero: {key, at: [[s, dir] …], within}
         if (op == "dropBuffer") { engine.dropBuffer (d["key"].toString()); done (okVar()); return; }
         if (op == "wave") { done (engine.wave (d["key"].toString(), (double) d["from"], (double) d["to"], (int) d["n"])); return; }      // a stretch of a sound, close up, for drawing
         if (op == "pcm") { done (engine.pcm (d["key"].toString(), (double) d["from"], (double) d["sec"])); return; }      // a stretch of a sound as it is, for the page to hear what it is (ui/tidy.js)

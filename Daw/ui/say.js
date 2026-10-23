@@ -69,7 +69,7 @@ const SAY_FIXED = [
   [{ k: 'verb', v: 'trimstart' }, ['trim the start of', 'trim the start', 'trim start of', 'trim start', 'trim the beginning of', 'trim the beginning']],
   [{ k: 'verb', v: 'trimend' }, ['trim the end of', 'trim the end', 'trim end of', 'trim end']], [{ k: 'verb', v: 'trim' }, ['trim']],
   [{ k: 'verb', v: 'nudge' }, ['nudge', 'shift']], [{ k: 'verb', v: 'ungroup' }, ['ungroup']], [{ k: 'verb', v: 'rename' }, ['rename', 'call']],
-  [{ k: 'verb', v: 'strip' }, ['strip silence', 'strip the silence', 'strip']], [{ k: 'verb', v: 'bounce' }, ['bounce in place', 'bounce']],
+  [{ k: 'verb', v: 'strip' }, ['strip silence', 'strip the silence', 'strip']], [{ k: 'verb', v: 'stripwhole' }, ['strip silence in whole bars', 'strip silence by whole bars', 'strip silence by bars', 'strip silence whole', 'strip the empty bars', 'strip empty bars', 'remove the empty bars', 'remove empty bars']], [{ k: 'verb', v: 'bounce' }, ['bounce in place', 'bounce']],
   [{ k: 'verb', v: 'follow' }, ['follow the tempo', 'follow tempo']], [{ k: 'verb', v: 'fit' }, ['fit to the tempo', 'fit to tempo', 'fit']],
   [{ k: 'verb', v: 'dequantize' }, ['dequantize', 'unquantize', 'as played']], [{ k: 'verb', v: 'legato' }, ['force legato', 'legato']],
   [{ k: 'mod', v: 'earlier' }, ['earlier']], [{ k: 'mod', v: 'later' }, ['later']], [{ k: 'mod', v: 'longer' }, ['longer']], [{ k: 'mod', v: 'shorter' }, ['shorter']],
@@ -459,7 +459,8 @@ function sayEdit (c) {
   if (v === 'nudge') return { say: 'earlier or later, and by how much' }
   if (v === 'trim') return { say: 'trim the start or the end' }
   if (v === 'trimstart' || v === 'trimend') return done([Object.assign({ do: 'trim', end: v === 'trimend', at: destPos }, more)])
-  if (['join', 'reverse', 'strip', 'bounce', 'follow', 'fit', 'dequantize', 'legato', 'ungroup'].includes(v)) return done([Object.assign({ do: 'redit', op: v }, more)])
+  if (v === 'strip' || v === 'stripwhole') { const db = amts.find(x => x.unit === 'db'); return done([Object.assign({ do: 'redit', op: v }, db ? { floor: -Math.abs(db.n) } : {}, more)]) }      // (a level said with it is the threshold, for this once)
+  if (['join', 'reverse', 'bounce', 'follow', 'fit', 'dequantize', 'legato', 'ungroup'].includes(v)) return done([Object.assign({ do: 'redit', op: v }, more)])
   if (v === 'group' && rwords && !verbs.includes('send')) return done([Object.assign({ do: 'redit', op: 'group' }, more)])
   if (v === 'rename') { if (!str) return { say: 'rename it to what (in quotes)' }; return done([Object.assign({ do: 'rename', to: str.v, tracks: c.who && c.who.tracks && !rwords ? c.who.tracks : null }, more)]) }
   /* a region's own gain */
@@ -865,11 +866,11 @@ function sayDo (a, out) {
   if (a.do === 'redit') {                                                                         // the region keys, on what the line means
     const op = a.op, all = sayOf(a)
     if (!all.length) { none(); return true }
-    const can = { reverse: r => !r.loop && !r.notes, strip: r => !r.loop && !r.notes && !r.rev, follow: r => !r.loop && !r.notes, fit: r => !r.loop && !r.notes, legato: r => !!r.notes, dequantize: r => !!(r.notes ? r.q : r.flex && r.flex.length) }[op], rs = can ? all.filter(([r]) => can(r)) : all      // (what the key itself would leave alone is not counted as done)
-    if (!rs.length) { out.push({ k: 'word', text: { reverse: 'loops and notes are not reversed', strip: 'only a file has silence to strip', follow: 'only a file follows the tempo', fit: 'only a file is fitted', legato: 'no notes there', dequantize: 'nothing there was quantized' }[op] || 'nothing there' }); return true }
+    const can = { reverse: r => !r.loop && !r.notes, strip: r => !r.loop && !r.notes && !r.rev, stripwhole: r => !r.loop && !r.notes && !r.rev, follow: r => !r.loop && !r.notes, fit: r => !r.loop && !r.notes, legato: r => !!r.notes, dequantize: r => !!(r.notes ? r.q : r.flex && r.flex.length) }[op], rs = can ? all.filter(([r]) => can(r)) : all      // (what the key itself would leave alone is not counted as done)
+    if (!rs.length) { out.push({ k: 'word', text: { reverse: 'loops and notes are not reversed', strip: 'only a file has silence to strip', stripwhole: 'only a file has silence to strip', follow: 'only a file follows the tempo', fit: 'only a file is fitted', legato: 'no notes there', dequantize: 'nothing there was quantized' }[op] || 'nothing there' }); return true }
     pickRegs(rs.map(x => x[0]))
-    const n = rs.length, said = { join: 'joined', reverse: 'reversed', strip: 'silence being stripped', bounce: 'being bounced in place', follow: 'following the tempo, or not', fit: 'being fitted to the tempo', dequantize: 'as played', legato: 'legato', group: 'grouped', ungroup: 'ungrouped' }[op]
-    if (op === 'join') act.join(); else if (op === 'reverse') act.reverse(); else if (op === 'strip') act.strip(); else if (op === 'bounce') bounceInPlace(); else if (op === 'follow') act.follow(); else if (op === 'fit') act.fitTempo(); else if (op === 'dequantize') act.dequantize(); else if (op === 'group') act.groupRegs(); else if (op === 'ungroup') act.ungroupRegs()
+    const n = rs.length, said = { join: 'joined', reverse: 'reversed', strip: 'silence being stripped', stripwhole: 'empty bars being stripped', bounce: 'being bounced in place', follow: 'following the tempo, or not', fit: 'being fitted to the tempo', dequantize: 'as played', legato: 'legato', group: 'grouped', ungroup: 'ungrouped' }[op]
+    if (op === 'join') act.join(); else if (op === 'reverse') act.reverse(); else if (op === 'strip' || op === 'stripwhole') act.strip(Object.assign(op === 'stripwhole' ? { whole: true } : {}, a.floor != null ? { floor: a.floor } : {})); else if (op === 'bounce') bounceInPlace(); else if (op === 'follow') act.follow(); else if (op === 'fit') act.fitTempo(); else if (op === 'dequantize') act.dequantize(); else if (op === 'group') act.groupRegs(); else if (op === 'ungroup') act.ungroupRegs()
     else if (op === 'legato') { const s0 = ROLL.sel; ROLL.sel = new Set(); try { for (const [r] of rs) if (r.notes) rollLegato(r) } finally { ROLL.sel = s0 } }
     word(`${sayCount(n)} ${said}`)
     return true

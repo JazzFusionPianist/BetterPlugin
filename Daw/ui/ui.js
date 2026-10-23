@@ -722,7 +722,8 @@ function laneRow (i, sel, xEnd) {
      covers its stretch: settle) — with ⌥ held, what stays behind is a copy, and it would hide the one under the hand */
   const carried = drag && drag.a === 'move' && drag.moved && drag.orig, held = carried ? t.regs.filter(r => carried.has(r.id)) : []
   let under = null
-  for (const r of held.length ? t.regs.filter(r => !carried.has(r.id)).concat(held) : t.regs) {
+  const list = held.length ? t.regs.filter(r => !carried.has(r.id)).concat(held) : t.regs
+  for (const r of typeof silPieces === 'function' ? silPieces(list) : list) {      // (strip silence's band is up: a file it is about is drawn as the pieces that would stay — silence.js)
     if (!under && held.length && carried.has(r.id)) { under = [g, tags]; g = ''; tags = '' }      // (from here on, what is drawn is what is carried)
     const xa = bx(r.a), xb = Math.min(bx(r.b), xEnd)
     if (xb < X0 - 2 || xa > X1 + 2) continue
@@ -754,6 +755,7 @@ function laneRow (i, sel, xEnd) {
     tags += r.mute ? G(tagQ, '', ' opacity=".34"') : tagQ
   }
   g = under ? under[0] + cross + under[1] + g + tags : g + cross + tags
+  if (typeof silFrames === 'function') g += silFrames(t, rh, xEnd)
   const dim = (heard(t) ? 1 : .34) * (S.auto ? .4 : 1)
   s += dim < 1 ? G(g, '', ` opacity="${n(dim)}"`) : g
   if (S.auto || lineOwn(t)) s += autoLane(t, 0, rh, xEnd)
@@ -1654,6 +1656,7 @@ function onMove (e) {
     else { const b = clamp(snapPos(barAt(p.x), e), 0, SONG_END), from = d.m === 'new' ? d.p0 : d.fix; if (Math.abs(b - from) >= 1 / 32) { d.moved = true; setCycle(from, b, true) } }
   }
   else if (LANE_DRAGS.has(drag.a)) lanesMove(e, p)
+  else if (typeof drag.move === 'function') drag.move(e, p)                          // (a pull a module took hold of itself: silence.js)
 }
 /* a thing held at the edge of the lanes: the room turns under it, and it goes on with the room (so it can be taken further
    than the window shows). Only for what is placed by where it is in the song, and only once the hand has moved. */
@@ -1689,6 +1692,7 @@ function onUp () {
   else if (d.a === 'rft' && d.moved) { commit(d.before); rewarp(selRegs().map(x => x[0])) }
   else if (d.a === 'pgrip') syncSlur()
   else if (d.a === 'rowh') { S.rowPull = null; for (const t of d.who) if (t.h === S.rh) delete t.h; uiDirty('head', 'lanes') }
+  else if (typeof d.up === 'function') d.up(d)
   drag = null
   if (d.a === 'print') uiDirty('dock')                                             // let go at nothing, a print is off the patch
 }

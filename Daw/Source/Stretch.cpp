@@ -289,4 +289,42 @@ std::vector<std::pair<double, double>> soundParts (const juce::AudioBuffer<float
     }
     return out;
 }
+
+std::vector<juce::uint8> levelOutline (const juce::AudioBuffer<float>& src, int hop)
+{
+    const int n = src.getNumSamples(), ch = src.getNumChannels();
+    hop = juce::jmax (1, hop);
+    std::vector<juce::uint8> out ((size_t) ((n + hop - 1) / hop), 255);
+    if (n < 1 || ch < 1) return out;
+    for (size_t f = 0; f < out.size(); ++f)
+    {
+        float m = 0.0f;
+        const int i0 = (int) f * hop, i1 = juce::jmin (n, i0 + hop);
+        for (int c = 0; c < ch; ++c) { const float* p = src.getReadPointer (c); for (int i = i0; i < i1; ++i) m = juce::jmax (m, std::abs (p[i])); }
+        if (m > 0.0f) out[f] = (juce::uint8) juce::jlimit (0, 255, (int) std::floor (-40.0 * std::log10 ((double) m)));      // (floor: a step is never said to be quieter than it is)
+    }
+    return out;
+}
+
+double zeroNear (const juce::AudioBuffer<float>& src, double sr, double at, int dir, double within)
+{
+    const int n = src.getNumSamples(), ch = src.getNumChannels();
+    if (n < 2 || ch < 1 || sr <= 0.0) return at;
+    const auto sum = [&] (int i) { float s = 0.0f; for (int c = 0; c < ch; ++c) s += src.getSample (c, i); return s; };
+    const int i0 = juce::jlimit (1, n - 1, (int) std::lround (at * sr)), w = juce::jmax (1, (int) std::lround (within * sr));
+    const auto look = [&] (int d) -> int
+    {
+        for (int k = 0; k <= w; ++k)
+        {
+            const int i = i0 + d * k;
+            if (i < 1 || i >= n) break;
+            const float a = sum (i - 1), b = sum (i);
+            if (b == 0.0f || (a < 0.0f) != (b < 0.0f)) return i;
+        }
+        return -1;
+    };
+    int i = look (dir < 0 ? -1 : 1);
+    if (i < 0) i = look (dir < 0 ? 1 : -1);
+    return i < 0 ? at : i / sr;
+}
 }

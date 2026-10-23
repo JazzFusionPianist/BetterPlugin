@@ -33,4 +33,13 @@ Tempo tempoOf (const juce::AudioBuffer<float>& src, double sr);
     Sound is whatever reaches `floorDb` (dB below full scale); a quiet stretch shorter than `gap` seconds is not
     a silence; each stretch begins `pre` seconds early and ends `post` seconds late (a breath in, a tail out). */
 std::vector<std::pair<double, double>> soundParts (const juce::AudioBuffer<float>& src, double sr, double floorDb, double gap, double pre, double post);
+
+/** How loud a file is along its length, for the page to find its silences itself (ui/silence.js): the loudest sample of
+    each step of `hop` samples on any channel, in half decibels below full scale (0 = full scale, 255 = 127.5 dB down
+    or quieter: digital silence too). */
+std::vector<juce::uint8> levelOutline (const juce::AudioBuffer<float>& src, int hop);
+
+/** The place nearest `at` (seconds) where the file crosses zero (its channels together): first looked for on the side
+    `dir` points to (-1 earlier, +1 later) up to `within` seconds, then on the other; `at` itself when there is none. */
+double zeroNear (const juce::AudioBuffer<float>& src, double sr, double at, int dir, double within);
 }

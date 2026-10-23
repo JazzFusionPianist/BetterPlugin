@@ -1292,13 +1292,66 @@ async function runSelfTest (mode) {
     placeDecoded([file], S.tracks.indexOf(t), 5); await sleep(300)
     const r = t.regs[0], a0 = r.a - 1
     const parts = await NAT.call('soundParts', { key: r.key, floor: -40, gap: .3, pre: .01, post: .06 })
+    /* the page reckons from the engine's outline (silence.js) what the engine itself found */
+    const L = await silLevels(r.key), mine = L ? silPlain(silSound(L, -40, .3), SIL_DEF, L.lv.length * L.hop) : []
+    const res0 = { levels: L ? { hop: +L.hop.toFixed(5), steps: L.lv.length } : null, sameAsTheEngine: mine.length === parts.length && mine.every(([a, b], i) => Math.abs(a - parts[i][0]) < .0011 && Math.abs(b - parts[i][1]) < .0011) }
     S.selR = [r.id]; S.focus = 'lanes'
-    await act.strip(); await sleep(400)
+    await act.strip(Object.assign({}, SIL_DEF)); await sleep(400)
     const secs = t.regs.slice().sort((x, y) => x.a - y.a).map(q => [+((q.a - 1 - a0) * SPB()).toFixed(3), +((q.b - 1 - a0) * SPB()).toFixed(3), +((q.off || 0) * SPB()).toFixed(3)])
     const at = async sec => only(t, async () => { await playFrom(a0 + sec / SPB()); return (await listen(250)).rms })
-    const res = { parts, pieces: secs, said: S.last && S.last.say, chosen: S.selR.length }
+    const res = Object.assign(res0, { parts, pieces: secs, said: S.last && S.last.say, chosen: S.selR.length })
     res.heard = { inFirst: await at(.3), inTheGap: await at(1.3), inSecond: await at(2.1), inLongGap: await at(4), inLast: await at(5.4) }; halt(false)
     undoEdit(); await sleep(200); res.undone = t.regs.length
+    await deleteTrack(S.tracks.indexOf(t)); await sleep(250)
+    return res
+  })
+  /* strip silence in whole bars (his ask, 2026-10-23): a tick on every beat of four bars, two bars of nothing, two bars more
+     whose first tick comes 20 ms ahead of its bar line and whose last one rings over the next bar line. Logic's way cuts it
+     to a piece a tick; whole bars to two pieces, on the bar lines, and on the beat lines where a tick leans over one.
+     Both are heard where the ticks are and silent between; the cuts of Logic's way are on zero (the tick is a tone that
+     does not start on zero) */
+  await step('stripWhole', async () => {
+    halt(false)
+    const sr = 44100, spb = SPB(), beat = spb / BEATS(), n = Math.round(9 * spb * sr)
+    const ab = new AudioBuffer({ length: n, sampleRate: sr, numberOfChannels: 2 }), L0 = ab.getChannelData(0), R0 = ab.getChannelData(1)
+    const tick = (sec, ring) => { const i0 = Math.round(sec * sr), m = Math.round((ring || .08) * sr); for (let j = 0; j < m && i0 + j < n; j++) { const v = Math.sin(2 * Math.PI * 880 * j / sr + 1) * .5 * Math.exp(-j / (m / 3)); L0[i0 + j] += v; R0[i0 + j] += v * .8 } }
+    for (let i = 0; i < n; i++) { const h = Math.sin(2 * Math.PI * 50 * i / sr + .5) * .003; L0[i] = h; R0[i] = h }      // a hum 50 dB down under it all: no sound, but the cuts land in something
+    for (let k = 0; k < 16; k++) tick(k * beat)
+    tick(6 * spb - .02); for (let k = 1; k < 8; k++) tick(6 * spb + k * beat, k === 7 ? beat + .15 : 0)
+    const file = Object.assign({ name: 'ticks' }, await decodeFile(new File([wav16(ab)], 'ticks.wav', { type: 'audio/wav' })))
+    const t = newTrack('audio', 'whole check', true)
+    placeDecoded([file], S.tracks.indexOf(t), 5); await sleep(300)
+    const r = t.regs[0], a0 = r.a - 1, res = {}
+    const lane = () => t.regs.slice().sort((x, y) => x.a - y.a).map(q => [+(q.a - 1 - a0).toFixed(4), +(q.b - 1 - a0).toFixed(4)])
+    const at = async bar => only(t, async () => { await playFrom(a0 + bar); return (await listen(700)).rms })      // (longer than a beat: a tick is in it wherever it begins)
+    S.selR = [r.id]; S.focus = 'lanes'
+    await act.strip(Object.assign({}, SIL_DEF, { whole: false })); await sleep(300)
+    const plain = t.regs.slice().sort((x, y) => x.a - y.a), cutSec = q => [(q.off || 0) * spb, ((q.off || 0) + q.b - q.a) * spb]
+    /* each cut: the samples on either side of it are of different signs (or one is nothing) */
+    const miss = []
+    const onZero = async (sec, j) => { const d = await NAT.call('pcm', { key: r.key, from: Math.max(0, sec - .001), sec: .002 }); if (!d || !d.ok) return false; const bin = atob(d.pcm), v = new Int16Array(new Uint8Array([...bin].map(c => c.charCodeAt(0))).buffer), i = Math.round((sec - d.from) * d.rate), yes = i > 0 && i < v.length && v[i - 1] * v[i] <= 0;      /* (sixteen bits: a sample a hair either side of zero reads 0) */ if (!yes && miss.length < 4) miss.push({ j, sec: +sec.toFixed(6), at: +((sec - d.from) * d.rate).toFixed(3), rate: d.rate, around: [...v.slice(Math.max(0, i - 3), i + 3)] }); return yes }
+    const cuts = plain.flatMap(q => cutSec(q).map((x, e) => [x, e])).filter(([x]) => x > 1e-6 && x < 9 * spb - 1e-3)
+    let on = 0; for (const [x, e] of cuts) if (await onZero(x, e ? 'end' : 'start')) on++
+    res.plain = { pieces: plain.length, said: S.last && S.last.say, onZero: `${on} of ${cuts.length}`, miss }
+    undoEdit(); await sleep(200)
+    S.selR = [t.regs[0].id]; S.focus = 'lanes'
+    await act.strip(Object.assign({}, SIL_DEF, { whole: true })); await sleep(300)
+    res.whole = { pieces: lane(), said: S.last && S.last.say, want: [[0, 4], [6 - 1 / BEATS(), 8 + 1 / BEATS()]].map(p => p.map(v => +v.toFixed(4))) }
+    res.whole.right = JSON.stringify(res.whole.pieces) === JSON.stringify(res.whole.want)
+    res.heard = { inFirst: await at(1.5), inTheEmptyBars: await at(4.2), inSecond: await at(6.5) }; halt(false)
+    undoEdit(); await sleep(200); res.undone = t.regs.length
+    /* the band (⌃X): it opens on the file with the engine's outline, says as many pieces as were cut above, each way; return
+       cuts what it shows. (What is remembered of it is his: put back as it was.) */
+    let kept = null; try { kept = localStorage.getItem('slur.strip') } catch (e) {}
+    silKeep(SIL_DEF); S.selR = [t.regs[0].id]; S.focus = 'lanes'
+    act.strip(); for (let k = 0; k < 60 && !(SILB.on && silReady()); k++) await sleep(50)
+    res.band = { up: SILB.on, each: SILB.n }
+    silSet('whole', true); res.band.whole = SILB.n
+    await stripApply(); await sleep(400)
+    res.band.cut = lane(); res.band.right = res.band.each === res.plain.pieces && res.band.whole === 2 && JSON.stringify(res.band.cut) === JSON.stringify(res.whole.want) && !SILB.on
+    undoEdit(); await sleep(200)
+    try { if (kept == null) localStorage.removeItem('slur.strip'); else localStorage.setItem('slur.strip', kept) } catch (e) {}
+    Object.assign(SIL, silClean(kept ? JSON.parse(kept) : {}))
     await deleteTrack(S.tracks.indexOf(t)); await sleep(250)
     return res
   })

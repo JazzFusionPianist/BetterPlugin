@@ -2739,6 +2739,40 @@ public:
         });
     }
 
+    /** How loud a buffer is along its length (see levelOutline): {ok, hop (seconds), n, lv (base64)}. A thousandth of a
+        second to the step up to five minutes, longer steps past that. Runs on its own thread. */
+    void findLevels (const String& key, std::function<void (juce::var)> done)
+    {
+        auto src = buffer (key);
+        if (src == nullptr) { done (juce::var()); return; }
+        juce::Thread::launch ([sr0 = sr, src, done]
+        {
+            const int n = src->data.getNumSamples(), hop = juce::jmax ((int) std::lround (sr0 * 0.001), (n + 299999) / 300000);
+            const auto lv = levelOutline (src->data, hop);
+            const auto b64 = juce::Base64::toBase64 (lv.data(), lv.size());
+            juce::MessageManager::callAsync ([done, b64, hop, sr0, n = (int) lv.size()]
+            {
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("ok", true); o->setProperty ("hop", hop / sr0); o->setProperty ("n", n); o->setProperty ("lv", b64);
+                done (juce::var (o));
+            });
+        });
+    }
+
+    /** Edges moved onto the nearest place the sound crosses zero (see zeroNear): [[seconds, dir] …] in, seconds out. */
+    juce::var zeroCross (const String& key, const juce::var& at, double within)
+    {
+        juce::Array<juce::var> out;
+        const auto src = buffer (key);
+        if (auto* a = at.getArray())
+            for (const auto& p : *a)
+            {
+                const double s = (double) p[0];
+                out.add (src == nullptr ? s : juce::roundToInt (zeroNear (src->data, sr, s, (int) p[1], within) * 1000000.0) / 1000000.0);
+            }
+        return out;
+    }
+
     /** Print to disk, on its own thread, with the speakers standing by.
         kind "stems": each asked-for track after its fader, through its patch and plug-ins ("wet") or bare ("dry").
         kind "mix":   everything, as it goes to the speakers.

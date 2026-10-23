@@ -1447,48 +1447,8 @@ const act = {
     })
     rewarp(can.map(x => x[0]))
   },
-  /* strip silence: each chosen file is cut down to the stretches in which there is sound (the app listens: what reaches
-     40 dB below full scale is sound, a quiet stretch shorter than three tenths of a second is not a silence, and each
-     piece begins a hundredth of a second early and ends six hundredths late) */
-  async strip (o) {
-    const rs = selRegs().filter(([q, t]) => !q.loop && !q.notes && !q.rev && t.kind === 'audio')
-    if (!rs.length) { say('choose a file first'); return }
-    if (!NAT) { say('the app listens for that'); return }
-    const p = Object.assign({ floor: -40, gap: .3, pre: .01, post: .06 }, o || {})
-    say('listening')
-    const heard = await Promise.all(rs.map(([r]) => { const w = r.wkey && LIVEW.has(r.wkey) ? r.wkey : null; return NAT.call('soundParts', Object.assign({ key: w || r.key }, p)).then(list => [r, w ? 1 : rateOf(r), list]) }))
-    let cut = 0, pieces = 0
-    edit(() => {
-      const made = []
-      for (const [r0, k, list] of heard) {
-        const [r, t] = regOf(r0.id)                                                    // (the region as it is now: the app was listened to meanwhile, and an undo may have put another in its place)
-        if (!r || !Array.isArray(list) || r.key !== r0.key || !!r.rev !== !!r0.rev) continue
-        const before = crossBefore(r, t), after = crossAfter(r, t), xs = before ? xfadeOf(before, r) : 0, xe = after ? xfadeOf(r, after) : 0
-        const ra = r.a - 1, rb = r.b - 1
-        const parts = list.map(([s0, s1]) => [Math.max(ra, barOfD(r, s0 / k)), Math.min(rb, barOfD(r, s1 / k))]).filter(([x, y]) => y - x > 1e-4)
-        let keepA = parts.length && parts[0][0] <= ra + xs + 1e-6, keepB = parts.length && parts[parts.length - 1][1] >= rb - xe - 1e-6      // the sound runs up to that end (into what it shares with its neighbour, where it shares): the end stays as it is, crossfade and all
-        if (parts.length === 1 && keepA && keepB) continue                               // sound from end to end: nothing to take out
-        const own2 = 2 * oneSample()                                                     // (a piece that would be no longer than the crossfade at its end has nothing of its own: that end is a plain join first)
-        if (keepA && xs && parts[0][1] - ra <= xs + own2) keepA = false
-        if (keepB && xe && rb - parts[parts.length - 1][0] <= xe + own2) keepB = false
-        if (before && !keepA) uncross(before, r)
-        if (after && !keepB) uncross(r, after)
-        const a0 = r.a - 1, b0 = r.b - 1                                                 // (after the uncrossing)
-        const own = parts.map(([x, y], i) => {
-          const head = i === 0 && keepA, tail = i === parts.length - 1 && keepB
-          x = head ? a0 : Math.max(a0, x); y = tail ? b0 : Math.min(b0, y)
-          const q = cloneReg(r, { a: x + 1, b: y + 1, off: (r.off || 0) + (x - a0), fi: head ? r.fi || 0 : 0, fo: tail ? r.fo || 0 : 0 })
-          if (!tail) delete q.xo
-          return q
-        }).filter(q => q.b - q.a > 1e-4)
-        for (const q of own) fitFades(q, { regs: t.regs.filter(z => z !== r).concat(own) })
-        t.regs = t.regs.filter(q => q !== r).concat(own); made.push(...own); cut++; pieces += own.length
-      }
-      if (!cut) return false
-      S.selR = made.map(q => q.id); S.focus = 'lanes'
-    })
-    say(cut ? `${pieces} ${pieces === 1 ? 'piece' : 'pieces'} with sound` : 'no silence in it')
-  },
+  /* strip silence (silence.js): ⌃X opens its band; with values (said on the command line, the self-test) it is done at once */
+  strip (o) { return o ? stripSilence(o) : stripOpen() },
 }
 let CLIP = []
 /* regions chosen by a key: they are what the delete key and the tracks' own bar are about from here on */

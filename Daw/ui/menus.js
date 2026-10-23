@@ -62,7 +62,7 @@ const MENU_BAR = () => [
     '-',
     ['Tempo', null, { sub: [['Follow the Tempo', '⌃KeyF', { on: () => chosenRegs().length > 0 && chosenRegs().every(r => r.fx) }], ['Fit Region to Project Tempo', '⌃⌥KeyF', { id: 'fittempo' }], ['Set Project Tempo from Region', '⌃⌥KeyT', { id: 'tempofrom' }]] }],
     ['Quantize', 'KeyQ'], ['Undo Quantize', '⌥⌘KeyQ'],
-    ['Strip Silence', '⌃KeyX', { id: 'strip' }],
+    ['Strip Silence', '⌃KeyX', { id: 'strip' }], ['Strip Silence in Whole Bars', null, { id: 'stripwhole', do: () => stripOpen({ whole: true }) }],
     '-',
     ['Group', '⌥⌘KeyG', { id: 'groupregs' }], ['Ungroup', '⌥⌘KeyU', { id: 'ungroupregs' }],
     ['Colour and Outline…', null, { do: () => { S.look = true; uiDirty('look', 'info') } }],

@@ -198,7 +198,7 @@ LANG.menuKo = {
   'Fades': '페이드', 'Fades for Selection': '선택한 리전에 페이드', 'Fade In up to the Playhead': '플레이헤드까지 페이드 인', 'Fade Out from the Playhead': '플레이헤드부터 페이드 아웃',
   'Nudge': '넛지', 'Earlier': '앞으로', 'Later': '뒤로', 'Shorter': '짧게', 'Longer': '길게',
   'Tempo': '템포', 'Follow the Tempo': '템포 따라가기', 'Fit Region to Project Tempo': '리전을 프로젝트 템포에 맞추기', 'Set Project Tempo from Region': '리전에서 프로젝트 템포 가져오기',
-  'Quantize': '퀀타이즈', 'Undo Quantize': '퀀타이즈 해제', 'Strip Silence': '무음 걷어내기', 'Group': '그룹', 'Ungroup': '그룹 해제', 'Colour and Outline…': '색과 모양…',
+  'Quantize': '퀀타이즈', 'Undo Quantize': '퀀타이즈 해제', 'Strip Silence': '무음 걷어내기', 'Strip Silence in Whole Bars': '마디째 무음 걷어내기', 'Group': '그룹', 'Ungroup': '그룹 해제', 'Colour and Outline…': '색과 모양…',
   'Track': '트랙', 'New Tracks…': '새 트랙…', 'New Audio Track': '새 오디오 트랙', 'New Instrument Track': '새 악기 트랙', 'New Bus': '새 버스', 'Create Reference Track': '레퍼런스 트랙 만들기', 'Disable Track': '트랙 끄기', 'Inspector': '인스펙터',
   'Duplicate': '복제', 'Duplicate with Its Regions': '리전까지 복제', 'Delete Empty Tracks': '빈 트랙 삭제', 'Tidy Tracks': '트랙 정리', 'Solo': '솔로', 'Record Enable': '녹음 대기', 'Hear the Input': '입력 듣기',
   'Stack': '스택', 'Make a Stack': '스택 만들기', 'Take the Stack Apart': '스택 풀기', 'Open the Stack': '스택 열기', 'Close the Stack': '스택 닫기',

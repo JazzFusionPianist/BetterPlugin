@@ -3,13 +3,15 @@
    be found, not typed. Each track is read by its own name, then by the names of its sounds' files (Bass DI.wav), then by
    its instrument's plug-in, and last by its sound: YAMNet (yamnet.js, in a worker of its own) hears a few seconds of it
    and says how much it is each of 521 kinds of sound, which TIDY_HEAR gathers into the instruments a track may be
-   (TIDY_INST). Then, in one step back:
-     a name that says nothing (audio 19, inst 3, a file's own name with no instrument in it) becomes the instrument's
-       (bass, kick 2); a name of his own is kept, and what the track is is only remembered (t.what), for the command line
-       to find it by (say.js: sayKeys) and for its colour (t.tone, its family);
-     the tracks stand in the order a session is read in: drums, bass, guitars, keys, the rest, voices, effects (stacks,
-       buses and what stands in a stack keep their places).
-   Track > Tidy Tracks, or said: "tidy the tracks", "트랙 정리해줘". Read after say.js and mix.js. */
+   (TIDY_INST). Then, in one step back (his round of 2026-10-23, on a multitrack of 111 stems):
+     a name that came with its file is only cleaned of what surely says nothing — an export's number, a track number, a
+       sample pack's codes — and never renamed for what it is heard to be; a name of his own is kept as it is; what the
+       track is is remembered (t.what), for the command line to find it by (say.js: sayKeys) and for its colour (t.tone);
+     every file is stripped of silence in whole bars (silence.js), each against its own loudest, and a track left with no
+       sound in it is taken out;
+     the tracks stand in the order a session is read in: drums, bass, guitars, keys, the rest, voices, effects, and those
+       of one family stand in a stack of their own (stacks, buses and what stands in a stack keep their places).
+   Track > Tidy Tracks, or said: "tidy the tracks", "트랙 정리해줘". Read after say.js, mix.js and silence.js. */
 const TIDY = { state: '', w: null, wait: new Map(), n: 0, classes: null }
 for (const keep of [typeof KEEP_T !== 'undefined' ? KEEP_T : null, typeof T_KEEP !== 'undefined' ? T_KEEP : null]) if (keep && !keep.includes('what')) keep.push('what')      // (what a track was found to be: kept with the song, and in a step back)
 
@@ -86,22 +88,103 @@ const tidyName = s => (TIDY_INST.find(e => e[0] === s) || [s, s])[1]
 const tidyEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const tidyEnRe = w => { const x = w[0] === '=', ws = (x ? w.slice(1) : w).split(' ').map(tidyEsc).join('\\s+'); return new RegExp(`(?:^|[^a-z'])(${ws}${x || /\s/.test(w) ? '' : '(?:s|es)?'})(?![a-z])`, 'g') }
 const tidyKoRe = w => w[0] === '=' ? new RegExp(`(?:^|[^가-힣])(${tidyEsc(w.slice(1))})(?=$|[^가-힣])`, 'g') : new RegExp(`(?:^|[^가-힣])(${w.split(' ').map(tidyEsc).join('\\s*')})`, 'g')
+/* shorthand written with its last letter held, as names are typed in a hurry: eppp is an ep, egg an eg (his multitrack,
+   2026-10-23) — not oh (overheads), which held is a word sung */
+const TIDY_HELD = new Set(['hh', 'snr', 'bv', 'eg', 'ep', 'kik', 'tmb', 'gt'])
+const tidyHeldRe = w => new RegExp(`(?:^|[^a-z'])(${tidyEsc(w)}${tidyEsc(w.slice(-1))}*)(?![a-z])`, 'g')
+/* words that say what a track is only when nothing else in its name does: lead alone is a lead synth (his word,
+   2026-10-23), but lead vocals are vocals and lead guitar a guitar; a fill is drums, but a pad fill a pad */
+const TIDY_WEAK = new Set(['lead', 'fill'])
 const TIDY_WORDS = TIDY_INST.flatMap(([v, , en, ko]) => [...en.map(w => ({ v, w, re: tidyEnRe(w), n: w.length })), ...ko.map(w => ({ v, w, re: tidyKoRe(w), n: w.length }))])
-  .concat([['hh', 'hat'], ['snr', 'snare'], ['ld vox', 'vox'], ['bv', 'backing'], ['ac gtr', 'acoustic'], ['eg', 'electric'], ['ep', 'rhodes'], ['kik', 'kick'], ['oh', 'overheads'], ['tmb', 'tambourine']].map(([w, v]) => ({ v, w, re: tidyEnRe('=' + w), n: w.length })))
+  .concat([['hh', 'hat'], ['snr', 'snare'], ['ld vox', 'vox'], ['bv', 'backing'], ['ac gtr', 'acoustic'], ['eg', 'electric'], ['ep', 'rhodes'], ['kik', 'kick'], ['oh', 'overheads'], ['tmb', 'tambourine'],
+    ['ele gt', 'electric'], ['ele', 'electric'], ['gt', 'gtr'], ['rim', 'rim'], ['fill', 'drums'], ['stinger', 'fx'], ['lead', 'lead']].map(([w, v]) => ({ v, w, re: TIDY_HELD.has(w) ? tidyHeldRe(w) : tidyEnRe('=' + w), n: w.length, weak: TIDY_WEAK.has(w) })))      // (ele gt, rim, fill, stinger, lead: what his multitrack of 2026-10-23 said and was not read)
   .sort((a, b) => b.n - a.n)
 function tidyByWords (str) {
-  const s = ' ' + String(str || '').toLowerCase().replace(/[_\-.()[\]]+/g, ' ').replace(/([a-z])(\d)/g, '$1 $2').replace(/\s+/g, ' ').trim() + ' '
+  const s = ' ' + String(str || '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()      // (PowerUpStinger is power up stinger).replace(/[_\-.()[\]]+/g, ' ').replace(/([a-z])(\d)/g, '$1 $2').replace(/\s+/g, ' ').trim() + ' '
   /* the longest words first, none inside one found already; the first of them in the name says what it is */
   const taken = [], found = []
   for (const p of TIDY_WORDS) {
     p.re.lastIndex = 0
     let m
-    while ((m = p.re.exec(s))) { const at = m.index + m[0].length - m[1].length, end = m.index + m[0].length; if (!taken.some(([x, y]) => at < y && end > x)) { found.push({ v: p.v, at }); taken.push([at, end]) } p.re.lastIndex = m.index + 1 }
+    while ((m = p.re.exec(s))) { const at = m.index + m[0].length - m[1].length, end = m.index + m[0].length; if (!taken.some(([x, y]) => at < y && end > x)) { found.push({ v: p.v, at, weak: p.weak }); taken.push([at, end]) } p.re.lastIndex = m.index + 1 }
   }
-  return found.length ? found.sort((x, y) => x.at - y.at)[0].v : null
+  const strong = found.filter(f => !f.weak)
+  return found.length ? (strong.length ? strong : found).sort((x, y) => x.at - y.at)[0].v : null
+}
+/* a plug-in's name in a track's name: a producer's stems are called after the instrument that played them (astra 06,
+   serum 02, keyscape 05). What it is then is that instrument's kind; its sound may only say which of the kinds that
+   instrument plays (his corrections, 2026-10-23: astra heard as drums, as a flute, as brass is a synth; omnisphere
+   heard as a guitar, astra as a bass, serum as a rhodes are what they were heard to be). [names, kind, the stacks the sound may take it to] */
+const TIDY_PLUGS = [
+  [['astra', 'serum', 'vital', 'massive', 'massive x', 'sylenth', 'sylenth1', 'spire', 'pigments', 'diva', 'phase plant', 'hive', 'avenger', 'zebra', 'zebra2', 'omnisphere', 'nexus', 'es2', 'alchemy', 'retro synth', 'analog lab', 'repro', 'dune', 'synthmaster', 'surge', 'icarus', 'kontour', 'minimoog', 'jup-8000', 'obxd', 'helm'], 'synth', ['bass', 'keys', 'guitars', 'synths']],
+  [['keyscape', 'pianoteq', 'noire', 'ivory', 'una corda', 'lounge lizard', 'grandeur', 'the gentleman', 'mark i'], 'keys', ['keys']],
+  [['addictive drums', 'superior drummer', 'ezdrummer', 'ez drummer', 'battery', 'ssd5', 'bfd', 'drum kit designer', 'ultrabeat'], 'drums', ['drums']],
+]
+const TIDY_PLUG_RE = TIDY_PLUGS.map(([ws, v, may]) => [ws.map(w => tidyEnRe('=' + w)), v, may])
+function tidyPlugOf (str) {
+  const s = ' ' + String(str || '').toLowerCase().replace(/[_.()[\]]+/g, ' ').replace(/\s+/g, ' ').trim() + ' '
+  for (const [res, v, may] of TIDY_PLUG_RE) if (res.some(re => { re.lastIndex = 0; return re.test(s) })) return { v, may }
+  return null
 }
 /* a name that says nothing of what is in the track: the DAW's own (audio 19, inst 3, track 2, bus 4), or nothing but a number or a take */
 const tidyBare = name => /^\s*(audio|inst|instrument|track|mono|stereo|오디오|트랙|인스트|untitled|new track|bounce|print|take|comp|rec|recording|voice memo)?[\s_\-#.]*\d*(\s*[._\-]\s*\d+)*\s*(take\s*\d+)?\s*$/i.test(String(name || ''))
+
+/* ── names: only what can surely go (his word, 2026-10-23: "정말 '지워도 된다고' 판단되는 것들만") ──
+   What a track is heard to be does not name it (a track called other may well hold a kick; an omnisphere preset may well
+   be a guitar): a name is only cleaned of what says nothing — the number a DAW puts after every stem it hands out
+   (" - 0095", where most of the files have one), a track's number in front ("0 lead vocals", "12_subdrop", where several
+   files are numbered so, and only where the name stays its own), and a sample pack's codes in front of what the sound is
+   ("KSHMR_sok5_", "DS_BPE_", with the tempo the sample was made at). Everything else stays as it was written: chorus 1L
+   is still chorus 1L, lead vocals-04 (d) keeps its -04 and its (d). A name typed by hand is never touched. */
+const TIDY_TAIL = / - \d{3,5}$/, TIDY_NUM = /^\d{1,2}[ _](?=\S)/
+const TIDY_NUM_KEEP = /^\d{1,2}[ _](shots?|bars?|beats?|steps?|osc|ways?|bands?|parts?|bits?|strings?|voices?)\b/i      // (1 shot kick, 4 bars loop: the number is part of the name)
+/* a sample pack's name: words joined by _, the pack's codes first — in capitals, or a short code with a figure in it right
+   after them — then perhaps the tempo it was made at; what follows says what the sound is */
+function tidyPack (s) {
+  if (/\s/.test(s) || (s.match(/_/g) || []).length < 2) return s                          // (spaces: a name someone wrote)
+  const tok = s.split('_'), caps = w => /^[A-Z0-9]{1,9}$/.test(w) && /[A-Z]/.test(w) && !tidyByWords(w)      // (a word that says an instrument is no code: VOX_LEAD stays)
+  let i = 0
+  while (i < tok.length - 1 && i < 4 && (caps(tok[i]) || (i && /^[a-z0-9]{2,6}$/i.test(tok[i]) && /\d/.test(tok[i]) && /[a-z]/i.test(tok[i]) && !tidyByWords(tok[i])))) i++
+  if (!i) return s
+  if (i < tok.length - 1 && /^\d{2,3}$/.test(tok[i]) && +tok[i] >= 60 && +tok[i] <= 200) i++
+  const rest = tok.slice(i)
+  if (!rest.some(w => /[a-z]/.test(w))) return s                                            // (all of it in capitals: no telling the codes from the words)
+  return rest.join(' ').replace(/\s+/g, ' ').trim()
+}
+/* the names of a batch of files (what the evidence is: many of them numbered, most of them with an export's number) → what each is called */
+function tidyClean (bases) {
+  const tails = bases.filter(b => TIDY_TAIL.test(b)).length >= Math.max(2, bases.length * .5), nums = bases.filter(b => TIDY_NUM.test(b)).length >= 3
+  const one = bases.map(b => tidyPack(tails ? String(b).trim().replace(TIDY_TAIL, '') : String(b).trim()))
+  const two = one.map(x => nums && TIDY_NUM.test(x) && !TIDY_NUM_KEEP.test(x) ? x.replace(TIDY_NUM, '') : x)
+  const seen = new Map(); two.forEach(x => seen.set(x.toLowerCase(), (seen.get(x.toLowerCase()) || 0) + 1))
+  return new Map(bases.map((b, i) => [b, (two[i] !== one[i] && seen.get(two[i].toLowerCase()) > 1 ? one[i] : two[i]) || b]))      // (1 drums and 2 drums keep their numbers: without them they are one name)
+}
+/* a file's own name as it came: the region's name keeps every mark of it (F#min) but not its capitals, the copy in the
+   project keeps the capitals (the pack's codes are told by them) but not every mark — # is dropped from a file's name —
+   so it is written out of the one with the other's capitals */
+const TIDY_EXT = /\.(wav|aiff?|caf|mp3|m4a|flac|ogg)$/i
+function tidyFileBase (r) {
+  const said = String(r.name || '').replace(TIDY_EXT, ''), file = String(r.file || '').replace(/^.*\//, '').replace(TIDY_EXT, '')
+  if (!said || !file) return said || file
+  let out = '', j = 0
+  for (const c of said) { if (j < file.length && file[j].toLowerCase() === c) out += file[j++]; else out += c }
+  return out
+}
+
+/* ── the stacks the tidied tracks stand in, one to a family (his ask, 2026-10-23): by what each is, heard or read — a
+   track called other that is heard as a kick stands with the drums ── */
+const TIDY_STACKS = ['drums', 'bass', 'guitars', 'keys', 'synths', 'strings', 'brass', 'winds', 'vox', 'fx']
+function tidyStackOf (w) {
+  if (!w) return null
+  const f = TIDY_FAM(w)
+  if (f === 'drums' || f === 'bass' || f === 'vox' || f === 'fx') return f
+  if (f === 'gtr') return 'guitars'
+  if (['synth', 'lead', 'pad', 'pluck', 'arp', 'bell'].includes(w)) return 'synths'
+  if (['strings', 'violin', 'viola', 'cello', 'harp', 'orchestra', 'gayageum', 'geomungo', 'haegeum'].includes(w)) return 'strings'
+  if (['brass', 'trumpet', 'trombone', 'horn', 'tuba', 'sax'].includes(w)) return 'brass'
+  if (['flute', 'clarinet', 'oboe', 'bassoon', 'woodwinds', 'harmonica', 'accordion', 'daegeum', 'piri'].includes(w)) return 'winds'
+  return 'keys'
+}
 
 /* ── by sound: YAMNet, in a worker ── */
 const TIDY_WORKER = `
@@ -112,7 +195,7 @@ onmessage = e => {
   const out = new Float32Array(M.T['fc.b'].length); let n = 0
   for (const pcm of d.parts) { const r = yamScores(M, pcm); for (const p of r.pieces) { for (let i = 0; i < out.length; i++) out[i] += p[i]; n++ } }
   for (let i = 0; i < out.length; i++) out[i] /= Math.max(1, n)
-  postMessage({ id: d.id, scores: out, pieces: n }, [out.buffer])
+  postMessage({ id: d.id, scores: out, pieces: n, pitch: tidyPitch(d.parts), flat: tidyFlat(d.parts) }, [out.buffer])
 }`
 const tidyAsk = d => new Promise(res => { const id = ++TIDY.n; TIDY.wait.set(id, res); TIDY.w.postMessage(Object.assign({ id }, d), d.model ? [d.model] : []) })
 async function tidyStart () {
@@ -124,7 +207,8 @@ async function tidyStart () {
       const get = async (u, k) => { const r = await fetch(u); if (!r.ok) throw new Error(u); return k === 'b' ? r.arrayBuffer() : k === 'j' ? r.json() : r.text() }
       const [code, model, classes] = await Promise.all([get('yamnet.js'), get('yamnet/model.bin', 'b'), get('yamnet/classes.json', 'j')])
       TIDY.classes = classes
-      TIDY.w = new Worker(URL.createObjectURL(new Blob([code + TIDY_WORKER], { type: 'text/javascript' })))
+      try { TIDY.ear = await get('tidy-ear.json', 'j') } catch (e) { TIDY.ear = null }      // (the trained ear; without it the evidence alone decides, as before)
+      TIDY.w = new Worker(URL.createObjectURL(new Blob([code + '\n' + tidyPitch + '\n' + tidyFlat + TIDY_WORKER], { type: 'text/javascript' })))      // (how pitched and how noise-like are measured there too, off the window's thread)
       TIDY.w.onmessage = e => { const f = TIDY.wait.get(e.data.id); if (f) { TIDY.wait.delete(e.data.id); f(e.data) } }
       TIDY.w.onerror = () => { TIDY.state = 'none' }
       await tidyAsk({ init: true, model })
@@ -138,13 +222,29 @@ async function tidyStart () {
 /* a few seconds of a track, where it sounds: from the app (its sounds' buffers, as they are), else as the page plays it */
 const TIDY_SEC = 2, TIDY_PARTS = 3
 const tidyRms = a => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * a[i]; return Math.sqrt(s / Math.max(1, a.length)) }
+/* the starts (seconds) of up to eight stretches of TIDY_SEC where a file is loudest, none over another: from how loud it
+   is along its length (silence.js), the sum of each stretch's steps, in power */
+function tidyLoudest (L, len) {
+  const per = Math.max(1, Math.round(TIDY_SEC / L.hop)), n = L.lv.length, pw = new Float64Array(n + 1)
+  for (let i = 0; i < n; i++) pw[i + 1] = pw[i] + (L.lv[i] >= 255 ? 0 : Math.pow(10, -L.lv[i] / 20))      // (half decibels down: a step's power)
+  const at = []
+  for (let i = 0; i + per <= n; i += Math.max(1, per >> 2)) at.push([pw[i + per] - pw[i], i])
+  at.sort((x, y) => y[0] - x[0])
+  const out = []
+  for (const [p, i] of at) { if (p <= 0 || out.length >= 8) break; if (out.every(j => Math.abs(j - i) >= per)) out.push(i) }
+  return out.map(i => Math.min(Math.max(0, len - TIDY_SEC), i * L.hop))
+}
 async function tidySound (t) {
   const regs = (t.regs || []).filter(r => !r.missing && (NAT ? !r.notes && (r.key || (r.loop && r.buf)) : true)).sort((a, b) => (b.sec || b.b - b.a) - (a.sec || a.b - a.a))      // (the app hears its sounds' buffers, a loop's too; a page, what it plays: notes too)
   const parts = []
   if (NAT) {
     for (const r of regs.slice(0, 2)) {
-      const key = r.key || r.buf, len = r.sec || (typeof LOOPS === 'object' && LOOPS[r.buf] && LOOPS[r.buf].sec) || (r.b - r.a) * SPB(), cand = []
-      for (let k = 1; k <= 8 && len > TIDY_SEC; k++) cand.push((len - TIDY_SEC) * k / 9)
+      const key = r.key || r.buf, len = r.sec || (typeof LOOPS === 'object' && LOOPS[r.buf] && LOOPS[r.buf].sec) || (r.b - r.a) * SPB()
+      /* where it is loudest (a stem may sound in one bar of sixty: eight even places in it heard nothing of 4 other, his
+         multitrack 2026-10-23), else eight even places */
+      const L = r.key && typeof silLevels === 'function' ? await silLevels(r.key) : null
+      const cand = L ? tidyLoudest(L, len) : []
+      for (let k = 1; k <= 8 && len > TIDY_SEC && !cand.length; k++) cand.push((len - TIDY_SEC) * k / 9)
       if (!cand.length) cand.push(0)
       for (const from of cand) {
         const p = await NAT.call('pcm', { key, from, sec: TIDY_SEC })
@@ -218,12 +318,82 @@ function tidyPick (scores, classes, low, struck, high = 0, crest = 0) {
   if (genre >= .03) return [['synth', .05]].concat(out)
   return out
 }
+/* ── the trained ear (his ask, 2026-10-23: the corrections he gave were for the ear to classify better, not to be written
+   in one by one; "아리까리 하면 나한테 들려주고 … machine learning이 돼서") ──
+   Which family a sound is: a softmax over YAMNet's evidence for 56 kinds of sound (their logs) and six measures of the
+   sound itself — how pitched, how noise-like, how much of it lives low and high, how struck, how far its peaks stand out
+   — learnt from his own projects: tracks named for what they are, and the ones he told by ear on the listening page.
+   Nothing it learnt from ships but its numbers (ui/tidy-ear.json, made by tools/tidy-ear.mjs). Measured on songs it never
+   heard, on Apple Loops (only ever used to measure) and on a multitrack of 111 stems: see tools/tidy-ear.mjs. Within the
+   family, YAMNet's evidence says which instrument (a kick, a hat, an organ). */
+/* how pitched: YIN's clearest period (60 to 1000 Hz) in 64 ms frames that carry sound — 1 a pure tone, 0 noise */
+function tidyPitch (parts, sr = 16000) {
+  const W = 1024, H = 512, minL = Math.floor(sr / 1000), maxL = Math.floor(sr / 60), d = new Float32Array(maxL + 1)
+  let all = 0, cnt = 0
+  for (const a of parts) {
+    let sum = 0, n = 0, top = 0
+    for (let i = 0; i < a.length; i++) top = Math.max(top, Math.abs(a[i]))
+    for (let s = 0; s + W + maxL < a.length; s += H) {
+      let e = 0; for (let i = 0; i < W; i++) e += a[s + i] * a[s + i]
+      if (Math.sqrt(e / W) < top * .05) continue
+      let run = 0, best = 1
+      for (let L = 1; L <= maxL; L++) { let q = 0; for (let i = 0; i < W; i++) { const x = a[s + i] - a[s + i + L]; q += x * x } d[L] = q; run += q; const c = run > 0 ? q * L / run : 1; if (L >= minL && c < best) best = c }
+      sum += 1 - Math.min(1, best); n++
+    }
+    all += n ? sum / n : 0; cnt++
+  }
+  return cnt ? all / cnt : 0
+}
+/* how noise-like: the spectrum's flatness (geometric over arithmetic mean of the power, 2048-point frames) — near 1 noise, near 0 a tone */
+function tidyFlat (parts) {
+  const N = 2048, re = new Float32Array(N), im = new Float32Array(N)
+  let all = 0, cnt = 0
+  for (const a of parts) {
+    let sum = 0, n = 0, top = 0
+    for (let i = 0; i < a.length; i++) top = Math.max(top, Math.abs(a[i]))
+    for (let s = 0; s + N <= a.length; s += N) {
+      let e = 0; for (let i = 0; i < N; i++) { re[i] = a[s + i] * (.5 - .5 * Math.cos(2 * Math.PI * i / (N - 1))); im[i] = 0; e += a[s + i] * a[s + i] }
+      if (Math.sqrt(e / N) < top * .05) continue
+      yamFFT(re, im)
+      let lg = 0, ar = 0
+      for (let k = 4; k < N / 2; k++) { const p = re[k] * re[k] + im[k] * im[k] + 1e-12; lg += Math.log(p); ar += p }
+      const m = N / 2 - 4; sum += Math.exp(lg / m) / (ar / m); n++
+    }
+    all += n ? sum / n : 1; cnt++
+  }
+  return cnt ? all / cnt : 1
+}
+/* the family a sound is, by the trained ear: [[family, chance], …] best first. f: { scores, low, high, struck, crest, pitch, flat } */
+function tidyEar (f, classes, ear) {
+  const idx = new Map(classes.map((c, i) => [c, i])), x = ear.kinds.map(k => Math.log(1e-4 + (f.scores[idx.get(k)] || 0))).concat([f.pitch, Math.log(1e-4 + f.flat), f.low, f.high, Math.min(6, f.struck), f.crest / 10])
+  const z = x.map((v, j) => (v - ear.mu[j]) / ear.sd[j]), s = ear.W.map(w => w[ear.d] + z.reduce((a, v, j) => a + v * w[j], 0)), mx = Math.max(...s), e = s.map(v => Math.exp(v - mx)), t = e.reduce((a, b) => a + b, 0)
+  return ear.stacks.map((st, k) => [st, e[k] / t]).sort((a, b) => b[1] - a[1])
+}
+const TIDY_FAMILY_STEM = { drums: 'drums', bass: 'bass', guitars: 'gtr', keys: 'keys', synths: 'synth', strings: 'strings', horns: 'brass', vox: 'vox', fx: 'fx' }
+const tidyFamilyOf = v => { const s = tidyStackOf(v); return s === 'brass' || s === 'winds' ? 'horns' : s }
+/* the instruments a sound is, best first ([[stem, chance], …]): the family by the trained ear, then the instrument in it by
+   YAMNet's evidence (a lone drum told by where it lives: a kick low, a hat high, a snare in the middle and struck); none
+   when the ear is not sure of any family */
+function tidyWhatBySound (f, classes, ear) {
+  const fam = tidyEar(f, classes, ear)
+  if (fam[0][1] < .3) return []
+  const idx = new Map(classes.map((c, i) => [c, i])), at = c => { const i = idx.get(c); return i == null ? 0 : f.scores[i] }, ev = []
+  for (const [v, cl] of TIDY_HEAR) { let b = 0; for (const [c, w] of cl) b = Math.max(b, at(c) * w); if (b > 0) ev.push([v, b]) }
+  ev.sort((a, b) => b[1] - a[1])
+  return fam.map(([st, p]) => {
+    let v = (ev.find(([w]) => tidyFamilyOf(w) === st) || [TIDY_FAMILY_STEM[st]])[0]
+    if (st === 'drums' && (v === 'drums' || v === 'perc')) v = f.low > .6 ? 'kick' : f.high > .45 && f.low < .1 ? 'hat' : f.low < .3 && f.high < .25 && (f.struck >= 1 || f.crest >= 16) ? 'snare' : v
+    if (st === 'bass' && v === 'bass' && at('Bass guitar') < .03) v = 'synth bass'
+    return [v, p]
+  })
+}
 /* the instruments a track sounds like, best first: [[stem, score], …] */
 async function tidyHear (t) {
   if (!(await tidyStart())) return null
   const parts = await tidySound(t)
   if (!parts.length) return []
-  const r = await tidyAsk({ parts }), low = tidyLow(parts), high = tidyHigh(parts), struck = tidyStruck(parts), crest = tidyCrest(parts), out = tidyPick(r.scores, TIDY.classes, low, struck, high, crest)
+  const r = await tidyAsk({ parts }), low = tidyLow(parts), high = tidyHigh(parts), struck = tidyStruck(parts), crest = tidyCrest(parts)
+  const out = TIDY.ear ? tidyWhatBySound({ scores: r.scores, low, high, struck, crest, pitch: r.pitch != null ? r.pitch : tidyPitch(parts), flat: r.flat != null ? r.flat : tidyFlat(parts) }, TIDY.classes, TIDY.ear) : tidyPick(r.scores, TIDY.classes, low, struck, high, crest)
   out.low = low; out.high = high; out.struck = struck; out.crest = crest
   return out
 }
@@ -234,54 +404,98 @@ async function trackWhat (t) {
   let v = tidyByWords(t.name)
   if (v) return { what: v, by: 'name' }
   for (const r of t.regs || []) { v = tidyByWords(String(r.file || '').replace(/^.*\//, '')) || tidyByWords(r.tag) || tidyByWords(r.name); if (v) return { what: v, by: 'file' } }
+  /* named after the instrument that played it: that instrument's kind, which its sound may only narrow */
+  const pl = tidyPlugOf(t.name) || (t.regs || []).map(r => tidyPlugOf(tidyFileBase(r))).find(Boolean)
+  if (pl) {
+    const heard = await tidyHear(t), top = heard && heard.length && heard[0][1] >= .03 ? heard[0][0] : null
+    return top && pl.may.includes(tidyStackOf(top)) ? { what: top, by: 'plug-in name, sound', sure: heard[0][1], heard: heard.slice(0, 3) } : { what: pl.v, by: 'plug-in name' }
+  }
   if (t.inst) { const ins = (t.inserts || []).find(i => i.inst) || null; v = tidyByWords(ins && ins.name) || ({ drums: 'drums', piano: 'piano', synth: 'synth', bass: 'synth bass' })[t.inst.kind] || null; if (v) return { what: v, by: 'plug-in' } }
   const heard = await tidyHear(t)
   if (heard && heard.length && heard[0][1] >= .03) return { what: heard[0][0], by: 'sound', sure: heard[0][1], heard: heard.slice(0, 3), low: heard.low, high: heard.high, struck: heard.struck, crest: heard.crest }
   return null
 }
 
-/* ── tidied ── */
+/* ── tidied ──
+   In one step back: each track's name cleaned (above); what it is remembered (t.what, its colour t.tone); every file of
+   sound stripped of silence in whole bars, each against its own loudest (a quiet part is not silence: a part 43 dB down
+   is kept), and a track left with no sound at all taken out; the tracks that stand alone put in the order a session is
+   read in, and those of one family, two or more, into a stack of their own. Stacks, buses and what already stands in a
+   stack keep their places. */
 async function tidyTracks () {
   if (S.playing) halt(false)
   const ts = S.tracks.filter(t => t.kind === 'audio' && !t.theirs && !t.disabled)
   if (!ts.length) { say('no track to tidy'); return null }
   say(`hearing ${ts.length} track${ts.length === 1 ? '' : 's'}`)
-  const found = new Map()
-  for (const t of ts) { const w = await trackWhat(t); if (w) found.set(t, w) }
-  const before = Object.assign(editState(), { mix: mixState() }), n0 = UNDO.length
-  let named = 0, known = 0
-  edit(() => {
-    /* names: only those that said nothing; the rest remember what they are */
-    const taken = new Set(S.tracks.filter(t => !(found.has(t) && tidyBare(t.name))).map(t => t.name.toLowerCase()))
-    for (const [t, w] of found) {
-      t.what = w.what; t.tone = TIDY_FAM(w.what) || t.tone; known++
-      if (!tidyBare(t.name)) continue
-      const base = tidyName(w.what)
-      let nm = base, k = 2
-      while (taken.has(nm)) nm = `${base} ${k++}`
-      taken.add(nm); t.name = nm; named++
+  /* how far along: the card that says a print's progress (his ask, 2026-10-23: "tidying 작업할 때도 progress bar"), track by
+     track — each heard for what it is, and its files measured for where they sound */
+  printBegin('tidying', LANG_WORDS(`${ts.length} tracks`), ts.length)
+  let step = 0
+  const found = new Map(), heard = []
+  try {
+    for (const t of ts) {
+      const w = await trackWhat(t)
+      if (w) found.set(t, w)
+      /* where each of its files sounds, in whole bars, against its own loudest */
+      for (const r of t.regs) {
+        if (r.loop || r.notes || r.rev || r.missing || !(r.key || r.peaksAll)) continue
+        const { key, k } = silSource(r), L = NAT ? await silLevels(key) : silOutline(r)
+        if (!L) continue
+        let top = 255
+        for (let i = 0; i < L.lv.length; i++) if (L.lv[i] < top) top = L.lv[i]
+        const plan = top === 255 ? [] : silPlan(r, k, L, Object.assign({}, SIL_DEF, { whole: true, floor: Math.min(SIL_DEF.floor, -top / 2 - 40) }))
+        heard.push([r, plan.map(p => [p[0], p[1]]), silSig(r)])
+      }
+      printTell({ done: ++step })
     }
+  } finally { printEnd() }
+  const before = Object.assign(editState(), { mix: mixState() }), n0 = UNDO.length
+  let named = 0, known = 0, cut = { cut: 0, pieces: 0 }, stacks = 0
+  const emptied = []
+  edit(() => {
+    /* the silence */
+    const had = new Map(ts.map(t => [t, t.regs.length]))
+    cut = silCut(heard)
+    for (const t of ts) if (had.get(t) && !t.regs.length && !S.tracks.some(x => x.parent === t.id)) emptied.push(t)
+    /* names: a name that came with its file (or one that says nothing) is cleaned; one typed by hand is left */
+    const own = ts.map(t => { const r = t.regs.find(q => q.file) || null, base = r ? tidyFileBase(r) : ''; return [t, base] }).filter(([t, b]) => b && (t.name === b.slice(0, 24).toLowerCase() || t.name === b.toLowerCase() || tidyBare(t.name)))
+    const clean = tidyClean(own.map(([, b]) => b))
+    for (const [t, b] of own) { const nm = clean.get(b).toLowerCase().slice(0, 64); if (nm && nm !== t.name) { t.name = nm; named++ } }
+    for (const [t, w] of found) { t.what = w.what; t.tone = TIDY_FAM(w.what) || t.tone; known++ }
     /* order: the tracks that stand alone, in the order a session is read in, in the places they stood */
     const free = t => t.kind === 'audio' && !t.parent && !S.tracks.some(x => x.parent === t.id)
     const slots = S.tracks.map((t, i) => free(t) ? i : -1).filter(i => i >= 0), list = slots.map(i => S.tracks[i])
     const rank = t => { const v = t.what || tidyByWords(t.name); const i = v ? TIDY_ORDER.indexOf(v) : -1; return i < 0 ? TIDY_ORDER.length : i }
     const sorted = list.map((t, i) => [t, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]), lead = S.tracks[S.sel]
     slots.forEach((i, k) => { S.tracks[i] = sorted[k] })
+    /* stacks: each family of two or more of them (not the ones about to be taken out) */
+    const fam = new Map()
+    for (const t of sorted) { if (emptied.includes(t) || !ts.includes(t)) continue; const f = tidyStackOf(t.what || tidyByWords(t.name)); if (!f) continue; if (!fam.has(f)) fam.set(f, []); fam.get(f).push(t) }
+    for (const f of TIDY_STACKS) {
+      const members = fam.get(f)
+      if (!members || members.length < 2 || S.tracks.length >= MAX_TRACKS) continue
+      const st = mkTrack(f, null, null, null, null, 0, [], mkPatch(0, 0, 0, [0, 0, 0]), { kind: 'stack' })
+      st.patch0 = copy(st.patch); st.parent = null; st.tone = members[0].tone
+      for (const t of members) { t.parent = st.id; t.out = 0 }
+      S.tracks.splice(Math.min(...members.map(t => S.tracks.indexOf(t))), 0, st)
+      birth(st); stacks++
+    }
     normalizeOrder(); S.sel = Math.max(0, S.tracks.indexOf(lead))
   })
+  if (emptied.length) await deleteTracks(emptied)
   if (UNDO.length > n0) { UNDO.length = n0; UNDO.push(before); if (UNDO.length > 120) UNDO.shift(); REDO.length = 0 }      // (one step back for all of it)
   if (typeof SAY === 'object') SAY.vocab = null
   repaint(); dirtyAll()
   const left = ts.length - known
-  say(`${known} of ${ts.length} tracks known${named ? `, ${named} named` : ''}${left ? `, ${left} not heard as anything` : ''}`)
-  return { known, named, left, found: [...found].map(([t, w]) => ({ name: t.name, what: w.what, by: w.by, sure: w.sure, heard: w.heard, low: w.low, high: w.high, struck: w.struck, crest: w.crest })) }
+  say(`${known} of ${ts.length} tracks known${named ? `, ${named} named` : ''}${stacks ? `, ${stacks} stack${stacks === 1 ? '' : 's'}` : ''}${cut.cut ? `, ${cut.pieces} pieces in whole bars` : ''}${emptied.length ? `, ${emptied.length} empty taken out` : ''}`)
+  return { known, named, left, stacks, pieces: cut.pieces, cut: cut.cut, emptied: emptied.map(t => t.name), found: [...found].map(([t, w]) => ({ name: t.name, what: w.what, by: w.by, sure: w.sure, heard: w.heard, low: w.low, high: w.high, struck: w.struck, crest: w.crest })) }
 }
 
 /* ── joined to the room: the command line's words, and what a track answers to ── */
 {
   const rc0 = runCommand
   runCommand = async function (text, ...more) {
-    if (/^\s*(tidy( up)?( the)?( session| tracks)?|(세션|트랙)\s*(을|를)?\s*정리(해\s*줘|해|하자|좀)?|정리해\s*줘)\s*[.!]?\s*$/i.test(String(text || ''))) { const r = await tidyTracks(); if (r) S.last = { say: `${r.known} of ${r.known + r.left} known${r.named ? `, ${r.named} named` : ''}` }; uiDirty('cmd', 'head'); return }
+    if (/^\s*(tidy( up)?( the)?( session| tracks)?|(세션|트랙)\s*(을|를)?\s*정리(해\s*줘|해|하자|좀)?|정리해\s*줘)\s*[.!]?\s*$/i.test(String(text || ''))) { await tidyTracks(); uiDirty('cmd', 'head'); return }
     return rc0.call(this, text, ...more)
   }
   /* what a track is, found by tidying, is a word it answers to (a track called jay that is a bass answers to bass) */

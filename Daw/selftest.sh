@@ -86,6 +86,13 @@ if [ -n "$SLUR_OPEN" ] && [ -f "$SLUR_OPEN/project.json" ]; then
   SND="$SLUR_OPEN/audio"; [ -d "$SND" ] || SND="$(dirname "$SLUR_OPEN")/Audio Files"
   for f in "$SND"/*; do ln -s "$f" "$P/audio/"; done
 fi
+# a producer's multitrack, to see it brought in, tidied and stripped of silence (SLUR_MULTI=<its folder> ./selftest.sh
+# steps:multi): its sound files cloned into the check's own folder (a clone takes no room on the disk), so the app reads
+# nothing where the originals lie and writes nothing to them
+if [ -n "$SLUR_MULTI" ] && [ -d "$SLUR_MULTI" ]; then
+  M="$ROOT/multi/$(basename "$SLUR_MULTI")"; mkdir -p "$M"
+  for f in "$SLUR_MULTI"/*.wav "$SLUR_MULTI"/*.aif "$SLUR_MULTI"/*.aiff; do [ -f "$f" ] && cp -c "$f" "$M/"; done
+fi
 if [ -d test/projects ]; then for p in test/projects/*.sls test/projects/*.slur; do [ -d "$p" ] && ditto "$p" "$ROOT/Projects/$(basename "$p")"; done; fi
 open -g -n "$A" --args "--selftest${MODE:+=$MODE}" ${SLUR_URL:+"--slur-url=$SLUR_URL"} ${SLUR_OWN_AU:+"--own-au"} ${SLUR_AU_APART:+"--au-apart"}
 # while it runs: a second copy, opened from somewhere else, must see the first and go without doing anything

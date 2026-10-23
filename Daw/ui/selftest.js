@@ -3391,6 +3391,38 @@ async function runSelfTest (mode) {
     return res
   })
   await step('audioWindow', async () => { await NAT.call('audioSettings'); await sleep(1200); return { opened: true, inputs: INPUTS, windows: (await NAT.call('testMenus')).titles.split(' | ').pop() } })
+  /* a producer's multitrack as it comes (SLUR_MULTI=<its folder> ./selftest.sh steps:multi; selftest.sh lays clones of its
+     files in the check's own folder): in a new song at the tempo its folder's name says, brought in as from the Finder and
+     tidied — what each track was called and is called now, what it was found to be and by what, the stack it stands in,
+     how many regions it has; the empty ones taken out; pictures before and after; then one step back to as it came. Last
+     of all, since it leaves a song of its own open. */
+  await step('multi', async () => {
+    const got = await NAT.call('testMulti')
+    if (!got || !Array.isArray(got.paths) || !got.paths.length) return { skipped: 'no SLUR_MULTI' }
+    halt(false)
+    await newProjectNow()
+    const bpm = +((/(\d{2,3})\s?bpm/i.exec(got.name || '') || [])[1] || 0)
+    if (bpm >= 40 && bpm <= 300) setTempo(bpm)
+    const res = { folder: got.name, files: got.paths.length, tempo: S.tempo }, audio = () => S.tracks.filter(t => t.kind === 'audio' && t.regs.length)
+    const shots = async name => { setRowH(ROW_MIN); VX = 0; PXB = fitPXB(); VY = 0; setView(true); await sleep(400); await snap(`selftest-multi-${name}-a.png`); VY = maxVY(); uiDirty('lanes', 'head'); await sleep(400); await snap(`selftest-multi-${name}-b.png`); VY = 0 }
+    let t0 = performance.now()
+    await bringPaths(got.paths, 0, 1)
+    for (let k = 0; k < 900 && S.tracks.some(t => t.regs.some(r => r.wait || r.missing || !r.key)); k++) await sleep(100)
+    res.brought = { ms: Math.round(performance.now() - t0), tracks: audio().length, waiting: S.tracks.reduce((n, t) => n + t.regs.filter(r => r.wait || r.missing || !r.key).length, 0), bars: +Math.max(...audio().flatMap(t => t.regs.map(r => r.b - 1))).toFixed(2) }
+    await shots('1-as-it-came')
+    /* tidied (one act: names cleaned, stripped in whole bars, the empty ones out, families in stacks) */
+    const before = new Map(audio().map(t => [t.id, t.name])), regs0 = S.tracks.reduce((n, t) => n + t.regs.length, 0), n0 = S.tracks.length, u0 = UNDO.length
+    await NAT.call('stalls'); t0 = performance.now()
+    const tidy = await tidyTracks(), stall = (await NAT.call('stalls')).ms
+    res.tidy = tidy ? { ms: Math.round(performance.now() - t0), stallMs: stall, known: tidy.known, named: tidy.named, left: tidy.left, stacks: tidy.stacks, pieces: tidy.pieces, emptied: tidy.emptied, said: S.last && S.last.say } : null
+    res.after = { tracks: S.tracks.length, regions: S.tracks.reduce((n, t) => n + t.regs.length, 0), steps: UNDO.length - u0 }
+    res.tracks = S.tracks.map(t => { const f = tidy && tidy.found.find(x => x.name === t.name), st = t.parent ? S.tracks.find(x => x.id === t.parent) : null; return t.kind === 'stack' ? `[${t.name}]` : `${before.get(t.id) || '?'} → ${t.name}${t.what ? ' (' + t.what + (f ? ' by ' + f.by : '') + ')' : ''}${st ? ' in ' + st.name : ''}, ${t.regs.length}` })
+    await shots('2-tidied')
+    /* one step back: as it came */
+    undoEdit(); await sleep(400)
+    res.back = { tracks: S.tracks.length === n0, regions: S.tracks.reduce((n, t) => n + t.regs.length, 0) === regs0, names: audio().every(t => before.get(t.id) === t.name), stacks: S.tracks.filter(t => t.kind === 'stack').length }
+    return res
+  })
   await note('page', { errors: window.__errs || [], chains: await NAT.call('testInfo') })
   await NAT.call('testDone')
 }

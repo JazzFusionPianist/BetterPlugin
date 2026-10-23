@@ -65,7 +65,7 @@ LANG.lists.ko = {
   'before its fader': '페이더 앞', 'stacks do not go deeper than that': '스택은 그보다 깊이 들어가지 않습니다',
   'sounds # of #': '소리 # / #', 'plug-ins # of #': '플러그인 # / #', 'getting ready': '준비 중', 'saving': '저장 중', 'reading': '읽는 중', 'sounds': '소리',
   'printing the mix': '믹스 프린트 중', 'printing stems': '스템 프린트 중', 'bouncing': '바운스 중', 'file # of #': '파일 # / #',
-  'bringing in': '가져오는 중', '# files': '파일 #개',
+  'bringing in': '가져오는 중', '# files': '파일 #개', 'tidying': '트랙 정리 중', '# tracks': '트랙 #개', 'track # of #': '트랙 # / #',
   'no stem is chosen': '고른 스템이 없습니다',
   'eq': 'EQ', 'dynamics': '다이내믹', 'reverb': '리버브', 'modulation': '모듈레이션', 'saturation': '새츄레이션', 'amp': '앰프', 'pitch': '피치', 'stereo': '스테레오', 'channel': '채널 스트립', 'repair': '복원', 'other': '기타', 'a page left, right': '한 화면 왼쪽, 오른쪽', 'a page up, down': '한 화면 위, 아래',
   'to the playhead': '플레이헤드로', 'to its end': '끝까지', 'to its start, its end': '시작으로, 끝으로', 'to the end of the sound': '소리 끝까지', 'back to where it starts': '시작 지점으로',

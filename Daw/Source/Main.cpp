@@ -1472,6 +1472,22 @@ private:
         if (op == "testRest")  { engine.restOn.store ((int) d["on"] != 0); done (okVar()); return; }      // the check: tracks may rest, or not (Engine::playTrack)
         if (op == "testSound") { done (engine.testSound (audioDirOf (projectDir (d["project"].toString())).getChildFile (d["file"].toString()))); return; }
         if (op == "testHands") { engine.setHands ((int) d["n"]); auto* o = new juce::DynamicObject(); o->setProperty ("threads", engine.hands() + 1); done (juce::var (o)); return; }       // how many threads share a block (-1: as the machine allows)
+        if (op == "testMulti")                                                 // (the check only) the sounds selftest.sh laid in the check's own folder from SLUR_MULTI: {name of their folder, paths}, for the step multi
+        {
+            auto* o = new juce::DynamicObject();
+            juce::Array<juce::var> paths;
+            if (selfTestMode().isNotEmpty())
+                for (auto& sub : daw::musicRoot().getChildFile ("multi").findChildFiles (juce::File::findDirectories, false, "*"))
+                {
+                    auto files = sub.findChildFiles (juce::File::findFiles, false, "*.wav;*.aif;*.aiff");
+                    files.sort();
+                    for (auto& f : files) paths.add (f.getFullPathName());
+                    o->setProperty ("name", sub.getFileName());
+                    break;
+                }
+            o->setProperty ("paths", paths);
+            done (juce::var (o)); return;
+        }
         if (op == "testFile")                                                  // a sound of a given length, made here and laid in the project's folder (the same every time: bursts of noise over a low tone)
         {
             const double sec = juce::jlimit (0.5, 3600.0, (double) d["sec"]), rate = d.hasProperty ("rate") ? (double) d["rate"] : engine.sr;

@@ -434,7 +434,7 @@ function printBegin (word, name, total) {
 }
 /* esc while a print is under way: it stops, and nothing of it is kept (Engine::printStop) */
 function printKey (e) {
-  if (!PRINT.on || e.code !== 'Escape' || PRINT.word === 'bringing in') return              // (sound brought in is not stopped by it)
+  if (!PRINT.on || e.code !== 'Escape' || PRINT.word === 'bringing in' || PRINT.word === 'tidying') return              // (sound brought in, and tracks being tidied, are not stopped by it)
   e.preventDefault(); e.stopImmediatePropagation()
   if (PRINT.stopping) return
   PRINT.stopping = true
@@ -450,7 +450,7 @@ function printTell (d) {
 function printDraw () {
   const f = clamp((PRINT.done + (PRINT.done < PRINT.total ? PRINT.part : 0)) / PRINT.total, 0, 1), el = $('ld-fill'), w = $('ld-what')
   if (el) el.style.width = (f * 100).toFixed(1) + '%'
-  if (w && !PRINT.stopping) w.textContent = (PRINT.total > 1 ? LANG_WORDS(`file ${Math.min(PRINT.done + 1, PRINT.total)} of ${PRINT.total}`) + '   ' : '') + Math.round(f * 100) + '%' + (PRINT.word === 'bringing in' ? '' : '   ' + LANG_WORDS('esc stops it'))
+  if (w && !PRINT.stopping) w.textContent = (PRINT.total > 1 ? LANG_WORDS(`${PRINT.word === 'tidying' ? 'track' : 'file'} ${Math.min(PRINT.done + 1, PRINT.total)} of ${PRINT.total}`) + '   ' : '') + Math.round(f * 100) + '%' + (PRINT.word === 'bringing in' || PRINT.word === 'tidying' ? '' : '   ' + LANG_WORDS('esc stops it'))
 }
 function printEnd () { if (!PRINT.on) return; PRINT.on = false; PRINT.stopping = false; removeEventListener('keydown', printKey, true); const el = $('loading'); if (el && !OPENING.on) el.hidden = true }
 async function loadProject (key, json) {

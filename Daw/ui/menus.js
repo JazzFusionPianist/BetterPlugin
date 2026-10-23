@@ -61,7 +61,7 @@ const MENU_BAR = () => [
     ['Nudge', null, { sub: [['Earlier', '⌥ArrowLeft'], ['Later', '⌥ArrowRight'], ['Shorter', '⌥⇧ArrowLeft'], ['Longer', '⌥⇧ArrowRight']] }],
     '-',
     ['Tempo', null, { sub: [['Follow the Tempo', '⌃KeyF', { on: () => chosenRegs().length > 0 && chosenRegs().every(r => r.fx) }], ['Fit Region to Project Tempo', '⌃⌥KeyF', { id: 'fittempo' }], ['Set Project Tempo from Region', '⌃⌥KeyT', { id: 'tempofrom' }]] }],
-    ['Quantize', 'KeyQ'], ['Undo Quantize', '⌥⌘KeyQ'],
+    ['Quantize', 'KeyQ'], ['Undo Quantize', '⌥⌘KeyQ'], ['Force Legato', '⇧Backslash'], ['Note Ends Back to the Grid', '⌥⇧Backslash'],
     ['Strip Silence', '⌃KeyX', { id: 'strip' }], ['Strip Silence in Whole Bars', null, { id: 'stripwhole', do: () => stripOpen({ whole: true }) }],
     '-',
     ['Group', '⌥⌘KeyG', { id: 'groupregs' }], ['Ungroup', '⌥⌘KeyU', { id: 'ungroupregs' }],
@@ -136,7 +136,7 @@ const MENU_BAR = () => [
 
 /* ── handed to the app ── */
 const MENUS = { acts: new Map(), ons: new Map(), recent: [], sent: '', state: '', proj: null }
-const NS_KEY = { ArrowUp: '', ArrowDown: '', ArrowLeft: '', ArrowRight: '', F1: '', F2: '', F3: '', F4: '', Home: '', End: '', PageUp: '', PageDown: '', Space: ' ', Enter: '\r', Backspace: '\b', Tab: '\t', Comma: ',', Period: '.', Semicolon: ';', Quote: '\'', Slash: '/', Backquote: '`', BracketLeft: '[', BracketRight: ']', Equal: '=', Minus: '-' }
+const NS_KEY = { ArrowUp: '', ArrowDown: '', ArrowLeft: '', ArrowRight: '', F1: '', F2: '', F3: '', F4: '', Home: '', End: '', PageUp: '', PageDown: '', Space: ' ', Enter: '\r', Backspace: '\b', Tab: '\t', Comma: ',', Period: '.', Semicolon: ';', Quote: '\'', Slash: '/', Backquote: '`', BracketLeft: '[', BracketRight: ']', Backslash: '\\', Equal: '=', Minus: '-' }
 /* a key as KEYS names it ('⌥⇧⌘KeyD') as the Mac's menu takes it: the key, and which of ⌘ ⌃ ⌥ ⇧ go with it */
 function menuKeyOf (k) {
   if (!k) return null

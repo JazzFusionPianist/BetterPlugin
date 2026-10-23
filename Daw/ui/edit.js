@@ -364,6 +364,8 @@ function marqTracks () {
   const own = k0 < 0 || k1 < 0 ? [] : vis.slice(k0, k1 + 1).map(i => S.tracks[i])
   return m.also && m.also.length ? own.concat(m.also.map(byId).filter(t => t && !own.includes(t))) : own
 }
+/* the tracks from one row to another, as the rows show (where a stretch is put down) */
+function rowsBetween (t0, t1) { const vis = rows(), k0 = vis.indexOf(t0), k1 = vis.indexOf(t1); return k0 < 0 || k1 < 0 ? [] : vis.slice(Math.min(k0, k1), Math.max(k0, k1) + 1).map(i => S.tracks[i]) }
 /* a stretch of time that lies on a track of an edit group lies on the group's other tracks too */
 function marqMates () {
   const m = S.marq, vis = rows()
@@ -1217,19 +1219,22 @@ const act = {
        with no marquee, at the playhead, on the rows it came from while the leading track is one of them (else as far down
          as the leading track is from the first of them) — and the playhead goes to its end, so the next press follows on. */
   paste () {
-    if (!CLIP.length) return
+    if (!CLIP.length && !CLIP.rows) return                                               // (a marquee's stretch with nothing in it is still a stretch: put down, it empties where it goes)
     const rows = CLIP.rows || null, span = CLIP.span != null ? CLIP.span : Math.max(...CLIP.map(c => c.da + c.r.b - c.r.a))
     const m = S.marq && S.marq.b - S.marq.a >= MIN_LEN ? S.marq : null, mTop = m ? Math.min(m.t0, m.t1) : 0, after = sameStretch(m, CLIP.from)
-    let at = 0, dt = 0, any = false
+    let at = 0, dt = 0, any = false, carved = false
     edit(() => {
       const lead = Math.min(0, ...CLIP.map(c => c.da)), ids = [], put = [], top = rows ? rows[0] : Math.min(...CLIP.map(c => c.ti))
       at = Math.max(1 - lead, (m ? (after ? m.b : m.a) : S.mode === 'grid' ? snapPos(curPos(), null) : curPos()) + 1)
       dt = m ? mTop - top : (rows ? S.sel >= rows[0] && S.sel <= rows[1] : CLIP.some(c => c.ti === S.sel)) ? 0 : S.sel - top
       if (CLIP.some(c => { const t = S.tracks[c.ti + dt]; return !t || t.kind !== 'audio' || t.theirs })) dt = 0
       if (shuffling()) { const all = Math.max(...CLIP.map(c => c.da + c.r.b - c.r.a)); for (const t of new Set(CLIP.map(c => S.tracks[c.ti + dt]))) { if (!t || t.kind !== 'audio') continue; cutLaneAt(t, at - 1); ripple(t, at, all, null, true) } }      // shuffle: what is pasted is put in, and what stood there makes room
+      /* a marquee's stretch is put down whole, its empty time too (his ask, 2026-10-23: "빈공간을 같이 선택하더라도 … 같은 위치에
+         빈공간이 있어야해"): on every row it covered, what stood there over its length gives way first — not only under what it held */
+      else if (rows) for (const t of rowsBetween(rows[0] + dt, rows[1] + dt)) { if (t.kind !== 'audio' || t.theirs) continue; const was = t.regs.map(r => `${r.id}:${r.a}:${r.b}`).join(); carve(t, at - 1, at - 1 + span); if (t.regs.map(r => `${r.id}:${r.a}:${r.b}`).join() !== was) carved = true }
       for (const c of CLIP) { const t = S.tracks[c.ti + dt]; if (!t || t.kind !== 'audio' || !!t.inst !== !!c.r.notes) continue; const len = c.r.b - c.r.a, n = cloneReg(c.r, { a: at + c.da, b: at + c.da + len }); t.regs.push(n); ids.push(n.id); put.push([n, t, n.a - 1, n.b - 1]) }
       freshGroups(put.map(x => x[0])); S.selR = ids; S.focus = 'lanes'; S.marq = null; settle(put)
-      any = ids.length > 0
+      any = ids.length > 0 || carved
       return any
     })
     rewarp(selRegs().map(x => x[0]))                                                     // (copied before the tempo moved, a stretched one is rendered for the tempo of now)
@@ -1568,7 +1573,7 @@ function setZoom (pxb, aroundBar) {
 function scrollBy (bars) { VX = clamp(VX + bars, 0, maxVX()); uiDirty('lanes', 'ruler', 'scenes') }
 /* how tall a row may be: from a thin strip (his ask, 2026-10-23: "vertical zoom out 이 훨씬 더 크게" — a session of many
    tracks seen whole) to tall; the zoom bar runs between them evenly by ratio */
-const RH_MIN = 6, RH_MAX = 120
+const RH_MIN = 6, RH_MAX = 1200                                                         // (up to a row taller than the lanes: Z on one or two tracks fills the window with them — his ask, 2026-10-23, the 120 of before stopped it)
 const rhF = (h = S.rh) => clamp(Math.log((h || 25) / RH_MIN) / Math.log(RH_MAX / RH_MIN), 0, 1), fRh = f => RH_MIN * Math.pow(RH_MAX / RH_MIN, clamp(f, 0, 1))
 /* taller or shorter rows, keeping the chosen track where it is */
 function setRowH (h) {
@@ -1917,6 +1922,7 @@ function lanesHover (e, p, el) {
   else if (tool !== 'zoom' && tool !== 'marquee' && (p.y - TY + VY) >= rowTops().all && typeof outLineAt === 'function' && outLineAt(p, tool)) c = onLine()      // (the stereo out's line, under the rows)
   else if (tool === 'smart') { const ti = laneAt(p.y), r = hitRegion(ti, barAt(p.x)), z = smartZone(ti, p).z; c = r && S.flex && rubatoOn(r) && flexNear(r, p.x) ? toolCursor('flex') : r || z === 'x' ? SMART_CURSOR[z] || c : c }      // (in a region, or on a crossfade: the zone's own; elsewhere the tool's)
   else if (tool === 'pointer') { const ti = laneAt(p.y), r = hitRegion(ti, barAt(p.x)); if (r) c = endAt(ti, p) ? SMART_CURSOR.tl : S.flex && rubatoOn(r) && flexNear(r, p.x) ? toolCursor('flex') : SMART_CURSOR.grab }
+  if (e.altKey && c === SMART_CURSOR.grab && SMART_CURSOR.copy) c = SMART_CURSOR.copy      // option: a pull takes a copy (his ask, 2026-10-23)
   if (el.__c !== c || el.style.cursor !== el.__cs) { el.style.cursor = c; el.__c = c; el.__cs = el.style.cursor }      // (a drawn pointer is written back by the browser in its own words: what was set is kept beside it, so a move sets it only when it changes)
 }
 

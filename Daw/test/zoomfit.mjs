@@ -12,15 +12,15 @@ const ev = b.ev
 const keyZ = () => b.press('z', 'KeyZ', 90)
 await ev(`if (typeof START !== 'undefined') START.on = false; setView(true); S.rh = 25; for (const t of S.tracks) delete t.h; VY = 0; S.sel = 0; S.selT = []; S.selR = []; S.focus = 'lanes'; setZoom(0); flush(); return 1`)
 
-/* thin rows */
+/* thin rows, and tall */
 { const r = await ev(`setRowH(1); flush(); const h0 = document.getElementById('hd-0'); return { rh: S.rh, min: RH_MIN, cells: h0 ? h0.querySelectorAll('[data-a="mute"], [data-a="vol"]').length : -1, name: h0 ? [...h0.querySelectorAll('text')].some(t => t.textContent.length > 1) : false, f: rhF() }`)
   ok('rows go down to the thinnest (6 px), far under the old 20', r.rh === 6 && r.min === 6, r)
   ok('a thin row keeps no buttons and no level', r.cells === 0, r.cells)
   ok('the zoom bar stands at its foot there', r.f === 0, r.f)
   const t = await ev(`setRowH(12); flush(); const h0 = document.getElementById('hd-0'); return { name: h0 ? [...h0.querySelectorAll('text')].map(t => t.textContent).join('|') : '', f: +rhF().toFixed(3) }`)
   ok('a row of 12 px still says its name', t.name.length > 0, t.name)
-  const bar = await ev(`setRowH(fRh(.5)); return S.rh`)
-  ok('half way along the bar is the middle by ratio (about 27 px)', bar >= 26 && bar <= 28, bar)
+  const bar = await ev(`setRowH(fRh(.5)); return [S.rh, Math.round(Math.sqrt(RH_MIN * RH_MAX))]`)
+  ok('half way along the bar is the middle by ratio', Math.abs(bar[0] - bar[1]) <= 1, bar)
   await ev(`setRowH(25); flush(); return 1`) }
 
 /* Z: the chosen regions fill the window, and Z again puts it back */
@@ -29,7 +29,7 @@ await ev(`if (typeof START !== 'undefined') START.on = false; setView(true); S.r
   await keyZ(); await b.sleep(100)
   const z = await ev(`flush(); const rs = selRegs(), a = Math.min(...rs.map(x => x[0].a)) - 1, b = Math.max(...rs.map(x => x[0].b)) - 1; return { rh: S.rh, vy: VY, top: rowTops().tops[rows().indexOf(${pick[0]})], x0: bx(a + 1), x1: bx(b + 1), X0, X1, lanes: LANES_H }`)
   ok('Z: the chosen regions run across the window', z.x0 >= z.X0 - 2 && z.x1 <= z.X1 + 2 && (z.x1 - z.x0) > (z.X1 - z.X0) * .8, [z.x0, z.x1, z.X0, z.X1])
-  ok('Z: their tracks fill the lanes from the top', z.vy === Math.min(z.top, z.vy) && z.rh >= Math.min(120, Math.floor(z.lanes / 2) - 1), z)
+  ok('Z: their tracks fill the lanes from the top', z.vy === Math.min(z.top, z.vy) && z.rh >= Math.floor(z.lanes / 2) - 1, z)
   await keyZ(); await b.sleep(100)
   const back = await ev(`return { rh: S.rh, pxb: PXB, vx: VX, vy: VY }`)
   ok('Z again: the view as it was', JSON.stringify(back) === JSON.stringify(before), [before, back]) }
@@ -38,8 +38,15 @@ await ev(`if (typeof START !== 'undefined') START.on = false; setView(true); S.r
 { const r = await ev(`S.selR = []; const ids = S.tracks.slice(0, 6).map(t => t.id); S.sel = 0; S.selT = ids; flush(); return ids.length`)
   await keyZ(); await b.sleep(100)
   const z = await ev(`flush(); return { rh: S.rh, vy: VY, fit: Math.abs(PXB - fitPXB()) < .01, want: Math.floor(LANES_H / ${r}) }`)
-  ok('Z with six tracks chosen: they fill the lanes, the whole song across', z.fit && Math.abs(z.rh - Math.min(120, z.want)) <= 1 && z.vy === 0, z)
+  ok('Z with six tracks chosen: they fill the lanes, the whole song across', z.fit && Math.abs(z.rh - z.want) <= 1 && z.vy === 0, z)
   await keyZ(); await ev(`S.selT = []; flush(); return 1`) }
+
+/* Z on one region: its track as tall as the lanes (no ceiling of 120 in the way) */
+{ const r = await ev(`const t = S.tracks.find(x => x.kind === 'audio' && x.regs.length); S.selT = []; S.selR = [t.regs[0].id]; S.focus = 'lanes'; flush(); return 1`)
+  await keyZ(); await b.sleep(100)
+  const z = await ev(`flush(); return { rh: S.rh, lanes: LANES_H }`)
+  ok('Z on one region: its track fills the lanes', z.rh >= z.lanes - 2 && z.rh > 120, z)
+  await keyZ(); await ev(`S.selR = []; flush(); return 1`) }
 
 /* a band pulled from the room under the rows, up over the last rows */
 { const g = await ev(`S.selR = []; setRowH(25); VY = 0; flush(); const vis = rows(), last = vis[vis.length - 1], y = TY + rowTops().all + (typeof outRowH === 'function' ? outRowH() : 0) + 12 - VY; return { y, ylast: rowY(vis[vis.length - 3]) + 4, x0: X0 + 40, x1: X1 - 40, below: y < BY }`)

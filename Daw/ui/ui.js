@@ -84,7 +84,9 @@ function makeCursors () {
     const c = document.createElement('canvas'), g = c.getContext('2d'), size = 24
     c.width = c.height = size * scale
     g.scale(scale * 1.5, scale * 1.5); g.lineCap = g.lineJoin = 'round'
-    const path = new Path2D(o.d), all = new Path2D([o.d, o.only, o.dark, o.solid].filter(Boolean).join(' '))
+    const path = new Path2D(), all = new Path2D()
+    path.addPath(new Path2D(o.d), o.fit ? new DOMMatrix([o.fit[0], 0, 0, o.fit[0], o.fit[1], o.fit[2]]) : undefined)      // (fit: the path drawn smaller and moved — [scale, x, y] — to make room for a badge)
+    all.addPath(path); for (const x of [o.only, o.dark, o.solid, o.plus]) if (x) all.addPath(new Path2D(x))
     g.strokeStyle = K0; g.globalAlpha = .92; g.lineWidth = 3.4; g.stroke(all)
     g.globalAlpha = 1
     if (o.fill) { g.fillStyle = o.fill; g.fill(path, 'evenodd') }
@@ -92,7 +94,7 @@ function makeCursors () {
     if (o.dark) { const q = new Path2D(o.dark); g.fillStyle = K0; g.fill(q); g.strokeStyle = INK; g.lineWidth = 1.3; g.stroke(q) }
     if (o.solid) { g.fillStyle = INK; g.fill(new Path2D(o.solid)) }
     if (o.only) { g.fillStyle = INK; g.fill(new Path2D(o.only)) }
-    g.strokeStyle = INK; g.lineWidth = 1.3; g.stroke(path)
+    g.strokeStyle = INK; g.lineWidth = 1.3; g.stroke(path); if (o.plus) { g.strokeStyle = o.plusC || INK; g.stroke(new Path2D(o.plus)) }
     return c.toDataURL('image/png')
   }
   const make = (o, sys) => {
@@ -106,8 +108,22 @@ function makeCursors () {
   }
   for (const k in glyphs) SMART_CURSOR[k] = make({ d: glyphs[k], dim: k === 'grab' }, fallback[k])
   for (const k in tools) { TOOL_CURSOR[k] = make(tools[k], tools[k].sys); document.documentElement.style.setProperty('--cur-' + k, TOOL_CURSOR[k]) }
-  document.documentElement.style.setProperty('--cur-grab', SMART_CURSOR.grab)
+  /* option held over what would be taken hold of: a copy is what a pull takes (his ask, 2026-10-23) — the grab, smaller, with a plus beside it */
+  SMART_CURSOR.copy = make({ d: glyphs.grab, dim: true, fit: [.78, -.3, -.6], solid: 'M9.8 9.8H14.6V14.6H9.8Z', plus: 'M12.2 10.6V13.8M10.6 12.2H13.8', plusC: K0, hot: [5.8, 6.2] }, 'copy')
+  for (const [k, v] of [['grab', SMART_CURSOR.grab], ['copy', SMART_CURSOR.copy], ['trim', SMART_CURSOR.tl]]) document.documentElement.style.setProperty('--cur-' + k, v)
+  const st = document.createElement('style')                                       // (what is drawn as a string, the notes page's notes, says it too while option is held)
+  st.textContent = 'body.opt [data-a="np"][data-k="note"][style*="--cur-grab"] { cursor: var(--cur-copy) !important }'
+  document.head.appendChild(st)
 }
+/* option pressed or let go while the pointer rests: the pointer says so at once, without a move */
+let HOVER_AT = null                                                                // where the pointer last rested on the lanes: { p, el }
+function optHeld (e) {
+  const on = e.type === 'keydown' ? e.altKey || e.key === 'Alt' : e.altKey && e.key !== 'Alt'
+  document.body.classList.toggle('opt', on)
+  if (HOVER_AT && !drag && typeof lanesHover === 'function') lanesHover({ altKey: on, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey }, HOVER_AT.p, HOVER_AT.el)
+}
+addEventListener('keydown', e => { if (e.key === 'Alt') optHeld(e) }); addEventListener('keyup', e => { if (e.key === 'Alt') optHeld(e) })
+addEventListener('blur', () => document.body.classList.remove('opt'))
 /* the pointer a tool shows where nothing in particular is under it */
 const toolCursor = tool => TOOL_CURSOR[tool] || 'default'
 const dirty = new Set()
@@ -1294,7 +1310,7 @@ const SHEET = [
   [['transport', [['play, stop', 'space'], ['play what is chosen', '⇧space'], ['record', 'r'], ['throw the take away', '⌘.'], ['click', 'k'], ['count-in', '⇧k'], ['to the start', '↩'], ['to the end of the sound', '⌥↩'], ['a bar back, a bar on', ', .'], ['eight bars', '⇧, ⇧.'], ['a transient on, back', 'tab ⌥tab'], ['go to a bar', '/ 17 ↩']]],
    ['cycle', [['on, off', 'c'], ['round what is chosen', 'u'], ['to its start, its end', '⌃⇧, ⌃⇧.'], ['on, back by its length', '⇧⌘. ⇧⌘,'], ['twice as long, half', '⌥⇧⌘. ⌥⇧⌘,'], ['zoom to it', '⌃⇧z']]],
    ['panels', [['patch', 'b'], ['mixer', 'x'], ['notes', 'p'], ['rubato panel', 'w'], ['slur', 'o'], ['this sheet', '⇧/']]],
-   ['the notes page', [['quantize what is chosen', 'q'], ['as it was played', '⌥⌘q'], ['force legato', 'l'], ['cut a note', 't, i'], ['its lane', 'a'], ['its own zoom', '⌘←→↑↓']]],
+   ['the notes page', [['quantize what is chosen', 'q'], ['as it was played', '⌥⌘q'], ['force legato', 'l, ⇧\\'], ['note ends back to the grid', '⌥⇧\\'], ['cut a note', 't, i'], ['its lane', 'a'], ['its own zoom', '⌘←→↑↓']]],
    ['the hand', [['back to where it starts', '⌥ click'], ['finely', '⇧ drag'], ['a region, to another track only', '⇧ drag'], ['a point, along the song only', '⇧ drag']]]],
   [['tools', [['tool menu, then a letter', 't'], ['the other tool, while held', '⌘'], ['shuffle, slip, spot, grid', 'f1 f2 f3 f4'], ['slip, and back', 'f2'], ['a finer grid, in a drag', '⌃'], ['no grid', '⌃⇧']]],
    ['regions', [['split at the playhead', '⌘t'], ['at the cycle’s ends', '⌥⌘t'], ['join', 'j'], ['mute', 'n'], ['repeat', '⌘r'], ['fill to the next', 'l'], ['to the playhead', ';'], ['and choose the next', '⇧;'], ['begin, end at the playhead', '[ ]'], ['against the last, the next', '⌥[ ⌥]'], ['gain', '⌃⇧↑↓'], ['transpose', '⌥↑↓'], ['an octave', '⌥⇧↑↓'], ['reverse', '⌃⇧r'], ['follow the tempo', '⌃f'], ['fit to the tempo', '⌃⌥f'], ['tempo from the file', '⌃⌥t'], ['strip silence', '⌃x'], ['group, ungroup', '⌥⌘g ⌥⌘u'], ['bounce in place', '⌃b'], ['rename', '⇧↩']]]],
@@ -1657,7 +1673,7 @@ function onMove (e) {
   S.px = p.x; S.py = p.y
   if (drag && e !== LASTE) { LASTE = e; drag.live = true }
   if (LASTP) { const q = ptRaw(e); if (Math.abs(q.x - LASTP.x) > 4 || Math.abs(q.y - LASTP.y) > 4) LASTP = null }          // a pointer that has moved is not pressing twice (the hand's own way: pulled with control, what it moves goes less far)
-  if (!drag) { const el = e.target && e.target.closest ? e.target.closest('[data-a="lanes"]') : null; if (el) lanesHover(e, p, el); return }
+  if (!drag) { const el = e.target && e.target.closest ? e.target.closest('[data-a="lanes"]') : null; HOVER_AT = el ? { p, el } : null; if (el) lanesHover(e, p, el); return }
   const t = S.tracks[S.sel]
   if (drag.a === 'vol') setVolX(drag.i, drag.rel ? p.x - (p.y - drag.py) : p.x, e)
   else if (drag.a === 'mvol') stripVolY(drag, p.y, e)

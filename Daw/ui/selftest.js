@@ -1002,6 +1002,26 @@ async function runSelfTest (mode) {
     S.ho.open = false; setCycle(4, 8, false)
     return { tried, plugin: late.name, samples: late.latency }
   })
+  /* a note on the very beat the song is started from, on a track read early for a late plug-in (his report, 2026-10-24:
+     "마디 시작에 찍어놓은 노트가 안들리고 그 다음 노트부터 들려"): heard as the song starts, with the plug-in as without it */
+  await step('firstNote', async () => {
+    const t = newInstTrack('synth', 'e piano'); t.name = 'first note'
+    t.regs = [mkReg({ a: 1, b: 2, loop: false, notes: [mkNote(0, .5, 60, 120)] })]
+    await natSession(); await sleep(300)
+    const i = S.tracks.indexOf(t)
+    const hear = async () => { halt(false); await sleep(250); await NAT.call('testMeter'); play(0); await sleep(450); const m = await NAT.call('testMeter'); halt(false); return +m.peak.toFixed(4) }
+    const res = { plain: await only(t, hear) }
+    let late = null
+    for (const id of ['AudioUnit:Effects/aufx,lmtr,appl', 'AudioUnit:Effects/aufx,mcmp,appl', 'AudioUnit:Effects/aufx,nptc,appl', 'AudioUnit:Effects/aufx,dcmp,appl']) {
+      const r = await natInsert(i, id)
+      if (r && r.ok && r.latency > 0) { late = r; break }
+      if (r && r.ok) { await NAT.call('remove', { track: t.id, uid: r.uid }); t.inserts = t.inserts.filter(x => x.uid !== r.uid) }
+    }
+    if (late) { await sleep(1200); res.plugin = late.name; res.samples = late.latency; res.late = await only(t, hear) }      // (the engine measures the delay about once a second)
+    else res.skipped = 'no plug-in here reports a delay'
+    await deleteTracks([t]); await natSession()
+    return res
+  })
 
   /* a file let go over the lanes the way the Finder does it: the web view is told entered, updated, dropped */
   await step('finderDrop', async () => {

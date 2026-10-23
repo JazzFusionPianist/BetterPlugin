@@ -15,7 +15,7 @@ await ev(`if (typeof ROLL === 'undefined') { const s = document.createElement('s
 const notes = () => ev(`flush(); const [r] = rollReg(); return r ? r.notes.map(x => [+x.t.toFixed(4), +x.d.toFixed(4), x.n, x.v, x.id]) : null`)
 const sel = () => ev(`return [...ROLL.sel]`)
 const rect = q => ev(`flush(); const el = document.querySelector(${JSON.stringify(q)}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, l: r.left, r: r.right, t: r.top, w: r.width, h: r.height, hit: document.elementFromPoint(r.left + Math.min(3, r.width / 2), r.top + r.height / 2) === el }`)
-const noteEl = id => rect(`[data-a="np"][data-k="note"][data-i="${id}"]`)
+const noteEl = async id => { const r = await rect(`[data-a="np"][data-k="note"][data-i="${id}"]`); if (r && !r.hit) r.hit = await ev(`const h = document.elementFromPoint(${r.l + Math.min(3, r.w / 2)}, ${r.y}); return !!h && h.dataset.a === "np" && h.dataset.i === "${id}"`); return r }      // (reached: the note, or the handle at its start that is its own)
 // a place on the paper: so many bars from zero, on a key
 const place = (bar, key) => ev(`flush(); const g = ROLL.g, bd = document.getElementById('board').getBoundingClientRect(), k = bd.width / W, row = g.kit ? DRUM_PADS.length - 1 - DRUM_PADS.findIndex(q => q[1] === ${key}) : g.hi - ${key}; return { x: bd.left + (g.x0 + (${bar} - ROLL.view.a) * g.pxb) * k, y: bd.top + (g.top + (row + .5) * g.rowH) * k, step: rollStep() * g.pxb * k, row: g.rowH * k, pxb: g.pxb * k }`)
 const key = (k, code, vk, mods = 0) => b.press(k, code, vk, mods).then(() => b.sleep(60))

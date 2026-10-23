@@ -262,3 +262,4 @@ Object.assign(LANG.lists.ko, {
   '+# more': '+# 더',
 })
 Object.assign(LANG.menuKo, { 'Transport Panel': '트랜스포트 패널' })
+Object.assign(LANG.menuKo, { 'Force Legato': '포스 레가토', 'Note Ends Back to the Grid': '노트 끝을 앞 그리드로' })

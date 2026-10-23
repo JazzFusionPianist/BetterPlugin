@@ -4313,7 +4313,12 @@ private:
         {
             const double barS = st.barS;
             const juce::int64 endS = (juce::int64) std::llround (st.endBar * barS), stop = juce::jmin (to, endS);
-            auto it = std::lower_bound (t.evs.cbegin(), t.evs.cend(), ((double) from - 0.5) / barS, [] (const NoteEv& e, double b) { return e.bar < b; });
+            /* where the song was just started from (or jumped to), what lies between that place and where this track is read
+               from — it is read early by as much as the plug-ins on its way are late (Track::ahead) — would never be played: a
+               note on the very beat the song was started from was not heard, the next one was (his report, 2026-10-24). So
+               after a start or a jump it is read from the place itself, and what falls before `from` is played at once. */
+            const juce::int64 look = moved ? juce::jmin (from, st.pos) : from;
+            auto it = std::lower_bound (t.evs.cbegin(), t.evs.cend(), ((double) look - 0.5) / barS, [] (const NoteEv& e, double b) { return e.bar < b; });
             if (moved || changed)
             {
                 /* what was turned before this place still holds here: the last bend, and the last setting of every controller */
@@ -4330,12 +4335,12 @@ private:
             for (; it != t.evs.cend(); ++it)
             {
                 const juce::int64 s = (juce::int64) std::llround (it->bar * barS);
-                if (s < from) continue;
+                if (s < look) continue;
                 if (s >= stop) break;
                 const int type = it->st & 0xF0;
                 if (type == 0x90) { if (t.heldSong[it->d1] < 255) ++t.heldSong[it->d1]; }
                 else if (type == 0x80) { if (t.heldSong[it->d1] == 0) continue; --t.heldSong[it->d1]; }      // (a key that is not down — its note began before the place the song was started from — is not lifted)
-                put ((int) (s - from), it->st, it->d1, it->d2);
+                put ((int) juce::jmax ((juce::int64) 0, s - from), it->st, it->d1, it->d2);
             }
             if (endS >= from && endS < to) letGo (t.heldSong, (int) (endS - from));      // where the song ends (or what is being printed), every key comes up
         }

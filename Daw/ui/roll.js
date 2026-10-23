@@ -67,6 +67,95 @@ function rollLegato (r) {
   if (k) edit(() => { setNotes(r, list) })
   say(k ? `${k} ${k === 1 ? 'note' : 'notes'} to the next` : pick.length < 2 ? 'choose two notes or more' : 'they already reach the next'); uiDirty('dock', 'lanes')
 }
+/* option shift \: each chosen note (every note of the region when none is chosen) ends on the line of the page's grid at
+   or just before where it ends now — never longer (his ask, 2026-10-23: "친 노트의 길이 이하의 '직전' 그리드"); one that no
+   line crosses after it begins stays as it is */
+function rollFloorEnds (r) {
+  const { qb, org } = rollQ(r), st = rollStep(), pick = r.notes.filter(x => !ROLL.sel.size || ROLL.sel.has(x.id))
+  let k = 0, short = 0
+  const ids = new Set(pick.map(x => x.id)), list = r.notes.map(x => {
+    if (!ids.has(x.id)) return x
+    const a = org + x.t / qb, e = org + (x.t + x.d) / qb, to = Math.floor(e / st + 1e-6) * st
+    if (Math.abs(to - e) < 1e-6) return x
+    if (to <= a + 1e-6) { short++; return x }
+    k++; return Object.assign({}, x, { d: (to - org) * qb - x.t })
+  })
+  if (k) edit(() => { setNotes(r, list) })
+  say(k ? `${k} ${k === 1 ? 'note' : 'notes'} back to the ${ROLL.grid} grid` : short ? `shorter than the ${ROLL.grid} grid: left as they are` : 'they already end on the grid'); uiDirty('dock', 'lanes')
+}
+/* shift \ and option shift \ as the Region menu has them: the notes page's own region while the page has the keys (rollKey
+   takes them there), else every chosen region of notes, all of its notes */
+function rollNotesDo (fn) {
+  const [r] = rollReg()
+  if (rollOn() && S.focus === 'notes' && r) { fn(r); return }
+  const rs = selRegs().map(x => x[0]).filter(q => q.notes)
+  if (!rs.length) { say('choose a region of notes'); return }
+  const s0 = ROLL.sel; ROLL.sel = new Set()
+  try { for (const q of rs) fn(q) } finally { ROLL.sel = s0 }
+}
+
+/* ── the marquee, as on the lanes (his ask, 2026-10-23: "notes 패널에서 노트 수정할 때도 marquee tool 이 메인창에서처럼
+   똑같이"): with the marquee tool a stretch of time is picked along the grid, over the keys the pull crosses (a press without
+   a pull puts the playhead there; with shift, the one there is pulled from its nearer end). Delete takes what lies in it — a
+   note that crosses its edge is cut there; command c and x take it, its empty time with it, and command v puts it down
+   whole: right after itself while the marquee still lies on it, at the start of a marquee drawn elsewhere (on its keys),
+   else at the playhead — what stood there on those keys gives way. Command r says it again right after itself. Pressed
+   with the pointer, what lies in it is cut out and chosen, to be pulled. A press anywhere else puts it away. ── */
+const rollRowOfKey = key => { const g = ROLL.g; return g.kit ? DRUM_PADS.length - 1 - DRUM_PADS.findIndex(q => q[1] === key) : g.hi - key }
+const rollKeysOfRows = (r0, r1) => { const out = new Set(); for (let row = Math.min(r0, r1); row <= Math.max(r0, r1); row++) out.add(rollKeyOfRow(row)); return [...out] }
+const rollMarqOn = () => !!(ROLL.marq && ROLL.marq.b - ROLL.marq.a >= MIN_LEN)
+const rollSameStretch = (m, f) => !!(m && f && Math.abs(m.a - f.a) < 1e-6 && Math.abs(m.b - f.b) < 1e-6 && m.keys.length === f.keys.length && m.keys.every(k => f.keys.includes(k)))
+/* the notes of a region cut at a stretch's two edges (bars from zero), on its keys as they sound: [what lies outside it, the
+   pieces inside it]. On a kit a stroke is in it when it begins in it, and is never cut */
+function rollSplit (r, a, b, keys) {
+  const { toQ } = rollQ(r), qa = toQ(a), qz = toQ(b), on = new Set(keys.map(k => k - (r.tr || 0))), kit = !!(ROLL.g && ROLL.g.kit), tiny = 1e-6, out = [], inside = []
+  const piece = (x, t, d) => { const y = Object.assign({}, x, mkNote(t, d, x.n, x.v)); delete y.o; return y }      // (a piece cut out of a note is a note of its own, played where it begins)
+  for (const x of r.notes) {
+    const e = x.t + x.d
+    if (!on.has(x.n)) out.push(x)
+    else if (kit) (x.t >= qa - tiny && x.t < qz - tiny ? inside : out).push(x)
+    else if (e <= qa + tiny || x.t >= qz - tiny) out.push(x)
+    else {
+      if (x.t < qa - tiny) out.push(Object.assign({}, x, { d: qa - x.t }))
+      inside.push(x.t < qa - tiny ? piece(x, qa, Math.min(e, qz) - qa) : e > qz + tiny ? Object.assign({}, x, { d: qz - x.t }) : x)
+      if (e > qz + tiny) out.push(piece(x, qz, e - qz))
+    }
+  }
+  return [out, inside]
+}
+function rollMarqDelete (r) {
+  const m = ROLL.marq
+  let n = 0
+  edit(() => { const [out, inside] = rollSplit(r, m.a, m.b, m.keys); n = inside.length; if (!n) return false; setNotes(r, out) })
+  ROLL.marq = null; ROLL.sel = new Set(); say(n ? `${n} ${n === 1 ? 'note' : 'notes'} taken out` : 'nothing in the marquee'); uiDirty('dock', 'lanes')
+}
+function rollMarqCopy (r, quiet) {
+  const m = ROLL.marq, qa = rollQ(r).toQ(m.a), [, inside] = rollSplit(r, m.a, m.b, m.keys)
+  ROLL.clip = inside.map(x => ({ dt: x.t - qa, d: x.d, n: x.n + (r.tr || 0), v: x.v }))      // (keys as they sound, from the stretch's start)
+  Object.assign(ROLL.clip, { span: m.b - m.a, keys: m.keys.slice(), from: { a: m.a, b: m.b, keys: m.keys.slice() } })
+  if (!quiet) say(`${+(m.b - m.a).toFixed(3)} bars copied, ${inside.length} ${inside.length === 1 ? 'note' : 'notes'}`)
+}
+function rollMarqPaste (r) {
+  const C = ROLL.clip, m = rollMarqOn() ? ROLL.marq : null, same = rollSameStretch(m, C.from), kit = !!(ROLL.g && ROLL.g.kit), { toQ, limit } = rollQ(r), tr = r.tr || 0
+  const shift = m && !same && !kit && C.keys.length ? Math.max(...m.keys) - Math.max(...C.keys) : 0      // (a marquee drawn elsewhere: its top key says where)
+  const a = clamp(m ? (same ? m.b : m.a) : rollSnap(curPos()), r.a - 1, limit), b = Math.min(a + C.span, limit)
+  if (!(b - a > 1e-9)) { say('no room there'); return }
+  const keys = C.keys.map(k => k + shift).filter(k => k >= 0 && k <= 127), qa = toQ(a), qz = toQ(b)
+  edit(() => {
+    const [out] = rollSplit(r, a, b, keys), made = C.map(x => mkNote(qa + x.dt, Math.min(x.d, qz - qa - x.dt), x.n + shift - tr, x.v)).filter(x => x.d > 1e-6 && x.n >= 0 && x.n <= 127)
+    if (!made.length && out.length === r.notes.length) return false
+    setNotes(r, out.concat(made)); rollGrow(r)
+  })
+  ROLL.marq = { a, b: a + C.span, k0: Math.max(...keys), k1: Math.min(...keys), keys }; C.from = { a, b: a + C.span, keys: keys.slice() }      // the marquee over what was put down, so the next press follows on
+  ROLL.sel = new Set(); uiDirty('dock', 'lanes')
+}
+/* command r: the marquee's stretch said again right after itself; the clipboard stays what it was (if it holds this very stretch, it goes along) */
+function rollMarqRepeat (r) {
+  const keep = ROLL.clip, here = keep && rollSameStretch(ROLL.marq, keep.from)
+  rollMarqCopy(r, true); rollMarqPaste(r)
+  const now = ROLL.clip.from; ROLL.clip = keep
+  if (here) keep.from = now
+}
 /* the same as a thing done (the panel's q, the q key while the page has the keys): the chosen notes to the panel's grid, or back to where they were played */
 function rollQuantDo (r, off) { const [list, n] = rollQuant(r, ROLL.sel, off); if (n) edit(() => { setNotes(r, list) }); say(!n ? 'nothing to quantize' : off ? `${n} ${n === 1 ? 'note' : 'notes'} as played` : `${n} ${n === 1 ? 'note' : 'notes'} to ${ROLL.qv}`); uiDirty('dock', 'lanes') }
 const rollQuanted = (r, ids) => { const pick = r ? r.notes.filter(x => !ids.size || ids.has(x.id)) : []; return pick.length > 0 && pick.every(x => x.o != null) }
@@ -160,7 +249,7 @@ function pRoll (y, h) {
   const hi = kit ? 0 : V.hi, lo = hi - count + 1
   const rowOfKey = p => kit ? (() => { const i = DRUM_PADS.findIndex(q => q[1] === p); return i < 0 ? -1 : DRUM_PADS.length - 1 - i })() : hi - p
   const Y = p => top + rowOfKey(p) * rowH, gb = top + count * rowH
-  const noteCur = S.tool === 'scissors' && !kit ? 'var(--cur-scissors)' : S.tool === 'eraser' ? 'var(--cur-eraser)' : S.tool === 'velocity' ? 'var(--cur-velocity)' : 'var(--cur-grab)'      // (the tools' own pointers: ui.js makeCursors)
+  const noteCur = S.tool === 'scissors' && !kit ? 'var(--cur-scissors)' : S.tool === 'eraser' ? 'var(--cur-eraser)' : S.tool === 'velocity' ? 'var(--cur-velocity)' : S.tool === 'marquee' ? 'var(--cur-marquee)' : 'var(--cur-grab)'      // (the tools' own pointers: ui.js makeCursors)
   const cid = 'rl' + (++UID), L = r ? regLook(r, t) : { c: t ? t.c : INK, deep: t ? t.deep : K0, sel: t ? t.csel : INK }, env = rollEnv(inst ? t.inst : null), step = rollStep()
   ROLL.g = { y, h, x0, x1, top, bot, gb, rowH, count, hi, pxb, kit, KW, LP, laneH, base: y + h - 9, room: Math.max(10, laneH - 24) }
   let s = R(0, y, RX, h, { fill: K0 }) + `<clipPath id="${cid}"><rect x="${x0}" y="${n(y)}" width="${n(x1 - x0)}" height="${n(h)}"/></clipPath>`
@@ -195,7 +284,7 @@ function pRoll (y, h) {
       if (xa + w + 240 < x0 || xa > x1) continue
       out += rollStroke(xa + .5, xa + .5 + w, cy, (rowH / 2 - .5) * (.66 + .34 * f), env, pps, col, fa)
       if (on) ring += R(xa - 1, yy - .5, w + 3, rowH + 1, { stroke: INK })
-      if (own) { hits += rlHit(xa, yy, Math.max(4, w + 1), rowH, 'note', ` data-i="${x.id}"`, noteCur); if (w >= 10 && noteCur === 'var(--cur-grab)') hits += rlHit(xa + w - 4, yy, 6, rowH, 'len', ` data-i="${x.id}"`, 'ew-resize') }
+      if (own) { hits += rlHit(xa, yy, Math.max(4, w + 1), rowH, 'note', ` data-i="${x.id}"`, noteCur); if (w >= 10 && noteCur === 'var(--cur-grab)') hits += rlHit(xa + w - 4, yy, 6, rowH, 'len', ` data-i="${x.id}"`, 'var(--cur-trim)'); if (w >= 16 && noteCur === 'var(--cur-grab)') hits += rlHit(xa - 1, yy, 5, rowH, 'lenL', ` data-i="${x.id}"`, 'var(--cur-trim)') }      // (its start can be pulled as its end is: his ask, 2026-10-23)
     }
     return out + ring
   }
@@ -206,6 +295,10 @@ function pRoll (y, h) {
     if (xa > x0) g += R(x0, top, xa - x0, gb - top, { fill: K1, fa: .62 })                 // outside the region the page is dimmed: what is edited is the region
     if (xb < x1) g += R(xb, top, x1 - xb, gb - top, { fill: K1, fa: .62 })
     g += P(`M${n(xa) + .5} ${top}V${y + h}M${n(xb) + .5} ${top}V${y + h}`, { stroke: INK, sa: .3 })
+  }
+  if (ROLL.marq && r) {                                                                  // the marquee, drawn as the lanes draw theirs
+    const m = ROLL.marq, rs = m.keys.map(rowOfKey).filter(q => q >= 0 && q < count)
+    if (rs.length) { const ya = top + Math.min(...rs) * rowH, yb = top + (Math.max(...rs) + 1) * rowH; g += R(X(m.a), ya + 1, Math.max(1, (m.b - m.a) * pxb), Math.max(1, yb - ya - 2), { fill: INK, fa: .16, stroke: INK, sa: .7 }) }
   }
   if (ROLL.band) { const b = ROLL.band; g += R(Math.min(b.x0, b.x1), Math.min(b.y0, b.y1), Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0), { fill: INK, fa: .06, stroke: INK, sa: .5 }) }
   if (laneH) { const o = rollLane(r, t, X, x0, x1, bot, laneH); g += o[0]; hits += o[1] }
@@ -384,7 +477,7 @@ function rollDown (e) {
   S.focus = 'notes'
   const k = el.dataset.k, p = pt(e), g = ROLL.g, [r, t] = rollReg(), now = performance.now()
   const hold = d => { ROLL.drag = Object.assign({ x0: p.x, y0: p.y, moved: false }, d); try { svg.setPointerCapture(e.pointerId) } catch (err) {} }
-  ROLL.on = k === 'clane' || k === 'cpt' || k === 'vel' ? 'lane' : k === 'paper' || k === 'note' || k === 'len' ? 'paper' : ROLL.on
+  ROLL.on = k === 'clane' || k === 'cpt' || k === 'vel' ? 'lane' : k === 'paper' || k === 'note' || k === 'len' || k === 'lenL' ? 'paper' : ROLL.on
   if (k === 'none') return true
   if (k === 'lane') { ROLL.lane = !ROLL.lane; ROLL.keep = true; uiDirty('dock'); return true }
   if (k === 'param') { rollParamMenu(p.x - 20, p.y); return true }
@@ -421,7 +514,31 @@ function rollDown (e) {
   if (k === 'key') { const key = +el.dataset.v; if (g.kit) ROLL.pad = DRUM_PADS.findIndex(q => q[1] === key); ROLL.key = key; syncLive(); playKey(0x90, key, ROLL.vel); hold({ k: 'key', key }); uiDirty('dock'); return true }
   if (!t || !isInst(t)) return true
   const mine = !t.theirs
-  if (k === 'note' || k === 'len') {
+  if (k === 'paper' || k === 'note' || k === 'len' || k === 'lenL') {
+    const at = rollAt(p), row = clamp(at.row, 0, g.count - 1), m = ROLL.marq
+    /* the marquee tool: a stretch begun (with shift, the one there pulled from its nearer end) */
+    if (S.tool === 'marquee') {
+      const a = Math.max(0, rollSnap(at.bar, e))
+      ROLL.sel = new Set()
+      if (e.shiftKey && rollMarqOn()) { const p0 = Math.abs(a - m.a) < Math.abs(a - m.b) ? m.b : m.a; ROLL.marq = { a: Math.min(p0, a), b: Math.max(p0, a), k0: m.k0, k1: rollKeyOfRow(row), keys: rollKeysOfRows(rollRowOfKey(m.k0), row) }; hold({ k: 'marq', p0, k0: m.k0 }) }
+      else { const k0 = rollKeyOfRow(row); ROLL.marq = { a, b: a, k0, k1: k0, keys: [k0] }; hold({ k: 'marq', p0: a, k0, cursor: true }) }      // (let go without a pull: the playhead goes there)
+      uiDirty('dock'); return true
+    }
+    /* the pointer pressed inside the marquee: what lies in it is cut out at its edges and chosen, to be pulled (the cut a step of its own) */
+    if (S.tool === 'pointer' && mine && r && rollMarqOn() && at.bar >= m.a - 1e-9 && at.bar <= m.b + 1e-9 && m.keys.includes(rollKeyOfRow(at.row))) {
+      const [out, inside] = rollSplit(r, m.a, m.b, m.keys), changed = out.length + inside.length !== r.notes.length || inside.some(x => !r.notes.includes(x))
+      ROLL.marq = null
+      if (inside.length) {
+        if (changed) edit(() => { setNotes(r, out.concat(inside)) })
+        const { qb, org } = rollQ(r), lead = inside.reduce((p, q) => q.t < p.t ? q : p)
+        ROLL.sel = new Set(inside.map(x => x.id))
+        hold({ k: 'move', id: lead.id, from: r.notes, before: editState(), bar0: at.bar, row0: at.row, a0: org + lead.t / qb, b0: org + (lead.t + lead.d) / qb, copy: e.altKey, ids: new Set(ROLL.sel) })
+      }
+      uiDirty('dock', 'lanes'); return true
+    }
+    ROLL.marq = null
+  }
+  if (k === 'note' || k === 'len' || k === 'lenL') {
     const id = +el.dataset.i, x = r && r.notes.find(q => q.id === id)
     if (!x) return true
     if (mine && S.tool === 'eraser') { rollDelete(new Set(ROLL.sel.has(id) ? ROLL.sel : [id])); return true }      // the eraser: the note pressed goes (the chosen ones with it, when it is one of them)
@@ -434,7 +551,7 @@ function rollDown (e) {
     const snd = regSound(r).find(q => q.id === id), at = rollAt(p)
     if (snd) rollHear(snd.n, snd.v)
     if (ROLL.sel.has(id) && mine && S.tool === 'velocity') { hold({ k: 'nv', id, from: r.notes, before: editState(), ids: new Set(ROLL.sel), v0: x.v }); uiDirty('dock'); return true }      // the velocity tool: pulled up or down, the chosen notes are played harder or softer
-    if (ROLL.sel.has(id) && mine) hold({ k: k === 'len' && !g.kit ? 'len' : 'move', id, from: r.notes, before: editState(), bar0: at.bar, row0: at.row, a0: snd ? snd.a : at.bar, b0: snd ? snd.b : at.bar, copy: e.altKey && k !== 'len', ids: new Set(ROLL.sel) })
+    if (ROLL.sel.has(id) && mine) hold({ k: (k === 'len' || k === 'lenL') && !g.kit ? k : 'move', id, from: r.notes, before: editState(), bar0: at.bar, row0: at.row, a0: snd ? snd.a : at.bar, b0: snd ? snd.b : at.bar, copy: e.altKey && k === 'note', ids: new Set(ROLL.sel) })
     uiDirty('dock'); return true
   }
   if (k === 'vel') {
@@ -486,6 +603,11 @@ function rollMove (e) {
     d.moved = true; uiDirty('dock', 'lanes'); return
   }
   if (!d.moved && d.k !== 'vel' && Math.hypot(p.x - d.x0, p.y - d.y0) < 3) return
+  if (d.k === 'marq') {                                                                 // the marquee pulled: along the grid, over the keys from where it began to where the hand is
+    const at = rollAt(p), b = Math.max(0, rollSnap(at.bar, e)), row = clamp(at.row, 0, g.count - 1)
+    ROLL.marq = { a: Math.min(d.p0, b), b: Math.max(d.p0, b), k0: d.k0, k1: rollKeyOfRow(row), keys: rollKeysOfRows(rollRowOfKey(d.k0), row) }
+    d.moved = true; uiDirty('dock'); return
+  }
   if (d.k === 'band') {
     d.moved = true
     ROLL.band = { x0: d.x0, y0: clamp(d.y0, g.top, g.gb), x1: p.x, y1: clamp(p.y, g.top, g.gb) }
@@ -508,6 +630,10 @@ function rollMove (e) {
     const end = rollSnap(d.b0 + (at.bar - d.bar0), e), dq = (end - d.b0) * qb, least = Math.min(rollStep() * qb / 4, .0625)
     setNotes(r, d.from.map(x => !d.ids.has(x.id) ? x : Object.assign({}, x, { d: Math.max(least, x.d + dq) }))); rollGrow(r)
     d.moved = true
+  } else if (d.k === 'lenL') {                                                          // its start pulled: earlier or later along the grid, its end where it was (never before the region begins)
+    const st = rollSnap(d.a0 + (at.bar - d.bar0), e), dq = (st - d.a0) * qb, least = Math.min(rollStep() * qb / 4, .0625), lo = rollQ(r).toQ(r.a - 1)
+    setNotes(r, d.from.map(x => { if (!d.ids.has(x.id)) return x; const q = clamp(dq, lo - x.t, x.d - least), y = Object.assign({}, x, { t: x.t + q, d: x.d - q }); if (Math.abs(q) > 1e-9) delete y.o; return y }))
+    d.moved = true
   } else if (d.k === 'vel') {
     const v = clamp(Math.round((g.base - p.y) / g.room * 127), 1, 127), dv = v - d.v0
     setNotes(r, d.from.map(x => !d.ids.has(x.id) ? x : Object.assign({}, x, { v: clamp(x.id === d.id ? v : x.v + dv, 1, 127) })))
@@ -523,6 +649,7 @@ function rollUp () {
   if (d.moved) ROLL.last = { id: 0, at: 0 }                                              // (a pull is not the first of two presses)
   if (d.k === 'key') { playKey(0x80, d.key, 0); ROLL.key = null; uiDirty('dock'); return }
   if (d.k === 'band') { ROLL.band = null; uiDirty('dock'); return }
+  if (d.k === 'marq') { if (!rollMarqOn()) { ROLL.marq = null; if (d.cursor) { jumpTo(d.p0); uiDirty('scenes', 'top') } } uiDirty('dock'); return }      // (no stretch: the playhead goes where it was pressed)
   if (d.moved && d.before) { const [r] = rollReg(); if (r && (d.k === 'line' || d.k === 'cpt' || d.k === 'nv' || r.notes !== d.from)) commit(d.before); else uiDirty('dock') }
 }
 /* the wheel over the page: up and down the keys, along the song; a pinch (or command) draws the time nearer about the pointer */
@@ -555,17 +682,21 @@ function rollKey (e) {
   }
   if (c === 'KeyQ' && r && ((plain && !e.shiftKey) || (e.metaKey && e.altKey && !e.ctrlKey))) { take(); if (!e.repeat) rollQuantDo(r, !plain); return }      // q: the chosen notes to the panel's own grid (not the region to the room's); option command q: back as played
   if (c === 'KeyL' && plain && !e.shiftKey && r) { take(); if (!e.repeat) rollLegato(r); return }      // l: force legato (on the lanes l fills a region to the next; here, each chosen note)
+  if (c === 'Backslash' && e.shiftKey && !e.metaKey && !e.ctrlKey && r) { take(); if (!e.repeat) (e.altKey ? rollFloorEnds : rollLegato)(r); return }      // shift \: force legato; option shift \: each note's end back to the grid line before it (his ask, 2026-10-23)
   if (c === 'KeyA' && plain && !e.shiftKey) { take(); if (!e.repeat) { ROLL.lane = !ROLL.lane; ROLL.keep = true; uiDirty('dock') } return }      // a: the lane under the notes, up or away
   if ((c === 'Backspace' || c === 'Delete') && plain) {
     take()
     if (e.repeat) return
-    if (ROLL.on === 'lane' && ROLL.cp.size && r) { const ids = new Set(ROLL.cp); edit(() => rollSetCtl(r, (r.ctl || []).filter(q => !ids.has(q.id)))); ROLL.cp = new Set(); uiDirty('dock', 'lanes') }
+    if (rollMarqOn() && r) rollMarqDelete(r)                                             // what lies in the marquee goes, cut at its edges
+    else if (ROLL.on === 'lane' && ROLL.cp.size && r) { const ids = new Set(ROLL.cp); edit(() => rollSetCtl(r, (r.ctl || []).filter(q => !ids.has(q.id)))); ROLL.cp = new Set(); uiDirty('dock', 'lanes') }
     else rollDelete(new Set(ROLL.sel))
     return
   }
-  if (c === 'Escape' && plain && (ROLL.sel.size || ROLL.cp.size)) { take(); ROLL.sel = new Set(); ROLL.cp = new Set(); uiDirty('dock'); return }
+  if (c === 'Escape' && plain && (ROLL.sel.size || ROLL.cp.size || ROLL.marq)) { take(); ROLL.sel = new Set(); ROLL.cp = new Set(); ROLL.marq = null; uiDirty('dock'); return }
   if (!r) return
-  if (cmd && c === 'KeyA' && !e.shiftKey) { take(); ROLL.sel = new Set(r.notes.map(x => x.id)); uiDirty('dock'); return }
+  if (cmd && c === 'KeyA' && !e.shiftKey) { take(); ROLL.sel = new Set(r.notes.map(x => x.id)); ROLL.marq = null; uiDirty('dock'); return }
+  if (cmd && c === 'KeyR' && !e.shiftKey && rollMarqOn()) { take(); rollMarqRepeat(r); return }      // command r: the marquee's stretch again, right after itself
+  if (cmd && (c === 'KeyC' || c === 'KeyX') && !e.shiftKey && rollMarqOn()) { take(); rollMarqCopy(r); if (c === 'KeyX') rollMarqDelete(r); return }      // the marquee's stretch, its empty time with it
   if (cmd && (c === 'KeyC' || c === 'KeyX') && !e.shiftKey) {
     take()
     const sel = r.notes.filter(x => ROLL.sel.has(x.id))
@@ -577,6 +708,7 @@ function rollKey (e) {
   }
   if (cmd && c === 'KeyV' && !e.shiftKey) {
     take()
+    if (ROLL.clip && ROLL.clip.span != null) { rollMarqPaste(r); return }                 // a marquee's stretch: put down whole
     if (!ROLL.clip || !ROLL.clip.length) return
     const { toQ, limit } = rollQ(r), at = clamp(rollSnap(curPos()), r.a - 1, limit - rollStep()), made = ROLL.clip.map(x => mkNote(toQ(at) + x.dt, x.d, x.n, x.v))
     edit(() => { setNotes(r, r.notes.concat(made)); rollGrow(r) })
@@ -664,6 +796,7 @@ function rollOpen () { if (!rollOn()) { S.panel.on = true; S.panel.tab = 'notes'
   onWheel = function (e) { if (!rollWheel(e)) wheel0(e) }
   addEventListener('keydown', rollKey, true)
   KEYS.KeyP = () => { if (rollOn()) togglePanel('notes'); else rollOpen() }
+  KEYS['⇧Backslash'] = () => rollNotesDo(rollLegato); KEYS['⌥⇧Backslash'] = () => rollNotesDo(rollFloorEnds)      // (the Region menu's lines; while the page has the keys, rollKey takes them first)
   /* held keys of the keyboard are shown on the page's own keys; while the song runs its playhead is carried along */
   flush = function () { if (rollOn() && (dirty.has('keys') || ROLL.toolWas !== S.tool)) dirty.add('dock'); ROLL.toolWas = S.tool; flush0() }      // (another tool: the pointer over a note says so)
   setInterval(rollKeep, 1500)

@@ -2516,6 +2516,46 @@ async function runSelfTest (mode) {
     back(); await natSession(); await sleep(200)
     return res
   })
+  /* speed fades in the engine (his ask, 2026-10-23): a tone of 440 Hz printed plain, with a slow down at its end and with a
+     speed up at its start, and heard back — half way through either it is an octave down, at its level; outside them the print
+     is the plain one's, sample for sample (a speed up arrives where the plain sound is) */
+  await step('speedFade', async () => {
+    halt(false); if (S.cycle.on) keyDown('KeyC')
+    const res = {}, n0 = UNDO.length, back = allHeard(), sr = SND_SR, spb = SPB(), bars = 2, sec = bars * spb + 1, frames = Math.round(sec * sr)
+    const i16 = new Int16Array(frames); for (let i = 0; i < frames; i++) i16[i] = Math.round(12000 * Math.sin(2 * Math.PI * 440 * i / sr))
+    { let s = ''; const u8 = new Uint8Array(i16.buffer); for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); await NAT.call('buffer', { key: 'test:tone', ch: 1, frames, pcm: btoa(s) }) }
+    const t = newTrack('audio', 'speed fade', true); t.patch = NO_PATCH()
+    const r = mkReg({ a: 3, b: 3 + bars, key: 'test:tone', loop: false, rate: 1, off: 0, sec, srcBars: sec / spb, peaksAll: new Float32Array(Math.round(sec * 100)).fill(.3) })
+    t.regs = [r]; pushTrack(t)
+    const keys = []
+    const print = async (name, set) => {
+      Object.assign(r, { fi: 0, fo: 0 }, set); if (!set.fis) delete r.fis; if (!set.fos) delete r.fos; dirtyReg(r); pushTrack(t); await natSession(); await sleep(150)
+      const b = await NAT.call('bounce', { kind: 'place', project: PROJ.name, a0: 2, a1: 2 + bars, tail: 0, tracks: [{ id: t.id, name }] }), d = b && b.placed && b.placed[0]
+      if (!(d && d.ok && d.key)) return null
+      keys.push(d.key)
+      const p = await NAT.call('pcm', { key: d.key, from: 0, sec: bars * spb }); if (!(p && p.ok)) return null
+      const raw = atob(p.pcm), x = new Int16Array(raw.length >> 1); for (let i = 0; i < x.length; i++) x[i] = raw.charCodeAt(2 * i) | (raw.charCodeAt(2 * i + 1) << 8)
+      return { x, rate: p.rate }
+    }
+    const win = (q, s0, s1) => { const a = Math.round(s0 * q.rate), z = Math.min(q.x.length, Math.round(s1 * q.rate)); let n = 0, e = 0; for (let i = a + 1; i < z; i++) { if ((q.x[i - 1] < 0) !== (q.x[i] < 0)) n++; e += q.x[i] * q.x[i] } return { hz: +(n / 2 / (s1 - s0)).toFixed(1), rms: Math.round(Math.sqrt(e / Math.max(1, z - a))) } }
+    const apart = (p, q, s0, s1) => { const a = Math.round(s0 * p.rate), z = Math.min(p.x.length, q.x.length, Math.round(s1 * p.rate)); let d = 0; for (let i = a; i < z; i++) d = Math.max(d, Math.abs(p.x[i] - q.x[i])); return d }
+    const plain = await print('speed plain', {}), slow = await print('speed slow', { fo: .5, fos: true }), fast = await print('speed fast', { fi: .5, fis: true })
+    if (!plain || !slow || !fast) res.printed = [!!plain, !!slow, !!fast]
+    else {
+      res.plain = win(plain, .5 * spb - .05, .5 * spb + .05)
+      res.slowHalf = win(slow, 1.75 * spb - .05, 1.75 * spb + .05)
+      res.fastHalf = win(fast, .25 * spb - .05, .25 * spb + .05)
+      res.slowBefore = apart(plain, slow, 0, 1.5 * spb - .002)
+      res.fastAfter = apart(plain, fast, .5 * spb + .002, 2 * spb - .01)
+      const near = (v, w, k) => Math.abs(v - w) <= w * k
+      res.ok = near(res.plain.hz, 440, .03) && near(res.slowHalf.hz, 220, .05) && near(res.fastHalf.hz, 220, .05) && near(res.slowHalf.rms, res.plain.rms, .1) && near(res.fastHalf.rms, res.plain.rms, .1) && res.slowBefore <= 2 && res.fastAfter <= 2
+    }
+    for (const k of keys.concat('test:tone')) await NAT.call('dropBuffer', { key: k })
+    while (UNDO.length > n0) undoEdit()
+    if (S.tracks.includes(t)) await deleteTracks([t])
+    back(); await natSession(); await sleep(200)
+    return res
+  })
   /* the meter on a wall, in the engine: wired between in and out it measures what the track plays, and the track's print is
      the same with it as without it, not a sample late; its count begins again when the song is played from another place;
      its face is a window of its own, there when asked for and gone when the meter is taken off */

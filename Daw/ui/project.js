@@ -242,7 +242,7 @@ async function importAudio () {
 
 /* ── the project on disk (the app only) ── */
 const KEEP_T = ['id', 'name', 'col', 'shape', 'tone', 'theirs', 'kind', 'vol', 'def', 'pan', 'mute', 'solo', 'inp', 'out', 'parent', 'open', 'h', 'sends', 'autos', 'ap', 'patch', 'midi', 'buf0', 'grp', 'alt', 'inst', 'disabled']
-const KEEP_R = ['id', 'a', 'b', 'off', 'gain', 'mute', 'fi', 'fo', 'loop', 'rate', 'sec', 'srcBars', 'tag', 'name', 'file', 'tr', 'ft', 'flex', 'rev', 'fx', 'col', 'shape', 'fic', 'foc', 'grp', 'bpm', 'xo', 'sm', 'px', 'py', 'notes', 'ctl', 'q', 'qs', 'sw', 'vel', 'rep', 'chords', 'rub', 'flexOff', 'fib', 'fob']
+const KEEP_R = ['id', 'a', 'b', 'off', 'gain', 'mute', 'fi', 'fo', 'loop', 'rate', 'sec', 'srcBars', 'tag', 'name', 'file', 'tr', 'ft', 'flex', 'rev', 'fx', 'col', 'shape', 'fic', 'foc', 'fis', 'fos', 'grp', 'bpm', 'xo', 'sm', 'px', 'py', 'notes', 'ctl', 'q', 'qs', 'sw', 'vel', 'rep', 'chords', 'rub', 'flexOff', 'fib', 'fob']
 function serialize () {
   return JSON.stringify({
     v: 3, name: PROJ.name, demo: PROJ.demo, fresh: PROJ.fresh ? true : undefined, tempo: S.tempo, meter: S.meter, key: S.key, smpte: S.smpte, end: SONG_END, scenes: SCENES.map(s => [s.name, s.a, s.c]), master: S.master, click: S.click, countIn: S.countIn,

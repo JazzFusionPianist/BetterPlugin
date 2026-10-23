@@ -619,8 +619,65 @@ function fadeBend (r, left, t) {
   const own = left ? r.fib : r.fob
   if (own != null) return own
   if (left ? r.fic : r.foc) return 0
+  if (left ? r.fis : r.fos) return 0                                                                      // (a speed fade: an even run up to speed, or down to a standstill)
   const tt = t || regOf(r.id)[1]
   return tt && (left ? crossBefore(r, tt) : crossAfter(r, tt)) ? 0 : FADE_BEND
+}
+/* ── a speed fade (his ask, 2026-10-23: as Logic has it, a scratch of a sound): a fade in that speeds the sound up from a
+   standstill, a fade out that slows it down to one (r.fis, r.fos). Its curve is the speed's, not the level's: the sound
+   runs slower and lower (Engine.h addRegion), and only goes quiet under an eighth of its speed, three octaves down, so it
+   ends without a click. Half of a crossfade stays a fade. ── */
+function speedFade (r, left, t) {
+  if (!(left ? r.fis : r.fos) || !((left ? r.fi : r.fo) > 0) || r.notes) return false
+  const tt = t || regOf(r.id)[1]
+  return !(tt && (left ? crossBefore(r, tt) : crossAfter(r, tt)))
+}
+const SPEED_QUIET = 8
+/* how loud a fade lets the sound be, x of the way from its silent end (0…1): its curve; a speed fade, its full level until the speed is low */
+const fadeLevel = (r, left, x, bend, t) => { const k = fadeShape(left ? r.fic || 0 : r.foc || 0, x, bend); return speedFade(r, left, t) ? Math.min(1, SPEED_QUIET * k) : k }
+/* how far the sound has run through a speed fade x of the way from its still end (0…1), in lengths of the fade: the area under
+   its speed (Engine.h fadeRun) */
+function fadeRun (c, x, bend = 0) {
+  x = clamp(x, 0, 1)
+  if (c === 1) return (1 - Math.cos(x * Math.PI / 2)) / (Math.PI / 2)
+  if (c === 2) return x * x * x - x * x * x * x / 2
+  const q = bend ? Math.pow(2, 2 * bend) : 1
+  return Math.pow(x, q + 1) / (q + 1)
+}
+/* the other button on a fade of a region of sound: a fade, or (a fade in) speed up, (a fade out) slow down — for it and those
+   that take its fades along (its edit group, the other chosen) */
+function fadeMenu (p) {
+  if (S.auto || (p.y - TY + VY) >= rowTops().all) return false
+  const ti = laneAt(p.y), t = S.tracks[ti]
+  if (!t || t.kind !== 'audio' || t.inst) return false
+  const pos = barAt(p.x)
+  for (let k = t.regs.length - 1; k >= 0; k--) {
+    const r = t.regs[k]
+    if (r.notes || !(pos >= r.a - 1 && pos < r.b - 1)) continue
+    const xl = bx(r.a), xr = bx(r.b)
+    const left = r.fi > 0 && p.x <= xl + r.fi * PXB && !crossBefore(r, t) ? true : r.fo > 0 && p.x >= xr - r.fo * PXB && !crossAfter(r, t) ? false : null
+    if (left == null) return false
+    if (!S.selR.includes(r.id)) { S.selR = withTheirs([r.id]); S.sel = ti; S.focus = 'lanes'; uiDirty('lanes', 'head', 'dock') }
+    const on = !!(left ? r.fis : r.fos)
+    openMenu(p.x, p.y, [{ t: 'fade', on: !on, v: false }, { t: left ? 'speed up' : 'slow down', on, v: true }], it => setSpeedFade(r.id, left, it.v))
+    return true
+  }
+  return false
+}
+function setSpeedFade (id, left, on) {
+  const [r, t] = regOf(id)
+  if (!r) return
+  edit(() => {
+    let any = false
+    for (const x of [r].concat(fadeWith(r, t))) {
+      if (!((left ? x.fi : x.fo) > 0) || x.notes || !!(left ? x.fis : x.fos) === on) continue
+      const k = left ? 'fis' : 'fos'
+      if (on) x[k] = true; else delete x[k]
+      any = true; dirtyReg(x)
+    }
+    if (!any) return false
+    uiDirty('lanes', 'dock')
+  })
 }
 const headRoom = r => r.notes ? 0 : r.loop ? Infinity : Math.max(0, r.off || 0)                                         // sound it has before its start, in bars
 const tailRoom = r => r.notes ? 0 : r.loop ? Infinity : Math.max(0, (r.srcBars || 0) - (r.off || 0) - (r.b - r.a))      // and after its end

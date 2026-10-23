@@ -29,11 +29,12 @@ export default () => chapter('window', t('the window', '창'),
     table(null,
       [7, ['the song as a line: its parts as ticks, the cycle yellow, the playhead a dot', '곡을 선으로: 파트는 눈금, 사이클은 노랑, 플레이헤드는 점']],
       [8, ['{{out}}: a ring filled as loud as the mix; the white square is its level, drag up or down. The light fills red once the mix has clipped, the loudest peak beside it; click the light to let go of it', '{{out}}: 믹스 소리만큼 차는 링. 흰 사각형이 레벨이고 위아래로 드래그. 믹스가 클립하면 빨간 불이 켜지고 옆에 가장 큰 피크가 나옵니다. 불을 클릭하면 초기화']],
-      [9, ['how many tracks; the circle adds one. Beside it what is chosen: its colour opens the look list; a region shows its gain and transpose (drag them)', '트랙 수, 원으로 새 트랙. 옆에 선택된 것: 색을 누르면 모양 목록, 리전이면 게인과 트랜스포즈(드래그)']],
+      [9, ['how many tracks, the circle adds one; what is chosen, its colour opens the look list; a region’s gain, transpose, fine tune (drag them)', '트랙 수, 원으로 새 트랙. 옆에 선택된 것: 색을 누르면 모양 목록. 그 아래 리전의 게인, 트랜스포즈, 파인 튠(드래그)']],
       [10, ['the tool, the mode, the grid, the nudge: click for their lists', '도구, 모드, 그리드, 넛지: 클릭하면 목록']],
       [11, ['automation and rubato, the two views [[A]] [[⌘F]]; the zoom along the song and the rows’ height', '오토메이션과 루바토 두 보기 [[A]] [[⌘F]]. 가로 줌과 줄 높이']],
       [12, ['the chosen track’s strip, as in the mixer; click its level to type, its light to let go of the peak; {{in}} its input', '선택한 트랙의 스트립(믹서와 같음). 레벨을 클릭해서 입력, 불을 클릭하면 피크 초기화, {{in}}은 입력']]),
-    art: fig('panel', { w: 48, calls: [[1, 'play', 'l'], [2, 'pos', 'l', 4], [3, 'smpte', 'l'], [4, 'meter', 'l'], [5, 'tempo', 'r'], [6, 'loop', 'l'], [7, [40, 398], 'l'], [8, 'master', 'r'], [9, 'addtrack', 'r'], [10, 'toolmenu', 'l'], [11, 'autokey', 'l'], [12, 'tps-vol', 'l']] }) }),
+    art: fig('panel', { w: 45, calls: [[1, 'play', 'l'], [2, 'pos', 'l', 4], [3, 'smpte', 'l'], [4, 'meter', 'l'], [5, 'tempo', 'r'], [6, 'loop', 'l'], [7, [40, 398], 'l'], [8, 'master', 'r'], [9, 'addtrack', 'r'], [10, 'toolmenu', 'l'], [11, 'autokey', 'l'], [12, 'tps-vol', 'l']] }) +
+      `<div style="width:45mm">` + p('Just changed by hand: boxed for two seconds. On (cycle, click, low latency, automation, rubato): boxed while on.', '방금 손으로 바꾼 값: 2초 동안 흰 칸. 켜진 것(사이클, 클릭, 저지연, 오토메이션, 루바토): 켜져 있는 동안 흰 칸.') + `</div>` }),
 
   page(t('markers, bars, cycle, playhead', '마커, 마디 눈금, 사이클, 플레이헤드'), { kind: 'wide', cc: 3, txt:
     h('markers', '마커') +

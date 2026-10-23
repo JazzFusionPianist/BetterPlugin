@@ -64,11 +64,14 @@ SKINS.left.panel = () => {
   TPX.fixed = ''
   let s = R(0, 0, CW, H, { fill: K2 }) + R(CW - 1, 0, 1, H, { fill: INK, fa: .1 })
   /* the groups' heights; the room between them the same */
-  const playH = 72 * z, bs0 = small ? 84 : 112, posH = bs0 * .72 + 24, timeH = Math.max(46 * z + 12, 92 * z + 6), cycH = 47 * z + 14, ring = small ? 50 : 62, outH = 2 * ring + 40, foot = 112
-  /* the chosen track's strip stands over the foot (36: the large count of tracks reaches that far above it); the groups'
+  const playH = 72 * z, bs0 = small ? 84 : 112, posH = bs0 * .72 + 24, timeH = Math.max(46 * z + 12, 92 * z + 6), cycH = 47 * z + 14, ring = small ? 50 : 62, outH = 2 * ring + 40
+  /* the foot's rows apart, its height (a short window has them closer, and lets the strip have the room it would lose to the
+     row of a region's values), and how far the large count of tracks reaches above it */
+  const fs = small ? 26 : 28, ft = small ? 28 : 30, foot = ft + 3 * fs + 26, lift = small ? 30 : 36
+  /* the chosen track's strip stands over the foot (lift: the large count of tracks reaches that far above it); the groups'
      gaps give it room, and a short window has it on one line */
-  const room0 = H - FOOT_H - 24 - foot - 36 - (playH + posH + timeH + cycH + outH), stripH = room0 - 6 * 10 >= 92 ? Math.min(124, room0 - 6 * 10) : 50
-  const gap = clamp((room0 - stripH) / 6, 6, 40), below = clamp(gap * .6, 8, 22)
+  const room0 = H - FOOT_H - 24 - foot - lift - (playH + posH + timeH + cycH + outH), stripH = room0 - 6 * 10 >= 92 ? Math.min(124, room0 - 6 * 10) : 50
+  const gap = clamp((room0 - stripH) / 6, small ? 5 : 6, 40), below = clamp(gap * .6, 8, 22)
   let y = 24
   /* play | stop, record, to the start */
   const playing = S.playing && !S.rec, stopped = !S.playing && !S.rec, pw = 62 * z
@@ -121,7 +124,7 @@ SKINS.left.panel = () => {
     y = ct + h + 14 + gap }
   /* the song a diagonal; the out a large ring on it */
   const f0 = H - FOOT_H - foot
-  { const r = ring, cx = CW / 2, cy = y + 20 + r, k = 1.05, top = y - gap / 2, bottom = f0 - 36 - below - stripH - 10
+  { const r = ring, cx = CW / 2, cy = y + 20 + r, k = 1.05, top = y - gap / 2, bottom = f0 - lift - below - stripH - 10
     const A1 = cy - cx * k, t0 = Math.max(0, (top - A1) / k), t1 = Math.min(CW, (bottom - A1) / k)
     const L0 = [t0, A1 + t0 * k], L1 = [t1, A1 + t1 * k], len = Math.hypot(L1[0] - L0[0], L1[1] - L0[1]), hole = r + 22
     const g = geo.song = { L0, L1, len, hole, mid: Math.hypot(cx - L0[0], cy - L0[1]), shown: Math.max(1, len - 2 * hole) }
@@ -137,7 +140,7 @@ SKINS.left.panel = () => {
     if (S.cycle.on) { const seg = (a, b) => { const [x0, y0] = tpAt(g, a), [x1, y1] = tpAt(g, b); return P(`M${n(x0)} ${n(y0)}L${n(x1)} ${n(y1)}`, { stroke: SOLO, sw: 3.4, sa: .95 }) }, cut = SONG_END * (g.mid - g.hole) / g.shown
       s += S.cycle.a < cut && S.cycle.b > cut ? seg(S.cycle.a, cut - 1e-6) + seg(cut + 1e-6, S.cycle.b) : seg(S.cycle.a, S.cycle.b) }
     { const [x, yy] = tpAt(g, p); s += Cc(x, yy, 3.4, { fill: INK, x: ' id="tp-head"' }) } }
-  s += tpStrip(f0 - 36 - below - stripH, stripH, GL, GR, RE)
+  s += tpStrip(f0 - lift - below - stripH, stripH, GL, GR, RE)
   /* the foot, on the same two columns: how many tracks | what is chosen, a new one at the right edge; then the small capitals */
   { const st = S.tracks[S.sel], rs = S.focus === 'tracks' ? [] : selRegs(), r = rs.length ? rs[0][0] : null, look = r ? regLook(r, rs[0][1]) : st ? { c: st.c } : { c: INK }, ty = f0 + 6
     const nt = S.tracks.filter(t => t.kind === 'audio').length
@@ -148,25 +151,31 @@ SKINS.left.panel = () => {
       s += R(GR, ty - 16, 7, 7, { fill: look.c }) + T(GR + 11, ty - 9.5, fit(nm, 56, 8.5), { size: 8.5, a: .8 }) + hit(GR - 3, ty - 20, 74, 14, 'look')
       SKV.field.look = { x: o + GR, y: ty - 20, w: 74, h: 14 }
       /* what the tracks' bar said of what is chosen, here now (the bar is gone): a crossfade's length and curve; in rubato
-         how its track is stretched, and quantize; else a region's gain, transpose, fine tune, fades and their curve, tempo */
+         how its track is stretched, and quantize; else a region's fades and their curve, its tempo (its gain, transpose
+         and fine tune have a row of their own, under) */
       const line = (y, items) => { let xx = GR; for (const [word, act, cur] of items) { if (!word) continue; const ww = tw(word, 7.5); if (xx + ww > RE + 2) break; s += tpCap(xx, y, word, { a: act ? .62 : .4, x: tpNum }) + (act ? hit(xx - 2, y - 9, ww + 4, 12, act, '', cur || 'pointer') : ''); xx += ww + 7 } }
       const X = typeof DRAFT === 'object' && DRAFT.fades && S.selX ? [regOf(S.selX[0])[0], regOf(S.selX[1])[0]] : null, xf = X && X[0] && X[1] && typeof xfadeOf === 'function' ? xfadeOf(X[0], X[1]) : 0
-      const sg = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v || 0)
       if (xf) { line(ty, [[`crossfade ${fadeLen(xf)}`]]); line(ty + 11, [[FADE_CURVES[X[0].foc || 0] + ' ▾', 'fcurve']]) }
       else if (r && S.flex) { line(ty, [!r.loop && !r.notes && typeof stretchOf === 'function' ? [`stretch ${stretchOf(rs[0][1])} ▾`, 'rstretch'] : null].filter(Boolean)); line(ty + 11, [['quantize', 'qgo'], [qName(S.q) + ' ▾', 'qval']]) }
       else if (r) {
-        line(ty, [[`gain ${fmtDb(r.gain || 0)}`, 'rgain', 'ns-resize'], [`tr ${sg(r.tr)}`, 'rtr', 'ns-resize']].concat(r.notes || rs[0][1].midi ? [] : [[`fine ${sg(r.ft)}`, 'rft', 'ns-resize']]))
         const fades = (r.fi || 0) > 0 || (r.fo || 0) > 0
-        line(ty + 11, [[`fades ${+(r.fi || 0).toFixed(2)} ${+(r.fo || 0).toFixed(2)}`], fades ? [FADE_CURVES[(r.fi > 0 ? r.fic : r.foc) || 0] + ' ▾', 'fcurve'] : ['', null], !r.loop && r.bpm > 0 ? [`${+r.bpm.toFixed(1)} bpm`, 'rbpm'] : ['', null]])
+        line(ty, [[`fades ${+(r.fi || 0).toFixed(2)} ${+(r.fo || 0).toFixed(2)}`], fades ? [FADE_CURVES[(r.fi > 0 ? r.fic : r.foc) || 0] + ' ▾', 'fcurve'] : ['', null], !r.loop && r.bpm > 0 ? [`${+r.bpm.toFixed(1)} bpm`, 'rbpm'] : ['', null]])
       }
       else s += tpCap(GR, ty, 'track', { a: .3 })
     } }
   const pick = (x, yy, label, v, a) => { const w = tw(v, 9.5); SKV.field[a] = fld(x - 2, yy + 1, Math.max(56, w + 14), 14); return tpCaps(x, yy, label) + T(x, yy + 12, v, { size: 9.5, a: .85, x: tpNum }) + tpChev(x + w + 4, yy + 8.5) + hit(x - 3, yy - 8, w + 16, 24, a) }
-  const r1 = f0 + 30
-  s += pick(GL, r1, 'tool', toolWord(S.tool), 'toolmenu') + pick(GR, r1, 'mode', S.mode, 'modemenu') + pick(GL, r1 + 28, 'grid', gridName(), 'grid') + pick(GR, r1 + 28, 'nudge', S.nudge, 'nudge')
+  /* the chosen region's gain, transpose and fine tune, a row across the column, its values as large as the tool's and the
+     mode's (his pick of design/region values draft 1, 2026-10-23, the values made that size); pulled up or down; with no
+     region chosen a dash, the row kept (the panel does not move when one is pressed) */
+  { const rs = S.focus === 'tracks' ? [] : selRegs(), r = rs.length ? rs[0][0] : null, sg = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v || 0), yr = f0 + ft
+    const notes = r && (r.notes || rs[0][1].midi), cols = [['gain', r ? fmtDb(r.gain || 0) + ' dB' : '—', 'rgain'], ['transpose', r ? sg(r.tr) : '—', 'rtr'], ['fine tune', r && !notes ? sg(r.ft) + ' ct' : '—', notes ? null : 'rft']]
+    cols.forEach(([k, v, a], i) => { const x = GL + i * 76; s += tpCaps(x, yr, k, { a: r ? .45 : .3 }) + T(x, yr + 12, v, { size: 9.5, a: r ? .85 : .3, x: tpNum }) + (r && a ? hit(x - 3, yr - 8, 70, 24, a, '', 'ns-resize') : '') }) }
+  const r1 = f0 + ft + fs
+  s += pick(GL, r1, 'tool', toolWord(S.tool), 'toolmenu') + pick(GR, r1, 'mode', S.mode, 'modemenu') + pick(GL, r1 + fs, 'grid', gridName(), 'grid') + pick(GR, r1 + fs, 'nudge', S.nudge, 'nudge')
   const box = (x, yy, on, word, a) => (on ? R(x, yy - 7, 7, 7, { fill: INK }) : R(x + .4, yy - 6.6, 6.2, 6.2, { stroke: INK, sa: .55, sw: .8 })) + T(x + 11, yy, word, { size: 8.5, a: on ? .85 : .45 }) + hit(x - 3, yy - 10, tw(word, 8.5) + 18, 14, a)
-  s += box(GL, r1 + 58, !!S.auto, 'automation', 'autokey') + box(GR, r1 + 58, !!S.flex, 'rubato', 'flexkey')
-  const sl = (x, w, f, label, a) => tpCaps(x, r1 + 72, label) + R(x, r1 + 80, w, .6, { fill: INK, fa: .28 }) + R(x + w * f - 2.6, r1 + 80 - 2.3, 5.2, 5.2, { fill: '#FFFFFF' }) + hit(x - 5, r1 + 72, w + 10, 16, a, ` data-x0="${n(o + x)}" data-w="${n(w)}"`, 'ew-resize')
+  const rb = r1 + 2 * fs + 2
+  s += box(GL, rb, !!S.auto, 'automation', 'autokey') + box(GR, rb, !!S.flex, 'rubato', 'flexkey')
+  const sl = (x, w, f, label, a) => tpCaps(x, rb + 14, label) + R(x, rb + 22, w, .6, { fill: INK, fa: .28 }) + R(x + w * f - 2.6, rb + 22 - 2.3, 5.2, 5.2, { fill: '#FFFFFF' }) + hit(x - 5, rb + 14, w + 10, 16, a, ` data-x0="${n(o + x)}" data-w="${n(w)}"`, 'ew-resize')
   s += sl(GL, GR - GL - 16, zoomF(), 'zoom across', 'zoomx') + sl(GR, RE - GR, clamp(((S.rh || 25) - 20) / 100, 0, 1), 'zoom down', 'zoomy')
   return G(G(s, '', ' id="tp-col"'), `translate(${o} 0)`)
 }

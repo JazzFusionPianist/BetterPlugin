@@ -170,7 +170,9 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
       `<div style="width:132mm">` + legend(
         [1, 'a crossfade, chosen: one body through the shared stretch with both lines', '선택된 크로스페이드: 겹치는 구간을 지나는 한 몸, 두 곡선과 함께'],
         [2, 'a fade out: a bent line, the sound darkened above it', '페이드 아웃: 휘어진 선, 그 위의 소리는 어둡게'],
-        [3, 'a fade in on the next region', '다음 리전의 페이드 인']) + `</div>` }),
+        [3, 'a fade in on the next region', '다음 리전의 페이드 인']) +
+      h('speed up, slow down', '스피드 업, 슬로 다운') +
+      p('Right-click a fade in for {{speed up}}, a fade out for {{slow down}}, as in Logic: the sound runs up from a standstill or down to one, its pitch with it, at its own level, like a tape or a record stopped by hand. Its line is drawn broken, deep blue above it; {{fade}} makes it a fade again. Half of a crossfade stays a fade.', '페이드 인을 우클릭하면 {{speed up}}, 페이드 아웃은 {{slow down}}(Logic과 같음). 멈춘 소리가 속도를 올리거나 멈출 때까지 느려지고, 음정도 같이 움직이며 레벨은 그대로입니다. 손으로 세우는 테이프나 판 소리. 선은 끊어진 선, 그 위는 짙은 남색으로 그려지고, {{fade}}로 다시 페이드가 됩니다. 크로스페이드의 한쪽은 페이드로 남습니다.') + `</div>` }),
 
   page(t('the five modes and the grid', '다섯 가지 모드와 그리드'), { kind: 'split', tw: 150, txt:
     p('The mode says how a drag is placed. Set it from {{mode}} in the transport panel, or by key: [[F1]] shuffle, [[F2]] slip, [[F3]] spot, [[F4]] grid. [[F2]] again goes back to the mode before slip. The mode is kept with the project.', '모드는 드래그가 놓이는 방식을 정합니다. 트랜스포트 패널의 {{mode}}에서, 또는 키로 정합니다. [[F1]] 셔플, [[F2]] 슬립, [[F3]] 스팟, [[F4]] 그리드. [[F2]]를 다시 누르면 슬립 전의 모드로 돌아갑니다. 모드는 프로젝트에 저장됩니다.') +

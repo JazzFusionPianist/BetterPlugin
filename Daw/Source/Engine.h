@@ -425,6 +425,7 @@ struct Region
     double fi = 0.0, fo = 0.0;    // fades, bars
     int    fic = 0, foc = 0;      // the curve each fade takes: 0 straight (equal gain), 1 equal power, 2 an s
     float  fib = 0.0f, fob = 0.0f; // how a straight one is bent, −1…1 (the page gives a fade of its own a bend the ear hears as even — his ask, 2026-10-22)
+    bool   fis = false, fos = false; // a speed fade: the fade in speeds the sound up from a standstill, the fade out slows it down to one (his ask, 2026-10-23, as Logic has it)
 };
 /** How far a fade has come (0 at silence, 1 at full), bent to its curve. Two regions that share a stretch — one falling,
     one rising — add up to the same level all the way with the straight curve when they are the same sound, and with the
@@ -435,6 +436,16 @@ inline float fadeShape (int curve, double x, float bend = 0.0f)
     if (curve == 1) return (float) std::sin (x * juce::MathConstants<double>::halfPi);
     if (curve == 2) return (float) (x * x * (3.0 - 2.0 * x));
     return bend == 0.0f ? (float) x : (float) std::pow (x, std::pow (2.0, 2.0 * (double) bend));      // (bent: slower or faster to begin, as far as the hand pulled it)
+}
+/** How far the sound has run through a speed fade x of the way from its still end (0…1), in lengths of the fade: the area
+    under its curve of speed (fadeShape) from the standstill to x. (The page has the same: edit.js fadeRun.) */
+inline double fadeRun (int curve, double x, float bend = 0.0f)
+{
+    x = juce::jlimit (0.0, 1.0, x);
+    if (curve == 1) return (1.0 - std::cos (x * juce::MathConstants<double>::halfPi)) / juce::MathConstants<double>::halfPi;
+    if (curve == 2) return x * x * x - 0.5 * x * x * x * x;
+    const double q = bend == 0.0f ? 1.0 : std::pow (2.0, 2.0 * (double) bend);
+    return std::pow (x, q + 1.0) / (q + 1.0);
 }
 
 /** A line drawn along the song for one thing on a track: bars against a value. Volumes and sends in dB, pan −1..1, the prints 0..1. */
@@ -1027,6 +1038,7 @@ public:
                             r.gain = rv.hasProperty ("gain") ? (float) (double) rv["gain"] : 1.0f;
                             r.fi = juce::jmax (0.0, (double) rv["fi"]); r.fo = juce::jmax (0.0, (double) rv["fo"]);
                             r.fic = juce::jlimit (0, 2, (int) rv["fic"]); r.foc = juce::jlimit (0, 2, (int) rv["foc"]); r.fib = juce::jlimit (-1.0f, 1.0f, (float) (double) rv["fib"]); r.fob = juce::jlimit (-1.0f, 1.0f, (float) (double) rv["fob"]);
+                            r.fis = (int) rv["fis"] != 0; r.fos = (int) rv["fos"] != 0;
                             if (auto it = bufIndex.find (rv["buf"].toString()); it != bufIndex.end()) r.buf = it->second;      // (only this thread ever adds a key while no print runs)
                             if (r.buf >= 0 && r.b > r.a) t.regs.push_back (r);
                         }
@@ -3259,6 +3271,7 @@ public:
                         r.gain = rv.hasProperty ("gain") ? (float) (double) rv["gain"] : 1.0f;
                         r.fi = juce::jmax (0.0, (double) rv["fi"]); r.fo = juce::jmax (0.0, (double) rv["fo"]);
                         r.fic = juce::jlimit (0, 2, (int) rv["fic"]); r.foc = juce::jlimit (0, 2, (int) rv["foc"]); r.fib = juce::jlimit (-1.0f, 1.0f, (float) (double) rv["fib"]); r.fob = juce::jlimit (-1.0f, 1.0f, (float) (double) rv["fob"]);
+                        r.fis = (int) rv["fis"] != 0; r.fos = (int) rv["fos"] != 0;
                         if (auto it = bufIndex.find (rv["buf"].toString()); it != bufIndex.end()) r.buf = it->second;
                         if (r.buf >= 0 && r.b > r.a) j.regs.push_back (r);
                     }
@@ -4017,18 +4030,43 @@ private:
         const float* s1 = b.getReadPointer (b.getNumChannels() > 1 ? 1 : 0);
         const double fiS = r.fi * barS, foS = r.fo * barS;
         const bool flat = fiS <= 0.0 && foS <= 0.0;
+        /*  A speed fade runs the sound at its curve of speed instead of its level's: it keeps its level, and only goes quiet
+            under an eighth of its speed (three octaves down), so it ends, or begins, without a click. */
+        const bool spIn = r.fis && fiS > 0.0, spOut = r.fos && foS > 0.0;
         auto level = [&] (int i) -> float          // the region's own gain, shaped by its fades
         {
             float g = r.gain;
-            if (fiS > 0.0) { const double t = (double) (from - rs + i); if (t < fiS) g *= fadeShape (r.fic, t / fiS, r.fib); }
-            if (foS > 0.0) { const double t = (double) (reTrue - from - i); if (t < foS) g *= fadeShape (r.foc, t / foS, r.fob); }
+            if (fiS > 0.0) { const double t = (double) (from - rs + i); if (t < fiS) { const float k = fadeShape (r.fic, t / fiS, r.fib); g *= spIn ? juce::jmin (1.0f, 8.0f * k) : k; } }
+            if (foS > 0.0) { const double t = (double) (reTrue - from - i); if (t < foS) { const float k = fadeShape (r.foc, t / foS, r.fob); g *= spOut ? juce::jmin (1.0f, 8.0f * k) : k; } }
             return g;
         };
         /*  Where the sound's own beginning lies along the song, to the sample. Every piece cut from one region has the
             same one (its start and its place in the source move together), so pieces stay in step exactly: a plain cut
             changes nothing, and two pieces sharing a stretch — a crossfade — add up to the sound they were cut from.   */
         const juce::int64 origin = (juce::int64) std::llround ((r.a - r.off) * barS);
-        if (r.loop)
+        if ((spIn && (double) (from - rs) < fiS) || (spOut && (double) (reTrue - to) < foS))
+        {
+            /*  Through a speed fade the place in the sound is where its speed has carried it: a speed up arrives at the
+                place the sound plays on from at the end of the fade (it set off from as far back as it runs in the fade);
+                a slow down sets off from where the sound has played to and runs on as far as its speed carries it. */
+            const double k = r.loop ? 1.0 : r.rate, xIn = ((double) (rs - origin) + fiS) * k, xOut = ((double) (reTrue - origin) - foS) * k;
+            const double runIn = spIn ? fadeRun (r.fic, 1.0, r.fib) : 0.0, runOut = spOut ? fadeRun (r.foc, 1.0, r.fob) : 0.0;
+            for (int i = 0; i < cnt; ++i)
+            {
+                const juce::int64 at = from + i;
+                const double t = (double) (at - rs), tl = (double) (reTrue - at);
+                double x = spIn && t < fiS ? xIn - fiS * k * (runIn - fadeRun (r.fic, t / fiS, r.fib))
+                         : spOut && tl < foS ? xOut + foS * k * (runOut - fadeRun (r.foc, tl / foS, r.fob))
+                         : (double) (at - origin) * k;
+                if (r.loop) x = std::fmod (std::fmod (x, (double) len) + (double) len, (double) len);
+                else if (x < 0.0 || x >= (double) (len - 1)) continue;
+                const int i0 = juce::jmin ((int) x, len - 1), i1 = r.loop ? (i0 + 1) % len : i0 + 1;
+                const float f = (float) (x - (double) i0), g = level (i);
+                L[off + i] += (s0[i0] + (s0[i1] - s0[i0]) * f) * g;
+                R[off + i] += (s1[i0] + (s1[i1] - s1[i0]) * f) * g;
+            }
+        }
+        else if (r.loop)
         {
             int idx = (int) ((((from - origin) % (juce::int64) len) + (juce::int64) len) % (juce::int64) len);
             for (int i = 0; i < cnt; ++i) { const float g = flat ? r.gain : level (i); L[off + i] += s0[idx] * g; R[off + i] += s1[idx] * g; if (++idx >= len) idx = 0; }

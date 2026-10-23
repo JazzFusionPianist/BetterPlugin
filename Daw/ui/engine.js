@@ -300,7 +300,13 @@ function schedule (ctx, t, bus, fromBar, atTime, endBar, bufOf) {
     const ra = r.a - 1, rb = Math.min(r.b - 1, endBar)
     if (rb <= fromBar + 1e-9 || ra >= endBar) continue
     const st = Math.max(ra, fromBar), src = ctx.createBufferSource(), g = ctx.createGain()
-    const tAt = bar => atTime + (bar - fromBar) * spb, when = tAt(st), until = tAt(rb), lvl = dbLin(r.gain || 0), into = (r.off || 0) + (st - ra)
+    const tAt = bar => atTime + (bar - fromBar) * spb, when = tAt(st), until = tAt(rb), lvl = dbLin(r.gain || 0)
+    /* the region's own level, with its fades; a speed fade runs the sound at its curve of speed instead (edit.js speedFade) */
+    const fi = Math.min(r.fi || 0, rb - ra), fo = Math.min(r.fo || 0, rb - ra - fi), fiEnd = ra + fi, foStart = rb - fo
+    const bi = fadeBend(r, true), bo = fadeBend(r, false), spIn = fi > 0 && speedFade(r, true, t), spOut = fo > 0 && speedFade(r, false, t)
+    const into = (r.off || 0) + (spIn && st < fiEnd ? fi - fi * (fadeRun(r.fic || 0, 1, bi) - fadeRun(r.fic || 0, (st - ra) / fi, bi))      // (begun inside a speed fade: where the sound has run to by then)
+      : spOut && st > foStart ? foStart - ra + fo * (fadeRun(r.foc || 0, 1, bo) - fadeRun(r.foc || 0, (rb - st) / fo, bo)) : st - ra)
+    const base = r.loop ? 1 : r.rate || 1
     if (r.loop) {
       const lp = LOOPS[r.buf]
       src.buffer = bufOf(r.buf); src.loop = true
@@ -311,16 +317,18 @@ function schedule (ctx, t, bus, fromBar, atTime, endBar, bufOf) {
       src.buffer = r.buf; src.playbackRate.value = rate
       src.start(when, off)
     }
-    /* the region's own level, with its fades */
-    const fi = Math.min(r.fi || 0, rb - ra), fo = Math.min(r.fo || 0, rb - ra - fi), fiEnd = ra + fi, foStart = rb - fo
     /* a fade is drawn into the gain as a short run of points along its curve (a straight one too, so all are made the same way).
        Nothing else may be set inside a run, so the level is only set by itself where no run begins at the very start */
     const run = (b0, b1, f) => { const N = 48, pts = new Float32Array(N + 1); for (let i = 0; i <= N; i++) pts[i] = lvl * f(b0 + (b1 - b0) * i / N); const d = tAt(b1) - tAt(b0); if (d > 2e-4) g.gain.setValueCurveAtTime(pts, tAt(b0), d - 1e-4); else g.gain.setValueAtTime(pts[N], tAt(b0)) }
-    const bi = fadeBend(r, true), bo = fadeBend(r, false), inAt = b => fadeShape(r.fic || 0, (b - ra) / fi, bi), outAt = b => fadeShape(r.foc || 0, (rb - b) / fo, bo)
+    const inAt = b => fadeLevel(r, true, (b - ra) / fi, bi, t), outAt = b => fadeLevel(r, false, (rb - b) / fo, bo, t)
     const rising = fi > 0 && st < fiEnd, s0 = fo > 0 ? Math.max(rising ? fiEnd : st, foStart) : Infinity
     if (rising) run(st, fiEnd, inAt)
     else if (!(s0 <= st + 1e-9)) g.gain.setValueAtTime(lvl, when)                                  // it begins at its full level
     if (fo > 0 && rb > s0 + 1e-9) run(s0, rb, outAt)
+    /* and its speed through a speed fade, the same way */
+    const turn = (b0, b1, f) => { const N = 48, pts = new Float32Array(N + 1); for (let i = 0; i <= N; i++) pts[i] = base * f(b0 + (b1 - b0) * i / N); const d = tAt(b1) - tAt(b0); if (d > 2e-4) src.playbackRate.setValueCurveAtTime(pts, tAt(b0), d - 1e-4) }
+    if (spIn && rising) turn(st, fiEnd, b => fadeShape(r.fic || 0, (b - ra) / fi, bi))
+    if (spOut && rb > s0 + 1e-9) turn(s0, rb, b => fadeShape(r.foc || 0, (rb - b) / fo, bo))
     src.stop(until); src.connect(g); g.connect(bus); srcs.push(src)
   }
   return srcs

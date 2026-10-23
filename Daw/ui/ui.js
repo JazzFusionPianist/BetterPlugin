@@ -571,10 +571,10 @@ function wavePath (r, w, yc, hmax, outline, lh, v0, v1, slot = '') {
   if (r.loop && !(LOOPS && LOOPS[r.buf])) return ''                                          // (the loops are made once the fonts are in: drawn before that, no sound is drawn yet)
   const fiP = DRAFT.fades && r.fi > 0 ? r.fi * PXB : 0, foP = DRAFT.fades && r.fo > 0 ? r.fo * PXB : 0                      // under a fade the outline tapers as the sound does
   const live = typeof flexLive === 'function' && flexLive(r), fine = live ? null : fineFor(r, slot, v0, v1)      // (a pin being pulled: drawn from the file through the pins as they stand — flex.js)
-  const len = r.b - r.a, blocks = typeof SKIN === 'object' && SKINS.sound[SKIN.k.sound], k = `${blocks ? SKIN.k.sound : ''}${live ? (r.flex || []).map(m => m.d.toFixed(5)).join(',') : ''}|${S.tempo}|${n(w)}|${n(hmax)}|${n(yc)}|${n(len * 1000)}|${n((r.off || 0) * 1000)}|${r.gain || 0}|${r.wsig || ''}|${outline}|${v0}|${v1}|${n(fiP)}|${n(foP)}|${r.fic || 0}|${r.foc || 0}|${fine ? fine.stamp + ':' + n(PXB) : ''}|${S.wz || 1}|${LOOK_STAMP}`
+  const len = r.b - r.a, blocks = typeof SKIN === 'object' && SKINS.sound[SKIN.k.sound], k = `${blocks ? SKIN.k.sound : ''}${live ? (r.flex || []).map(m => m.d.toFixed(5)).join(',') : ''}|${S.tempo}|${n(w)}|${n(hmax)}|${n(yc)}|${n(len * 1000)}|${n((r.off || 0) * 1000)}|${r.gain || 0}|${r.wsig || ''}|${outline}|${v0}|${v1}|${n(fiP)}|${n(foP)}|${r.fic || 0}|${r.foc || 0}|${r.fis ? 1 : 0}${r.fos ? 1 : 0}|${fine ? fine.stamp + ':' + n(PXB) : ''}|${S.wz || 1}|${LOOK_STAMP}`
   if (r['_p' + slot] && r['_k' + slot] === k) return r['_p' + slot]
   const steps = Math.max(1, v1 - v0), gk = dbLin(r.gain || 0) * (S.wz || 1), room = roomOf(SHAPES[outline], w, lh), half = lk('snd.drawn') === 'half'      // (half: the sound stands on the region's foot, as tall as the region; yc is then its foot)
-  const bi = fiP ? fadeBend(r, true) : 0, bo = foP ? fadeBend(r, false) : 0, taper = x => (fiP && x < fiP ? fadeShape(r.fic || 0, x / fiP, bi) : 1) * (foP && w - x < foP ? fadeShape(r.foc || 0, (w - x) / foP, bo) : 1)
+  const bi = fiP ? fadeBend(r, true) : 0, bo = foP ? fadeBend(r, false) : 0, taper = x => (fiP && x < fiP ? fadeLevel(r, true, x / fiP, bi) : 1) * (foP && w - x < foP ? fadeLevel(r, false, (w - x) / foP, bo) : 1)
   let pk, norm, d = ''
   if (r.loop) { const lp = LOOPS[r.buf]; norm = lp.peak || (lp.peak = peakOf(lp.ch)) } else norm = r.peak || 1
   if (fine && !r.loop && !r.peak) { bufPeaks(r, 1, 0, 1); norm = r.peak || 1 }
@@ -625,12 +625,15 @@ const ptsD = (pts, start) => pts.map(([px, py], i) => `${i || !start ? 'L' : 'M'
    be found at any size — the small cross of a crossfade too narrow to draw — is ink on a thin dark line */
 const fadeStroke = (d, L) => P(d, { stroke: L.on, sa: .92, sw: 1.1, cap: 'round' })
 const inkMark = d => P(d, { stroke: K0, sa: .45, sw: 3, cap: 'round' }) + P(d, { stroke: INK, sw: 1.1, cap: 'round' })
+/* a speed fade (edit.js speedFade): its line is the speed's, broken, and the part above it darkened in a colour of its own,
+   a deep blue (his word, 2026-10-23: "선 위는 대신 어둡게 … 다른 색이면 더 좋고") */
+const SPEED_SHADE = { fill: '#18224F', fa: .62 }
 function fadeMarks (r, x, w, ly, lh, L) {
   let s = ''
   const lo = X0 - 8, hi = X1 + 8                                                        // (only the part of a fade that shows is drawn: close up, a fade is longer than the window many times over)
-  const mark = (a, b, gain) => { if (b - a < .5) return; const pts = fadeLine(a, b, ly, lh, gain); s += P(`M${n(a)} ${n(ly)}H${n(b)}` + ptsD(pts.slice().reverse(), false) + 'Z', { fill: K0, fa: .5 }) + fadeStroke(ptsD(pts, true), L) }
-  if (r.fi * PXB >= 3) { const fw = Math.min(w, r.fi * PXB), bi = fadeBend(r, true); mark(Math.max(x, lo), Math.min(x + fw, hi), px => fadeShape(r.fic || 0, (px - x) / fw, bi)) }
-  if (r.fo * PXB >= 3) { const fw = Math.min(w, r.fo * PXB), xe = x + w, bo = fadeBend(r, false); mark(Math.max(xe - fw, lo), Math.min(xe, hi), px => fadeShape(r.foc || 0, (xe - px) / fw, bo)) }
+  const mark = (a, b, gain, sp) => { if (b - a < .5) return; const pts = fadeLine(a, b, ly, lh, gain); s += sp ? P(`M${n(a)} ${n(ly)}H${n(b)}` + ptsD(pts.slice().reverse(), false) + 'Z', SPEED_SHADE) + P(ptsD(pts, true), { stroke: L.on, sa: .92, sw: 1.1, cap: 'round', dash: '3 2.5' }) : P(`M${n(a)} ${n(ly)}H${n(b)}` + ptsD(pts.slice().reverse(), false) + 'Z', { fill: K0, fa: .5 }) + fadeStroke(ptsD(pts, true), L) }
+  if (r.fi * PXB >= 3) { const fw = Math.min(w, r.fi * PXB), bi = fadeBend(r, true); mark(Math.max(x, lo), Math.min(x + fw, hi), px => fadeShape(r.fic || 0, (px - x) / fw, bi), speedFade(r, true)) }
+  if (r.fo * PXB >= 3) { const fw = Math.min(w, r.fo * PXB), xe = x + w, bo = fadeBend(r, false); mark(Math.max(xe - fw, lo), Math.min(xe, hi), px => fadeShape(r.foc || 0, (xe - px) / fw, bo), speedFade(r, false)) }
   return s
 }
 /* where two regions of a track share a stretch on purpose, one falling as the other rises: one body through the stretch,
@@ -1785,7 +1788,7 @@ function onContext (e) {
   else if (a === 'smpte') smpteMenu(p.x, p.y)                                       // the time: where its count begins, and its rate
   else if (a === 'mfx') fxMenu(i, +el.dataset.k, p.x, p.y)
   else if (a === 'loan') openKeyMenu(S.tracks[S.sel], i, p.x, p.y)                     // a plug-in: what it listens to (its key)
-  else if (a === 'lanes') openToolMenu(p.x, p.y)
+  else if (a === 'lanes') { if (!fadeMenu(p)) openToolMenu(p.x, p.y) }              // (on a fade: a fade, or speed up / slow down — edit.js fadeMenu)
   else if (a === 'menu-close') { S.menu = null; uiDirty('menu') }
 }
 const birthAll = () => { if (E.ctx) for (const t of S.tracks) birth(t) }

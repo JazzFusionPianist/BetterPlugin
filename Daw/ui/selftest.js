@@ -237,6 +237,9 @@ async function runSelfTest (mode) {
         const r6 = await rtbRun({ kind: 'stems', a0: 16, a1: 17, modes: ['wet'], tracks: two.map(t => ({ id: t.id, name: t.name })), folder: 'realtime many stems', name: 'rt many stems', fmt: 'wav', rate: 0, bits: 24, outs: outs({ fmt: 'wav', rate: 0, bits: [24, 16] }) })
         Object.assign(S.ho, was)
         res.many = { mix: { ok: !!(r5 && r5.ok), dir: r5 && r5.dir, error: r5 && r5.error }, stems: { ok: !!(r6 && r6.ok), dir: r6 && r6.dir, error: r6 && r6.error } } }
+      /* called as it was typed (2026-10-22): every mark kept in the file's name, a / as Finder shows it (looked at from outside) */
+      { const r7 = await rtbRun({ kind: 'mix', a0: 16, a1: 17, modes: ['wet'], tracks: [], folder: 'realtime odd', name: 'odd * #1, @a; ^b? |c "d" <e> 1/2 rt', fmt: 'wav', rate: 0, bits: 24, outs: [{ fmt: 'wav', rate: 0, bits: 24, kbps: 320, tag: '', sub: '' }, { fmt: 'wav', rate: 0, bits: 16, kbps: 320, tag: ' 16', sub: '' }] })
+        res.oddName = { ok: !!(r7 && r7.ok), dir: r7 && r7.dir, error: r7 && r7.error } }
       const tp = S.tracks.find(t => t.kind === 'audio' && !t.midi && t.regs.some(x => !x.mute && !x.notes && x.b - x.a <= 4)), reg = tp && tp.regs.find(x => !x.mute && !x.notes && x.b - x.a <= 4)
       if (reg) { const n0 = S.tracks.length; S.selR = [reg.id]; S.focus = 'lanes'; await bounceInPlace(true); await sleep(300); const nt = S.tracks[S.tracks.indexOf(tp) + 1]; res.place = { from: tp.name, len: +(reg.b - reg.a).toFixed(2), tracks: S.tracks.length - n0, made: nt && nt.name, sec: nt && nt.regs[0] && +nt.regs[0].sec.toFixed(2), muted: !!reg.mute, said: S.last && S.last.say } }
       const p3 = rtbRun({ kind: 'mix', a0: 16, a1: 24, modes: ['wet'], tracks: [], folder: 'realtime stopped', name: 'rt stopped', fmt: 'wav', rate: 0, bits: 24 })
@@ -793,6 +796,21 @@ async function runSelfTest (mode) {
     res.stems = await send({ what: 'stems', print: 'with patch', range: 'cycle', fmt: ['wav', 'flac'], rate: 0, bits: [24, 16] }); res.stemsAt = S.ho.at; res.stemKinds = hoFiles().map(o => o.sub)
     res.ok = res.mix.note === 'saved as' && res.mixFiles.length === (CAP.mp3 ? 5 : 4) && res.stems.note === 'saved as' && res.stemKinds.length === 3
     Object.assign(S.ho, { fmt: 'wav', rate: 0, bits: 24, kbps: 320 })
+    return res
+  })
+  /* a print called as it was typed (his ask, 2026-10-22: a * in the name was gone from the file): the mix by the name the
+     save panel hands back, a stem by its track's — every mark kept, a / as the : Finder shows as / (the files themselves
+     are looked at from outside) */
+  await step('printNames', async () => {
+    const odd = 'odd * #1, @a; ^b? |c "d" <e> 1/2', res = {}
+    const at = await NAT.call('bouncePick', { name: odd + ' mix', panel: 0, project: projKey(), ext: 'wav' })
+    res.pick = at && at.name
+    const mix = await NAT.call('bounce', { kind: 'mix', a0: 4, a1: 5, modes: ['wet'], tracks: [], dir: at.dir, name: at.name, fmt: 'wav', rate: 0, bits: 24, single: 1 })
+    res.mix = { ok: !!(mix && mix.ok), dir: mix && mix.dir }
+    const t = S.tracks.find(x => x.kind === 'audio' && x.regs.length) || S.tracks[0]
+    const st = await NAT.call('bounce', { kind: 'stems', a0: 4, a1: 5, modes: ['wet'], tracks: [{ id: t.id, name: '01 ' + odd }], folder: 'odd stems', name: 'odd stems', fmt: 'wav', rate: 0, bits: 24 })
+    res.stems = { ok: !!(st && st.ok), dir: st && st.dir }
+    res.ok = res.pick === odd.replace('/', ':') + ' mix' && res.mix.ok && res.stems.ok
     return res
   })
   await snap('selftest-8-handoff.png')

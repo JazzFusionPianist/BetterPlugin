@@ -736,13 +736,33 @@ static std::vector<PrintOut> printOuts (const juce::var& opts, bool place, doubl
     return outs;
 }
 
+/** A print's file called as it was typed (his ask, 2026-10-22: a * in the name was gone from the file — JUCE's
+    createLegalFileName drops " # @ , ; : < > * ^ | ? as Windows would have it). A Mac file may be called anything but the
+    folder mark: a / is written as the : that Finder shows as / (as the Mac's own save panel hands one back), and only
+    what cannot be seen and a dot in front (it would hide the file) are left out; no longer than a disk takes, its
+    extension to come. Made twice, a name is as it was made once. */
+static String printName (const String& typed)
+{
+    String s;
+    for (auto p = typed.getCharPointer(); ! p.isEmpty();)
+    {
+        const auto c = p.getAndAdvance();
+        if (c == '/') s << ":";
+        else if (c >= 32 && c != 127) s << String::charToString (c);
+    }
+    s = s.trim();
+    while (s.startsWithChar ('.')) s = s.substring (1).trimStart();
+    while (s.getNumBytesAsUTF8() > 200) s = s.dropLastCharacters (1).trimEnd();
+    return s.isEmpty() ? String ("untitled") : s;
+}
+
 /** Where one of a print's files goes: the mix's beside the others in `dir`, its tag after its name; a stem under its own
     name, in its kind's folder */
 static juce::File printFileOf (const juce::File& dir, const String& name, const PrintOut& o, bool mix)
 {
-    if (mix) return dir.getChildFile (juce::File::createLegalFileName (name + o.tag) + "." + o.fmt);
-    const auto in = o.sub.isNotEmpty() ? dir.getChildFile (juce::File::createLegalFileName (o.sub)) : dir;
-    return in.getChildFile (juce::File::createLegalFileName (name) + "." + o.fmt);
+    if (mix) return dir.getChildFile (printName (name + o.tag) + "." + o.fmt);
+    const auto in = o.sub.isNotEmpty() ? dir.getChildFile (printName (o.sub)) : dir;
+    return in.getChildFile (printName (name) + "." + o.fmt);
 }
 
 //==============================================================================
@@ -2876,7 +2896,7 @@ public:
                 for (auto& f : files) written.push_back (f);
             };
             auto filesOf = [&] (const String& name) { std::vector<juce::File> fs; for (auto& o : outs) fs.push_back (printFileOf (dir, name, o, mixdown)); return fs; };
-            auto emptySubs = [&] { if (! mixdown) for (auto& o : outs) if (o.sub.isNotEmpty()) { const auto d = dir.getChildFile (juce::File::createLegalFileName (o.sub)); if (d.isDirectory() && d.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0) d.deleteFile(); } };
+            auto emptySubs = [&] { if (! mixdown) for (auto& o : outs) if (o.sub.isNotEmpty()) { const auto d = dir.getChildFile (printName (o.sub)); if (d.isDirectory() && d.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0) d.deleteFile(); } };
 
             const String ext = "." + fmt;
             if (mixdown)
@@ -2901,7 +2921,7 @@ public:
                             tap.buf.clear();
                             tap.only = upstream (t);
                             const bool wet = ! tap.dry;
-                            const auto files = place ? std::vector<juce::File> { dir.getNonexistentChildFile (juce::File::createLegalFileName (tv["name"].toString()), ext, false) }
+                            const auto files = place ? std::vector<juce::File> { dir.getNonexistentChildFile (printName (tv["name"].toString()), ext, false) }
                                                      : filesOf (tv["name"].toString() + (modes.size() > 1 ? (wet ? " patch" : " dry") : String()));
                             const auto& file = files.front();
                             pass (&tap, files, place ? (double) opts["tail"] : (wet ? 2.5 : 0.05));
@@ -3092,12 +3112,12 @@ public:
             return true;
         };
         bool made = true;
-        if (mixdown) made = make (nullptr, false, dir.getChildFile (juce::File::createLegalFileName (opts["name"].toString()) + ext), juce::var());
+        if (mixdown) made = make (nullptr, false, dir.getChildFile (printName (opts["name"].toString()) + ext), juce::var());
         else if (auto* list = opts["tracks"].getArray())
             for (auto& tv : *list)
                 if (auto* t = find ((int) tv["id"]))
-                    made = make (t, place, place ? dir.getNonexistentChildFile (juce::File::createLegalFileName (tv["name"].toString()), ext, false)
-                                                  : dir.getChildFile (juce::File::createLegalFileName (tv["name"].toString()) + ext), tv) && made;
+                    made = make (t, place, place ? dir.getNonexistentChildFile (printName (tv["name"].toString()), ext, false)
+                                                  : dir.getChildFile (printName (tv["name"].toString()) + ext), tv) && made;
         if (! made || outs.empty()) { for (auto& lo : outs) { lo->tw.reset(); lo->tmp.deleteFile(); } fail ("the file would not open"); return; }
         const double tail = place ? (double) opts["tail"] : 2.5;
         {
@@ -3187,7 +3207,7 @@ public:
                 const juce::int64 s0 = (juce::int64) std::llround (j.a0 * barS), s1 = (juce::int64) std::llround (j.a1 * barS) + 1;
                 int ch = 1;
                 for (auto& r : j.regs) if (r.buf < (int) printBufs.size() && printBufs[(size_t) r.buf] != nullptr && printBufs[(size_t) r.buf]->data.getNumChannels() > 1) ch = 2;
-                auto file = dir.getNonexistentChildFile (juce::File::createLegalFileName (j.name), ".wav", false);
+                auto file = dir.getNonexistentChildFile (printName (j.name), ".wav", false);
                 bool wrote = false;
                 if (std::unique_ptr<juce::OutputStream> os = file.createOutputStream())
                 {
@@ -4654,7 +4674,7 @@ private:
                     String err = rd == nullptr ? String ("the print would not read") : String();
                     for (size_t k = 0; k < outs.size() && err.isEmpty(); ++k)
                     {
-                        const auto f = place ? lo->file : printFileOf (dir, lo->file.getFileNameWithoutExtension(), outs[k], opts["kind"].toString() == "mix");
+                        const auto f = place ? lo->file : printFileOf (dir, (lo->tv.isObject() ? lo->tv : opts)["name"].toString(), outs[k], opts["kind"].toString() == "mix");      // (the name as it was typed, not as its first file was called)
                         f.getParentDirectory().createDirectory();
                         auto sk = std::make_unique<Sink>(); sk->stop = &leaving;
                         err = sk->open (f, outs[k].fmt, sr, outs[k].rate, outs[k].bits, lame, outs[k].kbps);

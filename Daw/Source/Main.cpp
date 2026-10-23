@@ -1383,7 +1383,7 @@ private:
         }
         if (op == "bouncePick")                                                // where a bounce goes and what it is called: the Mac's own panel, on the folder the last one went to
         {
-            const auto typed = juce::File::createLegalFileName (d["name"].toString().trim());
+            const auto typed = d["name"].toString().trim().isEmpty() ? juce::String() : daw::printName (d["name"].toString());
             const auto name = typed.isEmpty() ? juce::String ("bounce") : typed;
             const bool test = selfTestMode().isNotEmpty();
             /* ext: what is printed is ONE file of that kind (the mix): the panel asks for the file itself — "song mix.wav" — and

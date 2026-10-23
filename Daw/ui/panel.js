@@ -116,7 +116,7 @@ SKINS.left.panel = () => {
   /* the cycle | the key, click, low latency */
   { const w = 54 * z, h = 47 * z, ct = y, c = S.cycle
     s += tpTri(GL + w / 2, ct + h / 2, w, h, c.on, SOLO, true) + hit(GL - 4, ct - 4, w + 8, h + 8, 'loop')
-    s += tpCap(GL, ct + h + 14, c.on ? `cycle ${Math.round(c.a + 1)} to ${Math.round(c.b + 1)}` : 'cycle off', { a: .5, x: tpNum }) + hit(GL - 4, ct + h + 3, 100, 15, 'loop')
+    s += tpCap(GL, ct + h + 14, c.on ? `cycle ${barWord(Math.round(c.a))} to ${barWord(Math.round(c.b))}` : 'cycle off', { a: .5, x: tpNum }) + hit(GL - 4, ct + h + 3, 100, 15, 'loop')
     s += tpCaps(GR, ct + 6, 'key') + T(GR + 22, ct + 6.5, S.key || '—', { size: 8.5, a: S.key ? .85 : .5 }) + hit(GR - 4, ct - 5, 90, 15, 'key')
     SKV.field.key = fld(GR + 18, ct - 6, 70, 16)
     const bul = (yy, on, word, a, col) => (on ? Cc(GR + 3, yy - 2.6, 3, { fill: col || INK }) : Cc(GR + 3, yy - 2.6, 2.6, { stroke: INK, sa: .55, sw: .8 })) + T(GR + 11, yy, word, { size: 8.5, a: on ? .85 : .45 }) + hit(GR - 4, yy - 11, tw(word, 8.5) + 20, 15, a)
@@ -200,7 +200,7 @@ function tpStrip (top, h, GL, GR, RE) {
   const knob = (k, sd, cx, cy, r, size, room) => {
     const b = byId(sd.to), db = mpSendDb(t, k, sd), pulling = drag && drag.a === 'msend' && drag.moved && drag.i === i && drag.k === k
     const bus = fit(b ? asGiven(b.name) : 'send', room, size, 500), much = (db <= -47.5 ? '−∞' : (pulling ? db.toFixed(1) : String(Math.round(db))).replace('-', '−')) + ' db'
-    return `<g class="mpk${pulling ? ' on' : ''}">` + mpSendKnob(cx, cy, r, volF(db), t.c, b ? b.name : 'send') + T(cx, cy + r + 9.5, bus, { size, w: 500, a: .6, anchor: 'middle', x: ' class="mpk-bus"' }) + T(cx, cy + r + 9.5, much, { size, anchor: 'middle', x: tpNum + ' class="mpk-db"' })
+    return `<g class="mpk${pulling ? ' on' : ''}">` + mpSendKnob(cx, cy, r, volF(db), sendTapC(sd), b ? b.name : 'send') + T(cx, cy + r + 9.5, bus, { size, w: 500, a: .6, anchor: 'middle', x: ' class="mpk-bus"' }) + T(cx, cy + r + 9.5, much, { size, anchor: 'middle', x: tpNum + ' class="mpk-db"' })
       + hit(cx - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 14, 'mp-send', `${di} data-k="${k}"`, 'ns-resize') + '</g>'
   }
   const plusKnob = (cx, cy, r, word) => Cc(cx, cy, r - .5, { stroke: INK, sa: .3, sw: .9, dash: '2 2' }) + P(`M${n(cx)} ${n(cy - r / 2.6)}V${n(cy + r / 2.6)}M${n(cx - r / 2.6)} ${n(cy)}H${n(cx + r / 2.6)}`, { stroke: INK, sa: .6, sw: 1 }) + (word ? T(cx, cy + r + 9.5, word, { size: 7.5, a: .35, anchor: 'middle' }) : '') + hit(cx - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 14, 'msendadd', di)

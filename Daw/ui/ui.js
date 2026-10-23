@@ -3,13 +3,18 @@ const $ = id => document.getElementById(id)
 let svg, board
 const fmtDb = v => v <= -47.5 ? '−∞' : (v > 0 ? '+' : '') + v.toFixed(1).replace('-', '−')
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
-const readout = p => { const b = Math.floor(p + 1e-6), bt = Math.max(0, p - b) * BEATS(); return `${b + 1}.${Math.min(BEATS(), Math.floor(bt + 1e-9) + 1)}.${Math.floor((bt - Math.floor(bt + 1e-9)) * BEAT_16() + 1e-9) + 1}` }
+/* the bars before bar 1 (his ask, 2026-10-24: as far as −8, as Logic counts them — 1, then 0, −1 …): S.pre bars stand
+   before the song's bar 1. Where things lie is counted from the song's first bar (bars from zero) as ever; only what is
+   said and shown, and what is typed, is counted from bar 1 */
+const preBars = () => S.pre || 0
+const barWord = b => String(b + 1 - preBars()).replace('-', '−')                     // the bar a place from zero is in, as it is shown
+const readout = p => { const b = Math.floor(p + 1e-6), bt = Math.max(0, p - b) * BEATS(); return `${barWord(b)}.${Math.min(BEATS(), Math.floor(bt + 1e-9) + 1)}.${Math.floor((bt - Math.floor(bt + 1e-9)) * BEAT_16() + 1e-9) + 1}` }
 const meterName = () => `${S.meter[0]}/${S.meter[1]}`
 const clock = p => { const s = Math.max(0, p) * SPB(), m = Math.floor(s / 60), r = s - m * 60; return `${m}:${String(Math.floor(r)).padStart(2, '0')}.${Math.floor(r * 10) % 10}` }
 const pad2 = k => String(k).padStart(2, '0')
 /* the place to the tick: bar . beat . sixteenth . tick, as Logic counts them (960 ticks a beat, 240 a sixteenth); the tick
    in three figures, so the place does not jump about as it runs (his ask, 2026-10-20) */
-const place = p => { const b = Math.floor(p + 1e-6), bt = Math.max(0, p - b) * BEATS(), bi = Math.floor(bt + 1e-9), f = Math.max(0, bt - bi) * BEAT_16(), si = Math.floor(f + 1e-9), tk = Math.floor(Math.max(0, f - si) * 240 + 1e-6); return `${b + 1}.${Math.min(BEATS(), bi + 1)}.${Math.min(BEAT_16(), si + 1)}.${String(Math.min(239, tk) + 1).padStart(3, '0')}` }
+const place = p => { const b = Math.floor(p + 1e-6), bt = Math.max(0, p - b) * BEATS(), bi = Math.floor(bt + 1e-9), f = Math.max(0, bt - bi) * BEAT_16(), si = Math.floor(f + 1e-9), tk = Math.floor(Math.max(0, f - si) * 240 + 1e-6); return `${barWord(b)}.${Math.min(BEATS(), bi + 1)}.${Math.min(BEAT_16(), si + 1)}.${String(Math.min(239, tk) + 1).padStart(3, '0')}` }
 /* the time as SMPTE timecode, hours:minutes:seconds:frames, at the project's rate and from the time given to its start
    (S.smpte: { rate, start } — both set by a right press on it, smpteMenu). 23.976 and 29.97 run a thousandth slow against
    the clock and count as 24 and 30; 29.97 drop leaves out frames 0 and 1 of each minute but every tenth, as the standard
@@ -33,9 +38,9 @@ function tcCount (v, r) {                                                       
   return (hh * 3600 + mm * 60 + ss) * r.fps + ff - (r.drop ? 2 * (mins - Math.floor(mins / 10)) : 0)
 }
 const smpteStart = () => tcLabel(tcCount((S.smpte && S.smpte.start) || '0', smpteRate()) || 0, smpteRate())
-const smpte = p => { const r = smpteRate(); return tcLabel(Math.floor(Math.max(0, p) * SPB() * r.fps / (r.pull ? 1.001 : 1) + 1e-6) + (tcCount((S.smpte && S.smpte.start) || '0', r) || 0), r) }
+const smpte = p => { const r = smpteRate(), q = p - preBars(), f = Math.sign(q) * Math.floor(Math.abs(q) * SPB() * r.fps / (r.pull ? 1.001 : 1) + 1e-6) + (tcCount((S.smpte && S.smpte.start) || '0', r) || 0); return f < 0 ? '−' + tcLabel(-f, r) : tcLabel(f, r) }      // (before bar 1 it runs up to its start)
 /* a time typed as timecode: the place it stands for (null: before the start, or not a time) */
-const smptePos = v => { const r = smpteRate(), n = tcCount(v, r), n0 = tcCount((S.smpte && S.smpte.start) || '0', r) || 0; return n == null || n < n0 ? null : (n - n0) * (r.pull ? 1.001 : 1) / r.fps / SPB() }
+const smptePos = v => { const r = smpteRate(), n = tcCount(v, r), n0 = tcCount((S.smpte && S.smpte.start) || '0', r) || 0; const p = n == null ? -1 : (n - n0) * (r.pull ? 1.001 : 1) / r.fps / SPB() + preBars(); return p < 0 ? null : p }
 function smpteMenu (x, y) {
   const r = smpteRate()
   openMenu(x, y, [{ t: `start at ${smpteStart()}`, v: 'start' }].concat(SMPTE_RATES.map((q, k) => ({ t: `${q.t} fps`, v: q.t, on: q === r, sep: !k }))), it => {
@@ -379,7 +384,7 @@ function deepSteps () {
   const say = p => {
     if (samples) return String(Math.round(p / one)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
     const b = Math.floor(p + 1e-9), fr = Math.max(0, p - b), per = BEAT_16(), s16 = fr * BEATS() * per + 1e-7, beat = Math.floor(s16 / per), six = Math.floor(s16) % per, tk = Math.round((s16 - Math.floor(s16)) * 240)
-    return step >= 1 ? String(b + 1) : step >= 1 / BEATS() - 1e-12 ? `${b + 1}.${beat + 1}` : step >= w / 16 - 1e-12 ? `${b + 1}.${beat + 1}.${six + 1}` : `${b + 1}.${beat + 1}.${six + 1}.${tk}`
+    return step >= 1 ? barWord(b) : step >= 1 / BEATS() - 1e-12 ? `${barWord(b)}.${beat + 1}` : step >= w / 16 - 1e-12 ? `${barWord(b)}.${beat + 1}.${six + 1}` : `${barWord(b)}.${beat + 1}.${six + 1}.${tk}`
   }
   return { step, minor, say, samples }
 }
@@ -389,6 +394,8 @@ function deepLines (D) {
   for (let k = Math.ceil(VX / fine - 1e-6); k * fine <= VX + span + 1e-9 && out.length < 600; k++) { const p = k * fine, x = bx(p + 1); if (x >= X0 - .5 && x <= X1 + .5) out.push([x, k % per === 0, p]) }
   return out
 }
+let PRESQ = null
+const onPreSq = p => !!PRESQ && p.x >= PRESQ.x0 && p.x <= PRESQ.x1 && p.y >= PRESQ.y0 && p.y <= PRESQ.y1
 function pRuler () {
   if (typeof RTB !== 'undefined' && RTB.on) return ''                                 // (a realtime print folds the bars away: realtime.js)
   const y = RU_Y, span = (X1 - X0) / PXB, lab = [1, 2, 4, 8, 16, 32, 64].find(k => k * PXB >= 56) || 64, major = lab > 1 && lab / 2 * PXB >= 14 ? lab / 2 : lab, minor = PXB >= 6
@@ -401,8 +408,9 @@ function pRuler () {
   else for (let b = Math.floor(VX); b <= Math.ceil(VX + span) + 1; b++) {              // b: bars counted from zero
     const x = bx(b + 1)
     if (x < X0 - .5 || x > X1 + .5) continue
-    if (b % major === 0) t4 += `M${n(x) + .5} ${y + (b % lab === 0 ? 5 : RU_H - 9)}V${y + RU_H}`; else if (minor) t1 += `M${n(x) + .5} ${y + RU_H - 5}V${y + RU_H}`
-    if (b % lab === 0 && x < X1 - 14) g += T(x + 3.5, y + 13.8, String(b + 1), { size: lkN('bars.size'), a: b < SONG_END ? .58 : .24 })
+    const k = b - preBars(), on = m => ((k % m) + m) % m === 0                         // (counted from bar 1, as the numbers are)
+    if (on(major)) t4 += `M${n(x) + .5} ${y + (on(lab) ? 5 : RU_H - 9)}V${y + RU_H}`; else if (minor) t1 += `M${n(x) + .5} ${y + RU_H - 5}V${y + RU_H}`
+    if (on(lab) && x < X1 - 14) g += T(x + 3.5, y + 13.8, barWord(b), { size: lkN('bars.size'), a: b < SONG_END ? .58 : .24 })
     if (PXB >= 14 * BEATS()) for (let q = 1; q < BEATS(); q++) { const xq = x + q * PXB / BEATS(); if (xq < X1) t1 += `M${n(xq) + .5} ${y + RU_H - 4}V${y + RU_H}` }
   }
   g += P(t1, { stroke: INK, sa: .14 }) + P(t4, { stroke: INK, sa: .26 })
@@ -414,6 +422,10 @@ function pRuler () {
     const part = (x0, x1, m, cur) => { const l = Math.max(X0, x0), r = Math.min(X1, x1); return r - l > .5 ? hit(l, y, r - l, RU_CY, 'cycle', ` data-m="${m}"`, cur) : '' }
     hits += part(ca + e, cb - e, 'move', 'grab') + part(ca - 5, ca + e, 'a', 'ew-resize') + part(cb - e, cb + 5, 'b', 'ew-resize')
   }
+  /* the song's start, a small square at the foot of the bars where its first bar begins: pulled to the left, bars before bar 1
+     (his pick of bars before one draft 1); the other button, where the song starts from a list (edit.js preTo) */
+  PRESQ = null
+  { const x = bx(1); if (x >= X0 - 1 && x <= X1) { g += R(n(x) + .5, y + RU_H - 7.5, 6.5, 6.5, { fill: INK, fa: .85 }); hits += hit(x - 4, y + RU_H - 11, 14, 11, 'prestart', '', 'ew-resize'); PRESQ = { x0: x - 4, x1: x + 10, y0: y + RU_H - 11, y1: y + RU_H } } }      // (PRESQ: the playhead standing over it at the song's start does not take it)
   return s + G(g, '', TL) + hline(0, RX, y + RU_H - .5, .1) + vline(Math.max(HEAD_W, X0) - .5, y, y + RU_H, .08) + hits
 }
 
@@ -430,6 +442,7 @@ function pMenu () {
     if (it.on) s += R(x + 5, ry + (m.keep ? 1 : 0), w - 10, rowH - (m.keep ? 2 : 0), { rx: 2, fill: INK })      // (a list of which several are lit: each lit row by itself)
     s += T(x + 13, ry + 13.6, fit(it.t, w - 26 - (it.k ? tw(it.k, 9.5) + 10 : 0), 10.5), { size: 10.5, w: it.on ? 500 : 400, c: it.on ? K1 : INK, a: it.on ? 1 : it.dim ? .3 : .84 })
     if (it.k) s += T(x + w - 13, ry + 13.6, it.k, { size: 9.5, c: it.on ? K1 : INK, a: it.on ? .7 : .42, anchor: 'end' })
+    if (it.sw) s += R(x + w - 22, ry + 5.5, 9, 9, { fill: it.sw, stroke: it.on ? K1 : INK, sa: .6, sw: 1 })      // (a colour it stands for: a send's way, mix.js)
     if (!it.dim) s += hit(x + 5, ry, w - 10, rowH, 'pick', ` data-i="${i}"`)
     ry += rowH
   })
@@ -470,9 +483,19 @@ const cellsOf = t => (t.kind !== 'audio' || t.theirs ? [] : t.inst ? [{ t: 'r', 
    beside its name once the rows are zoomed shorter than that (his ask the same day). The cells stand at the right, square
    and apart */
 const HEAD_FX = 138, HEAD_FW = 40, HEAD_TWO = 36, HEAD_FW2 = 110, HEAD_CW = 14, HEAD_DB = HEAD_W - 10 - squaresW(4, HEAD_CW) - 8
+/* is a track's sound two sides: a bus, a stack, an instrument, the stereo out; a track of sound fed from a pair of inputs or
+   holding a sound of two sides */
+function stereoOf (t) {
+  if (!t) return false
+  if (t.isOut || t.kind !== 'audio' || t.inst || t.midi || (t.inp || 0) >= 100) return true
+  return (t.regs || []).some(r => !r.notes && (r.loop ? !!(LOOPS && LOOPS[r.buf]) && LOOPS[r.buf].ch.length > 1 : (SOUND_CH.get(r.key) || (r.buf && r.buf.numberOfChannels) || 1) > 1))
+}
+/* a stereo track's meter is two lines across, left over right, in the room the one had (his ask, 2026-10-24, his pick of
+   stereo head meter draft 1) */
 function levelBar (x, y, w, t, vol) {                                                     // (the level and the meter in it drawn heavier: his ask, 2026-10-20)
   const fader = volF(vol)
-  return R(x, y - 1, w, 4, { fill: INK, fa: .12 }) + R(x, y - 1, 0, 4, { fill: LEVEL, fa: .86, x: ` id="mt-${t.id}" data-w="${n(w)}"` }) + R(x + w * volF(0), y - 3, 1, 8, { fill: INK, fa: .3 })
+  return (stereoOf(t) ? [0, 1].map(c => R(x, y - 1.5 + 3 * c, w, 2, { fill: INK, fa: .12 }) + R(x, y - 1.5 + 3 * c, 0, 2, { fill: LEVEL, fa: .86, x: ` id="mt-${t.id}-${c}" data-w="${n(w)}"` })).join('') + R(x + w * volF(0), y - 3.5, 1, 9, { fill: INK, fa: .3 })
+      : R(x, y - 1, w, 4, { fill: INK, fa: .12 }) + R(x, y - 1, 0, 4, { fill: LEVEL, fa: .86, x: ` id="mt-${t.id}" data-w="${n(w)}"` }) + R(x + w * volF(0), y - 3, 1, 8, { fill: INK, fa: .3 }))
     + (t.ghost != null ? R(x + w * volF(t.ghost) - 1.2, y - 5, 2.4, 12, { fill: INK, fa: .28 }) : '') + R(x + w * fader - 3.5, y - 2.5, 7, 7, { fill: INK, fa: heard(t) ? 1 : .5 })      // (its handle a small square, filled: his pick of design/transport panel draft 2, 2026-10-21)
 }
 const triMark = (x, y, open, a = .6) => P(open ? `M${x - 3} ${y - 1.5}H${x + 3}L${x} ${y + 2.5}Z` : `M${x - 1.5} ${y - 3}V${y + 3}L${x + 2.5} ${y}Z`, { fill: INK, fa: a })
@@ -1534,7 +1557,8 @@ function onDown (e) {
     /* a marker: it is the one the delete key is about now, the song goes there, and it can be pulled to another bar */
     case 'scene': S.selM = SCENES[i].a; S.focus = 'marker'; gotoScene(i); drag = { a, i, x0: p.x, moved: false }; uiDirty('scenes', 'info'); break
     case 'seek': drag = { a }; seekX(p.x, e); uiDirty('scenes'); break
-    case 'playhead': drag = { a: 'seek', dx: p.x - bx(curPos() + 1), bar: curPos() }; break
+    case 'prestart': drag = { a, x0: p.x, k0: preBars(), min: preMin(), before: editState() }; break      // (the song's start pulled: bars before bar 1, edit.js)
+    case 'playhead': if (onPreSq(p)) { drag = { a: 'prestart', x0: p.x, k0: preBars(), min: preMin(), before: editState() }; break } drag = { a: 'seek', dx: p.x - bx(curPos() + 1), bar: curPos() }; break
     case 'cycle': { const c = S.cycle, m = el.dataset.m || 'new', pos = barAt(p.x); drag = { a, m, x0: p.x, p0: clamp(snapPos(pos, e), 0, SONG_END), fix: m === 'a' ? c.b : c.a, grab: pos - c.a, len: c.b - c.a, moved: false }; break }
     case 'lanes': lanesDown(e, p); break
     case 'addtrack': openNewTrack(); break
@@ -1697,10 +1721,11 @@ function onMove (e) {
   else if (drag.a === 'rsens') sensMove(p)
   else if (drag.a === 'print') { setPrint(t, drag.k, drag.v0 + pulled(drag, p.y, .6, e)); touchPatch(t) }
   else if (drag.a === 'seek') seekX(p.x, e)
+  else if (drag.a === 'prestart') { const k = clamp(drag.k0 + Math.round((drag.x0 - p.x) / PXB), drag.min, PRE_MAX); if (k !== preBars()) preShift(k - preBars()) }      // (a bar for each bar's width pulled to the left)
   else if (drag.a === 'reorder') reorderMove(p)
   else if (drag.a === 'master') { const v = clamp(Math.round((drag.v0 + pulled(drag, p.y, .1, e)) * 10) / 10, -48, 6); S.master = Math.abs(v) < .25 ? 0 : v; pushMaster(); uiDirty('top', 'dock') }
-  else if (drag.a === 'rgain') { const dv = pulled(drag, p.y, .1, e); for (const [id, g] of drag.orig) { const [r] = regOf(id); if (r) { r.gain = clamp(Math.round((g + dv) * 10) / 10, -30, 12); dirtyReg(r) } } drag.moved = true; uiDirty('lanes', 'dock') }
-  else if (drag.a === 'rtr') { const d = Math.round(-(p.y - drag.y0) / 8); for (const [id, v] of drag.orig) { const [r] = regOf(id); if (r) r.tr = clamp(v + d, -24, 24) } drag.moved = true; uiDirty('lanes', 'dock') }
+  else if (drag.a === 'rgain') { const dv = pulled(drag, p.y, .1, e); for (const [id, g] of drag.orig) { const [r] = regOf(id); if (r) { r.gain = clamp(Math.round((g + dv) * 10) / 10, -GAIN_MAX, GAIN_MAX); dirtyReg(r) } } drag.moved = true; uiDirty('lanes', 'dock') }
+  else if (drag.a === 'rtr') { const d = Math.round(-(p.y - drag.y0) / 8); for (const [id, v] of drag.orig) { const [r] = regOf(id); if (r) r.tr = clamp(v + d, -TR_MAX, TR_MAX) } drag.moved = true; uiDirty('lanes', 'dock') }
   else if (drag.a === 'rft') { const dv = pulled(drag, p.y, 1, e); for (const [id, v] of drag.orig) { const [r] = regOf(id); if (r) { r.ft = clamp(Math.round(v + dv), -100, 100); dirtyReg(r) } } drag.moved = true; uiDirty('info', 'lanes') }
   else if (drag.a === 'cycle') {                                                       // by its middle it moves as it is; by an end, that end; anywhere else a new one is drawn
     const d = drag
@@ -1732,6 +1757,7 @@ function onUp () {
   const d = drag
   LASTE = null
   if (d.a === 'cycle' && !d.moved) KEYS.KeyC()                                      // a press on the strip turns the cycle on or off
+  else if (d.a === 'prestart') { if (preBars() !== d.k0) commit(d.before) }
   else if (LANE_DRAGS.has(d.a)) lanesUp()
   else if (d.a === 'reorder') reorderUp()
   else if (d.a === 'scene') sceneUp()
@@ -1832,6 +1858,7 @@ function onContext (e) {
     const sc = SCENES[i]
     if (it.v === 'rename') startRename('scene', i); else if (it.v === 'cycle') setCycle(sc.a - 1, sc.b - 1, true); else if (it.v === 'new') addScene(Math.round(curPos()) + 1); else if (it.v === 'del') removeScene(i); else partAct(i, it.v)
   })
+  else if (a === 'prestart' || (a === 'playhead' && onPreSq(p))) preMenu(p.x, p.y)
   else if (a === 'scenebar') openMenu(p.x, p.y, [{ t: 'new marker here', v: 1 }], () => addScene(Math.round(barAt(p.x)) + 1))
   else if (a === 'sel' || a === 'vol' || a === 'msel') { if (groupOf(i).length > 1) { S.sel = i; S.focus = 'tracks'; uiDirty('head', 'lanes', 'dock') } else chooseTrack(i); openTrackMenu(i, p.x, p.y) }
   else if (a === 'msend') openSendMenu(S.tracks[i], +el.dataset.k, p.x, p.y)
@@ -1895,7 +1922,7 @@ function applyActions (acts) {
       if (bpm !== from) { setTempo(bpm); out.push({ k: 'tempo', from, to: bpm, mix: 1 }) }
     } else if (a.do === 'transpose' && isFinite(+a.semitones)) {
       const rs = (t ? t.regs : selRegs().map(x => x[0])).filter(Boolean)
-      if (rs.length) { for (const r of rs) r.tr = clamp(Math.round(a.mode === 'absolute' ? +a.semitones : (r.tr || 0) + (+a.semitones)), -24, 24); rewarp(rs); out.push({ k: 'word', text: `${t ? t.name : 'region'} transposed`, step: 1 }) }
+      if (rs.length) { for (const r of rs) r.tr = clamp(Math.round(a.mode === 'absolute' ? +a.semitones : (r.tr || 0) + (+a.semitones)), -TR_MAX, TR_MAX); rewarp(rs); out.push({ k: 'word', text: `${t ? t.name : 'region'} transposed`, step: 1 }) }
     } else if (a.do === 'pan' && t && isFinite(+a.value)) { const from = t.pan || 0; t.pan = clamp(+a.value, -1, 1); out.push({ k: 'pan', t, from, to: t.pan, text: `${t.name} pan ${panText(t.pan)}`, mix: 1 }) }
     else if (a.do === 'goto' && SCENES[+a.scene]) {
       const sc = SCENES[+a.scene]
@@ -1903,7 +1930,7 @@ function applyActions (acts) {
       if (S.playing) S.queued = sc.i; else S.pos = sc.a - 1
       pushTransport(); pushQueue()
       out.push({ k: 'word', text: `${a.loop ? 'loop' : 'to'} ${sc.name}` })
-    } else if (a.do === 'pos' && isFinite(+a.bar)) { const pos = clamp((+a.bar - 1) + (clamp(+a.beat || 1, 1, BEATS()) - 1) / BEATS() + (clamp(+a.six || 1, 1, BEAT_16()) - 1) / (BEATS() * BEAT_16()), 0, SONG_END); jumpTo(pos); out.push({ k: 'word', text: `at ${readout(pos)}` }) }
+    } else if (a.do === 'pos' && isFinite(+a.bar)) { const pos = clamp((+a.bar - 1 + preBars()) + (clamp(+a.beat || 1, 1, BEATS()) - 1) / BEATS() + (clamp(+a.six || 1, 1, BEAT_16()) - 1) / (BEATS() * BEAT_16()), 0, SONG_END); jumpTo(pos); out.push({ k: 'word', text: `at ${readout(pos)}` }) }
     else if (a.do === 'play') { play(); out.push({ k: 'word', text: 'playing' }) }
     else if (a.do === 'record') { record(); out.push({ k: 'word', text: NAT ? 'recording' : 'recording is in the app' }) }
     else if (a.do === 'undo') { undoEdit(); out.push({ k: 'word', text: 'undone' }) }
@@ -2010,7 +2037,7 @@ function fitRoom () {
   relayout(); dirtyAll(); syncSlur()
 }
 /* levels, as the app measures them thirty times a second; they fall back on their own */
-const METERS = { m: [0, 0], i: 0, t: new Map(), now: new Map(), mm: [0, 0], hold: new Map(), ver: 0, drawn: -1 }      // (ver: counted up whenever a part is drawn again, so the meters in it are drawn once more)
+const METERS = { m: [0, 0], i: 0, t: new Map(), now: new Map(), mm: [0, 0], hold: new Map(), lr: new Map(), ver: 0, drawn: -1 }      // (ver: counted up whenever a part is drawn again, so the meters in it are drawn once more)
 let MGEOM = null                                                   // where the strips' meters stand, when the panel shows any
 const linDb = v => v > 1e-5 ? 20 * Math.log10(v) : -100
 /* a meter's attribute written only when it is not what it already is (the meters are drawn every frame: his ask,
@@ -2025,6 +2052,7 @@ function drawMeters () {
     for (const v of METERS.t.values()) if (v) { any = true; break }
     if (!any) for (const v of METERS.now.values()) if (v) { any = true; break }
     if (!any) for (const v of METERS.hold.values()) if (v > .005) { any = true; break }
+    if (!any) for (const v of METERS.lr.values()) if (v[0] || v[1]) { any = true; break }
     if (!any) return
   }
   METERS.drawn = METERS.ver
@@ -2051,6 +2079,12 @@ function drawMeters () {
     METERS.t.set(t.id, 0); METERS.now.set(t.id, v < 1e-4 ? 0 : v)
     const el = $('mt-' + t.id)
     if (el) { setA(el, 'width', n((+el.getAttribute('data-w') || HEAD_FW) * volF(Math.min(6, linDb(v))))); setA(el, 'fill', v > 1 || (t.arm && !t.mon) ? REC : LEVEL) }
+    else if ($('mt-' + t.id + '-0')) {                                                    // two sides: each as loud as it is (the engine's "s": native.js), falling on its own
+      const two = METERS.ts && METERS.ts.get(t.id), was = METERS.lr.get(t.id) || [0, 0], inArm = t.arm && !t.mon
+      const lr = two && !inArm ? [0, 1].map(c => { const x = Math.max(two[c], was[c] * fall); return x < 1e-4 ? 0 : x }) : [v, v]      // (no sides told — a browser, an input armed: the one level on both)
+      METERS.lr.set(t.id, lr)
+      for (let c = 0; c < 2; c++) { const e = $(`mt-${t.id}-${c}`); if (e) { setA(e, 'width', n((+e.getAttribute('data-w') || HEAD_FW) * volF(Math.min(6, linDb(lr[c]))))); setA(e, 'fill', lr[c] > 1 || inArm ? REC : LEVEL) } }
+    }
     if (MGEOM && VIEW.p > .5) bars(t.id, v, MGEOM)
   }
   METERS.i = 0

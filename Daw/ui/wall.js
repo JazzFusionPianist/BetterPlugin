@@ -693,7 +693,7 @@ function outHead () {
   s += T(42, ny, 'stereo out', { size: hs, w: on ? 500 : 400, a: on ? 1 : .88 })
   const held = OUT.wall && OUT.wall.nodes ? OUT.wall.nodes.length : 0
   if (held) s += T(42 + tw(LANG_WORDS('stereo out'), hs, on ? 500 : 400) + 6, ny, 'patch', { size: 9, a: .4 })      // (something stands on its wall)
-  s += levelBar(lx, ly, lw, OUT, S.master).replace(`id="mt-${OUT.id}"`, 'id="mt-out"') + hit(lx - 6, ly - 7, lw + 12, 16, 'outvol', ` data-gx="${n(lx)}" data-gw="${n(lw)}"`, 'ew-resize')
+  s += levelBar(lx, ly, lw, OUT, S.master).replace(`id="mt-${OUT.id}-0"`, 'id="mt-out-0"').replace(`id="mt-${OUT.id}-1"`, 'id="mt-out-1"') + hit(lx - 6, ly - 7, lw + 12, 16, 'outvol', ` data-gx="${n(lx)}" data-gw="${n(lw)}"`, 'ew-resize')
   s += T(dbx, dby, fmtDb(shown(OUT, 'vol')), { size: 9, a: on || autoPts(OUT, 'vol').length ? .9 : .56, anchor: 'end' })      // (where its line stands at the playhead, when it has one)
   return s + hline(0, HEAD_W, y + rh - .5, .05)
 }
@@ -744,7 +744,6 @@ function outLevel (v) {
 { const meters0 = drawMeters
   drawMeters = function () {
     meters0.apply(this, arguments)
-    const el = $('mt-out')
-    if (el && typeof METERS === 'object') el.setAttribute('width', n(+el.dataset.w * volF(Math.min(6, linDb(Math.max(METERS.mm[0] || 0, METERS.mm[1] || 0))))))
+    if (typeof METERS === 'object') for (let c = 0; c < 2; c++) { const el = $('mt-out-' + c); if (el) el.setAttribute('width', n(+el.dataset.w * volF(Math.min(6, linDb(METERS.mm[c] || 0))))) }      // (two sides, as a stereo track's: ui.js levelBar)
   } }
 

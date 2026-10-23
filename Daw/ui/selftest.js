@@ -2576,6 +2576,49 @@ async function runSelfTest (mode) {
     back(); await natSession(); await sleep(200)
     return res
   })
+  /* where a send takes its sound, in the engine (his ask, 2026-10-24): a tone panned hard left, sent to a bus, the bus printed
+     before its own fader and heard back as one side — post pan (the way it always was) carries the left alone, half of
+     what post fader carries (both sides, the pan not yet on it); pre fader carries it with the track's fader all the way
+     down, and nothing once the track is muted */
+  await step('sendTap', async () => {
+    halt(false); if (S.cycle.on) keyDown('KeyC')
+    const res = {}, n0 = UNDO.length, back = allHeard(), sr = SND_SR, spb = SPB(), bars = 1, sec = bars * spb + 1, frames = Math.round(sec * sr)
+    const i16 = new Int16Array(frames); for (let i = 0; i < frames; i++) i16[i] = Math.round(12000 * Math.sin(2 * Math.PI * 330 * i / sr))
+    { let s = ''; const u8 = new Uint8Array(i16.buffer); for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); await NAT.call('buffer', { key: 'test:tap', ch: 1, frames, pcm: btoa(s) }) }
+    const t = newTrack('audio', 'send tap', true), B = newTrack('bus', 'send tap bus', true); t.patch = NO_PATCH(); B.patch = NO_PATCH()
+    t.regs = [mkReg({ a: 3, b: 3 + bars, key: 'test:tap', loop: false, rate: 1, off: 0, sec, srcBars: sec / spb, peaksAll: new Float32Array(Math.round(sec * 100)).fill(.3) })]
+    t.pan = -1; t.vol = 0; t.sends = [{ to: B.id, db: 0 }]
+    const keys = []
+    const heard = async (name, tap, vol, mute) => {
+      if (tap) t.sends[0].tap = tap; else delete t.sends[0].tap
+      t.vol = vol; t.mute = !!mute; applyAll(); pushTrack(t); await natSession(); await sleep(200)
+      const bnc = await NAT.call('bounce', { kind: 'place', project: PROJ.name, a0: 2.1, a1: 2 + bars - .1, tail: 0, tracks: [{ id: B.id, name }] }), d = bnc && bnc.placed && bnc.placed[0]
+      if (!(d && d.ok && d.key)) return null
+      keys.push(d.key)
+      const p = await NAT.call('pcm', { key: d.key, from: 0, sec: (bars - .2) * spb }); if (!(p && p.ok)) return null
+      const raw = atob(p.pcm); let e = 0, n = 0; for (let i = 0; i + 1 < raw.length; i += 2) { const v = (raw.charCodeAt(i) | (raw.charCodeAt(i + 1) << 8)) << 16 >> 16; e += v * v; n++ }
+      return Math.round(Math.sqrt(e / Math.max(1, n)))
+    }
+    res.postPan = await heard('tap post pan', null, 0)
+    res.postFader = await heard('tap post fader', 'post', 0)
+    res.preFaderDown = await heard('tap pre fader, fader down', 'pre', -100)
+    res.postFaderDown = await heard('tap post fader, fader down', 'post', -100)
+    res.preMuted = await heard('tap pre fader, muted', 'pre', 0, true)
+    const near = (v, w, k) => v != null && w != null && Math.abs(v - w) <= w * k
+    res.ok = res.postPan > 1000 && near(res.postFader, 2 * res.postPan, .06) && near(res.preFaderDown, res.postFader, .06) && res.postFaderDown < 20 && res.preMuted < 20
+    /* how many sides a sound has, told with it */
+    { const m = await NAT.call('testFile', { project: PROJ.name, name: 'sides one', sec: 2, ch: 1 }), st = await NAT.call('testFile', { project: PROJ.name, name: 'sides two', sec: 2, ch: 2 })
+      const dm = m && await NAT.call('audioLoad', { project: PROJ.name, file: m.file }), ds = st && await NAT.call('audioLoad', { project: PROJ.name, file: st.file })
+      res.sides = [dm && dm.ch, ds && ds.ch]; if (dm && dm.key) keys.push(dm.key); if (ds && ds.key) keys.push(ds.key)
+      res.ok = res.ok && res.sides[0] === 1 && res.sides[1] === 2 }
+    for (const k of keys.concat('test:tap')) await NAT.call('dropBuffer', { key: k })
+    t.mute = false
+    while (UNDO.length > n0) undoEdit()
+    const left = S.tracks.filter(x => x === t || x === B)
+    if (left.length) await deleteTracks(left)
+    back(); await natSession(); await sleep(200)
+    return res
+  })
   /* the meter on a wall, in the engine: wired between in and out it measures what the track plays, and the track's print is
      the same with it as without it, not a sample late; its count begins again when the song is played from another place;
      its face is a window of its own, there when asked for and gone when the meter is taken off */

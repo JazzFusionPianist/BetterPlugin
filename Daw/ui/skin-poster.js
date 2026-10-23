@@ -57,7 +57,7 @@ SKINS.left.poster = () => {
   SKV.field.meter = fld(20, 286, 46, 46)
   const c = S.cycle
   s += P('M24 414L52 360L80 414Z', c.on ? { fill: BH.yellow } : { stroke: BH.yellow, sw: 3.5, x: ' stroke-linejoin="round"' }) + hit(20, 356, 64, 62, 'loop')
-  s += T(24, 430, c.on ? `cycle ${Math.round(c.a + 1)} to ${Math.round(c.b)}` : 'cycle off', { size: 9, a: c.on ? .9 : .5 }) + hit(20, 420, 90, 14, 'loop')
+  s += T(24, 430, c.on ? `cycle ${barWord(Math.round(c.a))} to ${barWord(Math.round(c.b) - 1)}` : 'cycle off', { size: 9, a: c.on ? .9 : .5 }) + hit(20, 420, 90, 14, 'loop')
   s += bhLab(108, 384, 'key') + T(132, 385, S.key || '—', { size: 11, w: 600, a: S.key ? 1 : .4 }) + hit(104, 372, 80, 18, 'key')
   SKV.field.key = fld(128, 373, 60, 16)
   const ring = (x, y, on, word, a) => (on ? Cc(x + 3.5, y - 3, 3.5, { fill: BH.black }) : Cc(x + 3.5, y - 3, 3.2, { stroke: BH.black, sw: 1.2 })) + T(x + 11, y, word, { size: 9, a: on ? 1 : .55 }) + hit(x - 2, y - 11, tw(word, 9) + 16, 15, a)
@@ -106,7 +106,7 @@ SKINS.left.poster = () => {
       let kx = 70
       three.forEach((sd, q) => {
         const b = byId(sd.to), f = volF(sd.db), a0 = -135 * Math.PI / 180, a1 = a0 + f * 270 * Math.PI / 180, on = (r, z) => `${n(kx + r * Math.sin(z))} ${n(ky - r * Math.cos(z))}`, turning = drag && drag.a === 'msend' && drag.i === i && drag.k === q
-        s += `<g class="bmk${turning ? ' on' : ''}">` + Cc(kx, ky, kr, { fill: BH.paper, stroke: BH.black, sw: 1.2 }) + (f > .004 ? P(`M${on(kr + 2.4, a0)}A${kr + 2.4} ${kr + 2.4} 0 ${f > 2 / 3 ? 1 : 0} 1 ${on(kr + 2.4, a1)}`, { stroke: BH.red, sw: 2.2 }) : '') + P(`M${n(kx)} ${n(ky)}L${on(kr - 1, a1)}`, { stroke: BH.black, sw: 1.5 })
+        s += `<g class="bmk${turning ? ' on' : ''}">` + Cc(kx, ky, kr, { fill: BH.paper, stroke: BH.black, sw: 1.2 }) + (f > .004 ? P(`M${on(kr + 2.4, a0)}A${kr + 2.4} ${kr + 2.4} 0 ${f > 2 / 3 ? 1 : 0} 1 ${on(kr + 2.4, a1)}`, { stroke: sendTapC(sd, true), sw: 2.2 }) : '') + P(`M${n(kx)} ${n(ky)}L${on(kr - 1, a1)}`, { stroke: BH.black, sw: 1.5 })
           + T(kx, ky + kr + 9, fit(asGiven(b ? b.name : 'send'), 30, 7.5, 600), { size: 7.5, w: 600, a: .8, anchor: 'middle', x: ' class="bmk-name"' }) + T(kx, ky + kr + 9, fmtDb(sd.db), { size: 7.5, w: 600, c: BH.red, anchor: 'middle', x: ' class="bmk-db"' })
           + hit(kx - kr - 4, ky - kr - 4, 2 * kr + 8, 2 * kr + 14, 'msend', `${di} data-k="${q}" data-rel="1" data-x="${n(o + (kx - 60) * k)}" data-pw="${n(120 * k)}"`, 'ns-resize') + '</g>'
         kx += 34
@@ -298,13 +298,13 @@ function bhMixer (y, h) {
          word on draft 2: knobs as Logic Pro's sends, how much under each); a column more to the right when they run out */
       const per = lh / kp.inCol, kr = clamp((per - 14) / 2, 5.5, 11)
       const at = j => ({ kx: x + sw - 22 + Math.floor(j / kp.inCol) * BMX_COL, cy: lt + per * (j % kp.inCol) + kr + 3 })
-      const knob = (kx, cy, f) => { const a0 = -135 * Math.PI / 180, a1 = a0 + f * 270 * Math.PI / 180, on = (r, q) => `${n(kx + r * Math.sin(q))} ${n(cy - r * Math.cos(q))}`; return Cc(kx, cy, kr, { fill: BH.paper, stroke: BH.black, sw: 1.2 }) + (f > .004 ? P(`M${on(kr + 2.6, a0)}A${n(kr + 2.6)} ${n(kr + 2.6)} 0 ${f > 2 / 3 ? 1 : 0} 1 ${on(kr + 2.6, a1)}`, { stroke: BH.red, sw: 2.4 }) : '') + P(`M${n(kx)} ${n(cy)}L${on(kr - 1, a1)}`, { stroke: BH.black, sw: 1.6 }) }
+      const knob = (kx, cy, f, c) => { const a0 = -135 * Math.PI / 180, a1 = a0 + f * 270 * Math.PI / 180, on = (r, q) => `${n(kx + r * Math.sin(q))} ${n(cy - r * Math.cos(q))}`; return Cc(kx, cy, kr, { fill: BH.paper, stroke: BH.black, sw: 1.2 }) + (f > .004 ? P(`M${on(kr + 2.6, a0)}A${n(kr + 2.6)} ${n(kr + 2.6)} 0 ${f > 2 / 3 ? 1 : 0} 1 ${on(kr + 2.6, a1)}`, { stroke: c, sw: 2.4 }) : '') + P(`M${n(kx)} ${n(cy)}L${on(kr - 1, a1)}`, { stroke: BH.black, sw: 1.6 }) }
       kp.sends.forEach((sd, k) => {
         const { kx, cy } = at(k), b = byId(sd.to), turning = drag && drag.a === 'msend' && drag.i === i && drag.k === k
         /* under it the bus it goes to; the pointer over it (or turning it), how much it sends — his word, 2026-10-21 */
         const nm = T(kx, cy + kr + 9, fit(asGiven(b ? b.name : 'send'), BMX_COL - 2, 7.5, 600), { size: 7.5, w: 600, a: .8, anchor: 'middle', x: ' class="bmk-name"' })
         const db = T(kx, cy + kr + 9, fmtDb(sd.db), { size: 7.5, w: 600, c: BH.red, anchor: 'middle', x: ' class="bmk-db"' })
-        s += `<g class="bmk${turning ? ' on' : ''}">` + knob(kx, cy, volF(sd.db)) + nm + db + hit(kx - kr - 5, cy - kr - 5, 2 * kr + 10, 2 * kr + 16, 'msend', `${di} data-k="${k}" data-rel="1" data-x="${n(kx - 60)}" data-pw="120"`, 'ns-resize') + '</g>'
+        s += `<g class="bmk${turning ? ' on' : ''}">` + knob(kx, cy, volF(sd.db), sendTapC(sd, true)) + nm + db + hit(kx - kr - 5, cy - kr - 5, 2 * kr + 10, 2 * kr + 16, 'msend', `${di} data-k="${k}" data-rel="1" data-x="${n(kx - 60)}" data-pw="120"`, 'ns-resize') + '</g>'
       })
       if (kp.canAdd) { const { kx, cy } = at(kp.sends.length); s += Cc(kx, cy, kr, { stroke: BH.black, sw: 1, dash: '2 2', sa: .5 }) + P(`M${n(kx)} ${n(cy - 4)}v8M${n(kx - 4)} ${n(cy)}h8`, { stroke: BH.black, sw: 1.2, sa: .6 }) + hit(kx - kr - 4, cy - kr - 4, 2 * kr + 8, 2 * kr + 8, 'msendadd', di) }
       /* the level */

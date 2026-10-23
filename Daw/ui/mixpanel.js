@@ -130,7 +130,7 @@ SKINS.mixer.panel = (y, h) => {
           /* the words under it stay inside the strip: centred on the knob where there is room, else against the strip's edge */
           const inside = (word, wt) => { const ww = tw(word, 8.5, wt), xr = x + w - 4, xl = x + 4; return cx + ww / 2 > xr ? xr - ww / 2 : cx - ww / 2 < xl ? xl + ww / 2 : cx }
           const busW = fit(bus, Math.min(2 * r + 12, w - 8), 8.5, 500)
-          s += `<g class="mpk${pulling ? ' on' : ''}">` + mpSendKnob(cx, cy, r, volF(db), t.c, bus) + T(inside(busW, 500), cy + r + 11, busW, { size: 8.5, w: 500, a: .62, anchor: 'middle', x: ' class="mpk-bus"' }) + T(inside(much, 400), cy + r + 11, much, { size: 8.5, a: 1, anchor: 'middle', x: mpNum + ' class="mpk-db"' })
+          s += `<g class="mpk${pulling ? ' on' : ''}">` + mpSendKnob(cx, cy, r, volF(db), sendTapC(sd), bus) + T(inside(busW, 500), cy + r + 11, busW, { size: 8.5, w: 500, a: .62, anchor: 'middle', x: ' class="mpk-bus"' }) + T(inside(much, 400), cy + r + 11, much, { size: 8.5, a: 1, anchor: 'middle', x: mpNum + ' class="mpk-db"' })
             + hit(cx - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 16, 'mp-send', `${di} data-k="${k}"`, 'ns-resize') + '</g>' })
         if (sends.length < MP_SENDS) { const k = sends.length, cx = x0 + Math.floor(k / per) * cw + r + 4, cy = ft + (k % per) * (2 * r + 20) + r + 2
           s += Cc(cx, cy, r - .5, { stroke: INK, sa: .3, sw: .9, dash: '2 2' }) + P(`M${n(cx)} ${n(cy - 3.5)}V${n(cy + 3.5)}M${n(cx - 3.5)} ${n(cy)}H${n(cx + 3.5)}`, { stroke: INK, sa: .6, sw: 1 }) + T(cx, cy + r + 11, 'send', { size: 8.5, a: .35, anchor: 'middle' })

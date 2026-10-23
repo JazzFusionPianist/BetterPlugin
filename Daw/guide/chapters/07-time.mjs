@@ -48,6 +48,8 @@ export default () => chapter('time', t('the song’s time', '곡의 시간'),
       D.txt(0, 90, 'every track, every line and every marker goes along', '모든 트랙, 모든 라인, 모든 마커가 함께 움직입니다', 'xs')) }),
 
   page(t('tempo, measure, undo', '템포, 박자, 실행 취소'), { kind: 'text', cc: 3, txt:
+    h('bars before bar 1', '1마디 앞의 마디') +
+    p('A song starts at bar 1. Pull the small square at the foot of the bars, where the song begins, to the left: a bar for each bar’s width, counted 0, −1 … as far as −8, everything keeping its bar. Pulled back, the empty ones go. Right-click it to pick where the song starts. Before bar 1 the time counts up to its start.', '곡은 1마디에서 시작합니다. 마디 눈금 아래쪽, 곡이 시작하는 곳의 작은 사각형을 왼쪽으로 끌면 한 마디 폭마다 한 마디씩 0, −1 … −8까지 생기고, 모든 것은 원래 마디에 그대로 있습니다. 다시 끌면 빈 마디만 없어집니다. 우클릭하면 곡이 시작하는 마디를 고릅니다. 1마디 전까지 시간은 시작 시간을 향해 셉니다.') +
     h('one tempo, one measure', '템포 하나, 박자 하나') +
     p('A song has one tempo and one measure from beginning to end. Click the tempo in the transport panel to type it (40 to 240, two decimals); click the measure for its list (2/4, 3/4, 4/4, 5/4, 6/4, 7/4, 3/8, 5/8, 6/8, 7/8, 9/8, 12/8).', '곡은 처음부터 끝까지 템포 하나, 박자 하나를 갖습니다. 트랜스포트 패널의 템포를 클릭해 입력하고(40~240, 소수 둘째 자리까지), 박자를 클릭해 목록에서 고릅니다(2/4, 3/4, 4/4, 5/4, 6/4, 7/4, 3/8, 5/8, 6/8, 7/8, 9/8, 12/8).') +
     h('what a change of tempo does', '템포가 바뀌면') +

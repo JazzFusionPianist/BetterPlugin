@@ -144,7 +144,7 @@ export default () => chapter('notes', t('notes and instruments', '노트와 악�
     p('The notes stay as they were played; these are kept by the region and can be taken off again.', '노트 자체는 연주한 그대로 남습니다. 아래 값은 리전이 지니며 다시 뗄 수 있습니다.') +
     table(null,
       [['quantize', '퀀타이즈'], ['[[Q]] pulls where notes begin to the quantize value; their lengths stay. A strength and a swing are set on the notes page or said on the command line (`quantize this 1/16 at 60% strength with 20% swing`). [[⌥⌘Q]] lets go', '강도와 스윙은 노트 페이지에서 정하거나 커맨드 라인으로 말합니다(`quantize this 1/16 at 60% strength with 20% swing`). [[Q]]는 노트의 시작을 퀀타이즈 값에 맞춥니다. 길이는 그대로. [[⌥⌘Q]]로 풉니다']],
-      [['transpose', '트랜스포즈'], ['[[⌥↑]] [[⌥↓]], −24 to +24. On a kit this moves notes to other pads', '[[⌥↑]] [[⌥↓]], −24~+24. 킷에서는 노트가 다른 패드로 옮겨집니다']],
+      [['transpose', '트랜스포즈'], ['[[⌥↑]] [[⌥↓]], −48 to +48. On a kit this moves notes to other pads', '[[⌥↑]] [[⌥↓]], −48~+48. 킷에서는 노트가 다른 패드로 옮겨집니다']],
       [['gain', '게인'], ['[[⌃⇧↑]] [[⌃⇧↓]]: how hard the notes are played, four steps of velocity a dB', '[[⌃⇧↑]] [[⌃⇧↓]]: 노트의 세기. dB당 벨로시티 4단계']],
       [['mute', '뮤트'], ['[[N]]', '[[N]]']]) +
     p('Regions of notes are moved, trimmed, split, copied, repeated and deleted like any region. A note sounds when it begins inside the region and is cut off where the region ends. Fades, crossfades, fine tune, rubato, reverse and strip silence do not apply to them.', '노트 리전은 다른 리전처럼 옮기고, 트림하고, 자르고, 복사하고, 반복하고, 지웁니다. 노트는 리전 안에서 시작할 때 소리가 나고 리전이 끝나는 곳에서 끊깁니다. 페이드, 크로스페이드, 미세 조정, 루바토, 리버스, 무음 제거는 적용되지 않습니다.') +

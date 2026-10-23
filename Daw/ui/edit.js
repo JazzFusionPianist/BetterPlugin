@@ -31,6 +31,7 @@ const editState = () => ({
   selR: S.selR.slice(), selP: S.selP.slice(), cycle: Object.assign({}, S.cycle), sel: S.sel, selT: S.selT.slice(), scenes: SCENES.map(s => [s.name, s.a, s.c]), end: SONG_END, tempo: S.tempo, selX: S.selX ? S.selX.slice() : null,
   ref: typeof refKeep === 'function' ? refKeep() : null,                                // (the reference's regions: reference.js)
   outAutos: typeof OUT === 'object' ? copy(OUT.autos || {}) : null,                      // (the stereo out's line: wall.js)
+  pre: S.pre || 0,                                                                       // (the bars before bar 1: preTo)
 })
 /* the levels of every track as they stand. A step made by the command line carries them (a line may move faders, and
    takes them back with everything else it did); a step made by hand does not, so going back over an edit leaves the
@@ -53,7 +54,7 @@ function restoreEdit (st) {
     if (was) Promise.resolve(sent).then(() => { S.pos = Math.min(p, SONG_END); play(S.pos); uiDirty('top') })
   }
   S.selT = (st.selT || []).filter(id => S.tracks.some(t => t.id === id)); S.selM = null
-  SONG_END = st.end; SCENES = mkScenes(st.scenes)
+  SONG_END = st.end; SCENES = mkScenes(st.scenes); S.pre = st.pre || 0
   if (typeof refBack === 'function') refBack(st.ref)
 }
 const EVERY = ['lanes', 'head', 'ruler', 'scenes', 'top', 'hand', 'dock', 'info', 'look']
@@ -614,6 +615,8 @@ function settleTrack (t, was) {
    plays both. Where the two are one sound cut in two, the plain curve gives back exactly what was there; where they are
    different sounds, the equal-power curve keeps the level from sagging in the middle. ── */
 const FADE_CURVES = ['linear', 'equal power', 's curve']
+/* how far a region's transpose and its gain go, either way (his ask, 2026-10-24: ±48 semitones, ±30 dB) */
+const TR_MAX = 48, GAIN_MAX = 30
 const fadeShape = (c, x, bend = 0) => c === 1 ? Math.sin(clamp(x, 0, 1) * Math.PI / 2) : c === 2 ? (x = clamp(x, 0, 1), x * x * (3 - 2 * x)) : bend ? Math.pow(clamp(x, 0, 1), Math.pow(2, 2 * bend)) : clamp(x, 0, 1)
 /* how a straight fade is bent (Engine.h fadeShape): as pulled by hand — control and a pull up or down (r.fib, r.fob,
    −1…1) — else, for a fade of its own, as the ear hears an even fall to silence: a plain line of level was loud to the
@@ -1091,6 +1094,42 @@ function healAt (at) {
   }
 }
 let TIME_CLIP = null
+/* ── bars before bar 1 (his ask, 2026-10-24; his pick of bars before one draft 1): as many as nine — the song starting as early
+   as bar −8, as Logic counts them — put in at the song's start, everything keeping the bar it had; taken out again only
+   where nothing is: no region, no point of a line, no marker. Pulled from the small square at the foot of the bars, or
+   picked from its list (the other button). ── */
+const PRE_MAX = 9
+/* how few there may be: the empty bars at the start may go, no more */
+function preMin () {
+  const firsts = [SONG_END]
+  for (const t of S.tracks) { for (const L of lanesOf(t)) for (const r of L.regs) firsts.push(r.a - 1); for (const k in t.autos || {}) for (const q of t.autos[k]) firsts.push(q.b) }
+  for (const sc of SCENES) firsts.push(sc.a - 1)
+  if (typeof REF === 'object' && REF.t) for (const r of REF.t.regs || []) firsts.push(r.a - 1)
+  if (typeof OUT === 'object') for (const k in OUT.autos || {}) for (const q of OUT.autos[k]) firsts.push(q.b)
+  return Math.max(0, preBars() - Math.floor(Math.max(0, Math.min(...firsts)) + 1e-9))
+}
+/* d bars put in at the start (or taken out, d below zero, where nothing is): everything the song holds goes later by as
+   many — every lane's regions, every line's points, the markers, the cycle, the playhead, the marquee, the reference and
+   the stereo out's line (a line holds its first level before its first point, so nothing is added to it) */
+function preShift (d) {
+  if (!d) return
+  for (const t of S.tracks) { for (const L of lanesOf(t)) for (const r of L.regs) { r.a += d; r.b += d } for (const k in t.autos || {}) for (const q of t.autos[k]) q.b += d }
+  SCENES = mkScenes(SCENES.map(sc => [sc.name, sc.a + d, sc.c]))
+  S.cycle.a = Math.max(0, S.cycle.a + d); S.cycle.b = Math.max(S.cycle.a, S.cycle.b + d)
+  if (S.marq) { S.marq.a = Math.max(0, S.marq.a + d); S.marq.b = Math.max(S.marq.a, S.marq.b + d) }
+  if (typeof REF === 'object' && REF.t) { for (const r of REF.t.regs || []) { r.a += d; r.b += d } if (typeof refTell === 'function') refTell() }
+  if (typeof OUT === 'object') for (const k in OUT.autos || {}) for (const q of OUT.autos[k]) q.b += d
+  SONG_END = Math.max(1, SONG_END + d)
+  S.pre = preBars() + d
+  jumpTo(clamp(curPos() + d, 0, SONG_END))
+  uiDirty('lanes', 'ruler', 'scenes', 'top', 'head', 'dock', 'ref')
+}
+/* the song made to start at bar 1 − k, as one step */
+function preTo (k) { edit(() => { const d = clamp(Math.round(k), preMin(), PRE_MAX) - preBars(); if (!d) return false; preShift(d) }) }
+function preMenu (x, y) {
+  const lo = preMin()
+  openMenu(x, y, [{ t: 'the song starts at bar', dim: true }].concat([...Array(PRE_MAX + 1)].map((_, k) => ({ t: String(1 - k).replace('-', '−'), on: k === preBars(), dim: k < lo, v: k }))), it => preTo(it.v), { w: 150 })
+}
 const copyHeld = h => ({ len: h.len, cycle: h.cycle ? h.cycle.slice() : null, regs: h.regs.map(([tid, r, d, on]) => [tid, Object.assign({}, r, r.flex ? { flex: r.flex.map(m => Object.assign({}, m)) } : {}), d, on]), lines: h.lines.map(q => [q[0], q[1], q[2], q[3], q[4].map(x => x.slice()), q[5], q[6]]), marks: h.marks.map(m => m.slice()) })
 const timeAct = {
   /* a stretch goes out of the song, and the song closes over it; it is kept, to be put in somewhere else */
@@ -1143,7 +1182,7 @@ function partAct (i, what) {
 
 const act = {
   mute () { const rs = S.marq ? null : selRegs(); edit(() => { const list = S.marq ? cutByMarquee() : rs.map(x => x[0]); if (!list.length) return S.marq && cutByMarquee.changed ? undefined : false; const to = !list.every(r => r.mute); for (const r of list) r.mute = to; S.marq = null }) },
-  gain (d) { edit(() => { const rs = selRegs(); if (!rs.length) return false; for (const [r] of rs) { r.gain = clamp(Math.round(((r.gain || 0) + d) * 10) / 10, -30, 12); dirtyReg(r) } }) },
+  gain (d) { edit(() => { const rs = selRegs(); if (!rs.length) return false; for (const [r] of rs) { r.gain = clamp(Math.round(((r.gain || 0) + d) * 10) / 10, -GAIN_MAX, GAIN_MAX); dirtyReg(r) } }) },
   /* the delete key goes by what was taken hold of last: a marker that was pressed; else the points of a line, what a marquee
      holds, the chosen regions; and with tracks chosen and nothing left on them, the tracks themselves — so a track's
      regions go at the first press and the track at the second */
@@ -1247,12 +1286,12 @@ const act = {
   groupRegs () { edit(() => { const rs = selRegs(); if (rs.length < 2) return false; const g = 1 + Math.max(0, ...S.tracks.flatMap(lanesOf).flatMap(t => t.regs.map(r => r.grp || 0))); for (const [r] of rs) r.grp = g }) },
   ungroupRegs () { edit(() => { const gs = new Set(selRegs().map(x => x[0].grp).filter(Boolean)); if (!gs.size) return false; for (const t of S.tracks) for (const r of t.regs) if (gs.has(r.grp)) delete r.grp }) },
   /* what is chosen is put so that the first of it begins at `to` (bars from zero); the rest keeps its distance */
-  spot (to) { edit(() => { const rs = selRegs(); if (!rs.length) return false; if (Math.abs(to + 1 - Math.min(...rs.map(x => x[0].a))) < 1e-9) return false; partCrossed(new Set(S.selR)); const d = to + 1 - Math.min(...rs.map(x => x[0].a)); for (const [r] of rs) { r.a += d; r.b += d } settle(rs.map(([r, t]) => [r, t, r.a - 1, r.b - 1])) }) },
+  spot (to) { edit(() => { const rs = selRegs(); if (!rs.length) return false; if (Math.abs(to + 1 - Math.min(...rs.map(x => x[0].a))) < 1e-9) return false; partCrossed(new Set(S.selR)); const d = to + 1 - Math.min(...rs.map(x => x[0].a)); autoCarry(rs.map(([r, t]) => [t, t, r.a - 1, r.b - 1, d])); for (const [r] of rs) { r.a += d; r.b += d } settle(rs.map(([r, t]) => [r, t, r.a - 1, r.b - 1])) }) },
   nudge (dir) {
     const d = nudgeBars() * dir
     if (S.marq && !S.selR.length) { const m = S.marq, k = clamp(d, -m.a, SONG_END - m.b); m.a += k; m.b += k; uiDirty('lanes'); return }      // a marquee moves as a whole
     if (!S.selR.length) { jumpTo(clamp(curPos() + d, 0, SONG_END)); uiDirty('scenes'); return }       // nothing chosen: the playhead moves instead
-    edit(() => { const rs = selRegs(); if (!rs.length || rs.some(([r]) => r.a - 1 + d < -1e-9)) return false; partCrossed(new Set(S.selR)); for (const [r] of rs) { r.a += d; r.b += d } settle(rs.map(([r, t]) => [r, t, r.a - 1, r.b - 1])) })
+    edit(() => { const rs = selRegs(); if (!rs.length || rs.some(([r]) => r.a - 1 + d < -1e-9)) return false; partCrossed(new Set(S.selR)); autoCarry(rs.map(([r, t]) => [t, t, r.a - 1, r.b - 1, d])); for (const [r] of rs) { r.a += d; r.b += d } settle(rs.map(([r, t]) => [r, t, r.a - 1, r.b - 1])) })
   },
   /* ⌥⇧← and ⌥⇧→: what is chosen ends one nudge earlier or later (a marquee too); a file cannot run past its own end */
   nudgeLen (dir) {
@@ -1467,7 +1506,7 @@ const act = {
     if (S.selP.length) { edit(() => autoNudge(d)); return }
     const rs = selRegs().map(x => x[0])
     if (!rs.length) return
-    edit(() => { for (const r of rs) r.tr = clamp((r.tr || 0) + d, -24, 24) })
+    edit(() => { for (const r of rs) r.tr = clamp((r.tr || 0) + d, -TR_MAX, TR_MAX) })
     rewarp(rs)
   },
   reverse () { const rs = selRegs().map(x => x[0]).filter(r => !r.loop && !r.notes); if (!rs.length) return; edit(() => { for (const r of rs) { r.rev = !r.rev; r.off = Math.max(0, (r.srcBars || 0) - (r.off || 0) - (r.b - r.a)); r.flex = [] } }); rewarp(rs) },
@@ -1769,6 +1808,7 @@ function lanesMove (e, p) {
       r.a = o.a + dx; r.b = o.b + dx
       if (target !== tr) { tr.regs = tr.regs.filter(x => x !== r); target.regs.push(r) }
     }
+    autoFollow(d, [...d.orig.values()].map(o => [S.tracks[o.ti], (dk ? dest(o) : null) || S.tracks[o.ti], o.a - 1, o.b - 1, dx]))      // (their lines go with them: auto.js)
     d.last = [dx, dk]
   } else if (d.a === 'trimL' || d.a === 'trimR') {
     const [r] = regOf(d.id), o = d.o, s = snapPos(pos, e, new Set([d.id])), all = [[r, o]].concat((d.also || []).map(q => [regOf(q.id)[0], q.o]).filter(q => q[0]))
@@ -1816,7 +1856,7 @@ function lanesMove (e, p) {
     const at = lo <= hi ? clamp(snapPos(pos - (d.grab || 0), e, new Set(d.was.flatMap(({ a, b }) => [a.id, b.id]))) + 1, Math.min(lo, d.at), Math.max(hi, d.at)) : d.at      // (two that are too short to give anything at this zoom: the join stays where it is)
     d.moved = Math.abs(at - d.at) > 1e-9
     if (d.moved) for (const w of d.was) { joinAt(w.a, w.b, at); if (w.len) crossfade(w.a, w.b, w.len, w.curve); else { fitFades(w.a, regOf(w.a.id)[1]); fitFades(w.b, regOf(w.b.id)[1]) } }      // (on a track edited along with this one the same join moves; it is a crossfade there only if it was one — where the two only meet, the fades of their own must still fit in them)
-  } else if (d.a === 'gain') { for (const [id, g] of d.orig) { const [r] = regOf(id); r.gain = clamp(Math.round((g - (p.y - d.y0) * .1) * 10) / 10, -30, 12); dirtyReg(r) } d.moved = true }
+  } else if (d.a === 'gain') { for (const [id, g] of d.orig) { const [r] = regOf(id); r.gain = clamp(Math.round((g - (p.y - d.y0) * .1) * 10) / 10, -GAIN_MAX, GAIN_MAX); dirtyReg(r) } d.moved = true }
   else if (d.a === 'fade' && (d.mode || (d.mode = e.ctrlKey && !e.shiftKey && d.y0 != null && Math.abs(p.y - d.y0) >= Math.abs(p.x - (d.x0 != null ? d.x0 : p.x)) ? 'bend' : 'len')) === 'bend') {      // (which, said by the first move out of the dead zone)
     /* control, pulled up or down: the fade bent — up, fuller sooner; down, quieter longer (his ask, 2026-10-22) */
     const [r] = regOf(d.id)

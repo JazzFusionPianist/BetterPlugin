@@ -48,7 +48,7 @@ export default () => chapter('mixing', t('mixing', '믹싱'),
       h('where a track plays', '트랙이 나가는 곳') +
       p('Click the {{out}} row of a strip: {{stereo out}}, every bus and stack it may play into, and {{new bus}}. Picking a stack puts the track into that stack. There is one stereo out, on the device’s outputs 1 and 2.', '스트립의 {{out}} 줄을 클릭합니다. {{stereo out}}, 나갈 수 있는 모든 버스와 스택, 그리고 {{new bus}}. 스택을 고르면 트랙이 그 스택 안으로 들어갑니다. 스테레오 아웃은 하나이고 장치의 출력 1, 2로 나갑니다.') +
       h('sends', '센드') +
-      p('Up to ten to a track. When a strip is too short to show more of them, it grows wider to the right by a column of sends. A new send comes in at −12 dB. [[⌥]] click sets it to 0 dB. Sends are after the fader and the pan; there is no pre-fader send. Removing a bus removes every send into it.', '트랙마다 열 개까지. 스트립의 높이에 더 들어가지 않으면 스트립이 오른쪽으로 센드 한 줄만큼 넓어집니다. 새 센드는 −12 dB로 들어옵니다. [[⌥]] 클릭하면 0 dB. 센드는 페이더와 팬 뒤에서 나가며, 프리 페이더 센드는 없습니다. 버스를 지우면 그리로 가는 센드도 모두 없어집니다.') +
+      p('Up to ten to a track. When a strip is too short to show more of them, it grows wider to the right by a column of sends. A new send comes in at −12 dB. [[⌥]] click sets it to 0 dB. A send takes the sound after the fader and the pan ({{post pan}}, its ring white); right-click its knob for {{post fader}}, before the pan (blue), or {{pre fader}}, before the fader and shut when the track is muted (amber). Removing a bus removes every send into it.', '트랙마다 열 개까지. 스트립의 높이에 더 들어가지 않으면 스트립이 오른쪽으로 센드 한 줄만큼 넓어집니다. 새 센드는 −12 dB로 들어옵니다. [[⌥]] 클릭하면 0 dB. 센드는 페이더와 팬 뒤의 소리를 보냅니다({{post pan}}, 링이 흰색). 노브를 우클릭하면 {{post fader}}(팬 앞, 파랑)나 {{pre fader}}(페이더 앞, 트랙을 뮤트하면 함께 꺼짐, 주황)로 바꿉니다. 버스를 지우면 그리로 가는 센드도 모두 없어집니다.') +
       h('buses', '버스') +
       p('A bus has a patch, a fader, a pan, up to ten sends and an out of its own. It may play into another bus or a stack, as long as nothing comes back round to itself. Make one with [[⌃N]], or pick {{new bus}} in an out or send list.', '버스는 자체 패치, 페이더, 팬, 센드 열 개까지, 아웃을 가집니다. 다른 버스나 스택으로 나갈 수 있지만, 돌아서 자기 자신에게 오는 길은 만들 수 없습니다. [[⌃N]]으로 만들거나, 아웃이나 센드 목록에서 {{new bus}}를 고릅니다.'),
       h('mute and solo', '뮤트와 솔로') +
@@ -58,7 +58,7 @@ export default () => chapter('mixing', t('mixing', '믹싱'),
         ['A track that cannot reach the speakers is drawn dim.', '스피커에 닿지 못하는 트랙은 흐리게 그려집니다.']) +
       h('meters', '미터') +
       list(
-        ['Peak levels, read after the fader and the pan, on the fader’s own scale.', '피크 레벨. 페이더와 팬 뒤에서 읽고, 페이더와 같은 눈금을 씁니다.'],
+        ['Peak levels, read after the fader and the pan, on the fader’s own scale. In a head, a stereo track’s meter is two lines, left over right.', '피크 레벨. 페이더와 팬 뒤에서 읽고, 페이더와 같은 눈금을 씁니다. 헤드에서 스테레오 트랙의 미터는 두 줄(위 왼쪽, 아래 오른쪽)입니다.'],
         ['Plain up to −6 dB, yellow from −6 dB, red over 0 dB. A thin line holds the highest level and sinks slowly.', '−6 dB까지는 기본색, −6 dB부터 노랑, 0 dB를 넘으면 빨강. 가는 선이 최고 레벨에 머물렀다가 천천히 내려옵니다.'],
         ['The {{out}} ring in the transport panel shows left (outside) and right (inside) apart, after the out fader and the guard.', '트랜스포트 패널의 {{out}} 링은 아웃 페이더와 가드 뒤의 왼쪽(바깥)과 오른쪽(안쪽)을 따로 보여 줍니다.']) +
       note('A fader, a pan, a send level, mute and solo moved by hand are not steps of undo, except a fader that moves a volume line: that is one step.', '손으로 움직인 페이더, 팬, 센드 레벨, 뮤트, 솔로는 실행 취소 단계가 아닙니다. 볼륨 라인을 움직이는 페이더는 예외로, 한 단계입니다.')),

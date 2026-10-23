@@ -332,3 +332,37 @@ function nudgePoints (dir) {
   const len0 = act.nudgeLen
   act.nudgeLenRegs = len0
   act.nudgeLen = function (dir) { if (S.auto && !S.marq) return; return len0.call(act, dir) } }      // (the lines up: no region is made longer or shorter)
+
+/* ── a region's lines go with it (his ask, 2026-10-24, as Logic moves automation with regions): the points of its track's
+   lines inside it, or on its ends, are carried as far as it goes — onto another track too, for a line that track has —
+   and the points that were on the line where it lands give way to them. Copied, the points are copied. ── */
+/* moves: [[the track it was on, the track it goes to, where it began, where it ended (bars from zero), how far]];
+   returns the tracks whose lines were changed */
+function autoCarry (moves, copy) {
+  const taken = new Map(), carried = [], hit = new Set()
+  for (const [t0, t1, a, b, dx] of moves) for (const k of Object.keys(t0.autos || {})) {
+    if (t1 !== t0 && !autoParams(t1).includes(k)) continue
+    for (const q of t0.autos[k]) {
+      if (q.b < a - 1e-9 || q.b > b + 1e-9) continue
+      const ids = taken.get(t0) || new Set(); taken.set(t0, ids)
+      if (ids.has(q.id)) continue
+      ids.add(q.id); carried.push([t1, k, q, dx, a + dx, b + dx])
+    }
+  }
+  if (!carried.length) return hit
+  if (!copy) for (const [t, ids] of taken) { hit.add(t); for (const k in t.autos) t.autos[k] = t.autos[k].filter(q => !ids.has(q.id)) }
+  for (const [t1, k, , , a1, b1] of carried) if (t1.autos && t1.autos[k]) t1.autos[k] = t1.autos[k].filter(q => q.b < a1 - 1e-9 || q.b > b1 + 1e-9)
+  for (const [t1, k, q, dx] of carried) {
+    if (!t1.autos) t1.autos = {}
+    ;(t1.autos[k] || (t1.autos[k] = [])).push(Object.assign({}, q, { b: q.b + dx }, copy ? { id: ++PID } : {}))
+    hit.add(t1)
+  }
+  for (const t of hit) for (const k in t.autos) sortPts(t.autos[k])
+  return hit
+}
+/* while regions are carried by hand: their lines as they were when the pull began, carried as far as they are now */
+function autoFollow (d, moves) {
+  if (!d.autoBase) { d.autoBase = new Map(S.tracks.map(t => [t, copy(t.autos || {})])); d.autoHit = new Set() }
+  for (const t of d.autoHit) t.autos = copy(d.autoBase.get(t) || {})
+  d.autoHit = autoCarry(moves, d.copy)
+}

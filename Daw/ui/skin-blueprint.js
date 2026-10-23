@@ -107,7 +107,7 @@ SKINS.scenes.blueprint = () => {
 }
 /* ── the cycle: a dimension, from its start to its end ── */
 SKINS.cycle.blueprint = (ca, cb, y, on) => {
-  const a = on ? 1 : .4, c = S.cycle, words = `cycle ${Math.round(c.a + 1)} — ${Math.round(c.b + 1)}`, mid = (ca + cb) / 2, tw0 = tw(words, 6.5) + 10, yy = y + 2.5
+  const a = on ? 1 : .4, c = S.cycle, words = `cycle ${barWord(Math.round(c.a))} — ${barWord(Math.round(c.b))}`, mid = (ca + cb) / 2, tw0 = tw(words, 6.5) + 10, yy = y + 2.5
   let s = bpLine(ca, y, ca, y + RU_H, { a: a * .6, w: .6 }) + bpLine(cb, y, cb, y + RU_H, { a: a * .6, w: .6 })
   const arrow = (x, d) => P(`M${n(x)} ${yy}l${n(-5 * d)} -2.2v4.4z`, { fill: INK, fa: a })
   if (cb - ca > tw0 + 14) s += bpLine(ca, yy, mid - tw0 / 2, yy, { a, w: .7 }) + bpLine(mid + tw0 / 2, yy, cb, yy, { a, w: .7 }) + arrow(ca, -1) + arrow(cb, 1) + R(mid - tw0 / 2 + 2, y, tw0 - 4, 8, { fill: lkC('bars.ground', K1) }) + T(mid, y + 5.6, words, { size: 6.5, a, anchor: 'middle' })

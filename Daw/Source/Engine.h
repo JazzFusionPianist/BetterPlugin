@@ -473,7 +473,9 @@ struct Track
     int id = 0, kind = 0;                        // kind 0 plays regions; 1 is a bus: an aux, or the sum of a stack
     int outId = 0;
     Track* out = nullptr;                        // nullptr: the stereo out
-    struct SendSlot { int to = 0; Track* dst = nullptr; std::atomic<float> gain { 0.0f }; float sm = 0.0f; Hold hold; } sends[kMaxSends];
+    /* a send takes the track's sound after its fader and its pan (0, the way it always has), after its fader but before its
+       pan (1), or before its fader (2) — his ask, 2026-10-24, as Logic has them: post pan, post fader, pre fader */
+    struct SendSlot { int to = 0; Track* dst = nullptr; std::atomic<float> gain { 0.0f }; std::atomic<int> tap { 0 }; float sm = 0.0f; Hold hold; } sends[kMaxSends];
     Hold outHold;                                // what goes its plain way out, held back when a send of its takes longer to arrive
     std::vector<Region> regs;
     std::vector<Auto> autos;
@@ -489,6 +491,9 @@ struct Track
     orbfx::NodeParams prm[orbfx::kMaxNodes];
     std::vector<std::unique_ptr<Insert>> inserts;
     juce::AudioBuffer<float> work;
+    juce::AudioBuffer<float> tapBuf;             // its sound before its fader (0, 1) and after it but before its pan (2, 3), for the sends that take it there
+    int tapHave = 0;                             // which of the two this block holds (1 before the fader, 2 before the pan): a send changed meanwhile takes the track's own
+    float preGate = 1.0f;                        // how open it was to what is sent before its fader, at the end of the last block (muted, that is shut too)
     float cost = 0.0f;                           // how long its own part of a block has been taking, in seconds (smoothed): what says whether a rank is worth sharing out
     /* resting (his ask, 2026-10-21: as fast as it can go, without anything being less at hand): see playTrack */
     std::atomic<int> sleepAfter { 0 };           // after how many samples of nothing coming in and nothing going out its plug-ins and patch may rest: their longest tail and two seconds, eight at least, thirty at most; 0: not yet known
@@ -1015,7 +1020,7 @@ public:
                 if (have == nullptr && fresh.count (t.id) == 0)
                 {
                     auto nt = std::make_unique<Track>();                     // tracks that are new are made before anything is locked
-                    nt->id = t.id; nt->work.setSize (2, maxBlock); nt->sideBuf.setSize (2, maxBlock); nt->share = -1.0f;
+                    nt->id = t.id; nt->work.setSize (2, maxBlock); nt->tapBuf.setSize (4, maxBlock); nt->sideBuf.setSize (2, maxBlock); nt->share = -1.0f;
                     nt->now.reserve (2048); nt->plugMidi.ensureSize (16384);
                     fresh[t.id] = std::move (nt);
                 }
@@ -1147,7 +1152,7 @@ public:
         t->frozen.store ((int) tv["frozen"] != 0);
         t->input.store ((int) tv["input"]);
         t->live.store ((int) tv["live"] != 0);
-        if (auto* sd = tv["sends"].getArray()) for (int k = 0; k < juce::jmin (kMaxSends, sd->size()); ++k) t->sends[k].gain.store ((float) (double) (*sd)[k]["gain"]);
+        if (auto* sd = tv["sends"].getArray()) for (int k = 0; k < juce::jmin (kMaxSends, sd->size()); ++k) { t->sends[k].gain.store ((float) (double) (*sd)[k]["gain"]); t->sends[k].tap.store (juce::jlimit (0, 2, (int) (*sd)[k]["tap"])); }
         const float sh = juce::jlimit (0.0f, 1.0f, (float) (double) tv["share"]);
         const bool wanted = (bool) tv["patched"] || t->tape.load() + t->space.load() + t->delay.load() > 0.0005f;
         if (t->wall || (bool) tv["wall"]) {}                           // (its patch is a wall: setWall makes and compiles its chain)
@@ -2282,7 +2287,7 @@ public:
             bufIndex[key] = (int) bufs.size(); bufs.push_back (nb);
         }
         auto* o = new juce::DynamicObject();
-        o->setProperty ("ok", true); o->setProperty ("key", key); o->setProperty ("sec", (double) frames / sr);
+        o->setProperty ("ok", true); o->setProperty ("key", key); o->setProperty ("sec", (double) frames / sr); o->setProperty ("ch", ch);      // (ch: how many sides it has — a stereo track's meter is two lines, ui.js stereoOf)
         o->setProperty ("peaks", meta["peaks"]); o->setProperty ("tone", meta["tone"]);
         if ((bool) meta["cut"]) { o->setProperty ("cut", true); o->setProperty ("whole", meta["whole"]); }
         return juce::var (o);
@@ -2459,6 +2464,7 @@ public:
             peaks.add (juce::roundToInt (m * 1000.0f) / 1000.0);
         }
         o.setProperty ("sec", (double) len / sr);
+        o.setProperty ("ch", dst.getNumChannels());                    // (how many sides it has: ui.js stereoOf)
         o.setProperty ("peaks", peaks);
         if (withTone) o.setProperty ("tone", toneOf (dst));
     }
@@ -3499,7 +3505,7 @@ public:
     {
         if (id == kLearnTrack)                                         // (made the first time a plug-in is opened to be learnt; message thread)
         {
-            if (learnTrack == nullptr) { learnTrack = std::make_unique<Track>(); learnTrack->id = kLearnTrack; learnTrack->work.setSize (2, maxBlock); learnTrack->sideBuf.setSize (2, maxBlock); learnTrack->share = -1.0f; }
+            if (learnTrack == nullptr) { learnTrack = std::make_unique<Track>(); learnTrack->id = kLearnTrack; learnTrack->work.setSize (2, maxBlock); learnTrack->tapBuf.setSize (4, maxBlock); learnTrack->sideBuf.setSize (2, maxBlock); learnTrack->share = -1.0f; }
             return learnTrack.get();
         }
         for (auto& t : tracks) if (t != nullptr && t->id == id) return t.get();
@@ -4246,10 +4252,24 @@ private:
         const float pls = ((pn1 <= 0.0f ? 1.0f : 1.0f - pn1) - pl) / (float) n, prs = ((pn1 >= 0.0f ? 1.0f : 1.0f + pn1) - pr) / (float) n;
         float g = t.gainSm, pk = 0.0f, pkL = 0.0f, pkR = 0.0f;
         const bool fine = fineOn.load (std::memory_order_relaxed) && st.rolling;      // (a realtime print: what comes out, finely)
+        /* the sends that take the sound before the fader, or before the pan, have it kept for them (passOn) */
+        bool wantPre = false, wantFader = false;
+        for (auto& sd : t.sends) if (sd.dst != nullptr) { const int tp = sd.tap.load (std::memory_order_relaxed); wantPre = wantPre || tp == 2; wantFader = wantFader || tp == 1; }
+        if ((wantPre || wantFader) && t.tapBuf.getNumSamples() < n) { wantPre = wantFader = false; }      // (never: it is as long as the longest block)
+        if (wantPre)                                                   // (muted or not heard, what it sends before its fader is shut too, as Logic has it)
+        {
+            const float g1 = t.gate.load (std::memory_order_relaxed);
+            t.tapBuf.copyFromWithRamp (0, 0, L, n, t.preGate, g1); t.tapBuf.copyFromWithRamp (1, 0, R, n, t.preGate, g1);
+            t.preGate = g1;
+        }
+        t.tapHave = (wantPre ? 1 : 0) | (wantFader ? 2 : 0);
+        float* fL = wantFader ? t.tapBuf.getWritePointer (2) : nullptr;
+        float* fR = wantFader ? t.tapBuf.getWritePointer (3) : nullptr;
         const int fineStep = juce::jmax (1, (int) (sr / 200.0));
         for (int i = 0; i < n; ++i)
         {
             g += gs; pl += pls; pr += prs;
+            if (fL != nullptr) { fL[i] = L[i] * g; fR[i] = R[i] * g; }
             const float l = L[i] * g * pl, r = R[i] * g * pr;
             L[i] = l; R[i] = r;
             const float al = std::abs (l), ar = std::abs (r), a = al > ar ? al : ar;
@@ -4394,7 +4414,11 @@ private:
             auto& s = t.sends[k];
             if (s.dst == nullptr) continue;
             const float st = evalAutoGain (t, kAutoSend0 + k, rolling ? bar1 + (double) t.early.load() / barS : bar1, v) ? v : s.gain.load();      // (read as early as the sound is here, like the fader)
-            s.hold.add (L, R, s.dst->work.getWritePointer (0), s.dst->work.getWritePointer (1), n, s.sm, st);
+            const int tp = s.tap.load (std::memory_order_relaxed), c0 = tp == 2 ? 0 : 2;      // (where it takes the sound: before the fader, after it, or after the pan too — the track's own)
+            const bool kept = (tp == 2 && (t.tapHave & 1) != 0) || (tp == 1 && (t.tapHave & 2) != 0);
+            const float* sL = kept ? t.tapBuf.getReadPointer (c0) : L;
+            const float* sR = kept ? t.tapBuf.getReadPointer (c0 + 1) : R;
+            s.hold.add (sL, sR, s.dst->work.getWritePointer (0), s.dst->work.getWritePointer (1), n, s.sm, st);
             s.sm = st;
         }
     }

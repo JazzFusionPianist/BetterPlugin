@@ -6,13 +6,14 @@ const NAT = (() => {
   const wait = new Map()
   J.backend.addEventListener('__juce__complete', d => { const f = wait.get(d.promiseId); if (f) { wait.delete(d.promiseId); f(d.result) } })
   /* every sound the app decodes for the page is remembered by its key, so that it can be let go when the project is left */
-  const keys = new Set(), keep = r => { for (const x of Array.isArray(r) ? r : r && Array.isArray(r.placed) ? r.placed : [r]) if (x && typeof x.key === 'string' && /^(file|warp):/.test(x.key)) keys.add(x.key); return r }
+  const keys = new Set(), keep = r => { for (const x of Array.isArray(r) ? r : r && Array.isArray(r.placed) ? r.placed : [r]) if (x && typeof x.key === 'string' && /^(file|warp):/.test(x.key)) { keys.add(x.key); if (x.ch > 0) SOUND_CH.set(x.key, x.ch) } return r }      // (and how many sides it has: ui.js stereoOf)
   return {
     keys,
     call: (op, data) => new Promise(res => { const id = nid++; wait.set(id, r => res(keep(r))); J.backend.emitEvent('__juce__invoke', { name: 'daw', params: [op, data == null ? {} : data], resultId: id }) }),
     on: (ev, fn) => J.backend.addEventListener(ev, fn),
   }
 })()
+const SOUND_CH = new Map()                                                    // a sound the app decoded: how many sides it has, by its key
 let natInit = null, natReady = async () => {}, natSendLoops = async () => {}, natSession = async () => {}, natRolling = () => {}, natStopped = () => {}
 
 /* ── the session ── */

@@ -71,7 +71,7 @@ function refPull (d, p, e) {
   if (d.k === 'move') { const lo = pv ? pv.b : 1, hi = nx ? nx.a - d.len : Infinity, a = clamp(snapPos(d.a0 - 1 + (p.x - d.x0) / PXB, e) + 1, lo, Math.max(lo, hi)); r.a = a; r.b = a + d.len }
   else if (d.k === 'trim' && d.end === 'l') { const f0 = d.a0 - d.off0, a = clamp(snapPos(pos - 1, e) + 1, Math.max(f0, pv ? pv.b : 1), d.b0 - REF_MIN); r.a = a; r.off = d.off0 + (a - d.a0); r.fi = Math.min(d.fi0, r.b - r.a) }
   else if (d.k === 'trim') { const f1 = d.a0 - d.off0 + (r.srcBars || (d.b0 - d.a0)), b = clamp(snapPos(pos - 1, e) + 1, d.a0 + REF_MIN, Math.min(f1, nx ? nx.a : Infinity)); r.b = b; r.fo = Math.min(d.fo0, r.b - r.a) }
-  else if (d.k === 'gain') r.gain = clamp(Math.round((d.g0 - (p.y - d.y0) * .1) * 10) / 10, -30, 12)
+  else if (d.k === 'gain') r.gain = clamp(Math.round((d.g0 - (p.y - d.y0) * .1) * 10) / 10, -GAIN_MAX, GAIN_MAX)
   else if (d.k === 'fade') { const at = clamp(snapPos(pos - 1, e) + 1, r.a, r.b); if (d.end === 'in') r.fi = clamp(at - r.a, 0, r.b - r.a - (r.fo || 0)); else r.fo = clamp(r.b - at, 0, r.b - r.a - (r.fi || 0)) }
   refTell(); uiDirty('ref')
 }

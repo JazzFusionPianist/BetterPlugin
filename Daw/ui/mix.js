@@ -293,11 +293,22 @@ function openOutMenu (t, x, y) {
   items.push({ t: 'new bus', v: 'new', sep: true })
   openMenu(x, y, items, it => { if (it.v === 'new') { const b = newTrack('bus', null, true); if (b) setOut(t, b.id) } else if (it.v !== destId(t)) setOut(t, it.v) })
 }
+/* where a send takes the track's sound (his ask, 2026-10-24, as Logic has them): after its fader and its pan — post pan, the
+   way sends always have, so it keeps no word — after its fader but before its pan ('post': post fader), or before its fader
+   ('pre': pre fader, and shut with the track when it is muted). Each knob wears its way's colour (his pick of send modes
+   draft 1, the colours turned so the way it always was keeps the knob's own look) */
+const SEND_TAPS = [['pan', 'post pan'], ['post', 'post fader'], ['pre', 'pre fader']]
+const sendTap = sd => sd && (sd.tap === 'post' || sd.tap === 'pre') ? sd.tap : 'pan'
+const sendTapN = sd => ({ pan: 0, post: 1, pre: 2 })[sendTap(sd)]                                   // (as the engine counts them: Engine.h SendSlot)
+const sendTapC = (sd, bau) => (bau ? { pan: BH.red, post: BH.blue, pre: BH.yellow } : { pan: INK, post: SPACE, pre: AMBER })[sendTap(sd)]
+function setSendTap (t, k, tap) { const sd = t.sends[k]; if (!sd || sendTap(sd) === tap) return; edit(() => { if (tap === 'pan') delete sd.tap; else sd.tap = tap }) }
 function openSendMenu (t, k, x, y) {
   const cur = t.sends[k], items = S.tracks.filter(b => canFeed(t, b) && b.id !== destId(t)).map(b => ({ t: b.name, k: b.kind, v: b.id, on: !!cur && cur.to === b.id }))
   items.push({ t: 'new bus', v: 'new', sep: !!items.length })
   if (cur) items.push({ t: 'no send', v: 0 })
-  openMenu(x, y, items, it => { if (it.v === 'new') { const b = newTrack('bus', null, true); if (b) setSend(t, k, b.id) } else setSend(t, k, it.v) })
+  const bau = typeof SKIN === 'object' && SKIN.k.transport === 'poster'
+  if (cur) SEND_TAPS.forEach(([tap, word], i) => items.push({ t: word, v: 'tap:' + tap, on: sendTap(cur) === tap, sw: sendTapC({ tap }, bau), sep: !i }))
+  openMenu(x, y, items, it => { if (String(it.v).startsWith('tap:')) setSendTap(t, k, it.v.slice(4)); else if (it.v === 'new') { const b = newTrack('bus', null, true); if (b) setSend(t, k, b.id) } else setSend(t, k, it.v) })
 }
 function openTrackMenu (i, x, y) {
   const t = S.tracks[i], st = t.kind === 'stack' ? t : byId(t.parent)

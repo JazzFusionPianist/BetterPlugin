@@ -183,7 +183,7 @@ function sayScene (stem, ord, own) {
   if (typeof ord === 'number') return all[ord - 1] || null
   return all[cur >= 0 ? cur : nxt >= 0 ? nxt : 0]
 }
-const sayBar = v => { const b = Math.floor(v + 1e-9), beat = Math.round((v - b) * 10); return clamp(b - 1 + (clamp(beat || 1, 1, BEATS()) - 1) / BEATS(), 0, SONG_END) }
+const sayBar = v => { const b = Math.floor(v + 1e-9), beat = Math.round((v - b) * 10); return clamp(b - 1 + preBars() + (clamp(beat || 1, 1, BEATS()) - 1) / BEATS(), 0, SONG_END) }
 const SAY_FAM_NAME = { drums: 'drums', bass: 'bass', vox: 'vocals', gtr: 'guitars', keys: 'keys', fx: 'effects' }
 const sayList = ts => ts.length <= 3 ? ts.map(t => t.name).join(', ') : `${ts.length} tracks`
 /* ── a value of a track ──
@@ -887,7 +887,7 @@ function sayDo (a, out) {
   if (a.do === 'rgain') {
     const rs = sayOf(a)
     if (!rs.length) { none(); return true }
-    edit(() => { for (const [r] of rs) { r.gain = clamp(Math.round((a.abs ? +a.db : (r.gain || 0) + (+a.db)) * 10) / 10, -30, 12); dirtyReg(r) } })
+    edit(() => { for (const [r] of rs) { r.gain = clamp(Math.round((a.abs ? +a.db : (r.gain || 0) + (+a.db)) * 10) / 10, -GAIN_MAX, GAIN_MAX); dirtyReg(r) } })
     word(`${sayCount(rs.length)}: gain ${a.abs ? 'at ' + fmtDb(+a.db) : (a.db > 0 ? '+' : '−') + Math.abs(a.db)} db`)
     return true
   }

@@ -21,7 +21,7 @@ export async function room (o = {}) {
   /* a picture: the whole window, or the box [x, y, w, h] of it. Parts are noted by their data-a; the n-th of a name is name#n. */
   b.pic = async (name, clip, scale = 1) => {
     if (want.length && !want.includes(name)) return
-    await b.ev(`if (window.__daw) { __daw.redraw && __daw.redraw(); __daw.flush && __daw.flush() }`)
+    await b.ev(`if (typeof LIT === 'object') LIT.until.clear(); if (window.__daw) { __daw.redraw && __daw.redraw(); __daw.flush && __daw.flush() }`)      // (what setting the picture up changed is not lit in it: ui/lit.js)
     await b.sleep(120)
     const vw = o.w || W, vh = o.h || H
     if (typeof clip === 'string') { const [part, pad = 8] = clip.split('|'); const r = await b.box(part); if (!r) throw new Error('no part ' + part); const p = +pad; clip = [Math.max(0, Math.floor(r[0] - p)), Math.max(0, Math.floor(r[1] - p)), Math.ceil(r[2] + 2 * p), Math.ceil(r[3] + 2 * p)] }

@@ -90,7 +90,7 @@ await ev(`showRow(${ids.rows[1]}); dirtyAll(); flush()`)
   const c1 = await ev(`return document.querySelector('[data-a="lanes"]').style.cursor`)
   await b.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x - 1, y: p.y, buttons: 0, modifiers: 0 }); await b.sleep(40)
   const c2 = await ev(`return document.querySelector('[data-a="lanes"]').style.cursor`)
-  ok('over the end with option the pointer is the stretching one; without, the pulling one', c1 === 'e-resize' && c2 === 'ew-resize', [c1, c2]) }
+  ok('over the end with option the pointer is the stretching one; without, the pulling one', c1 === 'e-resize' && /url\(.* ew-resize$/.test(c2), [c1, c2.slice(-40)]) }      // (the pulling one: the smart tool's trim, drawn — ew-resize where a drawn pointer is not taken)
 // one of the song's own loops is not stretched: with option too its end is only pulled
 await ev(`showRow(${ids.rows[2]}); dirtyAll(); flush()`)
 { const was = await reg(ids.lp)

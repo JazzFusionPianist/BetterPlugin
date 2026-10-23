@@ -55,7 +55,7 @@ const pts = () => ev(`const t = S.tracks[${bi}]; return { n: autoPts(t, 'vol').l
 const at = (frac, dy = 0) => ev(`flush(); const t = S.tracks[${bi}], g = autoGeom(t, rowY(${bi}), rowH(${bi})), x = X0 + (X1 - X0) * ${frac}, pos = clamp(barAt(x), 0, SONG_END), v = autoPts(t, g.k).length ? autoAt(t, g.k, pos) : g.A.now(t); return { x, y: g.yOf(v) + ${dy}, row: [rowY(${bi}), rowH(${bi})] }`)
 { const p = await at(.3)
   await mouse('mouseMoved', p.x, p.y, { buttons: 0 }); await b.sleep(60)
-  ok('over the line the pointer says a point can be made', (await ev(`return document.elementFromPoint(${p.x}, ${p.y}).style.cursor`)) === 'crosshair')
+  ok('over the line the pointer says a point can be made', await ev(`const d = document.createElement('div'); d.style.cursor = TOOL_CURSOR.point; return document.elementFromPoint(${p.x}, ${p.y}).style.cursor === d.style.cursor`))      // (the point's own pointer, drawn: ui.js makeCursors)
   await mouse('mousePressed', p.x, p.y); await b.sleep(40)
   const down = await pts()
   ok('a press on the line takes hold of it (no point yet: let go in place it would be one, pulled the line moves)', down.n === 0 && down.drag === 'apt' && down.auto === false, down)

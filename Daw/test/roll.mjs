@@ -272,7 +272,7 @@ ok('the lane under the notes is away until it is asked for', await ev(`flush(); 
 // ── the scissors, the eraser, and force legato ──
 { await ev(`const [r] = regOf(${ids.r}); setNotes(r, r.notes.map((x, i) => { const y = Object.assign({}, x, { t: [0, 1, 2][i], d: [1, 1, 2][i], n: [60, 64, 67][i] }); delete y.o; return y })); ROLL.sel = new Set(); S.selR = [${ids.r}]; S.focus = 'notes'; uiDirty('dock', 'lanes'); flush()`)
   await key('t', 'KeyT', 84); await key('i', 'KeyI', 73)
-  ok('t, then i: the scissors, and the pointer over a note says so', await ev(`flush(); return S.tool === 'scissors' && document.querySelector('[data-a="np"][data-k="note"]').style.cursor === 'col-resize'`), await ev('return S.tool'))
+  ok('t, then i: the scissors, and the pointer over a note says so', await ev(`flush(); return S.tool === 'scissors' && document.querySelector('[data-a="np"][data-k="note"]').style.cursor === 'var(--cur-scissors)'`), await ev('return S.tool'))
   const c = await noteEl(ids.n[2]), p = await place(4, 60)
   await b.click(c.l + p.step * 4 + 3, c.y); await b.sleep(80)
   const cut = (await notes()).filter(x => x[2] === 67).sort((x, y) => x[0] - y[0])
@@ -286,7 +286,7 @@ ok('the lane under the notes is away until it is asked for', await ev(`flush(); 
   ok('t, t: the pointer again', (await ev('return S.tool')) === 'pointer')
   // the velocity tool
   await key('t', 'KeyT', 84); await key('v', 'KeyV', 86)
-  ok('t, then v: the velocity tool; over a note the pointer says up and down, and the note has no end to pull', await ev(`flush(); return S.tool === 'velocity' && document.querySelector('[data-a="np"][data-k="note"]').style.cursor === 'ns-resize' && !document.querySelector('[data-a="np"][data-k="len"]')`), await ev('return S.tool'))
+  ok('t, then v: the velocity tool; over a note the pointer says up and down, and the note has no end to pull', await ev(`flush(); return S.tool === 'velocity' && document.querySelector('[data-a="np"][data-k="note"]').style.cursor === 'var(--cur-velocity)' && !document.querySelector('[data-a="np"][data-k="len"]')`), await ev('return S.tool'))
   { const v0 = (await notes()).map(x => x[3]), n1 = await noteEl(ids.n[0])
     await b.dragTo(n1.x, n1.y, n1.x + 30, n1.y - 25, 6); await b.sleep(80)
     const v1 = (await notes()).map(x => x[3]), t1 = (await notes()).map(x => [x[0], x[2]])

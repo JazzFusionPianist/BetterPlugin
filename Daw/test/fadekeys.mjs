@@ -24,7 +24,7 @@ const ids = await ev(`
 // the pointer over the region with the keys held says what a pull would do
 { const p = await at(ids.f, -.2)
   await mouse('mouseMoved', p.x, p.y, KEYS); await b.sleep(40)
-  ok('control and shift over a region of sound: the pointer is the fade tool\'s', (await ev(`return document.getElementById('board').style.cursor || [...document.querySelectorAll('#board, #board *')].map(e => e.style && e.style.cursor).find(c => c === 'ew-resize') || ''`)) === 'ew-resize') }
+  ok('control and shift over a region of sound: the pointer is the fade tool\'s', await ev(`const d = document.createElement('div'); d.style.cursor = TOOL_CURSOR.fade; return [...document.querySelectorAll('#board, #board *')].some(e => e.style && e.style.cursor === d.style.cursor)`)) }      // (the fade tool's own, drawn: ui.js makeCursors)
 
 // a fade out: pressed near the end, pulled a bar into the region
 { const p = await at(ids.f, -.1), r0 = await reg(ids.f)

@@ -53,31 +53,63 @@ const DRAFT = { fades: true }
 /* the smart tool's pointers, one for each thing a press would do (the draft's glyphs: ink with a dark edge, so that they read on
    a lane and on any pigment). Made once, as pictures, at the size of the screen's own pixels. */
 const SMART_CURSOR = {}
+/* and every tool's own (design/tool pointers draft 1, his OK of 2026-10-23), drawn the same way: a path on a grid of 16, what of
+   it is filled, and the spot a press lands on. `point` is what a press on a volume line would take hold of. Each is also a css
+   variable (--cur-pencil and so on), for what is drawn as a string: the notes page's notes and paper. */
+const TOOL_CURSOR = {}
 function makeCursors () {
   const glyphs = { fi: 'M2.5 13.5H13.5V2.5M2.5 13.5C8.5 13.5 9 2.5 13.5 2.5', fo: 'M13.5 13.5H2.5V2.5M13.5 13.5C7.5 13.5 7 2.5 2.5 2.5', x: 'M2.5 2.5C8.5 2.5 7.5 13.5 13.5 13.5M2.5 13.5C8.5 13.5 7.5 2.5 13.5 2.5',
     range: 'M5.5 2.5C7 2.5 8 3.2 8 4.5V11.5C8 12.8 7 13.5 5.5 13.5M10.5 2.5C9 2.5 8 3.2 8 4.5M10.5 13.5C9 13.5 8 12.8 8 11.5M6.3 8H9.7', tl: 'M2 8H14M4.6 5.2L2 8L4.6 10.8M11.4 5.2L14 8L11.4 10.8M8 3.5V12.5',
     grab: 'M4.5 8.2V4.6a1 1 0 0 1 2 0V7.4M6.5 7.4V3.4a1 1 0 0 1 2 0V7.4M8.5 7.4V3.8a1 1 0 0 1 2 0V7.8M10.5 7.8V5.4a1 1 0 0 1 2 0V10.2C12.5 12.4 11 13.8 8.8 13.8H8C6.4 13.8 5.4 13 4.6 11.6L3 8.8a.95 .95 0 0 1 1.5 -1.1Z' }
   glyphs.tr = glyphs.tl
   const fallback = { fi: 'ew-resize', fo: 'ew-resize', x: 'col-resize', range: 'text', tl: 'ew-resize', tr: 'ew-resize', grab: 'grab' }
-  for (const k in glyphs) {
-    const pic = scale => {
-      const c = document.createElement('canvas'), g = c.getContext('2d'), size = 24
-      c.width = c.height = size * scale
-      g.scale(scale * 1.5, scale * 1.5); g.lineCap = g.lineJoin = 'round'
-      const path = new Path2D(glyphs[k])
-      g.strokeStyle = K0; g.globalAlpha = .92; g.lineWidth = 3.4; g.stroke(path)
-      g.globalAlpha = 1; if (k === 'grab') { g.fillStyle = 'rgba(14,14,14,.4)'; g.fill(path) }
-      g.strokeStyle = INK; g.lineWidth = 1.3; g.stroke(path)
-      return c.toDataURL('image/png')
-    }
+  const tools = {
+    pointer: { d: 'M3 2.5V13L5.8 10.4L7.9 14.3L9.9 13.3L7.8 9.5H11.6Z', fill: K0, hot: [3, 2.5], sys: 'default' },
+    smart: { d: 'M2.5 2V11L4.8 8.9L6.5 12.1L8.1 11.3L6.4 8.2H9.5Z M10 10H14V14H10Z M12 10V14M10 12H14', fill: K0, hot: [2.5, 2], sys: 'default' },
+    pencil: { d: 'M2.5 13.5L3.42 9.9L11.2 2.12L13.88 4.8L6.1 12.58Z M3.42 9.9L6.1 12.58 M9.36 3.96L12.04 6.64', fill: K0, hot: [2.5, 13.5], sys: 'crosshair' },
+    eraser: { d: 'M2.2 9.8L8.85 3.15L12.81 7.11L6.16 13.76Z M5.03 6.97L8.99 10.93', fill: K0, solid: 'M2.2 9.8L5.03 6.97L8.99 10.93L6.16 13.76Z', hot: [4.2, 11.8], sys: 'cell' },
+    scissors: { d: 'M6.6 1.8L10.2 10.8M9.4 1.8L5.8 10.8 M2.6 10.8H6.4V14.4H2.6Z M9.6 10.8H13.4V14.4H9.6Z', hot: [8, 1.8], sys: 'col-resize' },
+    join: { d: 'M2.5 3.5H7V9H2.5Z M9 3.5H13.5V9H9Z M4.75 9V12.5H11.25V9', hot: [8, 6.2], sys: 'copy' },
+    mute: { d: 'M2.5 6H5V10H2.5Z M5 6L8.5 3V13L5 10 M10.2 6.2L13.8 9.8M13.8 6.2L10.2 9.8', fill: K0, hot: [8, 8], sys: 'not-allowed' },
+    gain: { d: 'M8 2V6.8M8 9.2V14 M6 4L8 2L10 4 M6 12L8 14L10 12', dark: 'M4.4 6.8H11.6V9.2H4.4Z', hot: [8, 8], sys: 'ns-resize' },
+    fade: { d: 'M2 13C4.5 13 4.8 4 7.5 4H8.5C11.2 4 11.5 13 14 13', hot: [8, 8], sys: 'ew-resize' },
+    marquee: { d: 'M8 1.5V6M8 10V14.5M1.5 8H6M10 8H14.5 M11 13.5H13.5V11', hot: [8, 8], sys: 'crosshair' },
+    flex: { d: 'M8 2V14 M8 2H11.5V5H8 M4.5 9.5L2.5 11.5L4.5 13.5M2.5 11.5H6 M11.5 9.5L13.5 11.5L11.5 13.5M10 11.5H13.5', only: 'M8 2H11.5V5H8Z', hot: [8, 8], sys: 'col-resize' },
+    zoom: { d: 'M2.5 2.5H10.5V10.5H2.5Z M10.5 10.5L14 14 M6.5 4.5V8.5M4.5 6.5H8.5', fill: K0, hot: [6.5, 6.5], sys: 'zoom-in' },
+    velocity: { d: 'M5 14V6.8 M11.5 2.5V13.5 M9.5 4.5L11.5 2.5L13.5 4.5 M9.5 11.5L11.5 13.5L13.5 11.5', only: 'M3.2 3.2H6.8V6.8H3.2Z', hot: [5, 5], sys: 'ns-resize' },
+    point: { d: 'M1.5 12.5L6 9.2 M10 6.2L14.5 3', dark: 'M5.8 5.6H10.2V10H5.8Z', hot: [8, 7.8], sys: 'crosshair' }
+  }
+  /* drawn as the draft is: the dark edge round all of it, what is filled, the ink */
+  const pic = (o, scale) => {
+    const c = document.createElement('canvas'), g = c.getContext('2d'), size = 24
+    c.width = c.height = size * scale
+    g.scale(scale * 1.5, scale * 1.5); g.lineCap = g.lineJoin = 'round'
+    const path = new Path2D(o.d), all = new Path2D([o.d, o.only, o.dark, o.solid].filter(Boolean).join(' '))
+    g.strokeStyle = K0; g.globalAlpha = .92; g.lineWidth = 3.4; g.stroke(all)
+    g.globalAlpha = 1
+    if (o.fill) { g.fillStyle = o.fill; g.fill(path, 'evenodd') }
+    if (o.dim) { g.fillStyle = 'rgba(14,14,14,.4)'; g.fill(path) }
+    if (o.dark) { const q = new Path2D(o.dark); g.fillStyle = K0; g.fill(q); g.strokeStyle = INK; g.lineWidth = 1.3; g.stroke(q) }
+    if (o.solid) { g.fillStyle = INK; g.fill(new Path2D(o.solid)) }
+    if (o.only) { g.fillStyle = INK; g.fill(new Path2D(o.only)) }
+    g.strokeStyle = INK; g.lineWidth = 1.3; g.stroke(path)
+    return c.toDataURL('image/png')
+  }
+  const make = (o, sys) => {
+    const at = (o.hot || [8, 8]).map(v => Math.max(0, Math.min(23, Math.round(v * 1.5)))).join(' ')
     try {
-      const sharp = `-webkit-image-set(url(${pic(1)}) 1x, url(${pic(2)}) 2x) 12 12, ${fallback[k]}`, plain = `url(${pic(1)}) 12 12, ${fallback[k]}`, probe = document.createElement('div')
+      const sharp = `-webkit-image-set(url(${pic(o, 1)}) 1x, url(${pic(o, 2)}) 2x) ${at}, ${sys}`, plain = `url(${pic(o, 1)}) ${at}, ${sys}`, probe = document.createElement('div')
       probe.style.cursor = sharp                                                      // (a browser that will not take the two sizes is given the one; one that takes neither, the system's own pointer)
       if (!probe.style.cursor) probe.style.cursor = plain
-      SMART_CURSOR[k] = probe.style.cursor ? (probe.style.cursor.includes('image-set') ? sharp : plain) : fallback[k]
-    } catch (err) { SMART_CURSOR[k] = fallback[k] }
+      return probe.style.cursor ? (probe.style.cursor.includes('image-set') ? sharp : plain) : sys
+    } catch (err) { return sys }
   }
+  for (const k in glyphs) SMART_CURSOR[k] = make({ d: glyphs[k], dim: k === 'grab' }, fallback[k])
+  for (const k in tools) { TOOL_CURSOR[k] = make(tools[k], tools[k].sys); document.documentElement.style.setProperty('--cur-' + k, TOOL_CURSOR[k]) }
+  document.documentElement.style.setProperty('--cur-grab', SMART_CURSOR.grab)
 }
+/* the pointer a tool shows where nothing in particular is under it */
+const toolCursor = tool => TOOL_CURSOR[tool] || 'default'
 const dirty = new Set()
 let TOUCHED = 0                                                                     // how many times something has been drawn again: what the quiet save looks at (project.js)
 function uiDirty () { TOUCHED++; for (const p of arguments) dirty.add(p); if (!uiDirty.q) { uiDirty.q = true; requestAnimationFrame(flush) } }

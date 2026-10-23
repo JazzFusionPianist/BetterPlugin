@@ -160,11 +160,11 @@ function pRoll (y, h) {
   const hi = kit ? 0 : V.hi, lo = hi - count + 1
   const rowOfKey = p => kit ? (() => { const i = DRUM_PADS.findIndex(q => q[1] === p); return i < 0 ? -1 : DRUM_PADS.length - 1 - i })() : hi - p
   const Y = p => top + rowOfKey(p) * rowH, gb = top + count * rowH
-  const noteCur = S.tool === 'scissors' && !kit ? 'col-resize' : S.tool === 'eraser' ? 'cell' : S.tool === 'velocity' ? 'ns-resize' : 'grab'
+  const noteCur = S.tool === 'scissors' && !kit ? 'var(--cur-scissors)' : S.tool === 'eraser' ? 'var(--cur-eraser)' : S.tool === 'velocity' ? 'var(--cur-velocity)' : 'var(--cur-grab)'      // (the tools' own pointers: ui.js makeCursors)
   const cid = 'rl' + (++UID), L = r ? regLook(r, t) : { c: t ? t.c : INK, deep: t ? t.deep : K0, sel: t ? t.csel : INK }, env = rollEnv(inst ? t.inst : null), step = rollStep()
   ROLL.g = { y, h, x0, x1, top, bot, gb, rowH, count, hi, pxb, kit, KW, LP, laneH, base: y + h - 9, room: Math.max(10, laneH - 24) }
   let s = R(0, y, RX, h, { fill: K0 }) + `<clipPath id="${cid}"><rect x="${x0}" y="${n(y)}" width="${n(x1 - x0)}" height="${n(h)}"/></clipPath>`
-  let g = '', hits = rlHit(x0, top, x1 - x0, gb - top, 'paper'), out = ''                // (hits: on the paper, cut with it; out: the ruler's and the keys')
+  let g = '', hits = rlHit(x0, top, x1 - x0, gb - top, 'paper', '', `var(--cur-${S.tool})`), out = ''                // (hits: on the paper, cut with it; out: the ruler's and the keys')
   /* the paper: the rows of the white keys a breath lighter, a hairline under every c; for a kit a hairline under every pad */
   if (kit) { let d = ''; for (let k = 1; k <= count; k++) d += `M${x0} ${top + k * rowH - .5}H${x1}`; g += P(d, { stroke: INK, sa: .045 }) }
   else if (inst) for (let p = hi; p >= lo; p--) { if (!rollBlack(p)) g += R(x0, Y(p), x1 - x0, rowH, { fill: INK, fa: .022 }); if (((p % 12) + 12) % 12 === 0) g += hline(x0, x1, Y(p) + rowH - 1, .1) }
@@ -195,7 +195,7 @@ function pRoll (y, h) {
       if (xa + w + 240 < x0 || xa > x1) continue
       out += rollStroke(xa + .5, xa + .5 + w, cy, (rowH / 2 - .5) * (.66 + .34 * f), env, pps, col, fa)
       if (on) ring += R(xa - 1, yy - .5, w + 3, rowH + 1, { stroke: INK })
-      if (own) { hits += rlHit(xa, yy, Math.max(4, w + 1), rowH, 'note', ` data-i="${x.id}"`, noteCur); if (w >= 10 && noteCur === 'grab') hits += rlHit(xa + w - 4, yy, 6, rowH, 'len', ` data-i="${x.id}"`, 'ew-resize') }
+      if (own) { hits += rlHit(xa, yy, Math.max(4, w + 1), rowH, 'note', ` data-i="${x.id}"`, noteCur); if (w >= 10 && noteCur === 'var(--cur-grab)') hits += rlHit(xa + w - 4, yy, 6, rowH, 'len', ` data-i="${x.id}"`, 'ew-resize') }
     }
     return out + ring
   }
@@ -636,10 +636,10 @@ function rollOpen () { if (!rollOn()) { S.panel.on = true; S.panel.tab = 'notes'
 
 /* ── joined to the room ── */
 {
-  const down0 = onDown, move0 = onMove, up0 = onUp, wheel0 = onWheel, dock0 = PARTS.dock, toggle0 = togglePanel, flush0 = flush, lanePress0 = lanesPress, laneHover0 = lanesHover
-  /* on the lanes the velocity tool is the gain tool (how hard a region of notes is played is its gain) */
+  const down0 = onDown, move0 = onMove, up0 = onUp, wheel0 = onWheel, dock0 = PARTS.dock, toggle0 = togglePanel, flush0 = flush, lanePress0 = lanesPress
+  /* on the lanes the velocity tool is the gain tool (how hard a region of notes is played is its gain); its pointer stays its own */
   const asGain = fn => function (...a) { if (S.tool !== 'velocity') return fn(...a); S.tool = 'gain'; try { return fn(...a) } finally { S.tool = 'velocity' } }
-  lanesPress = asGain(lanePress0); lanesHover = asGain(laneHover0)
+  lanesPress = asGain(lanePress0)
   PARTS.dock = function () {
     if (!rollOn() || VIEW.p <= .001) return dock0()
     const y = BY, h = S.panel.h

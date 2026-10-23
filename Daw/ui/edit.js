@@ -1910,12 +1910,14 @@ const nextStop = (stops, from, dir) => { if (dir > 0) return stops.find(v => v >
 /* the cursor says what a press would do */
 function lanesHover (e, p, el) {
   const tool = fadeHeld(e, p) ? 'fade' : S.tool
-  let c = { pencil: 'crosshair', eraser: 'cell', scissors: 'col-resize', join: 'copy', mute: 'not-allowed', gain: 'ns-resize', fade: 'ew-resize', marquee: 'crosshair', zoom: 'zoom-in', flex: 'col-resize' }[tool] || 'default'
-  if (S.auto && tool !== 'zoom' && tool !== 'marquee') c = tool === 'eraser' ? 'cell' : 'crosshair'
-  else if (tool !== 'zoom' && tool !== 'marquee' && (p.y - TY + VY) < rowTops().all && onOwnLine(laneAt(p.y), p)) c = tool === 'eraser' ? 'cell' : 'crosshair'
-  else if (tool === 'smart') { const ti = laneAt(p.y), r = S.flex ? hitRegion(ti, barAt(p.x)) : null; c = r && rubatoOn(r) && flexNear(r, p.x) ? 'col-resize' : SMART_CURSOR[smartZone(ti, p).z] || 'default' }
-  else if (tool === 'pointer') { const ti = laneAt(p.y), r = hitRegion(ti, barAt(p.x)); if (r) c = endAt(ti, p) ? 'ew-resize' : S.flex && rubatoOn(r) && flexNear(r, p.x) ? 'col-resize' : 'grab' }
-  if (el.style.cursor !== c) el.style.cursor = c
+  let c = toolCursor(tool)                                                          // (every tool its own: ui.js makeCursors)
+  const onLine = () => tool === 'eraser' || tool === 'pencil' ? toolCursor(tool) : toolCursor('point')
+  if (S.auto && tool !== 'zoom' && tool !== 'marquee') c = onLine()
+  else if (tool !== 'zoom' && tool !== 'marquee' && (p.y - TY + VY) < rowTops().all && onOwnLine(laneAt(p.y), p)) c = onLine()
+  else if (tool !== 'zoom' && tool !== 'marquee' && (p.y - TY + VY) >= rowTops().all && typeof outLineAt === 'function' && outLineAt(p, tool)) c = onLine()      // (the stereo out's line, under the rows)
+  else if (tool === 'smart') { const ti = laneAt(p.y), r = hitRegion(ti, barAt(p.x)), z = smartZone(ti, p).z; c = r && S.flex && rubatoOn(r) && flexNear(r, p.x) ? toolCursor('flex') : r || z === 'x' ? SMART_CURSOR[z] || c : c }      // (in a region, or on a crossfade: the zone's own; elsewhere the tool's)
+  else if (tool === 'pointer') { const ti = laneAt(p.y), r = hitRegion(ti, barAt(p.x)); if (r) c = endAt(ti, p) ? SMART_CURSOR.tl : S.flex && rubatoOn(r) && flexNear(r, p.x) ? toolCursor('flex') : SMART_CURSOR.grab }
+  if (el.__c !== c || el.style.cursor !== el.__cs) { el.style.cursor = c; el.__c = c; el.__cs = el.style.cursor }      // (a drawn pointer is written back by the browser in its own words: what was set is kept beside it, so a move sets it only when it changes)
 }
 
 /* ── the keys: Steven's Logic set, read by where the key sits so a Korean keyboard changes nothing ── */

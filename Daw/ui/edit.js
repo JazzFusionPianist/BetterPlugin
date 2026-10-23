@@ -30,6 +30,7 @@ const editState = () => ({
   props: S.tracks.map(t => { const o = { sends: copy(t.sends || []), autos: copy(t.autos || {}), alts: (t.alts || []).map(a => ({ name: a.name, regs: keepRegs(a.regs) })) }; for (const k of T_KEEP) o[k] = t[k]; return o }),
   selR: S.selR.slice(), selP: S.selP.slice(), cycle: Object.assign({}, S.cycle), sel: S.sel, selT: S.selT.slice(), scenes: SCENES.map(s => [s.name, s.a, s.c]), end: SONG_END, tempo: S.tempo, selX: S.selX ? S.selX.slice() : null,
   ref: typeof refKeep === 'function' ? refKeep() : null,                                // (the reference's regions: reference.js)
+  outAutos: typeof OUT === 'object' ? copy(OUT.autos || {}) : null,                      // (the stereo out's line: wall.js)
 })
 /* the levels of every track as they stand. A step made by the command line carries them (a line may move faders, and
    takes them back with everything else it did); a step made by hand does not, so going back over an edit leaves the
@@ -38,6 +39,7 @@ const mixState = () => S.tracks.map(t => ({ id: t.id, vol: t.vol, pan: t.pan, mu
 const withMix = (now, st) => { if (st.mix) now.mix = mixState(); return now }
 function restoreEdit (st) {
   S.tracks = st.order.slice()
+  if (st.outAutos && typeof OUT === 'object') OUT.autos = copy(st.outAutos)
   if (st.mix) { for (const x of st.mix) { const t = byId(x.id); if (t) { t.vol = x.vol; t.pan = x.pan; t.mute = x.mute; t.solo = x.solo; t.patch = copy(x.patch); t.ghost = null } } applyAll() }
   S.tracks.forEach((t, i) => { t.regs = keepRegs(st.regs[i]); const o = st.props[i]; for (const k of T_KEEP) t[k] = o[k]; t.sends = copy(o.sends); t.autos = copy(o.autos); t.alts = (o.alts || []).map(a => ({ name: a.name, regs: keepRegs(a.regs) })) })
   S.selR = st.selR.slice(); S.selP = st.selP.slice(); S.cycle = Object.assign({}, st.cycle); S.sel = clamp(st.sel, 0, S.tracks.length - 1); S.marq = null
@@ -1564,12 +1566,42 @@ function setZoom (pxb, aroundBar) {
   uiDirty('lanes', 'ruler', 'scenes', 'info')
 }
 function scrollBy (bars) { VX = clamp(VX + bars, 0, maxVX()); uiDirty('lanes', 'ruler', 'scenes') }
+/* how tall a row may be: from a thin strip (his ask, 2026-10-23: "vertical zoom out 이 훨씬 더 크게" — a session of many
+   tracks seen whole) to tall; the zoom bar runs between them evenly by ratio */
+const RH_MIN = 6, RH_MAX = 120
+const rhF = (h = S.rh) => clamp(Math.log((h || 25) / RH_MIN) / Math.log(RH_MAX / RH_MIN), 0, 1), fRh = f => RH_MIN * Math.pow(RH_MAX / RH_MIN, clamp(f, 0, 1))
 /* taller or shorter rows, keeping the chosen track where it is */
 function setRowH (h) {
   const k = rowOf(S.sel), y = rowY(S.sel)
-  S.rh = clamp(Math.round(h), 20, 120)                                                  // (a row with a height of its own keeps it)
+  S.rh = clamp(Math.round(h), RH_MIN, RH_MAX)                                           // (a row with a height of its own keeps it)
   VY = clamp(k < 0 ? VY : VY + rowY(S.sel) - y, 0, maxVY())
   uiDirty('lanes', 'head', 'info')
+}
+/* ── Z, as in Logic: what is chosen made to fill the window — the chosen regions (their bars across, their tracks down),
+   else the chosen tracks (the whole song across, those tracks down), else everything; pressed again, the view as it was
+   before (his ask, 2026-10-23: "여러 개의 트랙, 또는 리젼을 선택하고 z 누르면 선택한 것들이 화면 전체에 맞춰서") ── */
+let ZOOM_BACK = null
+function zoomToChosen () {
+  if (ZOOM_BACK) {
+    const z = ZOOM_BACK; ZOOM_BACK = null
+    S.rh = z.rh; PXB = clamp(z.pxb, fitPXB(), maxPXB()); VX = clamp(z.vx, 0, maxVX()); VY = clamp(z.vy, 0, maxVY())
+    uiDirty('lanes', 'ruler', 'scenes', 'head', 'info'); return
+  }
+  const back = { rh: S.rh, pxb: PXB, vx: VX, vy: VY }, vis = rows(), rs = selRegs()
+  let a = 0, b = SONG_END, idx
+  if (rs.length) { a = Math.min(...rs.map(x => x[0].a)) - 1; b = Math.max(...rs.map(x => x[0].b)) - 1; idx = [...new Set(rs.map(x => S.tracks.indexOf(x[1])))] }
+  else { const chosen = S.tracks.map((t, i) => i).filter(i => isChosen(i)); idx = chosen.length > 1 ? chosen : vis.slice() }
+  idx = idx.filter(i => vis.includes(i)).sort((p, q) => vis.indexOf(p) - vis.indexOf(q))
+  if (!idx.length) return
+  /* down: the rows those tracks span (from the first to the last, as they stand) fill the lanes; rows of a height of their
+     own keep it, the rest share what is left */
+  const span = vis.slice(vis.indexOf(idx[0]), vis.indexOf(idx[idx.length - 1]) + 1), own = span.filter(i => S.tracks[i].h).reduce((s, i) => s + S.tracks[i].h, 0), free = span.filter(i => !S.tracks[i].h).length
+  if (free) S.rh = clamp(Math.floor((LANES_H - own) / free), RH_MIN, RH_MAX)
+  VY = clamp(rowTops().tops[vis.indexOf(idx[0])] || 0, 0, maxVY())
+  /* across: the chosen regions' bars, with a little room either side; else the whole song */
+  if (rs.length) { const pad = (b - a) * .03; PXB = clamp((X1 - X0) / Math.max(.25, b - a + 2 * pad), fitPXB(), maxPXB()); VX = clamp(a - pad, 0, maxVX()) } else setZoom(0)      // (setZoom keeps a bar where it stands; here the chosen are put in view)
+  ZOOM_BACK = back
+  uiDirty('lanes', 'ruler', 'scenes', 'head', 'info')
 }
 /* the sound in every region drawn taller or lower, the rows as they are (Logic's ⌘+ and ⌘−): what is quiet can be read
    without making the rows tall; what is loud runs flat against the region's edge. Only how it is drawn: nothing is heard of it */
@@ -1592,7 +1624,15 @@ function lanesDown (e, p) {
 }
 function lanesPress (e, p) {
   if (S.focus !== 'lanes') { S.focus = 'lanes'; S.selM = null; uiDirty('scenes') }
-  if ((p.y - TY + VY) >= rowTops().all) { S.selR = []; S.selP = []; S.marq = null; uiDirty('lanes', 'dock'); return }       // below the last row
+  /* below the last row (the stereo out's row and the room under it): what was chosen is let go, and with the pointer a band
+     can be pulled from here up over the rows (his ask, 2026-10-23: "stereo out 밑에 남는 공간부터 드래그가 가능하게") */
+  if ((p.y - TY + VY) >= rowTops().all) {
+    if (outLineAt(p, S.tool) && S.tool !== 'zoom' && S.tool !== 'marquee') { S.selR = []; S.marq = null; autoDown(e, p, S.tool, AUTO_OUT); return }      // (the stereo out's own line, on its row: auto.js)
+    if (!e.shiftKey) S.selR = []
+    S.selP = []; S.marq = null
+    if (!S.auto && (S.tool === 'pointer' || S.tool === 'smart' || S.tool === 'flex') && S.tracks.length) { drag = { a: 'band', x0: p.x, y0: p.y, base: S.selR.slice() }; S.band = null }
+    uiDirty('lanes', 'dock'); return
+  }
   const tool = fadeHeld(e, p) ? 'fade' : S.tool                                         // (command held is no second tool: he had it gone, 2026-10-21)
   if (S.auto && tool !== 'zoom' && tool !== 'marquee') { autoDown(e, p, tool); return }
   const ti = laneAt(p.y), t = S.tracks[ti], pos = barAt(p.x)
@@ -1788,7 +1828,8 @@ function lanesMove (e, p) {
     d.moved = true; dirtyReg(r)
   } else if (d.a === 'marq') { const b = Math.max(0, snapPos(pos, e)); S.marq.a = Math.min(d.p0, b); S.marq.b = Math.max(d.p0, b); S.marq.t1 = laneAt(p.y); marqMates() }
   else if (d.a === 'band') {
-    const x0 = Math.min(d.x0, p.x), x1 = Math.max(d.x0, p.x), vis = rows(), k0 = vis.indexOf(laneAt(Math.min(d.y0, p.y))), k1 = vis.indexOf(laneAt(Math.max(d.y0, p.y))), a = barAt(x0), b = barAt(x1)
+    const x0 = Math.min(d.x0, p.x), x1 = Math.max(d.x0, p.x), vis = rows(), a = barAt(x0), b = barAt(x1), under = Math.min(d.y0, p.y) - TY + VY >= rowTops().all      // (a band wholly under the last row holds no row)
+    const k0 = under ? 0 : vis.indexOf(laneAt(Math.min(d.y0, p.y))), k1 = under ? -1 : vis.indexOf(laneAt(Math.max(d.y0, p.y)))
     S.band = { x0, x1, y0: Math.min(d.y0, p.y), y1: Math.max(d.y0, p.y) }
     const got = []
     for (let k = k0; k <= k1; k++) for (const r of S.tracks[vis[k]].regs) if (r.a - 1 < b && r.b - 1 > a) got.push(r.id)
@@ -1913,7 +1954,7 @@ const KEYS = {
   '⌘Equal': () => setWaveZoom((S.wz || 1) * 1.5), '⇧⌘Equal': () => setWaveZoom((S.wz || 1) * 1.5), '⌘NumpadAdd': () => setWaveZoom((S.wz || 1) * 1.5), '⌘Minus': () => setWaveZoom((S.wz || 1) / 1.5), '⌘NumpadSubtract': () => setWaveZoom((S.wz || 1) / 1.5),
   Home: () => scrollBy(-(X1 - X0) / PXB * .9), End: () => scrollBy((X1 - X0) / PXB * .9), PageUp: () => pageV(-1), PageDown: () => pageV(1), Backquote: () => showPlayhead(), '⇧Backquote': () => showChosen(),
   '⌃⇧KeyZ': () => { const c = S.cycle; if (c.b - c.a >= MIN_LEN) setZoom((X1 - X0) / ((c.b - c.a) * 1.1), (c.a + c.b) / 2) },
-  KeyZ: () => { if (PXB > fitPXB() + .01) setZoom(0); else { const rs = selRegs(); if (rs.length) { const a = Math.min(...rs.map(x => x[0].a)) - 1, b = Math.max(...rs.map(x => x[0].b)) - 1; setZoom((X1 - X0) / Math.max(1, (b - a) * 1.2), (a + b) / 2) } } },
+  KeyZ: () => zoomToChosen(),
   '⌘KeyZ': undoEdit, '⇧⌘KeyZ': redoEdit,
   '⌘KeyA': act.selectAll, '⌘KeyC': act.copy, '⌘KeyX': act.cut, '⌘KeyV': act.paste, '⌘KeyR': act.repeat, '⌘KeyT': act.splitAtPlayhead, '⌘KeyJ': act.join, KeyJ: act.join,
   Backspace: act.del, Delete: act.del,

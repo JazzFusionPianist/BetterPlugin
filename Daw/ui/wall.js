@@ -675,8 +675,10 @@ async function wallPick (p) {
 
 /* ── the stereo out as a row of its own, under the last track (his ask, 2026-10-21: "stereo out 도 채널로 메인 화면에 보이게
    … 선택을 못하니까 패치를 못건다"): its colour, its name, its level as a track's (pulled across; with option, 0), what
-   it reads. Pressed, it is chosen: its patch below, to put things on (as its strip pressed by its name). Its lane is a
-   ground of its own, pressed the same; it holds no regions. Not one of the song's tracks, so nothing else counts it. ── */
+   it reads. Its head pressed, it is chosen: its patch below, to put things on (as its strip pressed by its name). Its lane
+   is a ground of its own and holds no regions; pressed, it is as the room under the rows (his ask, 2026-10-23: the patch
+   shows only when the head is pressed, and a band can be pulled from here). Not one of the song's tracks, so nothing else
+   counts it. ── */
 const outRowH = () => typeof SKIN === 'object' && SKINS.head[SKIN.k.heads] ? 0 : (typeof RTB !== 'undefined' && RTB.on ? 0 : S.rh)      // (a theme's own heads, a realtime print: none)
 const outRowY = () => TY + rowTops().all - VY
 function outHead () {
@@ -692,7 +694,7 @@ function outHead () {
   const held = OUT.wall && OUT.wall.nodes ? OUT.wall.nodes.length : 0
   if (held) s += T(42 + tw(LANG_WORDS('stereo out'), hs, on ? 500 : 400) + 6, ny, 'patch', { size: 9, a: .4 })      // (something stands on its wall)
   s += levelBar(lx, ly, lw, OUT, S.master).replace(`id="mt-${OUT.id}"`, 'id="mt-out"') + hit(lx - 6, ly - 7, lw + 12, 16, 'outvol', ` data-gx="${n(lx)}" data-gw="${n(lw)}"`, 'ew-resize')
-  s += T(dbx, dby, fmtDb(S.master), { size: 9, a: on ? .9 : .56, anchor: 'end' })
+  s += T(dbx, dby, fmtDb(shown(OUT, 'vol')), { size: 9, a: on || autoPts(OUT, 'vol').length ? .9 : .56, anchor: 'end' })      // (where its line stands at the playhead, when it has one)
   return s + hline(0, HEAD_W, y + rh - .5, .05)
 }
 { const head0 = PARTS.head
@@ -707,28 +709,35 @@ function outHead () {
     let g = $('ln-out'), h = $('ln-outhit')
     if (!g) { g = document.createElementNS(SVG_NS, 'g'); g.id = 'ln-out'; clip.insertBefore(g, $('ln-rows')) }
     const rh = outRowH(), y = outRowY(), shown = rh && y < BY && y + rh > TY
-    const html = shown ? R(X0, y, X1 - X0, rh, { fill: K0, fa: .4 }) + hline(X0, X1, y + rh - .5, .045) : ''
+    const html = shown ? R(X0, y, X1 - X0, rh, { fill: K0, fa: .4 }) + autoLane(Object.assign(OUT, { c: MASTER().c }), y, rh) + hline(X0, X1, y + rh - .5, .045) : ''      // (its volume line, always up, as a bus's: auto.js)
     if (g.dataset.html !== html) { g.dataset.html = html; g.innerHTML = html }
     if (!h || h.parentNode !== edge) { h = document.createElementNS(SVG_NS, 'g'); h.id = 'ln-outhit'; edge.appendChild(h) }
-    const hh = shown ? hit(X0, Math.max(TY, y), X1 - X0, Math.min(BY, y + rh) - Math.max(TY, y), 'wall-out', '', 'default') : ''
+    const hh = ''                                                                          // (its lane is the room under the rows: no press of its own)
     if (h.dataset.html !== hh) { h.dataset.html = hh; h.innerHTML = hh }
     return r
   } }
+/* the stereo out's level set by hand: with a line drawn, the whole line moves with it (as a track's fader does: auto.js volSet) */
+function outLevel (v) {
+  const pts = autoPts(OUT, 'vol')
+  if (!pts.length) { S.master = v; pushMaster() }
+  else { const d = v - shown(OUT, 'vol'); if (d) { for (const q of pts) q.v = clamp(Math.round((q.v + d) * 10) / 10, -48, 6); resyncSoon() } }
+  uiDirty('top', 'dock', 'head', 'lanes')
+}
 /* its level pulled across, as a track's: where the hand is (with shift, finely; with option, 0) */
 { const down0 = onDown, move0 = onMove
   onDown = function (e) {
     const el = e && e.target && e.target.closest ? e.target.closest('[data-a="outvol"]') : null
     if (!el || e.button !== 0) return down0.apply(this, arguments)
     e.preventDefault()
-    if (e.altKey) { S.master = 0; pushMaster(); uiDirty('top', 'dock', 'head'); return }
+    if (e.altKey) { outLevel(0); return }
     const p = pt(e), gx = +el.dataset.gx, gw = +el.dataset.gw
     drag = { a: 'outvol', gx, gw, f: volF(S.master), lx: p.x }
-    if (!e.shiftKey) { drag.f = clamp((p.x - gx) / gw, 0, 1); S.master = fVol(drag.f); pushMaster(); uiDirty('top', 'dock', 'head') }
+    if (!e.shiftKey) { drag.f = clamp((p.x - gx) / gw, 0, 1); outLevel(fVol(drag.f)) }
     try { svg.setPointerCapture(e.pointerId) } catch (err) {}
   }
   onMove = function (e) {
     const r = move0.apply(this, arguments)
-    if (drag && drag.a === 'outvol') { const d = drag, x = pt(e).x; d.f = e.shiftKey ? clamp(d.f + (x - d.lx) / d.gw * .2, 0, 1) : clamp((x - d.gx) / d.gw, 0, 1); d.lx = x; S.master = fVol(d.f); pushMaster(); uiDirty('top', 'dock', 'head') }
+    if (drag && drag.a === 'outvol') { const d = drag, x = pt(e).x; d.f = e.shiftKey ? clamp(d.f + (x - d.lx) / d.gw * .2, 0, 1) : clamp((x - d.gx) / d.gw, 0, 1); d.lx = x; outLevel(fVol(d.f)) }
     return r
   } }
 /* what it reads, as the out's ring does */

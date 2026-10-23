@@ -237,7 +237,7 @@ function pTool () {
     }
   }
   if (zoomFits) {
-    const zy = y + TOOL_H / 2, fx = zoomF(), fy = clamp((S.rh - 20) / 100, 0, 1)
+    const zy = y + TOOL_H / 2, fx = zoomF(), fy = rhF()
     s += P(`M${zx - 14} ${zy}H${zx - 6}M${zx - 12} ${zy - 2}L${zx - 14} ${zy}L${zx - 12} ${zy + 2}M${zx - 8} ${zy - 2}L${zx - 6} ${zy}L${zx - 8} ${zy + 2}`, { stroke: INK, sa: .45, cap: 'round' }) + R(zx, zy - 1, 54, 2, { fill: INK, fa: .14 }) + R(zx + 52 * fx, zy - 5, 2, 10, { fill: INK }) + hit(zx - 6, y + 2, 66, 22, 'zoomx', '', 'ew-resize')
     const vx = zx + 82
     s += P(`M${vx - 10} ${zy - 4}V${zy + 4}M${vx - 12} ${zy - 2}L${vx - 10} ${zy - 4}L${vx - 8} ${zy - 2}M${vx - 12} ${zy + 2}L${vx - 10} ${zy + 4}L${vx - 8} ${zy + 2}`, { stroke: INK, sa: .45, cap: 'round' }) + R(vx, zy - 1, 54, 2, { fill: INK, fa: .14 }) + R(vx + 52 * fy, zy - 5, 2, 10, { fill: INK }) + hit(vx - 6, y + 2, 66, 22, 'zoomy', '', 'ew-resize')
@@ -451,6 +451,7 @@ function headRow (i) {
   const sk = typeof SKIN === 'object' && SKIN.heads                                  // (a theme's head: the name on label tape, lamps, a knob — skins.js)
   const tab = !sk && !stack                                                          // a track by itself: its colour as a short tab, its number after it (his picture of a track, 2026-10-20)
   const two = !sk && rh >= HEAD_TWO                                                  // a tall row: its level under its name
+  const thin = !sk && rh < 17                                                        // a thin row (zoomed far out): its colour and its name, nothing to press but the row
   if (tab) { const ins = clamp(Math.round(rh * .22), 4, 11); s += R(10, y + ins, lkN('heads.mark'), rh - 2 * ins, { fill: t.c, fa: t.mute ? .4 : 1 }) }
   else s += R(0, y, lkN('heads.mark'), on ? rh : rh - 1, { fill: t.c, fa: t.mute ? .4 : 1 })
   let c = ''                                                                              // its buttons, its number, its fader: what a realtime print takes away (realtime.js)
@@ -464,8 +465,8 @@ function headRow (i) {
   const tag = t.theirs || (t.kind === 'bus' ? 'bus' : t.frozen ? 'frozen' : alt), tagW = tag ? tw(tag, 9, 400, !!t.theirs) + 6 : 0, wt = stack || sel ? 500 : 400
   const hs = lkN('heads.size'), nm = fit(asGiven(t.name), room - x0 - tagW - grpW, hs, wt)      // (as large as the look says)
   if (sk) s += skTape(x0 - 4, y + rh / 2 - 8, Math.min(cx - 12 - x0, tw(nm, hs, 700) + 16), t.name, Math.min(hs, rh / 2 - 1))
-  else s += T(x0, ny, nm, { size: hs, w: wt, a: t.mute ? .42 : sel ? 1 : .88 })
-  if (tag) s += T(x0 + tw(nm, hs, sk ? 700 : wt) + (sk ? 16 : 6), ny, tag, { size: 9, it: !!t.theirs, a: .4 })
+  else if (!thin || rh >= 9) s += T(x0, thin ? y + rh / 2 + Math.min(hs, rh - 2) * .36 : ny, nm, { size: thin ? Math.min(hs, rh - 2) : hs, w: wt, a: t.mute ? .42 : sel ? 1 : .88 })
+  if (tag && !thin) s += T(x0 + tw(nm, hs, sk ? 700 : wt) + (sk ? 16 : 6), ny, tag, { size: 9, it: !!t.theirs, a: .4 })
   s += hit(0, y, cx - 4, rh, 'sel', ` data-i="${i}"`) + (stack ? hit(deep ? x0 - 13 : 27, y, 14, rh, 'fold', ` data-i="${i}"`) : '')      // from its number to its cells, a press chooses it
   if (grp) s += typeof grpChip === 'function' ? grpChip(t, i, x0 + tw(nm, hs, wt) + 8 + tagW, ny) : T(x0 + tw(nm, hs, wt) + 6 + tagW, ny, grp, { size: 9, w: 500, a: S.grpOff ? .22 : .62 })      // (over the row's own press: it opens the group)
   c += sk ? skinLamps(214 - its.length * 18 + 3, y + rh / 2 - 6.5, its, i) : squareCells(cx, y + (rh - cw) / 2, its, cw, 8.5, i)
@@ -482,6 +483,7 @@ function headRow (i) {
     if (!led) c += hit(dbx - 30, ly - 7, 32, 16, 'volnum', ` data-i="${i}"`, 'default')      // what it reads: pressed twice, a level can be typed
   }
   const gone = typeof RTB !== 'undefined' ? rtbHideOf(i) : 0
+  if (thin) c = ''                                                                    // (no room for its buttons and level: the row is taller again for them)
   s += gone <= 0 ? c : gone < 1 ? G(c, `translate(${n(-16 * gone)} 0)`, ` opacity="${n(1 - gone)}"`) : ''
   return s + hline(0, HEAD_W, y + rh - .5, stack ? .09 : .05)
 }
@@ -1595,7 +1597,7 @@ function onDown (e) {
 }
 function zoomDrag (d, x) {
   const f = clamp((x - d.x0) / (d.w || 52), 0, 1)
-  if (d.a === 'zoomx') { const fitP = fitPXB(); zoomLive(fitP * Math.pow(640 / fitP, f)) } else setRowH(20 + f * 100)      // (the zoom bar pulled: live, as a pinch)
+  if (d.a === 'zoomx') { const fitP = fitPXB(); zoomLive(fitP * Math.pow(640 / fitP, f)) } else setRowH(fRh(f))      // (the zoom bar pulled: live, as a pinch)
   uiDirty('info')
 }
 /* what a pull has added up to since the hand came: a fifth as fast while shift is held */

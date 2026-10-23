@@ -32,14 +32,16 @@ if (NAT) {
     const outT = typeof wallOutTrack === 'function' ? wallOutTrack() : null               // (wall.js: the stereo out, while something stands on its wall — a bus of the engine's that all the others play into)
     const tracks = S.tracks.concat(outT ? [outT] : []).map(t => {
       const fr = !only && typeof frozenReg === 'function' ? frozenReg(t) : null          // a frozen track plays its print, and that alone (freeze.js)
-      const wired = { kind: t.kind === 'audio' ? 0 : 1, out: destId(t) || (outT && t !== outT ? outT.id : 0), autos: autoMsg(t), regs: fr ? [regMsg(fr)] : t.kind === 'audio' ? t.regs.filter(r => !r.mute && !r.notes && !r.missing && (!only || only(r))).map(regMsg) : [] }
+      const wired = { kind: t.kind === 'audio' ? 0 : 1, out: destId(t) || (outT && t !== outT ? outT.id : 0), autos: t === outT ? autoMsg(t).filter(a => a.p !== AUTO.vol.p) : autoMsg(t),      // (the stereo out's volume line is its fader's, played as the out's own: masterLine)
+        regs: fr ? [regMsg(fr)] : t.kind === 'audio' ? t.regs.filter(r => !r.mute && !r.notes && !r.missing && (!only || only(r))).map(regMsg) : [] }
       if (!fr) Object.assign(wired, noteMsg(t, only))                                  // a track of notes: what it plays, as it sounds
       const text = JSON.stringify(wired) + '|' + (t.sends || []).map(s => s.to).join()
       if (!only && t._told === text) return Object.assign(trackMsg(t), { same: 1, ver: t._ver })
       t._ver = (t._ver || 0) + 1; t._told = only ? null : text                             // (what is sent for a bounce in place is not what the track holds: it is sent again afterwards)
       return Object.assign(trackMsg(t), wired, { ver: t._ver }, only ? { frozen: 0 } : {})      // (a bounce in place of a frozen track's regions plays them through its plug-ins)
     })
-    const r = await NAT.call('session', { tempo: S.tempo, meter: S.meter, end: SONG_END, master: dbLin(S.master), tracks })
+    const outLine = typeof OUT === 'object' ? autoBent(autoPts(OUT, 'vol')) : []      // (the stereo out's volume line, in db along the song: the engine plays it where the out's level would be)
+    const r = await NAT.call('session', { tempo: S.tempo, meter: S.meter, end: SONG_END, master: dbLin(S.master), masterLine: outLine, masterTrim: S.masterTrim || 0, tracks })
     if (!r || !r.ok || r.again) { for (const t of S.tracks) t._told = null; if (outT) outT._told = null; if (r && r.again && mine === telling && !only) return sendSession() }      // not taken, or not held as thought: nothing counts as told
     return r
   }

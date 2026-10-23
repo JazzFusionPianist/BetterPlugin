@@ -4,7 +4,7 @@
 const lin01 = { f: v => v / 100, inv: f => Math.round(f * 100), fmt: v => String(Math.round(v)), eng: v => v / 100 }
 const sendAuto = k => ({ p: 5 + k, name: `send ${k + 1}`, f: volF, inv: fVol, fmt: v => fmtDb(v), eng: v => v, now: t => (t.sends[k] ? t.sends[k].db : -48), step: .5 })
 const AUTO_OWN = {
-  vol: { p: 0, name: 'volume', f: volF, inv: fVol, fmt: v => fmtDb(v), eng: v => v, now: t => t.vol, step: .5 },
+  vol: { p: 0, name: 'volume', f: volF, inv: fVol, fmt: v => fmtDb(v), eng: v => v, now: t => t.isOut ? S.master : t.vol, step: .5 },      // (the stereo out's level is the room's own: wall.js OUT)
   pan: { p: 1, name: 'pan', f: v => (v + 1) / 2, inv: f => { const v = f * 2 - 1; return Math.abs(v) < .04 ? 0 : Math.round(v * 64) / 64 }, fmt: v => panText(v), eng: v => v, now: t => t.pan || 0, step: 4 / 64 },
   tape: Object.assign({ p: 2, name: 'tape', now: t => patchNow(t).tape, step: 2 }, lin01),
   space: Object.assign({ p: 3, name: 'space', now: t => patchNow(t).space, step: 2 }, lin01),
@@ -30,6 +30,21 @@ const AUTO = new Proxy(AUTO_OWN, { get: (own, k) => own[k] || (typeof k === 'str
 const apOf = t => AUTO[t.ap] && (!/^send/.test(t.ap) || t.sends[+t.ap.slice(4)]) && (!FX_KEY.test(t.ap) || fxIns(t, t.ap)) && (!MAC_KEY.test(t.ap) || macroOf(t, t.ap)) ? t.ap : 'vol'
 let PID = 0
 const autoPts = (t, k) => (t.autos && t.autos[k]) || []
+/* the stereo out's row has a line too (his ask, 2026-10-23): its volume, always up, as a bus's. It is not one of the song's
+   tracks, so the hands that work a line by its track's place are given AUTO_OUT for it, and these say where it is */
+const AUTO_OUT = -2
+const autoT = ti => ti === AUTO_OUT ? (typeof OUT === 'object' ? OUT : null) : S.tracks[ti]
+const autoY = ti => ti === AUTO_OUT ? outRowY() : rowY(ti), autoH = ti => ti === AUTO_OUT ? outRowH() : rowH(ti)
+const autoAll = () => typeof OUT === 'object' ? S.tracks.concat([OUT]) : S.tracks            // (every line there is: the tracks', and the stereo out's)
+/* is the pointer on the stereo out's row: on its line or one of its points (asked with the tool in hand: the pencil and the eraser take any place on it) */
+function outLineAt (p, tool) {
+  if (typeof OUT !== 'object' || typeof outRowH !== 'function') return false
+  const rh = outRowH(), y = outRowY()
+  if (!rh || p.y < y || p.y > y + rh) return false
+  if (tool === 'pencil' || tool === 'eraser') return true
+  const g = autoGeom(OUT, y, rh), pts = autoPts(OUT, 'vol')
+  return !!autoHit(OUT, g, p) || Math.abs(p.y - g.yOf(pts.length ? autoAt(OUT, 'vol', clamp(barAt(p.x), 0, SONG_END)) : S.master)) <= 7
+}
 const autoName = (t, k) => { if (MAC_KEY.test(k)) { const m = macroOf(t, k); return m ? m.name : 'macro' } if (FX_KEY.test(k)) { const ins = fxIns(t, k), i = fxIndex(k); return ins ? `${ins.name.toLowerCase()} ${(ins.pn && ins.pn[i]) || 'control ' + (i + 1)}` : 'plug-in' } if (/^send/.test(k)) { const b = t.sends[+k.slice(4)] && byId(t.sends[+k.slice(4)].to); return b ? `to ${b.name}` : 'send' } return AUTO[k].name }
 const autoParams = t => ['vol', 'pan', 'tape', 'space', 'delay'].concat((t.macros || []).map(m => 'mac' + m.id), t.sends.map((s, k) => 'send' + k), Object.keys(t.autos || {}).filter(k => FX_KEY.test(k) && t.autos[k].length && fxIns(t, k)))
 /* the way from one point to the next may bend (the command line can ask for it: "exponentially"): a point's c is how the
@@ -103,14 +118,14 @@ async function openAutoMenu (t, x, y) {
 /* a bus and a stack hold no regions of their own, and their line is their lane: it is always up, in their own colour, and
    it can be taken hold of without the lines being shown. Then it is their volume (what the head beside it shows); with
    the lines shown it is the one asked for, as on any track. */
-const lineOwn = t => !!t && (t.kind === 'bus' || t.kind === 'stack')
+const lineOwn = t => !!t && (t.kind === 'bus' || t.kind === 'stack' || !!t.isOut)
 /* a place inside the marquee that is up, on one of its tracks */
 const inMarq = (t, pos) => !!S.marq && S.marq.b - S.marq.a >= MIN_LEN && pos >= S.marq.a - 1e-9 && pos <= S.marq.b + 1e-9 && marqTracks().includes(t)
-const shownKey = t => S.auto ? apOf(t) : 'vol'
+const shownKey = t => S.auto && !t.isOut ? apOf(t) : 'vol'
 /* one track's line, over its lane */
 const autoGeom = (t, y, rh) => { const k = shownKey(t), A = AUTO[k], m = Math.min(6, Math.max(3, rh * .16)), ly = y + m, lh = rh - 2 * m; return { k, A, ly, lh, yOf: v => ly + lh - A.f(v) * lh, vOf: yy => A.inv(clamp((ly + lh - yy) / lh, 0, 1)) } }
 function autoLane (t, y, rh, xEnd = X1) {
-  const { k, A, yOf } = autoGeom(t, y, rh), pts = autoPts(t, k), own = lineOwn(t), ink = own ? t.csel || t.c : INK, pale = own && !heard(t) ? .45 : 1, xe = Math.min(xEnd, X1)
+  const { k, A, yOf } = autoGeom(t, y, rh), pts = autoPts(t, k), own = lineOwn(t), ink = own ? t.csel || t.c : INK, pale = own && !t.isOut && !heard(t) ? .45 : 1, xe = Math.min(xEnd, X1)
   const sw = own ? OWN_W : .9                                                               // (a bus's or a stack's own line: a step lighter than its colour and thicker, over a dark edge — in some colours it could not be seen: his ask, 2026-10-21)
   if (!pts.length) return own ? (xe > X0 ? P(`M${X0} ${n(yOf(A.now(t))) + .5}H${n(xe)}`, { stroke: K0, sa: .55, sw: sw + 1.6 }) + P(`M${X0} ${n(yOf(A.now(t))) + .5}H${n(xe)}`, { stroke: ink, sa: OWN_LINE * pale, sw }) : '') : ''      // (no line until one is made: his ask, 2026-10-19 — the dashed one is gone)
   let d = `M${X0 - 2} ${n(yOf(pts[0].v))}`, dots = ''
@@ -148,9 +163,9 @@ function addPoint (t, k, b, v) {
   pts.push(q); sortPts(pts)
   return q
 }
-function autoDown (e, p, tool) {
-  const ti = laneAt(p.y), t = S.tracks[ti], g = autoGeom(t, rowY(ti), rowH(ti)), before = editState(), q = autoHit(t, g, p)
-  if (!isChosen(ti)) leadTrack(ti); else S.sel = ti
+function autoDown (e, p, tool, at) {
+  const ti = at != null ? at : laneAt(p.y), t = autoT(ti), g = autoGeom(t, autoY(ti), autoH(ti)), before = editState(), q = autoHit(t, g, p)
+  if (ti !== AUTO_OUT) { if (!isChosen(ti)) leadTrack(ti); else S.sel = ti }
   if (S.auto) t.ap = g.k
   if (tool === 'eraser') { if (q) { t.autos[g.k] = autoPts(t, g.k).filter(x => x !== q); S.selP = S.selP.filter(id => id !== q.id); commit(before) } uiDirty('head', 'dock'); return }
   const startDrag = lead => { drag = { a: 'apt', ti, k: g.k, x0: p.x, y0: p.y, lead: lead.id, before, orig: new Map(autoPts(t, g.k).filter(x => S.selP.includes(x.id)).map(x => [x.id, { b: x.b, v: x.v }])) } }
@@ -191,18 +206,19 @@ function autoMove (e, p) {
       const g = autoGeom(t, y, rh)
       for (const q of autoPts(t, g.k)) { const x = bx(q.b + 1), yy = g.yOf(q.v); if (x >= x0 && x <= x1 && yy >= y0 - 3 && yy <= y1 + 3) got.push(q.id) }
     })
+    if (typeof OUT === 'object' && typeof outRowH === 'function' && outRowH()) { const g = autoGeom(OUT, outRowY(), outRowH()); for (const q of autoPts(OUT, 'vol')) { const x = bx(q.b + 1), yy = g.yOf(q.v); if (x >= x0 && x <= x1 && yy >= y0 - 3 && yy <= y1 + 3) got.push(q.id) } }      // (the stereo out's points, under the rows)
     S.selP = [...new Set(d.base.concat(got))]
     uiDirty('lanes')
     return
   }
   if (d.curve) {
-    const q = autoPts(S.tracks[d.ti], d.k).find(x => x.id === d.q)
+    const q = autoPts(autoT(d.ti), d.k).find(x => x.id === d.q)
     if (!q || (!d.moved && Math.abs(p.y - d.y0) < 3)) return
     q.c = clamp(Math.round((d.c0 - d.sign * (d.y0 - p.y) / 15) * 100) / 100, -1, 1); if (Math.abs(q.c) < .02) delete q.c
     d.moved = true; uiDirty('lanes', 'head', 'dock')
     return
   }
-  const t = S.tracks[d.ti], g = autoGeom(t, rowY(d.ti), rowH(d.ti))
+  const t = autoT(d.ti), g = autoGeom(t, autoY(d.ti), autoH(d.ti))
   if (d.seg && d.lead == null) { if (Math.hypot(p.x - d.x0, p.y - d.y0) < 3) return; autoSeg(d, t) }      // a stretch of the line taken hold of: it is pulled only once the hand has moved
   const pts = autoPts(t, d.k), lead = d.orig.get(d.lead)
   const db = d.seg ? 0 : clamp(snapPos(lead.b + (barAt(p.x) - barAt(d.x0)), e), 0, SONG_END) - lead.b, df = !d.seg && e.shiftKey && !e.ctrlKey ? 0 : -(p.y - d.y0) / g.lh      // (shift held: points go along the song only, their values kept — his ask, 2026-10-19)
@@ -241,8 +257,9 @@ function autoSeg (d, t) {
   S.selP = got.map(q => q.id)
 }
 function autoDbl (e, p) {                                                                // twice anywhere on a lane: a point there
-  if ((p.y - TY + VY) >= rowTops().all) return
-  const ti = laneAt(p.y), t = S.tracks[ti], g = autoGeom(t, rowY(ti), rowH(ti))
+  const under = (p.y - TY + VY) >= rowTops().all
+  if (under && !outLineAt(p, 'pencil')) return
+  const ti = under ? AUTO_OUT : laneAt(p.y), t = autoT(ti), g = autoGeom(t, autoY(ti), autoH(ti))
   if (autoHit(t, g, p)) return
   if (!S.auto) { S.selR = []; S.selX = null }
   edit(() => { const q = addPoint(t, g.k, clamp(snapPos(barAt(p.x), e), 0, SONG_END), g.vOf(p.y)); S.selP = [q.id] })
@@ -250,13 +267,13 @@ function autoDbl (e, p) {                                                       
 /* delete: the chosen points, or every shown point under the marquee */
 function autoDelete () {
   let any = false
-  if (S.selP.length) { const s = new Set(withTwins(S.selP)); for (const t of S.tracks) for (const k in t.autos) { const n0 = t.autos[k].length; t.autos[k] = t.autos[k].filter(q => !s.has(q.id)); any = any || t.autos[k].length !== n0 } S.selP = [] }
+  if (S.selP.length) { const s = new Set(withTwins(S.selP)); for (const t of autoAll()) for (const k in t.autos) { const n0 = t.autos[k].length; t.autos[k] = t.autos[k].filter(q => !s.has(q.id)); any = any || t.autos[k].length !== n0 } S.selP = [] }
   else if (S.marq) { const m = S.marq; for (const t of marqTracks()) { const k = shownKey(t), n0 = autoPts(t, k).length; if (n0) { t.autos[k] = t.autos[k].filter(q => q.b < m.a - 1e-9 || q.b > m.b + 1e-9); any = any || t.autos[k].length !== n0 } } S.marq = null }
   return any
 }
 function autoNudge (dir) {
   const s = new Set(S.selP)
-  for (const t of S.tracks) for (const k in t.autos) { const A = AUTO[k]; if (!A) continue; for (const q of t.autos[k]) if (s.has(q.id)) q.v = A.inv(clamp(A.f(q.v + dir * A.step * (Math.abs(dir) > 1 ? 10 / 12 : 1)), 0, 1)) }
+  for (const t of autoAll()) for (const k in t.autos) { const A = AUTO[k]; if (!A) continue; for (const q of t.autos[k]) if (s.has(q.id)) q.v = A.inv(clamp(A.f(q.v + dir * A.step * (Math.abs(dir) > 1 ? 10 / 12 : 1)), 0, 1)) }
 }
 
 /* ── chosen points nudged (option and the left or right arrow) ──
@@ -268,7 +285,7 @@ const POINT_TWIN = 1 / 64
 /* the chosen points and the twin of each that stands in a step (a delete takes the step whole, as a nudge does) */
 function withTwins (sel) {
   const ids = new Set(sel)
-  for (const t of S.tracks) for (const k of Object.keys(t.autos || {})) {
+  for (const t of autoAll()) for (const k of Object.keys(t.autos || {})) {
     const pts = t.autos[k]
     if (!Array.isArray(pts)) continue
     for (let round = 0; round < 3; round++) for (let i = 0; i < pts.length; i++) if (ids.has(pts[i].id)) for (const j of [i - 1, i + 1]) if (pts[j] && Math.abs(pts[j].b - pts[i].b) <= POINT_TWIN && Math.abs(pts[j].b - pts[i].b) > 1e-6) ids.add(pts[j].id)      // (a hair apart: a step; at the very same place is a point stopped against another, and stays apart from it)
@@ -280,7 +297,7 @@ function nudgePoints (dir) {
   if (ids.size > S.selP.length) S.selP = [...ids]
   let any = false
   edit(() => {
-    for (const t of S.tracks) for (const k of Object.keys(t.autos || {})) {
+    for (const t of autoAll()) for (const k of Object.keys(t.autos || {})) {
       const pts = t.autos[k]
       if (!Array.isArray(pts) || !pts.some(q => ids.has(q.id))) continue
       let d = d0
@@ -302,7 +319,7 @@ function nudgePoints (dir) {
 { const up0 = lanesUp
   lanesUp = function () {
     const d = drag
-    if (d && d.a === 'apt' && d.seg && d.lead == null) { const t = S.tracks[d.ti], q = addPoint(t, d.k, d.at, d.lineV); S.selP = [q.id]; d.moved = true; uiDirty('lanes', 'head', 'dock') }
+    if (d && d.a === 'apt' && d.seg && d.lead == null) { const t = autoT(d.ti), q = addPoint(t, d.k, d.at, d.lineV); S.selP = [q.id]; d.moved = true; uiDirty('lanes', 'head', 'dock') }
     return up0()
   } }
 { const nudge0 = act.nudge

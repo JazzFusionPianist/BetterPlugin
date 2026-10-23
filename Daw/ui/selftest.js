@@ -2596,6 +2596,28 @@ async function runSelfTest (mode) {
   /* the side on a wall (side.js; Patch on Slur's sidechain): a track's wall with only a side wired to out plays the other
      track it is given, in time with that track's own print; a comp keyed by it ducks to it (its print is not what the comp
      makes of the track's own sound); a track that is fed by this one is refused; nothing given, the side is silent */
+  /* the stereo out's own volume line (his ask, 2026-10-23): a track heard through the out at its level, then with a line
+     12 db under it, then falling 24 db over four bars (loud at its start, quiet at its end), then with no line again; and
+     a level match laid over it all (masterTrim: the rough mix's and the doctor's) */
+  await step('outLine', async () => {
+    const t = S.tracks.find(x => x.kind === 'audio' && x.regs.some(r => !r.mute && !r.notes && r.b - r.a >= 4)), r = t && t.regs.find(q => !q.mute && !q.notes && q.b - q.a >= 4)
+    if (!t || !NAT) return { skipped: 'no track with four bars of sound' }
+    const a0 = r.a - 1, m0 = S.master, at = async bar => only(t, async () => { await playFrom(bar); return (await listen(400)).rms })
+    const res = { track: t.name }
+    res.plain = await at(a0 + .5)
+    OUT.autos = { vol: [{ id: ++PID, b: 0, v: m0 - 12 }, { id: ++PID, b: SONG_END, v: m0 - 12 }] }; await natSession()
+    res.line12under = await at(a0 + .5)
+    OUT.autos = { vol: [{ id: ++PID, b: a0, v: m0 }, { id: ++PID, b: a0 + 4, v: m0 - 24 }] }; await natSession()
+    res.fallAtStart = await at(a0 + .2); res.fallAtEnd = await at(a0 + 3.6)
+    OUT.autos = {}; await natSession()
+    res.noLineAgain = await at(a0 + .5)
+    S.masterTrim = -6; await natSession(); res.trim6 = await at(a0 + .5); S.masterTrim = 0; await natSession()
+    halt(false)
+    const k = x => res.plain ? +(x / res.plain).toFixed(3) : null
+    res.against = { line12under: k(res.line12under), noLineAgain: k(res.noLineAgain), trim6: k(res.trim6), fall: res.fallAtStart ? +(res.fallAtEnd / res.fallAtStart).toFixed(3) : null }      // (−12 db: .251; −6 db: .501)
+    S.master = m0
+    return res
+  })
   await step('side', async () => {
     const all = S.tracks.filter(x => sounding(x) && !(x.inserts || []).length)
     if (all.length < 2) return { skipped: 'two tracks with sound and no plug-in are wanted' }

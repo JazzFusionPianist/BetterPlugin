@@ -125,7 +125,7 @@ SKINS.left.poster = () => {
   s += small(22, 878, 'nudge', S.nudge, 'nudge')
   const sq = (x, y, on, word, a) => R(x, y - 7, 7, 7, on ? { fill: BH.black } : { stroke: BH.black, sw: 1.1 }) + T(x + 11, y, word, { size: 9, a: on ? 1 : .55 }) + hit(x - 2, y - 11, tw(word, 9) + 16, 15, a)
   s += sq(80, 874, !!S.auto, 'automation', 'autokey') + sq(80, 890, !!S.flex, 'rubato', 'flexkey')
-  const zf = clamp(Math.log(PXB / fitPXB()) / Math.log(640 / fitPXB()), 0, 1), rf = clamp(((S.rh || 25) - 20) / 100, 0, 1), zw = 84
+  const zf = clamp(Math.log(PXB / fitPXB()) / Math.log(640 / fitPXB()), 0, 1), rf = rhF(), zw = 84
   const zoom = (x, y, f, a, word) => bhLab(x + zw / 2, y - 7, word, { anchor: 'middle' }) + R(x, y, zw, 1.4, { fill: BH.black }) + Cc(x + zw * f, y + .7, 3.4, { fill: BH.red }) + hit(x - 5, y - 9, zw + 10, 16, a, ` data-x0="${n(o + x * k)}" data-w="${n(zw * k)}"`, 'ew-resize')
   s += zoom(14, 922, zf, 'zoomx', 'zoom across') + zoom(111, 922, rf, 'zoomy', 'zoom down')
   const ground = R(0, 0, CW, H, { fill: K1 }) + R(CW - 3, 0, 3, H, { fill: BH.black })

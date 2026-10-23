@@ -15,7 +15,7 @@ const box = (sel, k = 0) => ev(`const el = [...document.querySelectorAll('${sel}
 
 await ev(`if (typeof START !== 'undefined') START.on = false; tpanelSet(true, false); S.panel.on = false; setView(true); dirtyAll(); flush(); return 1`)
 const rows = await ev(`flush(); const L = rowTops(); return { last: TY + L.all - VY, rh: S.rh }`)
-const head = await box('#g-head [data-a="wall-out"]'), lane = await box('#ln-outhit [data-a="wall-out"]')
+const head = await box('#g-head [data-a="wall-out"]'), lane = await box('#ln-out rect')      // (its lane's ground: it has no press of its own since 2026-10-23)
 ok('the stereo out has a row under the last track, in the heads and the lanes', !!head && !!lane && Math.abs(head.t - rows.last) < 2 && Math.abs(lane.t - rows.last) < 2, { head, lane, rows })
 ok('…its name, as the tracks say theirs', await ev(`return [...document.querySelectorAll('#g-head text')].some(el => el.textContent === 'stereo out')`))
 /* chosen: its patch opens */
@@ -23,8 +23,8 @@ await click({ x: head.l + 60, y: head.y })
 const chosen = await ev(`flush(); return { out: !!WALL.out, panel: S.panel.on, tab: S.panel.tab, wall: wallTrack() === OUT }`)
 ok('its name pressed: chosen, its patch open below', chosen.out && chosen.panel && chosen.tab === 'patch' && chosen.wall, chosen)
 await ev(`WALL.out = false; uiDirty('dock', 'head'); flush(); return 1`)
-await click({ x: lane.x, y: lane.y })
-ok('its lane pressed: the same', await ev(`flush(); return !!WALL.out && wallTrack() === OUT`))
+await click({ x: lane.x, y: lane.t + 2 })      // (at its top edge: its middle is where its volume line runs, and a press there is the line's)
+ok('its lane pressed: no patch (his ask, 2026-10-23: only its head opens it)', await ev(`flush(); return !WALL.out`))
 /* a track pressed after it */
 { const t = await box('#g-head [data-a="sel"]', 2); await click(t) }
 ok('a track pressed after it: the patch is the track\'s again', await ev(`flush(); return !WALL.out && wallTrack() === S.tracks[S.sel]`))

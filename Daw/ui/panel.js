@@ -176,7 +176,7 @@ SKINS.left.panel = () => {
   const rb = r1 + 2 * fs + 2
   s += box(GL, rb, !!S.auto, 'automation', 'autokey') + box(GR, rb, !!S.flex, 'rubato', 'flexkey')
   const sl = (x, w, f, label, a) => tpCaps(x, rb + 14, label) + R(x, rb + 22, w, .6, { fill: INK, fa: .28 }) + R(x + w * f - 2.6, rb + 22 - 2.3, 5.2, 5.2, { fill: '#FFFFFF' }) + hit(x - 5, rb + 14, w + 10, 16, a, ` data-x0="${n(o + x)}" data-w="${n(w)}"`, 'ew-resize')
-  s += sl(GL, GR - GL - 16, zoomF(), 'zoom across', 'zoomx') + sl(GR, RE - GR, clamp(((S.rh || 25) - 20) / 100, 0, 1), 'zoom down', 'zoomy')
+  s += sl(GL, GR - GL - 16, zoomF(), 'zoom across', 'zoomx') + sl(GR, RE - GR, rhF(), 'zoom down', 'zoomy')
   return G(G(s, '', ' id="tp-col"'), `translate(${o} 0)`)
 }
 

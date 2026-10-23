@@ -1077,10 +1077,20 @@ public:
                 told.push_back (std::move (t));
             }
         }
+        /* the stereo out's own volume line (his ask, 2026-10-23: the stereo out is automated as a bus is): when it has points,
+           it is what the out's fader stands at along the song; the plain level (master) is used where there is none */
+        std::unique_ptr<Auto> outLine;
+        if (auto* ml = v["masterLine"].getArray(); ml != nullptr && ! ml->isEmpty())
+        {
+            outLine = std::make_unique<Auto>(); outLine->param = kAutoVol;
+            for (auto& q : *ml) if (q.isArray() && q.size() >= 2) outLine->pts.push_back ({ (double) q[0], (float) (double) q[1] });
+            if (outLine->pts.empty()) outLine.reset();
+        }
         std::vector<std::unique_ptr<Track>> next, old;
         next.reserve (told.size());
         {
             const juce::ScopedLock sl (lock);
+            masterLine.swap (outLine);                                 // (the one it had goes with outLine, let go of once the lock is)
             tempo.store (juce::jlimit (40.0, 240.0, (double) v["tempo"]));
             if (v["meter"].isArray() && v["meter"].size() == 2)
             {
@@ -1115,6 +1125,7 @@ public:
         }
         if (auto* arr = v["tracks"].getArray()) for (auto& tv : *arr) setTrack (tv);
         if (v.hasProperty ("master")) master.store ((float) (double) v["master"]);
+        if (v.hasProperty ("masterTrim")) masterTrim.store (dbGain ((float) (double) v["masterTrim"]));      // (a level match laid over the out's level or its line: the rough mix's and the doctor's)
         measureLatency();
         for (auto& t : old) if (t != nullptr) t->eachPlug ([] (Insert& i) { i.shut(); i.letGo(); });
         res->setProperty ("ok", true); res->setProperty ("again", again);
@@ -2870,7 +2881,7 @@ public:
                     still = quiet ? still + maxBlock : 0;
                 }
                 measureLatency();                                      // (some only say how late they are offline once they have played a block that way)
-                limG = 1.0f; float mSm = master.load();
+                limG = 1.0f; float mSm = masterAt ((double) s0 / barSamples());
                 juce::AudioBuffer<float> outBuf (2, maxBlock);
                 int lead = 0; for (auto& tp : tracks) lead = juce::jmax (lead, tp->ahead.load());
                 /* where a track's sound leaves it, it is still early by what the buses on its way to the out will make up
@@ -2899,7 +2910,7 @@ public:
                     {
                         const float* mL = mix.getReadPointer (0); const float* mR = mix.getReadPointer (1);
                         float* oL = outBuf.getWritePointer (0); float* oR = outBuf.getWritePointer (1);
-                        const float mT = master.load(), ms = (mT - mSm) / (float) n;
+                        const float mT = masterAt ((double) (p + E) / barSamples()), ms = (mT - mSm) / (float) n;
                         for (int i = 0; i < n; ++i) { mSm += ms; float l = mL[i] * mSm, r = mR[i] * mSm; limit (l, r); oL[i] = l; oR[i] = r; }
                         for (auto& sk : sinks) sk->write (outBuf, n);
                     }
@@ -4006,6 +4017,8 @@ private:
         if (qa && qb) return 0.0f;
         return qb ? dbGain (va) * (float) std::pow (1.0 - x, 2.5) : dbGain (vb) * (float) std::pow (x, 2.5);
     }
+    /** The stereo out's gain at a place (bars from zero): its line where it has one, else its level; then the trim over it. */
+    float masterAt (double bar) const { return (masterLine != nullptr ? lineGainAt (*masterLine, bar) : master.load()) * masterTrim.load(); }
     static bool evalAutoGain (const Track& t, int param, double bar, float& g)
     {
         for (auto& a : t.autos) if (a.param == param) { g = lineGainAt (a, bar); return true; }
@@ -4563,7 +4576,7 @@ private:
             size_t refPi = 0;                                                                  // (the piece the stretch is in: found once, gone on from)
             const float rv = refVol.load(), rT = refOn.load() ? 1.0f : 0.0f, rStep = 1.0f / (0.02f * (float) sr);
             const int rLen = rb != nullptr ? rb->data.getNumSamples() : 0, rR = rb != nullptr ? juce::jmin (1, rb->data.getNumChannels() - 1) : 0;
-            const float mT = master.load(), ms = (mT - masterSm) / (float) got;
+            const float mT = masterAt ((double) (posS - got) / barSamples()), ms = (mT - masterSm) / (float) got;
             double sq = 0.0; float pk = 0.0f, pL = 0.0f, pR = 0.0f;
             for (int i = 0; i < got; ++i)
             {
@@ -4886,6 +4899,8 @@ private:
     std::atomic<double> seekTo { kNoSeek };
     std::atomic<bool> rateOff { false };
     float limG = 1.0f, limRel = 0.0002f, masterSm = 1.0f;
+    std::unique_ptr<Auto> masterLine;                                 // (the stereo out's volume line: null, its level alone)
+    std::atomic<float> masterTrim { 1.0f };
     std::atomic<double> meterSq { 0.0 }; std::atomic<int> meterN { 0 }; std::atomic<float> meterPk { 0.0f }, meterL { 0.0f }, meterR { 0.0f }, inPeak { 0.0f };
     int nextUid = 0, latencyTick = 0, lastXruns = 0;
     std::atomic<int> nextFile { 0 };                           // (a print that lays its sound in the project numbers it from its own thread)

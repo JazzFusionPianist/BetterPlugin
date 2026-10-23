@@ -82,7 +82,7 @@ await click('[data-a="look-close"]', .02, .9); ok('look closes', await st('!S.lo
 // zoom
 const z0 = await ev('return __daw.lay().PXB'); await drag('[data-a="zoomx"]', 20, 0, .2); const z1 = await ev('return __daw.lay().PXB'); ok('zoom along the song', z1 > z0, [z0, z1])
 await dbl('[data-a="zoomx"]'); ok('twice: all of the song', await ev('return Math.abs(__daw.lay().PXB - fitPXB()) < .01'))
-await drag('[data-a="zoomy"]', 20, 0, .2); ok('taller rows', (await st('S.rh')) > 25, await st('S.rh')); await dbl('[data-a="zoomy"]'); ok('twice: rows of 25', await st('S.rh === 25'))
+await drag('[data-a="zoomy"]', 20, 0, .6); ok('taller rows', (await st('S.rh')) > 25, await st('S.rh')); await dbl('[data-a="zoomy"]'); ok('twice: rows of 25', await st('S.rh === 25'))
 
 await ev(`tpanelSet(false, false); flush(); return 1`)
 // ── markers and bars ──

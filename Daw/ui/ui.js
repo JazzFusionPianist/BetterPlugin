@@ -510,6 +510,7 @@ const triMark = (x, y, open, a = .6) => P(open ? `M${x - 3} ${y - 1.5}H${x + 3}L
 const HEAD_IN = 58                                            // where the name of a track in a stack begins (a track by itself: 42)
 function headRow (i) {
   if (typeof SKIN === 'object' && SKINS.head[SKIN.k.heads]) return SKINS.head[SKIN.k.heads](i)      // (a theme's head: skins.js)
+  if (typeof tmplOn === 'function' && tmplOn('head')) return tmplHead(i)              // (a theme's head as a template, its parts moved: tmpl.js)
   const t = S.tracks[i], rh = rowH(i), y = rowY(i), sel = isChosen(i), stack = t.kind === 'stack', par = t.parent ? byId(t.parent) : null, by = y + rh / 2 + 3.9
   const ups = []                                                                          // the stacks it stands in, the outermost first
   for (let x = par, k = 0; x && k < 16; x = x.parent ? byId(x.parent) : null, k++) ups.unshift(x)

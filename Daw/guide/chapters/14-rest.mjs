@@ -71,6 +71,20 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
     note('By the ground, the Slur panel turns light by itself when the window’s ground grows lighter than the mark ({{light when the ground is lighter than}}, 60% at first), and dark again below it.', '바탕에 따라로 두면, 창의 바탕이 기준({{light when the ground is lighter than}}, 처음엔 60%)보다 밝아질 때 Slur 패널이 저절로 밝아지고, 그 아래로 내려가면 다시 어두워집니다.'),
     art: fig('display-room', { w: 150, cap: ['the room in a look of its own: a light ground, dark ink, round corners, the sound standing on each region’s foot, drums from red to amber', '직접 만든 모습을 입은 방: 밝은 바탕, 짙은 잉크, 둥근 모서리, 리전 바닥에 선 소리, 빨강에서 호박색으로 가는 드럼'] }) }),
 
+  page(t('the theme maker: the room laid out by hand', '테마 메이커: 방을 손으로 배치하기'), { kind: 'split', tw: 104, txt:
+    lead('((Window > Theme Maker)) opens the room to be laid out by hand: the room live in the middle, at the size the theme is drawn for; the parts at the left, what is chosen at the right, the layers at the foot. Press a box to choose it; pull it, or its handles. ((Window > Theme Maker)) again brings the room back.', '((Window > Theme Maker))를 누르면 방을 손으로 배치합니다. 가운데에 방이 테마를 그리는 크기로 살아 있고, 왼쪽에 부품, 오른쪽에 고른 것, 아래에 레이어가 있습니다. 상자를 눌러 고르고, 끌거나 손잡이를 당깁니다. ((Window > Theme Maker))를 다시 누르면 방으로 돌아갑니다.') +
+    legend(
+      [1, 'the boxes: {{transport}}, {{heads}}, {{lanes}}, {{bars}}, {{markers}}, {{command line}}. Below, {{the head}} opens its template', '상자들: {{transport}}, {{heads}}, {{lanes}}, {{bars}}, {{markers}}, {{command line}}. 아래 {{the head}}는 템플릿을 엽니다'],
+      [2, 'the room, live; {{try the room}} gives the pointer back to it', '살아 있는 방. {{try the room}}을 누르면 포인터가 방으로 돌아갑니다'],
+      [3, 'the chosen box, its eight handles; the arrows nudge it, [[⇧]] by ten, [[⌘Z]] takes a change back', '고른 상자와 손잡이 여덟 개. 화살표로 미세 이동, [[⇧]]로 열 칸씩, [[⌘Z]]로 되돌리기'],
+      [4, 'a pin on each edge: a dot stays, an arrow follows the window, so the theme fits any screen. Pressed at the right: stays, follows, half way', '가장자리의 핀: 점은 고정, 화살표는 창을 따라가서 어떤 화면에도 맞습니다. 오른쪽에서 누르면 고정, 따라감, 절반'],
+      [5, 'where it stands, in numbers to type; its pins; what it shows', '위치를 숫자로, 핀, 보이는 조건'],
+      [6, 'the layers: what is over what', '레이어: 무엇이 무엇 위에 있는지'],
+      [7, '{{keep}}, {{share as .sst…}}, {{open .sst…}} as on the display page; a theme carries its boxes and its head. {{check}} names any control covered by another', '{{keep}}, {{share as .sst…}}, {{open .sst…}}는 display 페이지와 같습니다. 테마에 상자와 헤드가 담깁니다. {{check}}는 가려진 컨트롤을 알려줍니다']) +
+    p('{{edit the head…}} opens the head’s template at three heights, every track in its state. Pull a part where it should stand: the colour mark, the number, the name, the cells, the level and its reading. Each column is one layout.', '{{edit the head…}}는 헤드 템플릿을 세 높이로, 트랙마다 제 상태로 엽니다. 부품을 자리로 끕니다: 색 표시, 번호, 이름, 칸, 레벨과 그 값. 열 하나가 레이아웃 하나입니다.') +
+    note('The transport is still drawn by its kind: its box sets only its column’s width or its band’s height. Controls placed by hand, images and the mixer’s strip come next.', '트랜스포트는 아직 자기 종류대로 그려집니다. 상자는 열의 너비나 띠의 높이만 정합니다. 손으로 놓는 컨트롤, 이미지, 믹서 스트립은 다음에 옵니다.'),
+    art: fig('maker', { w: 150, calls: [[1, [118, 200], 'l'], [2, [900, 300], 'r'], [3, [455, 405], 'l'], [4, [463, 655], 'b'], [5, [1290, 220], 'r'], [6, [600, 820], 'b'], [7, [1380, 22], 't']] }) }),
+
   page(t('key commands: every key, and other programs’ keys', 'key commands: 모든 키, 다른 프로그램의 키'), { kind: 'split', tw: 104, txt:
     lead('Settings › {{key commands}} ([[⌥K]]) holds every key of the room. Any of them can be changed, and with one press the keys become those of Logic Pro, Ableton Live, Cubase or Pro Tools.', '설정 › {{key commands}}([[⌥K]])에는 방의 모든 키가 있습니다. 어느 키든 바꿀 수 있고, 한 번 눌러 Logic Pro, Ableton Live, Cubase, Pro Tools의 키로 바꿀 수 있습니다.') +
     legend(

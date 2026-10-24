@@ -503,6 +503,7 @@ private:
         if (op == "loop")    { engine.loopA.store ((double) d["a"]); engine.loopB.store ((double) d["b"]); engine.loop.store ((int) d["on"] != 0); done (okVar()); return; }
         if (op == "audioSettings") { showSettings ("audio"); done (okVar()); return; }      // (the room's own ways to the device: the same window, on its audio part)
         if (op == "settings")      { showSettings (d["part"].toString()); done (okVar()); return; }
+        if (op == "maker")         { web->goToURL (juce::WebBrowserComponent::getResourceProviderRoot() + ((int) d["on"] != 0 ? "/?maker=1" : "/")); done (okVar()); return; }      // the theme maker: the room's page laid out by hand (ui/maker.js), and back
         if (op == "settingsClose") { if (settings != nullptr) settings->setVisible (false); done (okVar()); return; }
         if (op == "settingsRead")  { done (settingsNow()); return; }
         if (op == "lowLatency")    { done (engine.setLowLatency ((int) d["on"] != 0, (int) d["ms"])); return; }      // the transport's bolt: what is heard live goes without what is too late (Engine::lowLatency)

@@ -224,8 +224,16 @@ const SHOTS = {
     await b.ev(`const T = __daw.S.tracks; T[0].name = 'kick in'; T[1].name = 'kick out'; __daw.repaint(); __daw.redraw()`)
     await line('kick mute', 'say-4')
   },
+  /* the theme maker (ui/maker.js, the room's page with ?maker=1): the heads box chosen in the room */
+  async maker (b) {
+    await b.sleep(900)
+    await b.ev(`for (const t of __daw.S.tracks) { if (t.theirs === 'jun') t.theirs = 'theo'; if (t.theirs === 'minseo') t.theirs = 'mina' } dirtyAll(); flush(); return 1`)
+    const p = await b.ev(`const r = boxRect('heads', W + SKV.left, H), q = board.getBoundingClientRect(); return { x: q.left + (r.x0 + r.w / 2) * MK.k, y: q.top + (r.y0 + 300) * MK.k }`)
+    await b.click(p.x, p.y); await b.sleep(400)
+    await b.pic('maker')
+  },
 }
-const SIZE = {}
+const SIZE = { maker: { w: 1440, h: 900, file: UI + '?maker=1' } }
 async function standIn () {
   // the app as far as the page asks it anything, borrowed from the start page's own check, with the names changed
   const { readFileSync } = await import('node:fs')

@@ -122,6 +122,8 @@ const MENU_BAR = () => [
   ['Window', [
     ['Patch', null, { id: 'winpatch', do: () => togglePanel('patch'), on: () => S.panel.on && S.panel.tab === 'patch' }], ['Mixer', null, { id: 'winmixer', do: () => togglePanel('mixer'), on: () => S.panel.on && S.panel.tab === 'mixer' }], ['Slur', null, { id: 'winslur', do: () => toggleSlur(), on: () => !!S.slur }], ['Rubato Panel', 'KeyW', { id: 'winrubato', do: () => rubToggle(), on: () => S.panel.on && S.panel.tab === 'rubato' }],
     '-',
+    ['Theme Maker', null, { id: 'winmaker', do: () => makerToggle(), on: () => typeof MK === 'object' && MK.on }],      // (the room laid out by hand: maker.js; the page comes again with ?maker=1, and back)
+    '-',
     ['Minimize', '⌘KeyM', { sys: 'performMiniaturize', always: 1 }], ['Zoom', null, { sys: 'performZoom' }],
     '-',
     ['Enter Full Screen', '⌃⌘KeyF', { sys: 'toggleFullScreen', always: 1 }],

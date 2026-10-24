@@ -218,7 +218,7 @@ LANG.menuKo = {
   'Zoom In': '확대', 'Zoom Out': '축소', 'Zoom to Fit or Selection': '전체 또는 선택한 곳에 맞추기', 'Taller Rows': '줄 높이기', 'Shorter Rows': '줄 낮추기', 'Taller Waveforms': '파형 키우기', 'Lower Waveforms': '파형 줄이기',
   'Page Left': '한 화면 왼쪽', 'Page Right': '한 화면 오른쪽', 'Page Up': '한 화면 위', 'Page Down': '한 화면 아래', 'Show the Playhead': '플레이헤드 보기', 'Show the Selection': '선택한 곳 보기',
   'Close Plug-in Windows': '플러그인 창 닫기', 'Say It': '말로 하기',
-  'Window': '윈도우', 'Minimize': '최소화', 'Enter Full Screen': '전체 화면 시작', 'Help': '도움말', 'Slur Studio Help': 'Slur Studio 도움말',
+  'Window': '윈도우', 'Theme Maker': '테마 메이커', 'Minimize': '최소화', 'Enter Full Screen': '전체 화면 시작', 'Help': '도움말', 'Slur Studio Help': 'Slur Studio 도움말',
   /* the app's own menu, which the Mac makes and the page names */
   'About Slur Studio': 'Slur Studio 정보', 'Settings…': '설정…', 'Services': '서비스', 'Hide Slur Studio': 'Slur Studio 가리기', 'Hide Others': '기타 가리기', 'Show All': '모두 보기', 'Quit Slur Studio': 'Slur Studio 종료',
 }

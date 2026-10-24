@@ -217,6 +217,9 @@ html:has(.sl-one), html:has(.sl-one) body { height: 100%; overflow: hidden; over
 .sl-cell small { display: block; font-size: 11.5px; color: var(--sl-t3); line-height: 1.35; margin-top: 1px; }
 .sl-cell b, .sl-cell small { white-space: nowrap; }
 .sl-cell:hover b, .sl-cell.here b { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+/* the same bar on a dark page (slur studio's own): only the words turn white */
+.sl-cells.dark .sl-cell { color: #ECEAE4; }
+.sl-cells.dark .sl-cell small { color: rgba(236,234,228,.5); }
 
 .sl:has(.sl-cover) { background: #E9E7E1; }   /* the landing's ground is the cover's, so the arch below meets it cleanly */
 .sl-cover { position: relative; height: 100vh; height: 100svh; min-height: 560px; overflow: hidden; }

@@ -1,0 +1,92 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Slur Studio's own page (/studio) — the daw told in scenes, each held on
+   the screen while it is scrolled through. Dark, the site's bar on top with
+   its words in white. Everything is .ss-* or under .ss; the bar and the
+   footer are the site's own (.sl-*). Draft: design/slur studio page draft 1.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+
+.sl.ss {
+  --ss-k0: #0E0E0E; --ss-k1: #151514; --ss-ink: #ECEAE4; --ss-paper: #F3F0E8; --ss-dark: #1A1917; --ss-lav: #C9D5FF; --ss-yellow: #E5B73B;
+  background: var(--ss-k0); color: var(--ss-ink);
+  /* clip, not hidden: a hidden overflow makes the page its own scroller, and the scenes' sticky screens stop holding */
+  overflow: visible; overflow-x: clip;
+}
+html:has(.sl.ss), html:has(.sl.ss) body { height: auto; overflow: visible; overflow-x: clip; overscroll-behavior: auto; background: #0E0E0E; }
+.ss svg { display: block; }
+.ss-grain { position: fixed; inset: 0; pointer-events: none; z-index: 60; opacity: .14; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+/* the top: the site's own bar, over the first screen */
+.ss .sl-top.static { position: absolute; z-index: 50; color: var(--ss-ink); }
+
+/* a scene: as tall as it is long; inside it, the screen it holds while it is scrolled through */
+.ss-scene { position: relative; }
+.ss-stick { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+.ss-word { position: absolute; left: 4vw; bottom: 7vh; z-index: 5; pointer-events: none; }
+.ss .ss-word h2 { margin: 0; font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; font-size: clamp(64px, 13vw, 210px); line-height: .82; letter-spacing: -.02em; }
+.ss .ss-word p { margin: 18px 0 0 .6vw; font-size: clamp(15px, 1.5vw, 21px); max-width: 560px; line-height: 1.35; opacity: .86; }
+.ss-word.right { left: auto; right: 4vw; text-align: right; }
+.ss .ss-word.right p { margin-left: auto; }
+.ss-word.top { bottom: auto; top: 12vh; }
+.ss .ss-word.top p { max-width: 420px; }
+.ss-reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .9s cubic-bezier(.2, .7, .2, 1); }
+.ss-reveal.on { opacity: 1; transform: none; }
+
+/* ── 0: the first screen ── */
+.ss #intro { height: 100vh; }
+.ss #intro .ss-stick { display: grid; place-items: center; }
+.ss #staff { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ss-name { width: min(1100px, 86vw); height: auto; position: relative; z-index: 2; margin-top: -6vh; }
+.ss-name:not(.ready) { visibility: hidden; }          /* until the scenes set it up to be written on */
+.ss-playrow { position: absolute; left: 0; right: 0; bottom: 9vh; z-index: 3; display: flex; justify-content: center; align-items: center; gap: 34px; }
+.ss #play { width: 74px; height: 74px; }
+.ss #play svg { width: 74px; height: 74px; overflow: visible; }
+.ss-readout { font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 4px; min-width: 300px; }
+.ss-readout .b { font-size: 76px; font-weight: 500; letter-spacing: -.04em; line-height: 1; }
+.ss-readout .s { font-size: 20px; }
+.ss-readout .t { font-size: 14px; opacity: .7; }
+.ss-meter4 { display: flex; gap: 6px; margin-left: 18px; }
+.ss-meter4 i { width: 9px; height: 9px; border: 1.2px solid var(--ss-ink); display: block; }
+.ss-meter4 i.on { background: var(--ss-ink); }
+.ss-bpm { font-size: 13px; opacity: .7; margin-left: 14px; }
+.ss-hint { position: absolute; bottom: 3vh; left: 0; right: 0; text-align: center; font-size: 12px; opacity: .5; }
+
+/* ── the room in it ── */
+.ss-full { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ss #tidy { height: 340vh; } .ss #transport { height: 260vh; } .ss #rubato { height: 260vh; } .ss #doctor { height: 260vh; } .ss #rough { height: 320vh; } .ss #patch { height: 260vh; } .ss #looks { height: 240vh; }
+.ss-shot { position: absolute; right: 4vw; top: 50%; width: min(70vw, 1300px); aspect-ratio: 1440 / 900; transform: translateY(-50%); border-radius: 14px; overflow: hidden; box-shadow: 0 50px 120px -30px rgba(0,0,0,.8), 0 0 0 1px rgba(236,234,228,.12); }
+.ss-shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ss-shot .b { clip-path: inset(0 0 0 100%); }
+.ss-wipe { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ss-yellow); box-shadow: 0 0 30px var(--ss-yellow); opacity: 0; }
+
+/* ── keys: a light room for once ── */
+.ss #keys { background: var(--ss-lav); color: var(--ss-dark); border-radius: 50% 50% 0 0 / 160px 160px 0 0; padding: 22vh 4vw 18vh; position: relative; z-index: 2; }
+.ss #keys h2 { margin: 0; font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; font-size: clamp(64px, 11vw, 180px); line-height: .85; }
+.ss-sets { display: flex; gap: 10px; flex-wrap: wrap; margin: 34px 0 54px; }
+.ss .ss-sets button { height: 44px; padding: 0 22px; border-radius: 22px; box-shadow: inset 0 0 0 1.3px rgba(26,25,23,.45); font-size: 15px; transition: background .2s, color .2s; }
+.ss .ss-sets button.on { background: var(--ss-dark); color: #FBFAF7; box-shadow: none; }
+.ss-caps { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-end; }
+.ss-caps .cap { width: 132px; height: 132px; border-radius: 22px; background: #FBFAF7; box-shadow: 0 7px 0 rgba(26,25,23,.28), 0 14px 30px -10px rgba(26,25,23,.25); display: flex; flex-direction: column; justify-content: space-between; padding: 16px 18px; transition: transform .08s ease, box-shadow .08s ease, background .2s; }
+.ss-caps .cap b { font-size: 40px; font-weight: 500; letter-spacing: -.02em; line-height: 1; }
+.ss-caps .cap span { font-size: 14px; opacity: .65; }
+.ss-caps .cap.down { transform: translateY(6px); box-shadow: 0 1px 0 rgba(26,25,23,.28); background: var(--ss-yellow); }
+.ss-say { margin-top: 40px; font-size: 18px; min-height: 26px; opacity: .8; }
+.ss-note { margin-top: 10px; font-size: 13px; opacity: .55; }
+
+/* ── the end ── */
+.ss #end { background: var(--ss-paper); color: var(--ss-dark); padding: 18vh 4vw 0; position: relative; z-index: 2; }
+.ss-end-mark { width: min(760px, 86vw); height: auto; }
+.ss-acts { display: flex; gap: 12px; align-items: center; margin: 40px 0 16vh; }
+.ss-pill { height: 48px; padding: 0 26px; border-radius: 24px; display: inline-flex; align-items: center; font-size: 16px; box-shadow: inset 0 0 0 1.3px rgba(26,25,23,.55); }
+.ss-acts .soon { opacity: .6; }
+.ss #end .sl-foot-row.plain { padding-left: 0; padding-right: 0; }
+.ss #end .sl-foot-row.plain a:hover { color: var(--ss-dark); }
+
+@media (prefers-reduced-motion: reduce) { .ss-reveal { transition: none; } }
+@media (max-width: 760px) {
+  .ss-readout .b { font-size: 52px; } .ss-readout { min-width: 0; } .ss-meter4, .ss-bpm { display: none; }
+  .ss-playrow { gap: 18px; }
+  .ss-word { left: 6vw; right: 6vw; bottom: 6vh; } .ss-word.right { right: 6vw; text-align: left; } .ss .ss-word.right p { margin-left: 0; }
+  .ss-caps .cap { width: 96px; height: 96px; border-radius: 18px; } .ss-caps .cap b { font-size: 28px; }
+  .ss #keys { border-radius: 50% 50% 0 0 / 70px 70px 0 0; }
+}

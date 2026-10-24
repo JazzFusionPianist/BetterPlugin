@@ -5,15 +5,18 @@ import { C, wholeNotePath } from './marks'
 /* The pictogram nav — a small drawing, a word and two quiet lines per cell —
    the same on every page before you log in, so the pictures stay with the
    words wherever you go. `here` marks the page you are on; `onLogIn` opens
-   the door in place when the page has one, otherwise the link carries it. */
+   the door in place when the page has one, otherwise the link carries it.
+   `dark` is the same bar on a dark page: its words and lines in white. */
 
 type Here = 'slur' | 'patch' | 'studio' | 'downloads'
 
-export default function PictoNav ({ here, onLogIn, showDownloads = true }: {
+export default function PictoNav ({ here, onLogIn, showDownloads = true, dark = false }: {
   here?: Here
   onLogIn?: () => void
   showDownloads?: boolean
+  dark?: boolean
 }) {
+  const ink = dark ? '#ECEAE4' : C.ink
   const cell = (key: Here, href: string, glyph: React.ReactNode, name: string, a: string, b: string) => (
     <a className={`sl-cell hide-narrow${here === key ? ' here' : ''}`} href={href} aria-current={here === key ? 'page' : undefined}>
       {glyph}<span><b>{name}</b><small>{a}<br />{b}</small></span>
@@ -26,18 +29,18 @@ export default function PictoNav ({ here, onLogIn, showDownloads = true }: {
     </>
   )
   return (
-    <nav className="sl-cells">
+    <nav className={`sl-cells${dark ? ' dark' : ''}`}>
       {cell('slur', '/downloads#slur',
         <svg width="30" height="30" viewBox="-15 -15 30 30" aria-hidden="true"><path d="M -12.98 -5.24 A 14 9.8 -22 1 0 12.98 5.24 A 14 9.8 -22 1 0 -12.98 -5.24 Z M -2.3 -5.4 A 5.9 7.3 38 1 1 2.3 5.4 A 5.9 7.3 38 1 1 -2.3 -5.4 Z" fill={C.green} fillRule="evenodd" /></svg>,
         'slur', 'the room', 'chat stems dates')}
       {cell('patch', '/downloads#patch-on-slur',
         <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="2" y="2" width="26" height="26" fill="#8C5A3A" /><g fill="none" stroke={C.white} strokeWidth="1.1"><circle cx="15" cy="15" r="9" /><circle cx="15" cy="15" r="5.5" /><circle cx="15" cy="15" r="2.2" /></g></svg>,
         'patch on slur', 'the wall', 'no account')}
-      {cell('studio', '/downloads#slur-studio',
-        <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="2" y="2" width="26" height="26" fill="#0E0E0E" /><g fill="rgba(236,234,228,.26)">{[9.6, 12.3, 15, 17.7, 20.4].map(y => <rect key={y} x="2" y={y - .25} width="26" height=".5" />)}</g><path d={wholeNotePath(15, 15, 6.6)} fill={C.blue} fillRule="evenodd" /></svg>,
+      {cell('studio', '/studio',
+        <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="2" y="2" width="26" height="26" fill="#0E0E0E" stroke={dark ? 'rgba(236,234,228,.22)' : undefined} /><g fill="rgba(236,234,228,.26)">{[9.6, 12.3, 15, 17.7, 20.4].map(y => <rect key={y} x="2" y={y - .25} width="26" height=".5" />)}</g><path d={wholeNotePath(15, 15, 6.6)} fill={C.blue} fillRule="evenodd" /></svg>,
         'slur studio', 'the song', 'tracks patch slur')}
       {showDownloads && cell('downloads', '/downloads',
-        <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path d="M 4 29 V 13 A 11 11 0 0 1 26 13 V 29 Z" fill="none" stroke={C.ink} strokeWidth="1.6" /><path d="M 15 11 V 22 M 10.5 17.5 L 15 22 L 19.5 17.5" fill="none" stroke={C.ink} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+        <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path d="M 4 29 V 13 A 11 11 0 0 1 26 13 V 29 Z" fill="none" stroke={ink} strokeWidth="1.6" /><path d="M 15 11 V 22 M 10.5 17.5 L 15 22 L 19.5 17.5" fill="none" stroke={ink} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>,
         'downloads', 'mac', 'au vst3 aax')}
       {onLogIn
         ? <button className="sl-cell" onClick={onLogIn}>{door}</button>

@@ -6,7 +6,7 @@
    is in it. It is kept with the project.
    And an instrument from outside that did not open (another Mac, a plug-in that would not start) keeps its place and its
    settings: a press on its frame tries again, as a plug-in's does. Read after the room's own scripts. */
-const TRACK_OFF_A = .34
+const TRACK_OFF_A = .34, TRACK_OFF_LANE_A = .62                                  // (its lane less: at .34 its regions could not be seen — his ask, 2026-10-25)
 const trackOffAll = list => { const out = new Set(); const add = t => { if (!t || out.has(t)) return; out.add(t); if (t.kind === 'stack') for (const c of S.tracks) if (c.parent === t.id) add(c) }; for (const t of list) add(t); return [...out] }
 function trackOffToggle (some) {                                                         // (tracks, or their places)
   const list = trackOffAll((some || []).map(x => typeof x === 'number' ? S.tracks[x] : x).filter(Boolean))
@@ -34,11 +34,11 @@ async function instBringBack (t) {
 }
 {
   /* drawn faded: its head, its lane, its strip (the strip and the head as each look draws them) */
-  const fade = s => `<g opacity="${TRACK_OFF_A}">${s}</g>`
+  const fade = (s, a = TRACK_OFF_A) => `<g opacity="${a}">${s}</g>`
   const head0 = headRow
   headRow = function (i) { const s = head0(i), t = S.tracks[i]; return t && t.disabled ? fade(s) : s }
   const lane0 = laneRow
-  laneRow = function (i, sel, xEnd) { const s = lane0(i, sel, xEnd), t = S.tracks[i]; return t && t.disabled ? fade(s) : s }
+  laneRow = function (i, sel, xEnd) { const s = lane0(i, sel, xEnd), t = S.tracks[i]; return t && t.disabled ? fade(s, TRACK_OFF_LANE_A) : s }
   const strip0 = strip
   strip = function (x, y, w, h, t, i, o = {}) { const s = strip0(x, y, w, h, t, i, o); return t && t.disabled && !o.master ? fade(s) : s }
   /* the track's other button: the line to switch it off, or on again, above delete */

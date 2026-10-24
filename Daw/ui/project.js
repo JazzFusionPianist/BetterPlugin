@@ -285,7 +285,7 @@ async function saveNow (full, evenHeld) { for (let k = 0; k < 100 && PROJ.busy; 
 function dropAllAudio () { for (const key of NAT.keys) NAT.call('dropBuffer', { key }); NAT.keys.clear(); WARPS.clear(); LIVEW.clear(); forgetTransients() }
 function resetSession () {
   halt(false)
-  S.selR = []; S.selP = []; S.marq = null; S.queued = null; S.menu = null; S.last = null; S.rec = null; UNDO.length = 0; REDO.length = 0
+  S.selR = []; S.selP = []; S.marq = null; S.queued = null; S.menu = null; S.last = null; S.rec = null; S.rsolo = null; UNDO.length = 0; REDO.length = 0
   S.selT = []; S.selA = null; S.selM = null; S.focus = 'lanes'; S.newT = null
   for (const t of S.tracks) t.inserts = []
   S.selX = null; CLIP = []; TIME_CLIP = null

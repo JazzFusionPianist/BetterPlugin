@@ -57,10 +57,10 @@ const mpBars = (key, x, ft, fb, bw, gap, c, dim) => {
 SKINS.mixer.panel = (y, h) => {
   const list = rows(), N = list.length, A = Math.max(120, RX - 12 - MP_OUTW)
   /* where the faders stand (all on one line across): first a guess of the row of numbers, then under the longest patch */
-  const fxRows = i => (S.tracks[i].theirs || S.tracks[i].kind === 'stack' ? 0 : fxItems(S.tracks[i]).length + 1)
+  const fxRows = i => (S.tracks[i].theirs ? 0 : fxItems(S.tracks[i]).length + 1)
   const geomAt = top => { const H = y + h - top, fb = y + h - 50, need = 64 + 15 * Math.max(2, ...list.map(fxRows)) + 12, ft = top + clamp(need, 110, Math.max(110, H * .52)); return { H, fb, ft } }
   /* a wide strip's width: the fader's part, and a column of send knobs for every so many of its sends (and its +) */
-  const widthOf = (i, g) => { const t = S.tracks[i], r = mpKnobR(g.ft, g.fb), per = mpPer(g.ft, g.fb, r), k = t.kind === 'stack' ? 0 : Math.min(MP_SENDS, (t.sends || []).length + ((t.sends || []).length < MP_SENDS ? 1 : 0)); return MPX.base + Math.max(1, Math.ceil(k / per)) * (2 * r + 12) }
+  const widthOf = (i, g) => { const t = S.tracks[i], r = mpKnobR(g.ft, g.fb), per = mpPer(g.ft, g.fb, r), k = Math.min(MP_SENDS, (t.sends || []).length + ((t.sends || []).length < MP_SENDS ? 1 : 0)); return MPX.base + Math.max(1, Math.ceil(k / per)) * (2 * r + 12) }
   /* how wide: all wide when they fit; else the chosen wide (the lead first) and the rest narrow */
   const lead = S.sel, chosenL = list.filter(i => isChosen(i)).sort((a, b) => (b === lead) - (a === lead))
   let g = geomAt(y), sumAll = list.reduce((q, i) => q + widthOf(i, g), 0), allWide = sumAll <= A, many = false, nw = 0, spare = 0
@@ -119,11 +119,11 @@ SKINS.mixer.panel = (y, h) => {
         else { s += R(L, ly - 7, 7, 7, { fill: it.c || MP_PRINT_C()[it.k] || t.c, fa: it.off ? .4 : 1 }) + T(L + 12, ly, fit(asGiven(it.t), w - 30, 9.5), { size: 9.5, a: it.off ? .4 : .85 }); hits += hit(x + 4, ly - 11, w - 8, 15, 'mfx', `${di} data-k="${k}"`) }
         ly += 15; used++
       })
-      if (!t.theirs && t.kind !== 'stack') { s += mpPlus(L + 4, ly - 3.5) + T(L + 14, ly, 'plug-in', { size: 8.5, a: .4 }); hits += hit(x + 4, ly - 11, w - 8, 15, 'mfxadd', di); ly += 15 }
+      if (!t.theirs) { s += mpPlus(L + 4, ly - 3.5) + T(L + 14, ly, 'plug-in', { size: 8.5, a: .4 }); hits += hit(x + 4, ly - 11, w - 8, 15, 'mfxadd', di); ly += 15 }
       else if (t.theirs) { s += T(L, ly, 'patch →', { size: 8.5, a: .45 }); hits += hit(x + 4, ly - 11, w - 8, 15, 'm-patch', di); ly += 15 }      // (another program's track takes no plug-in here: its patch)
       /* its sends: round knobs (as Logic's) in a column right of the fader, how much each sends under it; one more, a + knob;
          when the column is full the strip widens by another (his asks, 2026-10-21) */
-      if (t.kind !== 'stack') { const r = mpKnobR(ft, fb), per = mpPer(ft, fb, r), cw = 2 * r + 12, x0 = x + MPX.base + 1
+      { const r = mpKnobR(ft, fb), per = mpPer(ft, fb, r), cw = 2 * r + 12, x0 = x + MPX.base + 1      // (a stack's sends too: it is a strip of its own, as Logic's summing stack — his ask, 2026-10-25)
         sends.slice(0, MP_SENDS).forEach((sd, k) => { const cx = x0 + Math.floor(k / per) * cw + r + 4, cy = ft + (k % per) * (2 * r + 20) + r + 2, b = byId(sd.to), db = mpSendDb(t, k, sd), pulling = drag && drag.a === 'msend' && drag.moved && S.tracks[drag.i] === t && drag.k === k
           /* under it the bus it goes to; how much it sends only while the pointer is on it, or it is turned (his ask, 2026-10-21) */
           const much = (db <= -47.5 ? '−∞' : (pulling ? db.toFixed(1) : String(Math.round(db))).replace('-', '−')) + ' db', bus = b ? asGiven(b.name) : 'send'
@@ -158,7 +158,7 @@ SKINS.mixer.panel = (y, h) => {
       hits += hit(x, top + 6, w, 52, 'msel', di)
       if (w >= 58 && t.kind !== 'stack') { s += mpKnob(x + w - 14, top + 26, 7, shown(t, 'pan')); hits += hit(x + w - 25, top + 14, 22, 26, 'mpan', di, 'ns-resize') }
       /* its patch and its sends said as counts: the patch's pressed opens its patch, the sends' opens the strip */
-      if (t.kind !== 'stack') { const nf = fxItems(t).length, ns = (t.sends || []).length
+      { const nf = fxItems(t).length, ns = (t.sends || []).length
         s += T(L, top + 72, t.theirs ? 'patch →' : nf ? `${nf} fx` : '+ fx', { size: 8.5, a: nf ? .7 : .4 }); hits += hit(x + 2, top + 61, w - 4, 15, 'm-patch', di)
         s += T(L, top + 88, ns ? `${ns} send${ns === 1 ? '' : 's'}` : '+ send', { size: 8.5, a: ns ? .7 : .4 }); hits += hit(x + 2, top + 77, w - 4, 15, 'msel', di) }
       const bx0 = L, lx = bx0 + 2 * 5 + 1.5 + 12, room = w >= 76
@@ -182,6 +182,7 @@ SKINS.mixer.panel = (y, h) => {
       if (on) { s += mpShape(on.t, cx, fb + 20, 8, true); hits += hit(x, fb + 10, w, 20, on.a, di) }
     }
     s += hits
+    MIX_AT.push([i, x, x + w])                                                           // (where it stands: a slot pulled onto it lands here — mix.js fxTargets)
     x += w
     s += R(x - .5, top + 8, .6, H - 16, { fill: INK, fa: .06 })
   }

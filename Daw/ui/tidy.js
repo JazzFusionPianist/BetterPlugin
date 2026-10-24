@@ -13,6 +13,9 @@
        of one family stand in a stack of their own (stacks, buses and what stands in a stack keep their places).
    Track > Tidy Tracks, or said: "tidy the tracks", "트랙 정리해줘". Read after say.js, mix.js and silence.js. */
 const TIDY = { state: '', w: null, wait: new Map(), n: 0, classes: null }
+/* a fade this short at every free end of a tidied track's sound, in and out, should an edge click (his ask, 2026-10-25,
+   "혹시 모르니"): an end that meets another region, or crosses into one, keeps what it had; one that has a fade keeps it */
+const TIDY_FADE_S = .003
 for (const keep of [typeof KEEP_T !== 'undefined' ? KEEP_T : null, typeof T_KEEP !== 'undefined' ? T_KEEP : null]) if (keep && !keep.includes('what')) keep.push('what')      // (what a track was found to be: kept with the song, and in a step back)
 
 /* ── the kinds of sound YAMNet knows, gathered into instruments: [stem, [[class, weight], …]] ── */
@@ -464,6 +467,16 @@ async function tidyTracks () {
     const had = new Map(ts.map(t => [t, t.regs.length]))
     cut = silCut(heard)
     for (const t of ts) if (had.get(t) && !t.regs.length && !S.tracks.some(x => x.parent === t.id)) emptied.push(t)
+    /* the short fades */
+    const fd = TIDY_FADE_S / SPB()
+    for (const t of ts) for (const r of t.regs) {
+      if (r.notes || r.missing) continue
+      const len = r.b - r.a
+      if (len <= 4 * fd) continue
+      const met = q => q !== r && (Math.abs(q.b - r.a) < 1e-6 || (q.a < r.a - 1e-9 && q.b > r.a + 1e-9)), meets = q => q !== r && (Math.abs(q.a - r.b) < 1e-6 || (q.a < r.b - 1e-9 && q.b > r.b + 1e-9))
+      if (!(r.fi > 0) && !t.regs.some(met)) { r.fi = fd; dirtyReg(r) }
+      if (!(r.fo > 0) && !t.regs.some(meets)) { r.fo = fd; dirtyReg(r) }
+    }
     /* names: a name that came with its file (or one that says nothing) is cleaned; one typed by hand is left */
     const own = ts.map(t => { const r = t.regs.find(q => q.file) || null, base = r ? tidyFileBase(r) : ''; return [t, base] }).filter(([t, b]) => b && (t.name === b.slice(0, 24).toLowerCase() || t.name === b.toLowerCase() || tidyBare(t.name)))
     const clean = tidyClean(own.map(([, b]) => b))

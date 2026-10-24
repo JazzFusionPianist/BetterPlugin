@@ -33,7 +33,7 @@ if (NAT) {
     const tracks = S.tracks.concat(outT ? [outT] : []).map(t => {
       const fr = !only && typeof frozenReg === 'function' ? frozenReg(t) : null          // a frozen track plays its print, and that alone (freeze.js)
       const wired = { kind: t.kind === 'audio' ? 0 : 1, out: destId(t) || (outT && t !== outT ? outT.id : 0), autos: t === outT ? autoMsg(t).filter(a => a.p !== AUTO.vol.p) : autoMsg(t),      // (the stereo out's volume line is its fader's, played as the out's own: masterLine)
-        regs: fr ? [regMsg(fr)] : t.kind === 'audio' ? t.regs.filter(r => !r.mute && !r.notes && !r.missing && (!only || only(r))).map(regMsg) : [] }
+        regs: fr ? (S.rsolo && !t.regs.some(rsoloOk) ? [] : [regMsg(fr)]) : t.kind === 'audio' ? t.regs.filter(r => !r.mute && !r.notes && !r.missing && rsoloOk(r) && (!only || only(r))).map(regMsg) : [] }      // (regions heard alone: edit.js rsoloOk — a frozen track plays its print while any of its regions is one of them)
       if (!fr) Object.assign(wired, noteMsg(t, only))                                  // a track of notes: what it plays, as it sounds
       const text = JSON.stringify(wired) + '|' + (t.sends || []).map(s => s.to).join()
       if (!only && t._told === text) return Object.assign(trackMsg(t), { same: 1, ver: t._ver })

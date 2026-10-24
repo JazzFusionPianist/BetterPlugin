@@ -133,18 +133,24 @@ function autoLane (t, y, rh, xEnd = X1) {
   d += `L${n(own ? Math.max(xe, bx(pts[pts.length - 1].b + 1)) : Math.max(X1, bx(pts[pts.length - 1].b + 1)) + 2)} ${n(yOf(pts[pts.length - 1].v))}`
   /* each point, small, and its value beside it (his ask, 2026-10-19: how far a point takes it could not be seen) — said
      where there is room for it: a word that would run into the last one is left out */
-  let words = '', free = -Infinity, chosenDots = ''
-  const top = y + 2, bottom = y + rh - 2
+  let words = '', free = -Infinity, chosenDots = '', litWords = ''
+  const top = y + 2, bottom = y + rh - 2, lit = AUTO_LIT.until > performance.now()
   for (const q of pts) {
     const x = bx(q.b + 1)
     if (x < X0 - 5 || x > X1 + 5) continue
     const on = S.selP.includes(q.id), py = yOf(q.v), dot = Cc(x, py, on ? 2.6 : 2, { fill: on ? ink : K0, stroke: ink, sw: 1 })
     if (on) chosenDots += dot; else dots += dot                                           // (the chosen drawn last: a point beside it does not hide it)
-    const said = A.fmt(q.v), w = tw(said, 8.5)
-    if (rh >= 18 && x + 5 >= free && x + 5 + w < X1) { words += T(x + 5, clamp(py + 3, top + 7, bottom), said, { size: 8.5, c: ink, a: on ? .95 : .62 }); free = x + 5 + w + 6 }      // (right of it, at its height)
+    const said = A.fmt(q.v), w = tw(said, 8.5), ty = clamp(py + 3, top + 7, bottom)
+    /* a point just moved by hand: its value in a box of the line's ink, for two seconds (his ask, 2026-10-25, as the panel's
+       values are lit: lit.js) — said whatever stands beside it */
+    if (lit && AUTO_LIT.ids.has(q.id)) { litWords += R(x + 3, ty - 8.6, w + 5, 11.8, { fill: ink }) + T(x + 5.5, ty, said, { size: 8.5, c: K0 }); free = x + 5 + w + 6; continue }
+    if (rh >= 18 && x + 5 >= free && x + 5 + w < X1) { words += T(x + 5, ty, said, { size: 8.5, c: ink, a: on ? .95 : .62 }); free = x + 5 + w + 6 }      // (right of it, at its height)
   }
-  return P(d, { stroke: K0, sa: .55, sw: sw + 1.3 }) + P(d, { stroke: ink, sa: pale, sw }) + dots + chosenDots + words
+  return P(d, { stroke: K0, sa: .55, sw: sw + 1.3 }) + P(d, { stroke: ink, sa: pale, sw }) + dots + chosenDots + words + litWords
 }
+/* the points just moved by hand, and until when their values are boxed */
+const AUTO_LIT = { ids: new Set(), until: 0, timer: 0 }
+function autoLit (ids) { AUTO_LIT.ids = new Set(ids); AUTO_LIT.until = performance.now() + 2000; clearTimeout(AUTO_LIT.timer); AUTO_LIT.timer = setTimeout(() => uiDirty('lanes'), 2030) }
 const OWN_LINE = .9, OWN_W = 1.8
 /* is the pointer on such a row's own line, or on one of its points (the lines not shown) */
 function onOwnLine (ti, p) {
@@ -163,12 +169,20 @@ function addPoint (t, k, b, v) {
   pts.push(q); sortPts(pts)
   return q
 }
+/* the lines that hold a chosen point — every one of them goes with the hand, on any track (his ask, 2026-10-25: all chosen,
+   only the stretch under the pointer went) */
+function chosenLines () {
+  const s = new Set(S.selP), out = []
+  for (const t of autoAll()) for (const k of Object.keys(t.autos || {})) if (Array.isArray(t.autos[k]) && t.autos[k].some(q => s.has(q.id))) out.push([t, k])
+  return out
+}
+const chosenOrig = lines => { const s = new Set(S.selP), m = new Map(); for (const [t, k] of lines) for (const q of t.autos[k]) if (s.has(q.id)) m.set(q.id, { b: q.b, v: q.v }); return m }
 function autoDown (e, p, tool, at) {
   const ti = at != null ? at : laneAt(p.y), t = autoT(ti), g = autoGeom(t, autoY(ti), autoH(ti)), before = editState(), q = autoHit(t, g, p)
   if (ti !== AUTO_OUT) { if (!isChosen(ti)) leadTrack(ti); else S.sel = ti }
   if (S.auto) t.ap = g.k
   if (tool === 'eraser') { if (q) { t.autos[g.k] = autoPts(t, g.k).filter(x => x !== q); S.selP = S.selP.filter(id => id !== q.id); commit(before) } uiDirty('head', 'dock'); return }
-  const startDrag = lead => { drag = { a: 'apt', ti, k: g.k, x0: p.x, y0: p.y, lead: lead.id, before, orig: new Map(autoPts(t, g.k).filter(x => S.selP.includes(x.id)).map(x => [x.id, { b: x.b, v: x.v }])) } }
+  const startDrag = lead => { const lines = chosenLines(); drag = { a: 'apt', ti, k: g.k, x0: p.x, y0: p.y, lead: lead.id, before, lines, orig: chosenOrig(lines) } }
   if (q) {
     if (e.shiftKey) S.selP = S.selP.includes(q.id) ? S.selP.filter(id => id !== q.id) : S.selP.concat(q.id); else if (!S.selP.includes(q.id)) S.selP = [q.id]
     if (S.selP.includes(q.id)) startDrag(q)
@@ -182,6 +196,11 @@ function autoDown (e, p, tool, at) {
          (his ask, 2026-10-22) */
       const q = pts.filter(x => x.b <= pos).pop(), nx = pts.find(x => x.b > pos)
       drag = { a: 'apt', curve: true, ti, k: g.k, q: q.id, x0: p.x, y0: p.y, c0: typeof q.c === 'number' ? q.c : 0, sign: Math.sign(nx.v - q.v) || 1, before, moved: false }
+    } else if (Math.abs(p.y - g.yOf(lineV)) <= 7 && !inMarq(t, pos) && (() => { const mine = pts.filter(x => S.selP.includes(x.id)); return mine.length > 1 && pos >= mine[0].b - 1e-9 && pos <= mine[mine.length - 1].b + 1e-9 })()) {
+      /* on the line between chosen points: every chosen point goes up or down with the hand, on every line that has one —
+         as a stretch of a line does, nothing of it moves along the song (a chosen point taken hold of moves them along it) */
+      const lines = chosenLines(), mine = pts.filter(x => S.selP.includes(x.id))
+      drag = { a: 'apt', seg: true, ti, k: g.k, x0: p.x, y0: p.y, pos, lineV, before, lines, lead: mine[0].id, orig: chosenOrig(lines) }
     } else if (Math.abs(p.y - g.yOf(lineV)) <= 7 || inMarq(t, pos)) {
       /* on the line, away from its points — or anywhere inside a marquee on its track (a line with no points too: on a
          stack the press went to a point where it was made, his report 2026-10-21). Let go where it was pressed: a point
@@ -220,7 +239,7 @@ function autoMove (e, p) {
   }
   const t = autoT(d.ti), g = autoGeom(t, autoY(d.ti), autoH(d.ti))
   if (d.seg && d.lead == null) { if (Math.hypot(p.x - d.x0, p.y - d.y0) < 3) return; autoSeg(d, t) }      // a stretch of the line taken hold of: it is pulled only once the hand has moved
-  const pts = autoPts(t, d.k), lead = d.orig.get(d.lead)
+  const lead = d.orig.get(d.lead)
   const db = d.seg ? 0 : clamp(snapPos(lead.b + (barAt(p.x) - barAt(d.x0)), e), 0, SONG_END) - lead.b
   /* control held: by the line's own step (a tenth of a db on a volume line) for every two units the hand moves (ui.js finely);
      let go, the pull goes on from where that left it (cb) */
@@ -230,9 +249,14 @@ function autoMove (e, p) {
   else { const cb = d.cb || { y: d.y0, v: lead.v }, df = !d.seg && e.shiftKey && !e.ctrlKey ? 0 : -(p.y - cb.y) / g.lh; lv = df ? g.A.inv(clamp(g.A.f(cb.v) + df, 0, 1)) : cb.v }      // (shift held: points go along the song only, their values kept — his ask, 2026-10-19)
   d.lv = lv
   const dv = lv - lead.v, near = v => clamp(+(Math.round(v / step) * step).toFixed(6), Math.min(lo, hi), Math.max(lo, hi))      // (the hand moves the first by so much of the lane; all the others go by as much of their own unit — a stretch of a volume line goes down by the same db all along)
-  for (const q of pts) { const o = d.orig.get(q.id); if (!o) continue; q.b = clamp(o.b + db, 0, SONG_END); q.v = o === lead ? lv : fv != null ? near(o.v + dv) : g.A.inv(clamp(g.A.f(o.v + dv), 0, 1)); delete q.e }      // (a point an edit of the song's time made is whoever moves it's from then on)
-  sortPts(pts)
+  const df = g.A.f(lv) - g.A.f(lead.v)                                                    // (a line of another kind goes by the same share of its own lane)
+  for (const [lt, lk] of d.lines || [[t, d.k]]) {
+    const pts = autoPts(lt, lk), same = lk === d.k || AUTO[lk] === g.A, A2 = AUTO[lk]
+    for (const q of pts) { const o = d.orig.get(q.id); if (!o) continue; q.b = clamp(o.b + db, 0, SONG_END); q.v = o === lead ? lv : !same ? A2.inv(clamp(A2.f(o.v) + df, 0, 1)) : fv != null ? near(o.v + dv) : g.A.inv(clamp(g.A.f(o.v + dv), 0, 1)); delete q.e }      // (a point an edit of the song's time made is whoever moves it's from then on)
+    sortPts(pts)
+  }
   d.moved = true
+  if (!d.curve) autoLit(d.orig.keys())
   uiDirty('lanes', 'head', 'dock')
 }
 /* The stretch of a line that is pulled when the line itself is taken hold of.
@@ -280,6 +304,7 @@ function autoDelete () {
 }
 function autoNudge (dir) {
   const s = new Set(S.selP)
+  autoLit(S.selP)
   for (const t of autoAll()) for (const k in t.autos) { const A = AUTO[k]; if (!A) continue; for (const q of t.autos[k]) if (s.has(q.id)) q.v = A.inv(clamp(A.f(q.v + dir * A.step * (Math.abs(dir) > 1 ? 10 / 12 : 1)), 0, 1)) }
 }
 

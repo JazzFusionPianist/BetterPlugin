@@ -42,6 +42,10 @@ const order0 = await ev(`return S.tracks.map(t => t.id)`)
 const r = await ev(`return await tidyTracks()`)
 console.log('found:', JSON.stringify(r && r.found.map(f => `${f.name} = ${f.what} by ${f.by}${f.heard ? ' (' + f.heard.map(h => h[0] + ' ' + h[1].toFixed(2)).join(', ') + ') low ' + (f.low || 0).toFixed(2) + ' high ' + (f.high || 0).toFixed(2) : ''}`)))
 ok('heard: most of the eight known by their sound', r && r.known >= 5, r && [r.known, r.left])
+ok('every free end of the tidied sound fades in and out, a few ms (his ask, 2026-10-25); an end that meets another region does not', await ev(`const fd = TIDY_FADE_S / SPB(), bad = []
+  for (const t of S.tracks.filter(t => t.kind === 'audio')) for (const r of t.regs) { if (r.notes) continue; const met = t.regs.some(q => q !== r && Math.abs(q.b - r.a) < 1e-6), meets = t.regs.some(q => q !== r && Math.abs(q.a - r.b) < 1e-6)
+    if (!met && !((r.fi || 0) > 0)) bad.push([t.name, r.a, 'in']); if (!meets && !((r.fo || 0) > 0)) bad.push([t.name, r.b, 'out']); if (met && Math.abs((r.fi || 0) - fd) < 1e-9) bad.push([t.name, r.a, 'in at a join']) }
+  return bad.length ? bad.slice(0, 4) : true`))
 ok('…not named for what they are heard to be (his word, 2026-10-23): with no file to clean a name by, every name stays', await ev(`return S.tracks.some(t => t.name === 'jay') && S.tracks.filter(t => /^Audio \\d$/.test(t.name)).length === 7`), await ev(`return S.tracks.map(t => t.name)`))
 ok('…what each is remembered, and its family', await ev(`return S.tracks.filter(t => t.what).every(t => t.tone === TIDY_FAM(t.what))`))
 ok('…in the order a session is read in', await ev(`const rk = t => { const i = TIDY_ORDER.indexOf(t.what); return i < 0 ? 999 : i }, ts = S.tracks.filter(t => t.kind === 'audio'); return ts.every((t, i) => !i || rk(ts[i - 1]) <= rk(t))`), await ev(`return S.tracks.map(t => t.name + ':' + (t.what || '-'))`))

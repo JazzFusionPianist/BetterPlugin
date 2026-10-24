@@ -834,8 +834,9 @@ function laneRow (i, sel, xEnd) {
     const ol = lk('reg.line')
     if (!on && ol.a > 0) q += P(shapePath(cx + .5, ly + .5, cw - 1, lh - 1, sh), { stroke: ol.c, sa: ol.a / 100, sw: lkN('reg.lineW') })      // an outline round every region, when the look gives it one
     if (on) q += P(shapePath(cx + .5, ly + .5, cw - 1, lh - 1, sh), { stroke: lkC('chosen.line'), sa: lkA('chosen.line'), sw: Math.max(1, ol.a > 0 ? lkN('reg.lineW') : 1) })
-    g += r.mute ? G(q, '', ' opacity=".34"') : q
-    tags += r.mute ? G(tagQ, '', ' opacity=".34"') : tagQ
+    const hush = r.mute || (S.rsolo && !S.rsolo.has(r.id))                            // (muted, or not among the regions heard alone: edit.js regionSolo)
+    g += hush ? G(q, '', ' opacity=".34"') : q
+    tags += hush ? G(tagQ, '', ' opacity=".34"') : tagQ
   }
   g = under ? under[0] + cross + under[1] + g + tags : g + cross + tags
   if (typeof silFrames === 'function') g += silFrames(t, rh, xEnd)
@@ -1011,6 +1012,7 @@ function pPatch (y, h) {
 }
 /* where each strip on show stands in the mixer, so that one can be drawn again alone (redrawTracks) */
 const STRIP_AT = new Map()
+const MIX_AT = []                                                                         // [track index, left, right] of each strip as the mixer last drew it (mix.js fxTargets)
 /* tracks whose level, pan or lines moved: their rows and their strips drawn again alone, in place of all the heads and the
    whole panel at every move of the hand or step of a line (his ask, 2026-10-21: as fast as it can go). What cannot be drawn
    alone (a theme's mixer, the patch of the chosen track) is drawn whole, as before; what is not on show is left */
@@ -1030,7 +1032,8 @@ function redrawTracks (list) {
   if (chosen && typeof INSP === 'object' && INSP.w) uiDirty('insp')
 }
 function pMixer (y, h) {
-  if (typeof SKIN === 'object' && SKINS.mixer[SKIN.k.mixer]) { MGEOM = null; return SKINS.mixer[SKIN.k.mixer](y, h) }      // (a theme's mixer of its own: skins.js)
+  MIX_AT.length = 0
+  if (typeof SKIN === 'object' && SKINS.mixer[SKIN.k.mixer]) { MGEOM = null; return SKINS.mixer[SKIN.k.mixer](y, h) + fxInHand() }      // (a theme's mixer of its own: skins.js)
   const vis = rows(), mx = RX - 8 - MSTRIP, room = mx - 8 - NGUT, fitN = Math.max(1, Math.floor(room / NSTRIP))
   S.panel.mx = clamp(S.panel.mx, 0, Math.max(0, vis.length - fitN))
   const shownT = vis.slice(S.panel.mx, S.panel.mx + fitN)
@@ -1040,7 +1043,7 @@ function pMixer (y, h) {
   shownT.forEach((i, k) => {
     const t = S.tracks[i], x = NGUT + k * NSTRIP, nx = S.tracks[shownT[k + 1]], o = { sel: isChosen(i) }
     if (isChosen(i)) s += R(x, y, NSTRIP, h, { fill: INK, fa: .07 })
-    STRIP_AT.set(t.id, [x, y, NSTRIP, h, i, o])
+    STRIP_AT.set(t.id, [x, y, NSTRIP, h, i, o]); MIX_AT.push([i, x, x + NSTRIP])
     s += G(strip(x, y, NSTRIP, h, t, i, o), '', ` id="sg-${t.id}"`) + vline(x + NSTRIP - .5, y, y + h, t.kind === 'stack' || (nx && !nx.parent && t.parent) ? .1 : .05)
   })
   if (fitN < vis.length) s += R(NGUT + 4 + (room - 8) * S.panel.mx / vis.length, y + h - 4, Math.max(18, (room - 8) * fitN / vis.length), 3, { rx: 1.5, fill: INK, fa: .22 })
@@ -1049,9 +1052,14 @@ function pMixer (y, h) {
   const q = stripGeom(y, h, false)
   const con = typeof SKIN === 'object' && SKINS.strip[SKIN.k.mixer]                    // (a theme's strip without the room's meters has no scale beside the out's either: skins.js)
   if (!con || con.meters) for (const db of DBS) s += T(mx + 12, q.yOf(db) + 3, db === -48 ? '∞' : String(Math.abs(db)), { size: 8.5, a: db === 0 ? .66 : .36, anchor: 'end' })
-  /* a slot pulled with option: in the hand, beside the pointer, what goes and a plus (a copy) */
-  if (drag && drag.a === 'mfx' && drag.alt && drag.moved && drag.word) { const w = Math.round(tw(drag.word, 9) + 26), x = drag.px + 10, yy = drag.py - 2; s += R(x, yy, w, 16, { rx: 2, fill: K3 }) + R(x + .5, yy + .5, w - 1, 15, { rx: 2, stroke: INK, sa: .5 }) + T(x + 6, yy + 11.5, drag.word, { size: 9, a: .95 }) + T(x + w - 6, yy + 11.5, '+', { size: 10, w: 500, a: drag.to.length ? .9 : .3, anchor: 'end' }) }
-  return s
+  return s + fxInHand()
+}
+/* a slot pulled: in the hand, beside the pointer, what goes — with a plus when option makes it a copy */
+function fxInHand () {
+  const d = drag
+  if (!d || d.a !== 'mfx' || !d.moved || !d.word) return ''
+  const w = Math.round(tw(d.word, 9) + (d.alt ? 26 : 12)), x = d.px + 10, yy = d.py - 2
+  return R(x, yy, w, 16, { rx: 2, fill: K3, fa: d.to.length ? 1 : .6 }) + R(x + .5, yy + .5, w - 1, 15, { rx: 2, stroke: INK, sa: d.to.length ? .7 : .3 }) + T(x + 6, yy + 11.5, d.word, { size: 9, a: d.to.length ? .95 : .5 }) + (d.alt ? T(x + w - 6, yy + 11.5, '+', { size: 10, w: 500, a: d.to.length ? .9 : .3, anchor: 'end' }) : '')
 }
 function pDock () {
   if (VIEW.p <= .001) { MGEOM = null; return '' }
@@ -1738,7 +1746,7 @@ function onMove (e) {
   else if (drag.a === 'mfx') {
     const d = drag
     if (!d.moved && Math.hypot(p.x - d.x0, p.y - d.y0) > 4) d.moved = true
-    if (d.moved && d.alt) { const it = fxItems(S.tracks[d.i])[d.k]; d.word = it ? asGiven(it.t) : ''; d.to = fxTargets(d.i, p); d.px = p.x; d.py = p.y; uiDirty('dock') }
+    if (d.moved) { const it = fxItems(S.tracks[d.i])[d.k]; d.alt = e.altKey; d.word = it ? asGiven(it.t) : ''; d.to = fxTargets(d.i, p); d.px = p.x; d.py = p.y; uiDirty('dock') }      // (option as the hand lets go decides: a copy, else it moves)
   }
   else if (drag.a === 'msend') {
     const d = drag, tk = S.tracks[d.i], sd = tk.sends[d.k]

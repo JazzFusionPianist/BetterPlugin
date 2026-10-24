@@ -603,10 +603,10 @@ async function bounceInPlace (live) {                                           
    strip: copied there — a plug-in with its settings, a print with its amounts — and onto one of several chosen strips, to
    every one of them (design/mixer inserts draft 1, 2). */
 function fxTargets (from, p) {
-  const vis = rows(), k = Math.floor((p.x - NGUT) / NSTRIP) + S.panel.mx, i = vis[k]
-  if (i == null || i === from || p.x < NGUT || p.x > RX - 8 - MSTRIP - 8) return []
+  const at = MIX_AT.find(([, a, b]) => p.x >= a && p.x < b), i = at ? at[0] : null      // (the strip under the hand, as the mixer — the room's or a theme's — drew it)
+  if (i == null || i === from) return []
   const t = S.tracks[i]
-  if (!t || t.kind === 'stack' || t.theirs) return []
+  if (!t || t.theirs) return []
   if (isChosen(i) && chosen().length > 1) return pickTracks().filter(j => j !== from)
   return [i]
 }
@@ -619,7 +619,7 @@ async function fxUp (d) {
     else { if (!isChosen(d.i)) leadTrack(d.i); else S.sel = d.i; S.panel.tab = 'patch'; if (it.node != null && typeof WALL !== 'undefined') WALL.sel = { t: t.id, node: it.node }; uiDirty('head', 'lanes', 'dock', 'top') }
     return
   }
-  if (!d.alt || !d.to.length) return
+  if (!d.to.length) return
   let done = 0
   if (it.kind === 'plug') {
     const st = NAT ? await NAT.call('pluginStates') : null, state = st && it.ins.uid ? st['u' + it.ins.uid] : it.ins.state
@@ -638,19 +638,27 @@ async function fxUp (d) {
       wallAppend(w, nd.id); await wallPush(u); done++
     }
   }
-  if (done) say(`${it.t} copied to ${done} track${done === 1 ? '' : 's'}`)
+  /* pulled without option it moves: off the track it was on, once it is on another (his ask, 2026-10-25) */
+  if (done && !d.alt) fxRemove(t, it)
+  if (done) say(`${it.t} ${d.alt ? 'copied' : 'moved'} to ${done} track${done === 1 ? '' : 's'}`)
   uiDirty('dock', 'head')
+}
+/* a slot taken off its track: a print of the wall off the wall, a plug-in out of the patch, a print of the three set to none */
+function fxRemove (t, it) {
+  const w = wallOf(t), nd = it.kind === 'plug' ? w.nodes.find(n => n.ins === it.ins) : w.nodes.find(n => n.id === it.node || n.k === it.k)
+  if (nd) wallRemove(t, nd)
+  else if (it.kind === 'plug') { if (NAT && it.ins.uid && !it.ins.out) NAT.call('remove', { track: t.id, uid: it.ins.uid }); t.inserts.splice(t.inserts.indexOf(it.ins), 1) }
+  else { setPrint(t, it.k, 0); pushTrack(t) }
 }
 /* a slot pressed with the other button: open it, turn it off or on, take it off */
 function fxMenu (i, k, x, y) {
   const t = S.tracks[i], it = t && fxItems(t)[k]
   if (!it) return
-  const node = () => { const w = wallOf(t); return it.kind === 'plug' ? w.nodes.find(n => n.ins === it.ins) : w.nodes.find(n => n.id === it.node || n.k === it.k) }
   const items = [{ t: 'open', v: 'open' }].concat(it.kind === 'plug' ? [{ t: it.ins.off ? 'turn on' : 'turn off', v: 'off' }] : [], [{ t: 'take off', v: 'remove' }])
   openMenu(x, y, items, m => {
     if (m.v === 'open') fxUp({ i, k, moved: false })
     else if (m.v === 'off') { it.ins.off = !it.ins.off; if (NAT && it.ins.uid) NAT.call('bypass', { track: t.id, uid: it.ins.uid, off: it.ins.off ? 1 : 0 }); uiDirty('dock') }
-    else if (m.v === 'remove') { const nd = node(); if (nd) wallRemove(t, nd); else if (it.kind === 'plug') { if (NAT && it.ins.uid && !it.ins.out) NAT.call('remove', { track: t.id, uid: it.ins.uid }); t.inserts.splice(t.inserts.indexOf(it.ins), 1) } else { setPrint(t, it.k, 0); pushTrack(t) } uiDirty('dock') }
+    else if (m.v === 'remove') { fxRemove(t, it); uiDirty('dock') }
   }, { w: 140 })
 }
 

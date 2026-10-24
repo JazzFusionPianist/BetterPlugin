@@ -93,7 +93,7 @@ function regSound (r) {
    on one key the earlier ends where the later begins (a key cannot go down twice). `only`: the regions that sound. */
 function trackSound (t, only) {
   const all = []
-  for (const r of t.regs) if (r.notes && !r.mute && (!only || only(r))) for (const x of regSound(r)) all.push(x)
+  for (const r of t.regs) if (r.notes && !r.mute && rsoloOk(r) && (!only || only(r))) for (const x of regSound(r)) all.push(x)
   all.sort((x, y) => x.a - y.a)
   const last = new Map(), flat = []
   for (const x of all) {

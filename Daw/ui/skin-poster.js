@@ -100,8 +100,9 @@ SKINS.left.poster = () => {
       if (items.length > 3) { s += T(gx + 11, ly, `+${items.length - 3} more`, { size: 8, a: .5 }) + hit(gx - 3, ly - 10, 84, 13, 'm-patch', di); ly += 13 }
       s += Cc(gx + 3.5, ly - 3.5, 4.5, { fill: BH.red }) + P(`M${gx + 3.5} ${ly - 6.5}v6M${gx + .5} ${ly - 3.5}h6`, { stroke: BH.paper, sw: 1.2 }) + T(gx + 12, ly, 'plug-in', { size: 8, a: .45 }) + hit(gx - 3, ly - 10, 60, 13, 'mfxadd', di)
     }
-    /* its sends: knobs with the bus under each, how much with the pointer on it; three, then how many more */
-    if (t.kind !== 'stack') {
+    /* its sends: knobs with the bus under each, how much with the pointer on it; three, then how many more (a stack's too:
+       it is a strip of its own — his ask, 2026-10-25) */
+    {
       const sends = t.sends || [], three = sends.slice(0, sends.length > 4 ? 3 : 4), kr = 8, ky = fb - 26
       let kx = 70
       three.forEach((sd, q) => {
@@ -327,6 +328,7 @@ function bhMixer (y, h) {
       s += hit(x, lt - 6, sw - 4, lh + 12, 'mvol', `${di} data-w="0"`, 'ns-resize')
       cellsOf(t).filter(it => it.t === 'm' || it.t === 's').forEach((it, k) => { const yy = foot - 30 + k * 13; s += bhShape(it.t, cxm - 3.5, yy, 7, it.on, it.t === 's' ? BH.blue : BH.black) + hit(x, yy - 3, sw - 4, 13, it.a, di) })
     }
+    MIX_AT.push([i, x - 4, x + sw + (kp ? kp.extra : 0) - 4])
     x += sw + (kp ? kp.extra : 0)
   }
   /* the out */

@@ -47,7 +47,7 @@ const MENU_BAR = () => [
     ['Cut Section Between Locators', '⌃⌘KeyX', { id: 'timecut' }], ['Insert Silence at Locators', '⌃⌘KeyZ', { id: 'timeroom' }], ['Insert Section at Playhead', '⌃⌘KeyV', { id: 'timeput' }], ['Repeat Section Between Locators', '⌃⌘KeyR', { id: 'timerepeat' }],
   ]],
   ['Region', [
-    ['Mute', 'KeyN'], ['Rename…', null, { do: () => { if (S.selR.length) startRename('region'); else say('choose a region first') }, k: '⇧Enter' }],
+    ['Mute', 'KeyN'], ['Solo Alone', '⌥KeyS', { on: () => !!S.rsolo }], ['Every Region Heard', '⌃KeyS'], ['Rename…', null, { do: () => { if (S.selR.length) startRename('region'); else say('choose a region first') }, k: '⇧Enter' }],
     '-',
     ['Move to Playhead', 'Semicolon'], ['Move to Playhead and Select Next', '⇧Semicolon'], ['Loop to the Next Region', 'KeyL'],
     ['Trim Start to Playhead', 'BracketLeft'], ['Trim End to Playhead', 'BracketRight'], ['Shuffle Left', '⌥BracketLeft'], ['Shuffle Right', '⌥BracketRight'],

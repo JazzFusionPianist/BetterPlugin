@@ -297,7 +297,7 @@ function setTrack (ctx, nd, t, how) {
 function schedule (ctx, t, bus, fromBar, atTime, endBar, bufOf) {
   const spb = SPB(), srcs = []
   for (const r of t.regs) {
-    if (r.mute) continue
+    if (r.mute || !rsoloOk(r)) continue
     const ra = r.a - 1, rb = Math.min(r.b - 1, endBar)
     if (rb <= fromBar + 1e-9 || ra >= endBar) continue
     const st = Math.max(ra, fromBar), src = ctx.createBufferSource(), g = ctx.createGain()

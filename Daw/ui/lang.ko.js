@@ -5,6 +5,7 @@
    makes music in Korean and changed here, line by line. */
 LANG.lists.ko = {
   /* the bars at the top: panels, tools, what is chosen */
+  'that region alone': '그 리전만 들려요', '# regions alone': '리전 #개만 들려요', 'every region heard again': '모든 리전이 다시 들려요',      // (edit.js regionSolo)
   'patch': '패치', 'mixer': '믹서', 'hand off': '내보내기', 'auto': '오토', 'rubato': '루바토',
   'tool': '도구', 'cmd': '커맨드', 'pointer': '포인터', 'pencil': '연필', 'eraser': '지우개', 'scissors': '가위', 'marquee': '마키', 'smart': '스마트',
   'mode': '모드', 'snap': '스냅', 'grid': '그리드', 'slip': '슬립', 'shuffle': '셔플', 'spot': '스팟',
@@ -190,7 +191,7 @@ LANG.menuKo = {
   'Add Next Region': '다음 리전 추가', 'First Region': '첫 리전', 'Last Region': '마지막 리전', 'Previous Track': '이전 트랙', 'Next Track': '다음 트랙',
   'Split at Playhead': '플레이헤드에서 나누기', 'Split at Cycle Ends': '사이클 끝에서 나누기', 'Join': '합치기', 'Repeat': '반복',
   'Cut Section Between Locators': '로케이터 사이 구간 잘라내기', 'Insert Silence at Locators': '로케이터에 무음 넣기', 'Insert Section at Playhead': '플레이헤드에 구간 넣기', 'Repeat Section Between Locators': '로케이터 사이 구간 반복',
-  'Region': '리전', 'Mute': '뮤트', 'Move to Playhead': '플레이헤드로 옮기기', 'Move to Playhead and Select Next': '플레이헤드로 옮기고 다음 선택', 'Loop to the Next Region': '다음 리전까지 루프',
+  'Region': '리전', 'Mute': '뮤트', 'Solo Alone': '이 리전만 솔로', 'Every Region Heard': '리전 솔로 풀기', 'Move to Playhead': '플레이헤드로 옮기기', 'Move to Playhead and Select Next': '플레이헤드로 옮기고 다음 선택', 'Loop to the Next Region': '다음 리전까지 루프',
   'Trim Start to Playhead': '시작을 플레이헤드까지 자르기', 'Trim End to Playhead': '끝을 플레이헤드까지 자르기', 'Shuffle Left': '왼쪽으로 셔플', 'Shuffle Right': '오른쪽으로 셔플',
   'Gain': '게인', 'Up 1 dB': '1 dB 올리기', 'Down 1 dB': '1 dB 내리기', 'Up 0.1 dB': '0.1 dB 올리기', 'Down 0.1 dB': '0.1 dB 내리기', 'Back to 0 dB': '0 dB로 되돌리기',
   'Transpose': '트랜스포즈', 'Up a Semitone': '반음 올리기', 'Down a Semitone': '반음 내리기', 'Up an Octave': '옥타브 올리기', 'Down an Octave': '옥타브 내리기',

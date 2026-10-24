@@ -1972,6 +1972,17 @@ const combo = e => (e.ctrlKey ? '⌃' : '') + (e.altKey ? '⌥' : '') + (e.shift
 const togglePlay = () => { if (S.playing) halt(false); else play(); uiDirty('top', 'scenes') }
 /* m, s and the like on a row act on every chosen row: they all go the way the first press would take them */
 const flipChosen = k => { const ts = chosen(), to = !ts.every(t => t[k]); for (const t of ts) t[k] = to; applyAll(); uiDirty('head', 'lanes', 'dock') }
+/* the chosen regions heard alone (option s): every other region silent, the chosen ones as they are, until control s lets
+   all of them be heard again (his ask, 2026-10-25). It is the hearing's, not the song's: no region is muted by it, and it
+   is not kept with the project. */
+const rsoloOk = r => !S.rsolo || S.rsolo.has(r.id)
+function regionSolo () {
+  const ids = typeof selRegs === 'function' ? selRegs().map(x => x[0].id) : []
+  if (!ids.length) { say('choose a region first'); return }
+  S.rsolo = new Set(ids); resync(); uiDirty('lanes', 'top')
+  say(`${ids.length === 1 ? 'that region' : ids.length + ' regions'} alone`)
+}
+function regionSoloOff () { if (!S.rsolo) return; S.rsolo = null; resync(); uiDirty('lanes', 'top'); say('every region heard again') }
 const pickTool = name => { S.tool = name; S.menu = null; uiDirty('info', 'menu', 'lanes') }
 const say = text => { S.last = { say: text }; uiDirty('cmd') }
 const KEYS = {
@@ -1984,7 +1995,7 @@ const KEYS = {
   KeyC: () => { if (!(S.cycle.b - S.cycle.a >= MIN_LEN)) { const sc = sceneAt(curPos()); S.cycle.a = sc.a - 1; S.cycle.b = Math.min(SONG_END, sc.b - 1) } setCycle(S.cycle.a, S.cycle.b, !S.cycle.on) },
   KeyU: () => act.locators(true), '⌘KeyU': () => act.locators(false),
   KeyN: () => act.mute(),
-  KeyM: () => flipChosen('mute'), KeyS: () => flipChosen('solo'),
+  KeyM: () => flipChosen('mute'), KeyS: () => flipChosen('solo'), '⌥KeyS': () => regionSolo(), '⌃KeyS': () => regionSoloOff(),
   KeyB: () => togglePanel('patch'), KeyX: () => togglePanel('mixer'), KeyO: () => toggleSlur(),
   '⌃KeyI': () => toggleMon(S.sel),
   Semicolon: () => act.toPlayhead(false), '⇧Semicolon': () => act.toPlayhead(true),

@@ -90,3 +90,73 @@ function litLay () {
 }
 { const top0 = PARTS.top
   PARTS.top = function () { litNote(); const s = top0.apply(this, arguments); queueMicrotask(litLay); return s } }
+
+/* ── the same on the main screen (his ask, 2026-10-25: "메인 화면 안에도 어떤 값이 바뀔 때, 사각형으로 보여줘 2초 동안"): the chosen
+   track's level in its head, its level, pan and sends in the mixer or the inspector, the chosen region's gain, transpose,
+   fine tune and tempo in the panel under the song — changed by hand, its value boxed for two seconds, as the transport
+   panel's are. These are drawn again piece by piece while they are pulled (a head's row, a strip), so the boxes are laid
+   on a layer of their own over the room, each frame for as long as one is lit. ── */
+const LITM = { was: new Map(), until: new Map(), raf: 0, drawn: false }
+const LITM_IN = ['g-head', 'g-dock', 'g-insp']
+function litMainNow () {
+  const i = S.sel, t = S.tracks[i], out = []
+  if (!t) return out
+  const at = (a, more = '') => `[data-a="${a}"][data-i="${i}"]${more}`
+  out.push([`#hd-${i} ${at('volnum')}`, t.id, t.vol], [at('mvol'), t.id, t.vol], [at('ivol'), t.id, t.vol], [at('mpan'), t.id, t.pan || 0])
+  ;(t.sends || []).forEach((sd, k) => out.push([at('msend', `[data-k="${k}"]`), t.id + '/' + k, `${sd.to} ${sd.db}`], [at('mp-send', `[data-k="${k}"]`), t.id + '/' + k, `${sd.to} ${sd.db}`]))      // (a theme's knob, the mixer panel's)
+  const rs = S.focus === 'tracks' ? [] : selRegs(), r = rs.length ? rs[0][0] : null
+  if (r) out.push([litA('rgain'), r.id, r.gain || 0], [litA('rtr'), r.id, r.tr || 0], [litA('rft'), r.id, r.ft || 0], [litA('rbpm'), r.id, r.bpm || 0])
+  return out
+}
+function litMainTick () {
+  LITM.raf = 0
+  const now = performance.now(), byHand = now - LIT.hand < LIT_HAND, seen = new Map()
+  for (const [sel, of, v] of litMainNow()) {
+    const was = LITM.was.get(sel), v1 = typeof v === 'number' ? +v.toFixed(6) : v
+    if (was && was[0] !== of) LITM.until.delete(sel)
+    else if (was && was[1] !== v1 && byHand) LITM.until.set(sel, now + LIT_HOLD)
+    seen.set(sel, [of, v1])
+  }
+  LITM.was = seen
+  for (const [sel, until] of LITM.until) if (until <= now) LITM.until.delete(sel)
+  litMainLay()
+  if (LITM.until.size || now - LIT.hand < LIT_HAND + 100) LITM.raf = requestAnimationFrame(litMainTick)      // (on while the hand is at work, and while a box is up)
+}
+function litMainLay () {
+  const dock = $('g-dock')
+  if (!dock) return
+  let layer = $('g-litm')
+  if (!layer) { layer = document.createElementNS('http://www.w3.org/2000/svg', 'g'); layer.id = 'g-litm'; layer.setAttribute('pointer-events', 'none'); dock.after(layer) }
+  if (!LITM.until.size && !LITM.drawn) return                                           // (nothing up, nothing to take down)
+  layer.innerHTML = ''; LITM.drawn = false
+  if (!LITM.until.size) return
+  const poster = typeof SKIN === 'object' && SKIN.k.transport === 'poster', box = poster ? BH.black : INK, word = poster ? BH.paper : K2
+  const back = layer.getScreenCTM().inverse(), at = (x, y) => new DOMPoint(x, y).matrixTransform(back)
+  for (const sel of LITM.until.keys()) for (const id of LITM_IN) {
+    const scope = $(id), h = scope && scope.querySelector(sel)
+    if (!h) continue
+    const q = h.getBoundingClientRect(), grow = sel.includes('volnum') ? 4 : 0
+    /* its value: the words drawn inside the place it is pressed (or pulled), not those of another place */
+    const held = [...(h.parentNode || scope).querySelectorAll('text')].filter(e => !e.closest('[data-a]') && !e.closest('.lit')).map(e => [e, e.getBoundingClientRect()])
+      .filter(([, r]) => r.width > .5 && r.left + r.width / 2 >= q.left - grow && r.left + r.width / 2 <= q.right + grow && r.top + r.height / 2 >= q.top - grow && r.top + r.height / 2 <= q.bottom + grow && r.height <= 30)
+    if (!held.length) continue
+    const b = held.reduce((m, [, r]) => [Math.min(m[0], r.left), Math.min(m[1], r.top), Math.max(m[2], r.right), Math.max(m[3], r.bottom)], [1e9, 1e9, -1e9, -1e9])
+    const p0 = at(b[0] - 3.5, b[1] - 2.5), p1 = at(b[2] + 3.5, b[3] + 2.5)
+    let s = R(p0.x, p0.y, p1.x - p0.x, p1.y - p0.y, { fill: box })
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+    g.innerHTML = s
+    for (const [e] of held) {
+      const c = e.cloneNode(true), m = back.multiply(e.getScreenCTM()), st = getComputedStyle(e)
+      c.removeAttribute('id'); c.setAttribute('transform', `matrix(${[m.a, m.b, m.c, m.d, m.e, m.f].map(v => n(v)).join(' ')})`)
+      for (const k of ['fill-opacity', 'opacity']) c.removeAttribute(k)
+      c.setAttribute('fill', word)
+      for (const [k, v] of [['font-family', st.fontFamily], ['font-size', st.fontSize], ['font-weight', st.fontWeight]]) if (v && v !== 'normal') c.setAttribute(k, v)
+      g.appendChild(c)
+    }
+    layer.appendChild(g); LITM.drawn = true
+    break
+  }
+}
+for (const ev of ['pointerdown', 'keydown', 'wheel']) addEventListener(ev, () => { if (!LITM.raf) LITM.raf = requestAnimationFrame(litMainTick) })
+setInterval(() => { if (!LITM.raf) litMainTick() }, 300)                                 // (what things are now, kept up while nothing is touched: a key's change is told apart from it)
+addEventListener('pointermove', e => { if (e.buttons && !LITM.raf) LITM.raf = requestAnimationFrame(litMainTick) })

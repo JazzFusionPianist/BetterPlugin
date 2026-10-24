@@ -95,6 +95,17 @@ await fresh()
     ok('…and pulled later: shorter from the front', same(await notes(), [[1.5, .5, 64]]), await notes())
   } }
 
+/* ; the chosen notes to the playhead; shift ;, and the next one chosen */
+{ await fresh()
+  await ev(`const [r] = rollReg(); ROLL.sel = new Set(r.notes.filter(x => x.t === 1 || x.t === 2).map(x => x.id)); jumpTo(5.25); S.focus = 'notes'; flush(); return 1`)
+  await key(';', 'Semicolon', 186)
+  ok('; — the chosen notes to the playhead: the first begins there, the other keeps its place to it', same(await notes(), [[0, 1, 60], [5, 1, 64], [6, 3, 60], [6, 1, 67]]), await notes())
+  await fresh()
+  await ev(`const [r] = rollReg(); ROLL.sel = new Set(r.notes.filter(x => x.t === 0).map(x => x.id)); jumpTo(4.75); S.focus = 'notes'; flush(); return 1`)
+  await key(':', 'Semicolon', 186, SHIFT)
+  const r = await ev(`const [r] = rollReg(); return [...ROLL.sel].map(id => { const x = r.notes.find(q => q.id === id); return [x.t, x.n] })`)
+  ok('shift ; — taken there, and the note that came after it chosen in its place', same(await notes(), [[1, 1, 64], [2, 3, 60], [3, 1, 60], [6, 1, 67]]) && same(r, [[1, 64]]), [await notes(), r]) }
+
 /* option held: the pointer says a copy */
 { await fresh()
   const p = await place(4.125, 60), el = `document.elementFromPoint(${p.x}, ${p.y})`

@@ -1338,8 +1338,8 @@ const SHEET = [
   [['transport', [['play, stop', 'space'], ['play what is chosen', '⇧space'], ['record', 'r'], ['throw the take away', '⌘.'], ['click', 'k'], ['count-in', '⇧k'], ['to the start', '↩'], ['to the end of the sound', '⌥↩'], ['a bar back, a bar on', ', .'], ['eight bars', '⇧, ⇧.'], ['a transient on, back', 'tab ⌥tab'], ['go to a bar', '/ 17 ↩']]],
    ['cycle', [['on, off', 'c'], ['round what is chosen', 'u'], ['to its start, its end', '⌃⇧, ⌃⇧.'], ['on, back by its length', '⇧⌘. ⇧⌘,'], ['twice as long, half', '⌥⇧⌘. ⌥⇧⌘,'], ['zoom to it', '⌃⇧z']]],
    ['panels', [['patch', 'b'], ['mixer', 'x'], ['notes', 'p'], ['rubato panel', 'w'], ['slur', 'o'], ['this sheet', '⇧/']]],
-   ['the notes page', [['quantize what is chosen', 'q'], ['as it was played', '⌥⌘q'], ['force legato', 'l, ⇧\\'], ['note ends back to the grid', '⌥⇧\\'], ['cut a note', 't, i'], ['its lane', 'a'], ['its own zoom', '⌘←→↑↓']]],
-   ['the hand', [['back to where it starts', '⌥ click'], ['finely', '⇧ drag'], ['a region, to another track only', '⇧ drag'], ['a point, along the song only', '⇧ drag']]]],
+   ['the notes page', [['quantize what is chosen', 'q'], ['as it was played', '⌥⌘q'], ['force legato', 'l, ⇧\\'], ['note ends back to the grid', '⌥⇧\\'], ['to the playhead', ';'], ['cut a note', 't, i'], ['its lane', 'a'], ['its own zoom', '⌘←→↑↓']]],
+   ['the hand', [['back to where it starts', '⌥ click'], ['finely', '⇧ drag'], ['a level, by tenths of a db', '⌃ drag'], ['a region, to another track only', '⇧ drag'], ['a point, along the song only', '⇧ drag']]]],
   [['tools', [['tool menu, then a letter', 't'], ['the other tool, while held', '⌘'], ['shuffle, slip, spot, grid', 'f1 f2 f3 f4'], ['slip, and back', 'f2'], ['a finer grid, in a drag', '⌃'], ['no grid', '⌃⇧']]],
    ['regions', [['split at the playhead', '⌘t'], ['at the cycle’s ends', '⌥⌘t'], ['join', 'j'], ['mute', 'n'], ['repeat', '⌘r'], ['fill to the next', 'l'], ['to the playhead', ';'], ['and choose the next', '⇧;'], ['begin, end at the playhead', '[ ]'], ['against the last, the next', '⌥[ ⌥]'], ['gain', '⌃⇧↑↓'], ['transpose', '⌥↑↓'], ['an octave', '⌥⇧↑↓'], ['reverse', '⌃⇧r'], ['follow the tempo', '⌃f'], ['fit to the tempo', '⌃⌥f'], ['tempo from the file', '⌃⌥t'], ['strip silence', '⌃x'], ['group, ungroup', '⌥⌘g ⌥⌘u'], ['bounce in place', '⌃b'], ['rename', '⇧↩']]]],
   [['choosing', [['all', '⌘a'], ['none', '⇧d'], ['the others', '⇧i'], ['all that follow', '⇧f'], ['on the same track', '⌃⇧f'], ['inside the cycle', '⇧l'], ['the muted ones', '⇧m'], ['the last, the next', '← →'], ['one more', '⇧← ⇧→'], ['the first, the last', '⇧home ⇧end']]],
@@ -1479,6 +1479,22 @@ function seekX (x, e) {
   jumpTo(bar)
 }
 const fine = e => e && e.shiftKey ? .2 : 1                                           // with shift held, a pull moves a fifth as far
+/* control held on a pull of a level — a fader, a send, the stereo out, a point of a line (his ask, 2026-10-24: "control +
+   drag 해서 어떤 값을 조절할 때 거의 0.1씩"): it goes by one step (a tenth of a db) for every two units the hand moves,
+   evenly, whatever the fader's law does there — the pointer slowed to a quarter still moved it 0.6 db at a time low on a
+   short lane. Counted from the press when control was held from the start, else from where it stood when control was
+   pressed, so nothing jumps; `along`: the hand's own place along the pull, from a point (ptRaw), louder as it grows.
+   Without control: null, and the pull is as it was */
+const FINE_PX = 2
+let PRESS_RAW = null                                                                // where the last press was, as the hand has it
+addEventListener('pointerdown', e => { PRESS_RAW = e.clientX != null ? ptRaw(e) : null }, true)
+function finely (d, e, along, now, step = .1, lo = -48, hi = 6) {
+  const first = !d.fineSeen
+  d.fineSeen = true
+  if (!(e && e.ctrlKey && !e.shiftKey) || !isFinite(now)) { d.fine = null; return null }
+  if (!d.fine) d.fine = { at: along(first && PRESS_RAW ? PRESS_RAW : ptRaw(e)), v: now }
+  return clamp(+(Math.round((d.fine.v + (along(ptRaw(e)) - d.fine.at) / FINE_PX * step) / step) * step).toFixed(6), lo, hi)
+}
 /* the other chosen tracks a fader or a pan takes along, with where each stood when the hand came (a fader with a line drawn for it stays with its line) */
 const others = (i, k) => new Map(groupOf(i, k === 'vol' ? 'volume' : k === 'pan' ? 'pan' : null).filter(t => t !== S.tracks[i] && !(k === 'vol' && autoPts(t, 'vol').length)).map(t => [t, t[k] || 0]))
 function carry (d, k, now) {
@@ -1489,7 +1505,9 @@ function setVolX (i, x, e) {
   const t = S.tracks[i], d = drag && drag.a === 'vol' ? drag : null
   const gx = d && d.gx != null ? d.gx : HEAD_FX, gw = d && d.gw ? d.gw : HEAD_FW                // (where the level lies in its row: headRow says it on the press)
   let f = clamp((x - gx) / gw, 0, 1)
-  if (d) { if (d.rel && d.f != null) f = clamp(d.f + (x - d.lx) / (e && e.shiftKey ? 600 : 160), 0, 1); else if (e && e.shiftKey && d.f != null) f = clamp(d.f + (x - d.lx) / gw * .2, 0, 1); else if (e && e.ctrlKey && d.f != null) f = clamp(d.f + (x - d.lx) / gw, 0, 1); d.f = f; d.lx = x }      // (control: from where it stands, as far as the pointer goes — a quarter of the hand: pt)
+  const fv = d ? finely(d, e, q => q.x, shown(t, 'vol')) : null
+  if (fv != null) { d.f = volF(fv); d.lx = x; d.wasFine = true; volSet(t, fv); if (d.others.size) carry(d, 'vol', t.vol); redrawTracks([t].concat([...d.others.keys()])); return }
+  if (d) { if (d.rel && d.f != null) f = clamp(d.f + (x - d.lx) / (e && e.shiftKey ? 600 : 160), 0, 1); else if (e && e.shiftKey && d.f != null) f = clamp(d.f + (x - d.lx) / gw * .2, 0, 1); else if (((e && e.ctrlKey) || d.wasFine) && d.f != null) f = clamp(d.f + (x - d.lx) / gw, 0, 1); d.f = f; d.lx = x }      // (control let go: on from where it got to, not back under the hand)      // (control: from where it stands, as far as the pointer goes — a quarter of the hand: pt)
   volSet(t, fVol(f))
   if (d && d.others.size) carry(d, 'vol', t.vol)
   redrawTracks([t].concat(d && d.others ? [...d.others.keys()] : []))
@@ -1680,7 +1698,12 @@ function zoomDrag (d, x) {
 /* what a pull has added up to since the hand came: a fifth as fast while shift is held */
 const pulled = (d, y, per, e) => { d.acc += (d.ly - y) * per * fine(e); d.ly = y; return d.acc }
 const FADER_PULL = .6                                                                     // (a fader goes a little slower than the hand: on a short one a small pull was a big change)
-function stripVolY (d, y, e) { const t = S.tracks[d.i]; volSet(t, fVol(clamp(d.f0 + pulled(d, y, FADER_PULL / d.g.fh, e), 0, 1))); carry(d, 'vol', t.vol); redrawTracks([t].concat(d.others ? [...d.others.keys()] : [])) }
+function stripVolY (d, y, e) {
+  const t = S.tracks[d.i], fv = finely(d, e, d.a === 'tps-volx' ? q => q.x : q => -q.y, shown(t, 'vol'))
+  if (fv != null) { d.ly = y; d.acc = 0; d.f0 = volF(fv); volSet(t, fv) }      // (control: by tenths of a db; the pull goes on from there when it is let go)
+  else volSet(t, fVol(clamp(d.f0 + pulled(d, y, FADER_PULL / d.g.fh, e), 0, 1)))
+  carry(d, 'vol', t.vol); redrawTracks([t].concat(d.others ? [...d.others.keys()] : []))
+}
 /* a pan pulled: a hundred and twenty-eight points of the hand from the middle to either side (two to a step), across or
    up and down, a quarter as far with shift */
 function stripPanX (d, x, e, y) {
@@ -1689,7 +1712,7 @@ function stripPanX (d, x, e, y) {
   d.pv = clamp(d.pv + moved / 128 * (e && e.shiftKey ? .25 : 1), -1, 1); d.lx = x; if (y != null) d.ly = y
   t.pan = Math.abs(d.pv) < .012 ? 0 : Math.round(d.pv * 64) / 64; pushTrack(t); carry(d, 'pan', t.pan); redrawTracks([t].concat(d.others ? [...d.others.keys()] : []))
 }
-function masterY (y, e) { S.master = fVol(clamp(drag.f0 + pulled(drag, y, FADER_PULL / drag.g.fh, e), 0, 1)); pushMaster(); uiDirty('top', 'dock') }
+function masterY (y, e) { const fv = finely(drag, e, q => -q.y, S.master); if (fv != null) { drag.ly = y; drag.acc = 0; drag.f0 = volF(fv); S.master = fv } else S.master = fVol(clamp(drag.f0 + pulled(drag, y, FADER_PULL / drag.g.fh, e), 0, 1)); pushMaster(); uiDirty('top', 'dock') }
 /* the hand going on across the rows from an m or an s: each row it passes is set the way the first one went */
 function swipeMove (e) {
   const d = drag, el = under(e), t = el && el.dataset.a === d.what && el.dataset.i != null ? S.tracks[+el.dataset.i] : null
@@ -1718,7 +1741,9 @@ function onMove (e) {
   else if (drag.a === 'msend') {
     const d = drag, tk = S.tracks[d.i], sd = tk.sends[d.k]
     if (Math.abs(p.x - d.px) > 2 || (d.rel && Math.abs(p.y - d.py) > 2)) d.moved = true
-    if (d.moved && sd) { let f = d.rel ? clamp(d.f0 + ((p.x - d.px) - (p.y - d.py)) / (e.shiftKey ? 600 : 160), 0, 1) : clamp((p.x - d.x0) / d.w, 0, 1); if (!d.rel && e.shiftKey && d.f != null) f = clamp(d.f + (p.x - d.lx) / d.w * .2, 0, 1); else if (!d.rel && e.ctrlKey && d.f != null) f = clamp(d.f + (p.x - d.lx) / d.w, 0, 1); d.f = f; d.lx = p.x; sd.db = fVol(f); pushTrack(tk); uiDirty('dock') }
+    const fv = d.moved && sd ? finely(d, e, d.rel ? q => q.x - q.y : q => q.x, sd.db) : null
+    if (fv != null) { sd.db = fv; d.f = volF(fv); d.f0 = d.f; d.lx = p.x; d.px = p.x; d.py = p.y; d.wasFine = true; pushTrack(tk); uiDirty('dock') }      // (control: by tenths of a db, and on from there)
+    else if (d.moved && sd) { let f = d.rel ? clamp(d.f0 + ((p.x - d.px) - (p.y - d.py)) / (e.shiftKey ? 600 : 160), 0, 1) : clamp((p.x - d.x0) / d.w, 0, 1); if (!d.rel && e.shiftKey && d.f != null) f = clamp(d.f + (p.x - d.lx) / d.w * .2, 0, 1); else if (!d.rel && (e.ctrlKey || d.wasFine) && d.f != null) f = clamp(d.f + (p.x - d.lx) / d.w, 0, 1); d.f = f; d.lx = p.x; sd.db = fVol(f); pushTrack(tk); uiDirty('dock') }
   }
   else if (drag.a === 'pgrip') { S.panel.h = Math.round(drag.h0 + (drag.y0 - p.y)); relayout(); dirtyAll() }
   else if (drag.a === 'rowh') { const h = clamp(Math.round(drag.h0 + (p.y - drag.y0)), ROW_MIN, ROW_MAX); for (const t of drag.who) t.h = h; VY = clamp(VY, 0, maxVY()); uiDirty('head', 'lanes') }

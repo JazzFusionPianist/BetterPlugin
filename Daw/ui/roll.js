@@ -83,6 +83,19 @@ function rollFloorEnds (r) {
   if (k) edit(() => { setNotes(r, list) })
   say(k ? `${k} ${k === 1 ? 'note' : 'notes'} back to the ${ROLL.grid} grid` : short ? `shorter than the ${ROLL.grid} grid: left as they are` : 'they already end on the grid'); uiDirty('dock', 'lanes')
 }
+/* ; — the chosen notes taken to the playhead, as regions are on the lanes (his ask, 2026-10-24: "notes 이 선택되어있다면 ; 를
+   눌렀을 때 playhead로 노트를 옮겨줘야"): the first of them begins there, the rest keep their places to it, their keys as
+   they were. With shift, the note that came after them is chosen in their place, to be brought along in its turn */
+function rollToPlayhead (r, next) {
+  const sel = r.notes.filter(x => ROLL.sel.has(x.id))
+  if (!sel.length) { say('choose a note first'); return }
+  const { toQ } = rollQ(r), t0 = Math.min(...sel.map(x => x.t)), tLast = Math.max(...sel.map(x => x.t))
+  const after = next ? r.notes.filter(x => x.t > tLast + 1e-9 && !ROLL.sel.has(x.id)).sort((x, y) => x.t - y.t)[0] : null
+  const dq = toQ(curPos()) - t0
+  if (Math.abs(dq) > 1e-9) edit(() => { setNotes(r, rollMoved(r, r.notes, ROLL.sel, dq, 0, !!(ROLL.g && ROLL.g.kit))); rollGrow(r) })
+  if (after) ROLL.sel = new Set([after.id])
+  say(`${sel.length} ${sel.length === 1 ? 'note' : 'notes'} to the playhead`); uiDirty('dock', 'lanes')
+}
 /* shift \ and option shift \ as the Region menu has them: the notes page's own region while the page has the keys (rollKey
    takes them there), else every chosen region of notes, all of its notes */
 function rollNotesDo (fn) {
@@ -682,6 +695,7 @@ function rollKey (e) {
   }
   if (c === 'KeyQ' && r && ((plain && !e.shiftKey) || (e.metaKey && e.altKey && !e.ctrlKey))) { take(); if (!e.repeat) rollQuantDo(r, !plain); return }      // q: the chosen notes to the panel's own grid (not the region to the room's); option command q: back as played
   if (c === 'KeyL' && plain && !e.shiftKey && r) { take(); if (!e.repeat) rollLegato(r); return }      // l: force legato (on the lanes l fills a region to the next; here, each chosen note)
+  if (c === 'Semicolon' && !e.metaKey && !e.ctrlKey && !e.altKey && r) { take(); if (!e.repeat) rollToPlayhead(r, e.shiftKey); return }      // ; the chosen notes to the playhead; shift ;, and the next one chosen
   if (c === 'Backslash' && e.shiftKey && !e.metaKey && !e.ctrlKey && r) { take(); if (!e.repeat) (e.altKey ? rollFloorEnds : rollLegato)(r); return }      // shift \: force legato; option shift \: each note's end back to the grid line before it (his ask, 2026-10-23)
   if (c === 'KeyA' && plain && !e.shiftKey) { take(); if (!e.repeat) { ROLL.lane = !ROLL.lane; ROLL.keep = true; uiDirty('dock') } return }      // a: the lane under the notes, up or away
   if ((c === 'Backspace' || c === 'Delete') && plain) {

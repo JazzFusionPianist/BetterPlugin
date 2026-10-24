@@ -1,6 +1,7 @@
-// node test/finedrag.mjs — control held while pulling goes a quarter as far as the hand (his ask, 2026-10-21): a track's
-// fader in its head, the strip's fader in the transport panel, a send's knob in the mixer (no list opens), a point of a
-// line, a region moved along the song; control let go halfway, it goes on from where it got to (no jump); a band and the
+// node test/finedrag.mjs — control held while pulling goes a quarter as far as the hand (his ask, 2026-10-21) — and a level
+// (a fader, a send, a point of a volume line) by a tenth of a db for every two units the hand moves (his ask, 2026-10-24:
+// "0.1 단위로"): a track's fader in its head, the strip's fader in the transport panel, a send's knob in the mixer (no
+// list opens), a point of a line, a region moved along the song; control let go halfway, it goes on from where it got to (no jump); a band and the
 // zoom tool still follow the hand (control and shift together, the fade tool, are fades.mjs's and fadekeys.mjs's). Real
 // presses with real modifiers.
 import { open, PAGE } from './cdp.mjs'
@@ -31,16 +32,18 @@ const V12 = await ev(`return volF(-12)`), V20 = await ev(`return volF(-20)`)
   const g = await ev(`const el = document.querySelector('#g-head [data-a="vol"][data-i="${ti}"]'), b0 = board.getBoundingClientRect(), kk = b0.width / (W + (SKV.left || 0)); return { hx: (+el.dataset.gx + +el.dataset.gw * volF(S.tracks[${ti}].vol) + (SKV.left || 0)) * kk + b0.left, per: 1 / (+el.dataset.gw * kk) }`)
   await pull(g.hx, h.y, 12, 0); const plain = await f() - V12
   await set(-12); await pull(g.hx, h.y, 12, 0, () => CTRL); const fine = await f() - V12
-  ok('a track\'s fader: plain, as far as the hand; with control, a quarter as far', near(plain, 12 * g.per, .03) && near(fine, 3 * g.per, .015), { plain, fine, want: [12 * g.per, 3 * g.per] })
+  const fineDb = await ev(`return S.tracks[${ti}].vol`)
+  ok('a track\'s fader: plain, as far as the hand; with control, twelve units up by 0.6 db, by tenths', near(plain, 12 * g.per, .03) && near(fineDb, -11.4, 1e-6), { plain, fineDb, want: [12 * g.per, -11.4] })
   /* control let go halfway: no jump, and the rest as far as the hand */
-  await set(-12); await pull(g.hx, h.y, 12, 0, k => k <= 6 ? CTRL : 0); const half = await f() - V12
-  ok('…control let go halfway: on from where it got to, the rest as far as the hand', near(half, 7.5 * g.per, .02), { half, want: 7.5 * g.per }) }
+  await set(-12); await pull(g.hx, h.y, 12, 0, k => k <= 6 ? CTRL : 0); const half = await f() - V12, want = await ev(`return volF(-11.7)`) - V12 + 6 * g.per
+  ok('…control let go halfway: on from where it got to (-11.7), the rest as far as the hand', near(half, want, .02), { half, want }) }
 
 /* the strip's fader in the transport panel: pulled up */
 { const f = () => ev(`return volF(S.tracks[S.sel].vol)`), set = v => ev(`S.tracks[S.sel].vol = ${v}; dirtyAll(); flush(); return 1`)
   await set(-12); let v = await box('#tp-col [data-a="tps-vol"]'); await pull(v.x, v.y, 0, -40); const plain = await f() - V12
   await set(-12); v = await box('#tp-col [data-a="tps-vol"]'); await pull(v.x, v.y, 0, -40, () => CTRL); const fine = await f() - V12
-  ok('the strip\'s fader in the panel: with control, a quarter as far', plain > .02 && near(fine / plain, .25, .08), { plain, fine }) }
+  const fineDb = await ev(`return S.tracks[S.sel].vol`)
+  ok('the strip\'s fader in the panel: with control, forty units up by 2 db, by tenths', plain > .02 && near(fineDb, -10, 1e-6), { plain, fine, fineDb }) }
 
 /* a send's knob in the mixer: no list, and a quarter as far */
 { await ev(`const tr = k => S.tracks.find(x => x.name === k), bus = mkTrack('verb', null, null, null, null, 0, [], NO_PATCH()); bus.kind = 'bus'; S.tracks.push(bus); tr('keys').sends = [{ to: bus.id, db: -20 }]; if (typeof repaint === 'function') repaint(); S.panel.on = true; S.panel.tab = 'mixer'; S.panel.h = 420; setView(true); dirtyAll(); flush(); return 1`)
@@ -48,7 +51,8 @@ const V12 = await ev(`return volF(-12)`), V20 = await ev(`return volF(-20)`)
   const ki = await ev(`return S.tracks.findIndex(x => x.name === 'keys')`)
   await set(-20); let k = await box(`#g-dock [data-a="mp-send"][data-i="${ki}"]`); await pull(k.x, k.y, 0, -40); const plain = await db() - V20
   await set(-20); k = await box(`#g-dock [data-a="mp-send"][data-i="${ki}"]`); await pull(k.x, k.y, 0, -40, () => CTRL); const fine = await db() - V20, menu = await ev(`return !!S.menu`)
-  ok('a send\'s knob in the mixer: with control, a quarter as far, and no list opens', plain > .05 && near(fine / plain, .25, .08) && !menu, { plain, fine, menu })
+  const fineDb = await ev(`return S.tracks.find(x => x.name === 'keys').sends[0].db`)
+  ok('a send\'s knob in the mixer: with control, forty units up by 2 db, by tenths, and no list opens', plain > .05 && near(fineDb, -18, 1e-6) && !menu, { plain, fine, fineDb, menu })
   await ev(`S.menu = null; S.panel.on = false; setView(true); dirtyAll(); flush(); return 1`) }
 
 /* a point of a line: pulled up */
@@ -57,7 +61,8 @@ const V12 = await ev(`return volF(-12)`), V20 = await ev(`return volF(-20)`)
   const reset = () => ev(`const t = S.tracks[HI]; t.autos = {}; addPoint(t, 'vol', 10, -12); S.selP = []; dirtyAll(); flush(); return 1`)
   const f0 = await pv(); let p = await at(); await pull(p.x, p.y, 0, -12); const plain = await pv() - f0
   await reset(); p = await at(); await pull(p.x, p.y, 0, -12, () => CTRL); const fine = await pv() - f0
-  ok('a point of a line: with control, a quarter as far', plain > .02 && near(fine / plain, .25, .1), { plain, fine })
+  const fineDb = await ev(`return S.tracks[HI].autos.vol[0].v`)
+  ok('a point of a line: with control, twelve units up by 0.6 db, by tenths', plain > .02 && near(fineDb, -11.4, 1e-6), { plain, fine, fineDb })
   await ev(`S.auto = false; S.selP = []; dirtyAll(); flush(); return 1`) }
 
 /* a region moved along the song */

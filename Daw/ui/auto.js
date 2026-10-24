@@ -1,11 +1,11 @@
 /* ── automation: a line drawn along the song for one thing on a track ──
    A track keeps its lines by parameter: t.autos[k] = [{id, b, v}], b in bars from zero, sorted. The app plays them;
    here they are drawn, moved, and read back so the controls follow. */
-const lin01 = { f: v => v / 100, inv: f => Math.round(f * 100), fmt: v => String(Math.round(v)), eng: v => v / 100 }
-const sendAuto = k => ({ p: 5 + k, name: `send ${k + 1}`, f: volF, inv: fVol, fmt: v => fmtDb(v), eng: v => v, now: t => (t.sends[k] ? t.sends[k].db : -48), step: .5 })
+const lin01 = { f: v => v / 100, inv: f => Math.round(f * 100), fmt: v => String(Math.round(v)), eng: v => v / 100, fine: 1 }      // (fine: the step a pull with control goes by — ui.js finely)
+const sendAuto = k => ({ p: 5 + k, name: `send ${k + 1}`, f: volF, inv: fVol, fmt: v => fmtDb(v), eng: v => v, now: t => (t.sends[k] ? t.sends[k].db : -48), step: .5, fine: .1 })
 const AUTO_OWN = {
-  vol: { p: 0, name: 'volume', f: volF, inv: fVol, fmt: v => fmtDb(v), eng: v => v, now: t => t.isOut ? S.master : t.vol, step: .5 },      // (the stereo out's level is the room's own: wall.js OUT)
-  pan: { p: 1, name: 'pan', f: v => (v + 1) / 2, inv: f => { const v = f * 2 - 1; return Math.abs(v) < .04 ? 0 : Math.round(v * 64) / 64 }, fmt: v => panText(v), eng: v => v, now: t => t.pan || 0, step: 4 / 64 },
+  vol: { p: 0, name: 'volume', f: volF, inv: fVol, fmt: v => fmtDb(v), eng: v => v, now: t => t.isOut ? S.master : t.vol, step: .5, fine: .1 },      // (the stereo out's level is the room's own: wall.js OUT)
+  pan: { p: 1, name: 'pan', f: v => (v + 1) / 2, inv: f => { const v = f * 2 - 1; return Math.abs(v) < .04 ? 0 : Math.round(v * 64) / 64 }, fmt: v => panText(v), eng: v => v, now: t => t.pan || 0, step: 4 / 64, fine: 1 / 64 },
   tape: Object.assign({ p: 2, name: 'tape', now: t => patchNow(t).tape, step: 2 }, lin01),
   space: Object.assign({ p: 3, name: 'space', now: t => patchNow(t).space, step: 2 }, lin01),
   delay: Object.assign({ p: 4, name: 'delay', now: t => patchNow(t).delay, step: 2 }, lin01),
@@ -17,14 +17,14 @@ const AUTO_OWN = {
 const FX_KEY = /^fx(\d+)\.(\d+)$/
 const fxIns = (t, k) => { const m = FX_KEY.exec(k); return m ? (t.inserts || []).find(x => x.n === +m[1] && !x.out) || null : null }
 const fxIndex = k => +FX_KEY.exec(k)[2]
-const fxAuto = k => ({ p: 100, fx: true, name: 'control', f: v => clamp(v, 0, 1), inv: f => Math.round(clamp(f, 0, 1) * 1000) / 1000, fmt: v => String(Math.round(v * 100)), eng: v => v, now: t => { const ins = fxIns(t, k), v = ins && ins.pv ? ins.pv[fxIndex(k)] : null; return v == null ? .5 : v }, step: .01 })
+const fxAuto = k => ({ p: 100, fx: true, name: 'control', f: v => clamp(v, 0, 1), inv: f => Math.round(clamp(f, 0, 1) * 1000) / 1000, fmt: v => String(Math.round(v * 100)), eng: v => v, fine: .01, now: t => { const ins = fxIns(t, k), v = ins && ins.pv ? ins.pv[fxIndex(k)] : null; return v == null ? .5 : v }, step: .01 })
 /* a macro's line is kept as mac<id> (ui/macro.js): the line is the macro's, and goes to whatever control of a plug-in on the
    track the macro is wired to (it is told to the engine as that control's line); a macro not wired keeps its line and
    moves nothing */
 const MAC_KEY = /^mac(\d+)$/
 const macroOf = (t, k) => { const m = MAC_KEY.exec(k); return m ? (t.macros || []).find(x => x.id === +m[1]) || null : null }
 const macroIns = (t, m) => m && m.to && m.to.n != null ? (t.inserts || []).find(x => x.n === m.to.n && !x.out) || null : null      // (a macro wired to a print has no plug-in: macro.js macroNode)
-const macAuto = k => ({ p: 100, mac: true, name: 'macro', f: v => clamp(v, 0, 1), inv: f => Math.round(clamp(f, 0, 1) * 1000) / 1000, fmt: v => String(Math.round(v * 100)), eng: v => v, now: t => { const m = macroOf(t, k); return m ? m.v : .5 }, step: .01 })
+const macAuto = k => ({ p: 100, mac: true, name: 'macro', f: v => clamp(v, 0, 1), inv: f => Math.round(clamp(f, 0, 1) * 1000) / 1000, fmt: v => String(Math.round(v * 100)), eng: v => v, now: t => { const m = macroOf(t, k); return m ? m.v : .5 }, step: .01, fine: .01 })
 const AUTO = new Proxy(AUTO_OWN, { get: (own, k) => own[k] || (typeof k === 'string' && FX_KEY.test(k) ? (own[k] = fxAuto(k)) : typeof k === 'string' && MAC_KEY.test(k) ? (own[k] = macAuto(k)) : undefined) })
 /* the line a track shows: the one asked for, while what it is a line for is still there (a send, a plug-in); else its volume */
 const apOf = t => AUTO[t.ap] && (!/^send/.test(t.ap) || t.sends[+t.ap.slice(4)]) && (!FX_KEY.test(t.ap) || fxIns(t, t.ap)) && (!MAC_KEY.test(t.ap) || macroOf(t, t.ap)) ? t.ap : 'vol'
@@ -221,9 +221,16 @@ function autoMove (e, p) {
   const t = autoT(d.ti), g = autoGeom(t, autoY(d.ti), autoH(d.ti))
   if (d.seg && d.lead == null) { if (Math.hypot(p.x - d.x0, p.y - d.y0) < 3) return; autoSeg(d, t) }      // a stretch of the line taken hold of: it is pulled only once the hand has moved
   const pts = autoPts(t, d.k), lead = d.orig.get(d.lead)
-  const db = d.seg ? 0 : clamp(snapPos(lead.b + (barAt(p.x) - barAt(d.x0)), e), 0, SONG_END) - lead.b, df = !d.seg && e.shiftKey && !e.ctrlKey ? 0 : -(p.y - d.y0) / g.lh      // (shift held: points go along the song only, their values kept — his ask, 2026-10-19)
-  const lv = g.A.inv(clamp(g.A.f(lead.v) + df, 0, 1)), dv = lv - lead.v                   // (the hand moves the first by so much of the lane; all the others go by as much of their own unit — a stretch of a volume line goes down by the same db all along)
-  for (const q of pts) { const o = d.orig.get(q.id); if (!o) continue; q.b = clamp(o.b + db, 0, SONG_END); q.v = o === lead ? lv : g.A.inv(clamp(g.A.f(o.v + dv), 0, 1)); delete q.e }      // (a point an edit of the song's time made is whoever moves it's from then on)
+  const db = d.seg ? 0 : clamp(snapPos(lead.b + (barAt(p.x) - barAt(d.x0)), e), 0, SONG_END) - lead.b
+  /* control held: by the line's own step (a tenth of a db on a volume line) for every two units the hand moves (ui.js finely);
+     let go, the pull goes on from where that left it (cb) */
+  const step = g.A.fine || 0, lo = g.A.inv(0), hi = g.A.inv(1), fv = step ? finely(d, e, q => -q.y, d.lv != null ? d.lv : lead.v, step, Math.min(lo, hi), Math.max(lo, hi)) : null
+  let lv
+  if (fv != null) { lv = fv; d.cb = { y: p.y, v: fv } }
+  else { const cb = d.cb || { y: d.y0, v: lead.v }, df = !d.seg && e.shiftKey && !e.ctrlKey ? 0 : -(p.y - cb.y) / g.lh; lv = df ? g.A.inv(clamp(g.A.f(cb.v) + df, 0, 1)) : cb.v }      // (shift held: points go along the song only, their values kept — his ask, 2026-10-19)
+  d.lv = lv
+  const dv = lv - lead.v, near = v => clamp(+(Math.round(v / step) * step).toFixed(6), Math.min(lo, hi), Math.max(lo, hi))      // (the hand moves the first by so much of the lane; all the others go by as much of their own unit — a stretch of a volume line goes down by the same db all along)
+  for (const q of pts) { const o = d.orig.get(q.id); if (!o) continue; q.b = clamp(o.b + db, 0, SONG_END); q.v = o === lead ? lv : fv != null ? near(o.v + dv) : g.A.inv(clamp(g.A.f(o.v + dv), 0, 1)); delete q.e }      // (a point an edit of the song's time made is whoever moves it's from then on)
   sortPts(pts)
   d.moved = true
   uiDirty('lanes', 'head', 'dock')

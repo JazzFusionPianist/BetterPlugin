@@ -737,7 +737,7 @@ function outLevel (v) {
   }
   onMove = function (e) {
     const r = move0.apply(this, arguments)
-    if (drag && drag.a === 'outvol') { const d = drag, x = pt(e).x; d.f = e.shiftKey ? clamp(d.f + (x - d.lx) / d.gw * .2, 0, 1) : clamp((x - d.gx) / d.gw, 0, 1); d.lx = x; outLevel(fVol(d.f)) }
+    if (drag && drag.a === 'outvol') { const d = drag, x = pt(e).x, fv = finely(d, e, q => q.x, shown(OUT, 'vol')); if (fv != null) { d.f = volF(fv); d.lx = x; d.wasFine = true; outLevel(fv); return r } d.f = e.shiftKey || d.wasFine ? clamp(d.f + (x - d.lx) / d.gw * (e.shiftKey ? .2 : 1), 0, 1) : clamp((x - d.gx) / d.gw, 0, 1); d.lx = x; outLevel(fVol(d.f)) }
     return r
   } }
 /* what it reads, as the out's ring does */

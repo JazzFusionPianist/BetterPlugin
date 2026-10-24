@@ -618,10 +618,10 @@ const FADE_CURVES = ['linear', 'equal power', 's curve']
 /* how far a region's transpose and its gain go, either way (his ask, 2026-10-24: ±48 semitones, ±30 dB) */
 const TR_MAX = 48, GAIN_MAX = 30
 const fadeShape = (c, x, bend = 0) => c === 1 ? Math.sin(clamp(x, 0, 1) * Math.PI / 2) : c === 2 ? (x = clamp(x, 0, 1), x * x * (3 - 2 * x)) : bend ? Math.pow(clamp(x, 0, 1), Math.pow(2, 2 * bend)) : clamp(x, 0, 1)
-/* how a straight fade is bent (Engine.h fadeShape): as pulled by hand — control and a pull up or down (r.fib, r.fob,
-   −1…1) — else, for a fade of its own, as the ear hears an even fall to silence: a plain line of level was loud to the
-   last moment and then gone (his ear, 2026-10-22); half of a crossfade stays straight, its two halves adding up */
-const FADE_BEND = .66
+/* how a straight fade is bent (Engine.h fadeShape): as pulled by hand — control (or control and shift, the fade tool) and a
+   pull up or down (r.fib, r.fob, −1…1) — else straight, as in Logic (his word, 2026-10-24: "디폴트 페이드가 곡선임"; it was
+   bent .66 by default since 2026-10-22); half of a crossfade stays straight, its two halves adding up */
+const FADE_BEND = 0
 function fadeBend (r, left, t) {
   const own = left ? r.fib : r.fob
   if (own != null) return own
@@ -1758,7 +1758,7 @@ function lanesPress (e, p) {
       if (pair) { for (const [a, b] of [pair].concat(joinMates(pair[0], pair[1], t))) uncross(a, b); commit(before) }
       else if (left ? r.fi : r.fo) { for (const x of [r].concat(fadeWith(r, t).filter(x => { const xt = regOf(x.id)[1]; return !(left ? crossBefore(x, xt) : crossAfter(x, xt)) }))) { if (left) x.fi = 0; else x.fo = 0; dirtyReg(x) } commit(before) }      // (one taken along whose end there is half of a crossfade keeps it, as in a drag)
     }
-    else if (r) { drag = fadeGrab(r, t, pos - (r.a - 1) < (r.b - r.a) / 2, before); drag.x0 = p.x; drag.y0 = p.y }
+    else if (r) { const left = pos - (r.a - 1) < (r.b - r.a) / 2, edge = left ? bx(r.a + (r.fi || 0)) : bx(r.b - (r.fo || 0)); drag = fadeGrab(r, t, left, before); drag.x0 = p.x; drag.y0 = p.y; drag.onFade = (left ? r.fi : r.fo) > 0 && (left ? p.x <= edge + 6 : p.x >= edge - 6) }      // (onFade: pressed on the fade there is — pulled up or down, it is bent)
   }
   else if (tool === 'marquee') marqStart(e, ti, pos, false)
   else if (tool === 'zoom') drag = { a: 'zoom', x0: p.x, x1: p.x }
@@ -1857,11 +1857,12 @@ function lanesMove (e, p) {
     d.moved = Math.abs(at - d.at) > 1e-9
     if (d.moved) for (const w of d.was) { joinAt(w.a, w.b, at); if (w.len) crossfade(w.a, w.b, w.len, w.curve); else { fitFades(w.a, regOf(w.a.id)[1]); fitFades(w.b, regOf(w.b.id)[1]) } }      // (on a track edited along with this one the same join moves; it is a crossfade there only if it was one — where the two only meet, the fades of their own must still fit in them)
   } else if (d.a === 'gain') { for (const [id, g] of d.orig) { const [r] = regOf(id); r.gain = clamp(Math.round((g - (p.y - d.y0) * .1) * 10) / 10, -GAIN_MAX, GAIN_MAX); dirtyReg(r) } d.moved = true }
-  else if (d.a === 'fade' && (d.mode || (d.mode = e.ctrlKey && !e.shiftKey && d.y0 != null && Math.abs(p.y - d.y0) >= Math.abs(p.x - (d.x0 != null ? d.x0 : p.x)) ? 'bend' : 'len')) === 'bend') {      // (which, said by the first move out of the dead zone)
-    /* control, pulled up or down: the fade bent — up, fuller sooner; down, quieter longer (his ask, 2026-10-22) */
+  else if (d.a === 'fade' && (d.mode || (d.mode = e.ctrlKey && (!e.shiftKey || d.onFade) && d.y0 != null && Math.abs(p.y - d.y0) >= Math.abs(p.x - (d.x0 != null ? d.x0 : p.x)) ? 'bend' : 'len')) === 'bend') {      // (which, said by the first move out of the dead zone)
+    /* control, pulled up or down: the fade bent — up, fuller sooner; down, quieter longer (his ask, 2026-10-22); with shift
+       too (the fade tool, as Logic has it) when the press was on the fade itself (2026-10-24). Near straight it is straight */
     const [r] = regOf(d.id)
     if (!d.bend) d.bend = { b0: fadeBend(r, d.left), y0: p.y }
-    const b = clamp(Math.round((d.bend.b0 - (d.bend.y0 - p.y) / 15) * 100) / 100, -1, 1)
+    const b0 = clamp(Math.round((d.bend.b0 - (d.bend.y0 - p.y) / 60) * 100) / 100, -1, 1), b = Math.abs(b0) < .07 ? 0 : b0      // (60 px to bend it all the way: it was 15, too touchy to set by ear — 2026-10-24)
     for (const x of [r].concat((d.also || []).map(id => regOf(id)[0]).filter(Boolean))) { if (d.left) { x.fib = b; x.fic = 0 } else { x.fob = b; x.foc = 0 } dirtyReg(x) }
     d.moved = true
   }

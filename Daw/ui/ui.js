@@ -436,12 +436,13 @@ function pRuler () {
 
 /* a list to pick from, where the pointer is. An item: {t, k (set at the right), on, dim, sep (a line above it), v} */
 function openMenu (x, y, items, pick, more) { S.menu = Object.assign({ x, y, items, pick }, more || {}); uiDirty('menu') }
+/* a list stays inside the window: one opened in the transport's column at the right stays in it (skins.js colOff) */
 function pMenu () {
   const m = S.menu
   if (!m) return ''
   const rowH = 20, w = m.w || Math.max(132, Math.ceil(Math.max(...m.items.map(it => tw(it.t, 10.5, 500) + (it.k ? tw(it.k, 9.5) + 22 : 0) + 30)))), seps = m.items.filter(it => it.sep).length
-  const h = m.items.length * rowH + seps * 7 + 12, lc = typeof SKV === 'object' ? SKV.left || 0 : 0, x = clamp(m.x, 8 - lc, (VIEW.s > .5 && m.y > BAR_H ? RX : W) - w - 8), y = clamp(m.up ? m.y - h : m.y, 8, H - h - 8)
-  let s = hit(-lc, 0, W + lc, H, 'menu-close', '', 'default') + R(x, y, w, h, { rx: 3, fill: K2 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 3, stroke: INK, sa: .28 }), ry = y + 6
+  const h = m.items.length * rowH + seps * 7 + 12, lc = typeof SKV === 'object' ? colOff() : 0, x = clamp(m.x, 8 - lc, (typeof SKIN === 'object' && SKIN.colRight && m.x > W - 1 ? winR() : VIEW.s > .5 && m.y > BAR_H ? RX : W) - w - 8), y = clamp(m.up ? m.y - h : m.y, 8, H - h - 8)
+  let s = hit(-lc, 0, W + (typeof SKV === 'object' ? SKV.left || 0 : 0), H, 'menu-close', '', 'default') + R(x, y, w, h, { rx: 3, fill: K2 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 3, stroke: INK, sa: .28 }), ry = y + 6
   m.items.forEach((it, i) => {
     if (it.sep) { s += P(`M${x + 1} ${ry + 3.5}H${x + w - 1}`, { stroke: INK, sa: .1 }); ry += 7 }
     if (it.on) s += R(x + 5, ry + (m.keep ? 1 : 0), w - 10, rowH - (m.keep ? 2 : 0), { rx: 2, fill: INK })      // (a list of which several are lit: each lit row by itself)
@@ -1433,13 +1434,13 @@ function pBack () {
 function pAsk () {
   const q = S.ask
   if (!q) return ''
-  if (q.big) return hit(-(typeof SKV === 'object' ? SKV.left || 0 : 0), 0, W + 400, H, 'ask-dim', '', 'default') + R(q.x, q.y, q.w, q.h, { rx: 4, fill: K2 }) + R(q.x + .5, q.y + .5, q.w - 1, q.h - 1, { rx: 4, stroke: INK, sa: .32 }) + T(q.x + 20, q.y + 38, q.label, { size: 12, w: 500, a: .7 }) + T(q.x + 140, q.y + q.h - 12, q.note || '', { size: 8.5, a: .4, x: ' xml:space="preserve"' })      // (a wide one in the middle: smpte's start)
+  if (q.big) return hit(-(typeof SKV === 'object' ? colOff() : 0), 0, W + 400, H, 'ask-dim', '', 'default') + R(q.x, q.y, q.w, q.h, { rx: 4, fill: K2 }) + R(q.x + .5, q.y + .5, q.w - 1, q.h - 1, { rx: 4, stroke: INK, sa: .32 }) + T(q.x + 20, q.y + 38, q.label, { size: 12, w: 500, a: .7 }) + T(q.x + 140, q.y + q.h - 12, q.note || '', { size: 8.5, a: .4, x: ' xml:space="preserve"' })      // (a wide one in the middle: smpte's start)
   return R(q.x, q.y, q.w, q.h, { rx: 3, fill: K2 }) + R(q.x + .5, q.y + .5, q.w - 1, q.h - 1, { rx: 3, stroke: INK, sa: .28 }) + T(q.x + 12, q.y + 20.6, q.label, { size: 9.5, a: .4 })
 }
 const PARTS = { ask: pAsk, new: pNew, back: pBack, lanes: pLanes, head: pHead, ruler: pRuler, scenes: pScenes, info: pTool, drop: pDrop, play: pPlay, dock: pDock, slur: pSlur, top: pTop, cmd: pCmd, hand: pHand, look: pLook, sheet: pSheet, menu: pMenu }
 
 /* ── hands ── */
-function ptRaw (e) { const r = board.getBoundingClientRect(), left = typeof SKV === 'object' ? SKV.left || 0 : 0; return { x: (e.clientX - r.left) / (r.width / (W + left)) - left, y: (e.clientY - r.top) / (r.height / H) } }
+function ptRaw (e) { const r = board.getBoundingClientRect(), left = typeof SKV === 'object' ? SKV.left || 0 : 0; return { x: (e.clientX - r.left) / (r.width / (W + left)) - (typeof colOff === 'function' ? colOff() : left), y: (e.clientY - r.top) / (r.height / H) } }
 /* Where the pointer is. While something is pulled with control held it goes a quarter as far as the hand (his ask,
    2026-10-21): every knob, fader, ring and line, every hand on a wall, and every edit — a region's edge, a stretch, a
    fade, a marquee, a point — finer; let go of control, it goes as far as the hand again from where it got to. What
@@ -2063,8 +2064,9 @@ function fitRoom () {
   const room = $('room'), ww = Math.max(320, room.clientWidth), hh = Math.max(240, room.clientHeight), k = Math.min(1, ww / 1100, hh / 640)
   const left = typeof SKV === 'object' ? SKV.left || 0 : 0                          // (a theme's column down the left: the room is the rest, its x counted from the column's edge — skins.js)
   W = Math.round(ww / k) - left; H = Math.round(hh / k)
-  board.style.width = (W + left) + 'px'; board.style.height = H + 'px'; board.style.transform = k === 1 ? 'none' : `scale(${k})`; board.style.setProperty('--room-left', left + 'px')
-  svg.setAttribute('viewBox', `${-left} 0 ${W + left} ${H}`); svg.setAttribute('width', W + left); svg.setAttribute('height', H)
+  const off = typeof colOff === 'function' ? colOff() : left                         // (the column down the right: the room begins at the window's edge)
+  board.style.width = (W + left) + 'px'; board.style.height = H + 'px'; board.style.transform = k === 1 ? 'none' : `scale(${k})`; board.style.setProperty('--room-left', off + 'px')
+  svg.setAttribute('viewBox', `${-off} 0 ${W + left} ${H}`); svg.setAttribute('width', W + left); svg.setAttribute('height', H)
   relayout(); dirtyAll(); syncSlur()
 }
 /* levels, as the app measures them thirty times a second; they fall back on their own */

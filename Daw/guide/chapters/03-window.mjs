@@ -18,7 +18,7 @@ export default () => chapter('window', t('the window', '창'),
     art: fig('window', { w: 158, calls: [[1, 'pos', 'l'], [2, 'scene#5', 'r', -10], [3, 'seek', 'r'], [4, 'sel#2', 't'], [5, 'lanes', 'r'], [6, 'playhead', 't', 6], [7, 'cycle#1', 't', -6], [8, 'cmdline', 'b'], [9, 'sheet', 'b']] }) }),
 
   page(t('the transport panel', '트랜스포트 패널'), { kind: 'split', tw: 112, txt:
-    p('The app begins with the transport panel down the left: what is pressed to play, where the song is, the tools and what is chosen, in one column, each thing as large as it matters. [[H]] hides it (and brings it back); hidden, the song has all the room. ((View)) > ((Transport Panel)) does the same.', '앱은 왼쪽에 트랜스포트 패널을 띄운 채 시작합니다. 재생, 곡의 위치, 도구, 선택된 것을 한 열에 모아, 중요한 것일수록 크게 그렸습니다. [[H]]로 숨기고 다시 띄웁니다. 숨기면 곡이 창 전체를 씁니다. ((View)) > ((Transport Panel))도 같습니다.') +
+    p('The app begins with the transport panel down the left (settings > display: the right): what is pressed to play, where the song is, the tools and what is chosen, in one column, each thing as large as it matters. [[H]] or ((View)) > ((Transport Panel)) hides it and brings it back.', '앱은 왼쪽에 트랜스포트 패널을 띄운 채 시작합니다. 재생, 곡의 위치, 도구, 선택된 것을 한 열에 모아, 중요한 것일수록 크게 그렸습니다. [[H]]로 숨기고 다시 띄웁니다. 숨기면 곡이 창 전체를 씁니다. ((View)) > ((Transport Panel))도 같습니다. 설정 > 디스플레이에서 오른쪽에 둘 수도 있습니다.') +
     table(null,
       [1, ['play, stop, record: a triangle, a square, a ring. The one the room is doing is filled. Beside them, to the start', '재생, 정지, 녹음: 삼각형, 사각형, 원. 지금 하고 있는 것이 채워집니다. 옆에 처음으로']],
       [2, ['the bar the song is in, large, with beat . division . tick at its foot. Click to type a place (17.3.2.120)', '지금 마디를 크게, 그 옆에 박 . 16분 . 틱. 클릭해서 위치 입력(17.3.2.120)']],

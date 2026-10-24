@@ -18,6 +18,7 @@ function skinRead () {
   for (const part in PART_KINDS) { const v = lk('part.' + part), f = PART_KINDS[part].find(x => x[0] === v); SKIN.k[part] = f ? f[1] : 'plain' }
   SKIN.bridge = lk('part.meters') === 'VU meters over the room'
   SKIN.right = lk('part.headsAt') === 'at the right'
+  SKIN.colRight = lk('part.transportAt') === 'at the right'
   SKIN.deck = SKIN.k.transport === 'console'
   SKIN.heads = SKIN.k.heads === 'console'
   SKIN.flags = SKIN.k.markers === 'console'
@@ -26,6 +27,11 @@ function skinRead () {
   SKIN.console = SKIN.k.mixer === 'console'
 }
 const skinHas = part => SKIN.k[part] && SKIN.k[part] !== 'plain'
+/* the transport's column (SKV.left wide) stands down the left of the window, the room's x counted from its edge, or down the
+   right (his ask, 2026-10-24: picked in settings > display, its inside as it is): how far the room's x = 0 stands from the
+   window's left edge, and the window's two edges in the room's x */
+const colOff = () => SKIN.colRight ? 0 : (SKV.left || 0)
+const winL = () => -colOff(), winR = () => W + (SKV.left || 0) - colOff()
 /* the panel's tabs as the theme of the mixer draws them (kit.js cells asks), or null: as they come */
 const skinTabs = (x, y, h, items, o = {}) => SKINS.tabs[SKIN.k.mixer] ? SKINS.tabs[SKIN.k.mixer](x, y, h, items, o) : null
 /* the window cut again (ui.js relayout asks first): the bands of the transport and the bridge of meters */
@@ -37,7 +43,7 @@ function skinLayout () {
   const b = SKIN_BANDS[SKIN.k.transport] || SKIN_BANDS.plain
   BAR_H = (SKIN.bridge ? BRIDGE_H : 0) + b[0]
   DECK_H = b[1]
-  if (SKV.left !== b[2]) { SKV.left = b[2]; if (typeof fitRoom === 'function' && typeof board !== 'undefined' && !skinLayout.in) { skinLayout.in = true; try { fitRoom() } finally { skinLayout.in = false } } }
+  if (SKV.left !== b[2] || SKV.colRight !== !!SKIN.colRight) { SKV.left = b[2]; SKV.colRight = !!SKIN.colRight; if (typeof fitRoom === 'function' && typeof board !== 'undefined' && !skinLayout.in) { skinLayout.in = true; try { fitRoom() } finally { skinLayout.in = false } } }
 }
 const skinDeckY = () => H - FOOT_H - DECK_H
 /* where the lists of the transport's things open: under its band at the top, or over it at the foot */

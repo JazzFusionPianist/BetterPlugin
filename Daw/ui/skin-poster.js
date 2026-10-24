@@ -34,7 +34,7 @@ const bhLab = (x, y, s, o = {}) => `<text x="${n(x)}" y="${n(y)}" font-family="$
 /* the column down the left, as a poster (his picks: design/bauhaus draft 2, then draft 3 of 2026-10-22: the chosen track's
    strip under the out, the smallest things at the foot); its x counted from the column's own edge */
 SKINS.left.poster = () => {
-  const CW = SKIN_BANDS.poster[2], p = curPos(), [bar, rest] = bhSplit(p), o = -CW, k = Math.min(1, H / 940)
+  const CW = SKIN_BANDS.poster[2], p = curPos(), [bar, rest] = bhSplit(p), o = SKIN.colRight ? W : -CW, k = Math.min(1, H / 940)
   const fld = (x, y, w, h) => ({ x: o + x * k, y: y * k, w: w * k, h: h * k })
   let s = ''
   /* the transport, largest */
@@ -128,7 +128,7 @@ SKINS.left.poster = () => {
   const zf = clamp(Math.log(PXB / fitPXB()) / Math.log(640 / fitPXB()), 0, 1), rf = rhF(), zw = 84
   const zoom = (x, y, f, a, word) => bhLab(x + zw / 2, y - 7, word, { anchor: 'middle' }) + R(x, y, zw, 1.4, { fill: BH.black }) + Cc(x + zw * f, y + .7, 3.4, { fill: BH.red }) + hit(x - 5, y - 9, zw + 10, 16, a, ` data-x0="${n(o + x * k)}" data-w="${n(zw * k)}"`, 'ew-resize')
   s += zoom(14, 922, zf, 'zoomx', 'zoom across') + zoom(111, 922, rf, 'zoomy', 'zoom down')
-  const ground = R(0, 0, CW, H, { fill: K1 }) + R(CW - 3, 0, 3, H, { fill: BH.black })
+  const ground = R(0, 0, CW, H, { fill: K1 }) + R(SKIN.colRight ? 0 : CW - 3, 0, 3, H, { fill: BH.black })      // (its black edge toward the room)
   return G(ground + G(G(s, k < 1 ? `scale(${n(k)})` : ''), '', ' id="bh-col"'), `translate(${o} 0)`)
 }
 /* the foot: a black band, what is chosen — the track, or the region (its colour and shape, gain, transpose, fine tune,

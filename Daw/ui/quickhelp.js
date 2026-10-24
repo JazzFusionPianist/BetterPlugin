@@ -179,7 +179,7 @@ addEventListener('blur', () => qhHide())
     const s = left0.apply(this, arguments), x = TPX.CW - 24, y = 24
     const q = (QH.on ? Cc(x, y, 8, { fill: INK }) : Cc(x, y, 7.5, { stroke: INK, sa: .5, sw: 1 })) + T(x, y + 3.5, '?', { size: 10, w: 600, c: QH.on ? K2 : INK, a: QH.on ? 1 : .7, anchor: 'middle' }) + hit(x - 12, y - 12, 24, 24, 'qhelp')
     /* inside the panel's own column (moved left by its width, and hidden with it): before its two groups close */
-    return s.endsWith('</g></g>') ? s.slice(0, -8) + q + '</g></g>' : s + G(q, `translate(${-TPX.CW} 0)`)
+    return s.endsWith('</g></g>') ? s.slice(0, -8) + q + '</g></g>' : s + G(q, `translate(${TPX.o != null ? TPX.o : -TPX.CW} 0)`)
   }
   const down0 = onDown
   onDown = function (e) {

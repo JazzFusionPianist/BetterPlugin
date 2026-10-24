@@ -66,6 +66,7 @@ const LOOK_TREE = [
     ['their shapes', 'what a theme may change the shape of', [
       ['', [
         ['part.transport', 'the transport', 'p', { items: PART_WORDS('transport'), d: 'a bar at the top' }],
+        ['part.transportAt', 'the transport panel stands', 'p', { items: ['at the left', 'at the right'], d: 'at the left' }],      // (his ask, 2026-10-24: its inside as it is, either way — skins.js colOff)
         ['part.meters', 'meters over the room', 'p', { items: PART_SHOWN.has('console') ? ['none', 'VU meters over the room'] : ['none'], d: 'none' }],
         ['part.heads', 'a track’s head', 'p', { items: PART_WORDS('heads'), d: 'as it comes' }],
         ['part.headsAt', 'the heads stand', 'p', { items: ['at the left', 'at the right'], d: 'at the left' }],

@@ -58,11 +58,11 @@ const tpArc = (g, v0, v1, rr) => { if (v1 - v0 < 1e-4) return ''; const [x0, y0]
 const tpAt = (g, b) => { let d = g.shown * clamp(b, 0, SONG_END) / Math.max(1e-9, SONG_END); if (d > g.mid - g.hole) d += 2 * g.hole; return [g.L0[0] + (g.L1[0] - g.L0[0]) * d / g.len, g.L0[1] + (g.L1[1] - g.L0[1]) * d / g.len] }
 
 SKINS.left.panel = () => {
-  const CW = TPX.CW, o = -CW, p = curPos(), small = H < 820, z = small ? .8 : 1, GL = 16, GR = 132, RE = CW - 16
+  const CW = TPX.CW, o = TPX.o = SKIN.colRight ? W : -CW, p = curPos(), small = H < 820, z = small ? .8 : 1, GL = 16, GR = 132, RE = CW - 16
   const fld = (x, y, w, h) => ({ x: o + x, y, w, h })                                    // (a word's place in the room: typed over, its list under it)
   const geo = TPX.geo = {}
   TPX.fixed = ''
-  let s = R(0, 0, CW, H, { fill: K2 }) + R(CW - 1, 0, 1, H, { fill: INK, fa: .1 })
+  let s = R(0, 0, CW, H, { fill: K2 }) + R(SKIN.colRight ? 0 : CW - 1, 0, 1, H, { fill: INK, fa: .1 })      // (its edge toward the room, at either side)
   /* the groups' heights; the room between them the same */
   const playH = 72 * z, bs0 = small ? 84 : 112, posH = bs0 * .72 + 24, timeH = Math.max(46 * z + 12, 92 * z + 6), cycH = 47 * z + 14, ring = small ? 50 : 62, outH = 2 * ring + 40
   /* the foot's rows apart, its height (a short window has them closer, and lets the strip have the room it would lose to the
@@ -305,7 +305,7 @@ function tpStrip (top, h, GL, GR, RE) {
     const a = el.dataset.a, i = +el.dataset.i, tr = S.tracks[i], p = pt(e), g = TPX.sg
     if (a === 'tps-clip') { TPS.pk = -100; TPS.clip = false; uiDirty('top'); return }
     if (!tr) return
-    if (a === 'tps-volnum') { startRename('vol', i, { x: +el.getAttribute('x') - TPX.CW, y: +el.getAttribute('y'), w: +el.getAttribute('width'), h: +el.getAttribute('height') }); return }      // (typed where it stands: the column's own x, counted from the room's)
+    if (a === 'tps-volnum') { startRename('vol', i, { x: +el.getAttribute('x') + TPX.o, y: +el.getAttribute('y'), w: +el.getAttribute('width'), h: +el.getAttribute('height') }); return }      // (typed where it stands: the column's own x, counted from the room's)
     if (e.altKey) { for (const x of groupOf(i, 'volume')) if (!autoPts(x, 'vol').length) { x.vol = 0; x.ghost = null } applyAll(); uiDirty('head', 'dock', 'top'); return }      // (with option: 0 db, as every fader)
     tr.ghost = null
     const across = !!(g && g.across)
@@ -361,9 +361,9 @@ SKINS.frame.panel = p => {
 { const down0 = onDown
   onDown = function (e) {
     const el = e && e.target && e.target.closest ? e.target.closest('#tp-col [data-a]') : null, a = el && el.dataset.a
-    if (a === 'rbpm' && e.button === 0) { startRename('rbpm', 0, { x: +el.getAttribute('x') - TPX.CW, y: +el.getAttribute('y'), w: +el.getAttribute('width'), h: +el.getAttribute('height') }); return }      // (typed where it stands: the column's own x, counted from the room's)
+    if (a === 'rbpm' && e.button === 0) { startRename('rbpm', 0, { x: +el.getAttribute('x') + TPX.o, y: +el.getAttribute('y'), w: +el.getAttribute('width'), h: +el.getAttribute('height') }); return }      // (typed where it stands: the column's own x, counted from the room's)
     const r = down0.apply(this, arguments)
-    if (a && ['qval', 'rstretch', 'fcurve', 'min', 'msendadd'].includes(a) && S.menu) { const q = el.getBoundingClientRect(), b = $('board').getBoundingClientRect(), k = b.width / (W + (SKV.left || 0)); S.menu.x = (q.left - b.left) / k - (SKV.left || 0); S.menu.y = (q.bottom - b.top) / k + 3; uiDirty('menu') }
+    if (a && ['qval', 'rstretch', 'fcurve', 'min', 'msendadd'].includes(a) && S.menu) { const q = el.getBoundingClientRect(), b = $('board').getBoundingClientRect(), k = b.width / (W + (SKV.left || 0)); S.menu.x = (q.left - b.left) / k - colOff(); S.menu.y = (q.bottom - b.top) / k + 3; uiDirty('menu') }
     return r
   } }
 /* the light pressed: the hold let go */

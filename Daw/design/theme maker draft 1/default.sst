@@ -1,0 +1,139 @@
+// default.sst — the room as it comes, written in the theme maker's form (a DRAFT of the form, 2026-10-24).
+// A theme is data and nothing else: no code runs from it. The editor writes it; this is what it would write for the
+// room as the app shows it today at 16″ (1728 × 1117), measured from the page. Comments are the draft's; the file the
+// editor writes is plain JSON.
+//
+// Every box and every part stands by eight numbers, as REAPER's WALTER has them:
+//   at: [x, y, w, h,  l, t, r, b]
+// x y w h in pixels at the size the theme was drawn at; l t r b say how far each edge goes when the window (or the row,
+// for a part of a head) grows: 0 stays, 1 follows, ½ goes half as far. Nothing else is needed for "fixed", "stretches",
+// "moves with the right edge", "stays in the middle".
+{
+  "v": 4,
+  "name": "the room as it comes",
+  "drawn at": [1728, 1117],                       // the size it was made at; every number below is at this size
+
+  "look": { "...": "every colour, face and ground as look.js keeps them today — unchanged by this draft" },
+
+  // ── the boxes: every surface of the room. Any may stand anywhere, any size, over any other; z is the order here ──
+  "boxes": [
+    { "is": "transport", "at": [0, 0, 248, 1117,  0, 0, 0, 1], "fill": "ground",
+      "widgets": "see below — the transport is a box of widgets like any other" },
+    { "is": "markers",   "at": [540, 0, 1188, 26,  0, 0, 1, 0], "time": "lanes" },        // time: its bars are the lanes' bars
+    { "is": "bars",      "at": [540, 26, 1188, 26, 0, 0, 1, 0], "time": "lanes" },
+    { "is": "heads",     "at": [248, 52, 292, 1043, 0, 0, 0, 1], "rows": "lanes",         // rows: its rows are the lanes' rows
+      "yields": { "left": "inspector", "bottom": "panel" },                                // gives way when those are shown
+      "template": "head" },
+    { "is": "lanes",     "at": [540, 52, 1188, 1043, 0, 0, 1, 1],
+      "yields": { "bottom": "panel", "right": "slur" } },
+    { "is": "panel",     "at": [540, 795, 1188, 300, 0, 1, 1, 1], "shows": "when open",   // mixer · patch · notes · automation, tabs
+      "tabs": "words, the open one on ink" },
+    { "is": "inspector", "at": [248, 52, 132, 1043, 0, 0, 0, 1], "shows": "when on" },
+    { "is": "slur",      "at": [1428, 0, 300, 1095, 1, 0, 1, 1], "shows": "when open" },
+    { "is": "command line", "at": [248, 1095, 1480, 22, 0, 1, 1, 1], "fill": "raised" }
+  ],
+
+  // ── the transport, a box of widgets. Each widget: what it is, what it does (any function the menu bar has, by its
+  //    name — MENU_DO), where it stands in its box, how it looks in each state ──
+  "widgets": {
+    "transport": [
+      { "is": "button",  "does": "play",          "at": [16, 20, 76, 72,  0, 0, 0, 0], "shape": "triangle", "ink": 1,
+        "states": { "on": { "fill": "ink" } } },
+      { "is": "button",  "does": "stop",          "at": [152, 28, 36, 36, 0, 0, 0, 0], "shape": "square" },
+      { "is": "button",  "does": "record",        "at": [152, 76, 36, 36, 0, 0, 0, 0], "shape": "ring", "ink": "recording",
+        "states": { "on": { "fill": "recording" } } },
+      { "is": "button",  "does": "go to start",   "at": [206, 84, 40, 18, 0, 0, 0, 0], "glyph": "tostart", "label": "start" },
+      { "is": "readout", "shows": "position",     "at": [16, 150, 220, 110, 0, 0, 0, 0], "size": 96, "weight": 500,
+        "after": [{ "shows": "beat . tick", "size": 14 }] },
+      { "is": "readout", "shows": "smpte",        "at": [16, 262, 120, 16, 0, 0, 0, 0], "size": 10 },
+      { "is": "readout", "shows": "frame rate",   "at": [92, 262, 40, 16, 0, 0, 0, 0], "size": 8, "ink": 0.4 },
+      { "is": "readout", "shows": "meter",        "at": [20, 326, 52, 52, 0, 0, 0, 0], "frame": "ink 0.6", "size": 11,
+        "under": { "shows": "beats of the bar", "as": "squares" } },
+      { "is": "knob",    "does": "tempo",         "at": [150, 320, 110, 110, 0, 0, 0, 0], "as": "dial", "reads": "92 .00 bpm" },
+      { "is": "button",  "does": "cycle",         "at": [16, 480, 66, 58, 0, 0, 0, 0], "shape": "triangle outline", "ink": "cycle",
+        "label": "cycle off / cycle on" },
+      { "is": "readout", "shows": "key",          "at": [152, 480, 80, 14, 0, 0, 0, 0] },
+      { "is": "lamp",    "does": "click",         "at": [152, 502, 80, 14, 0, 0, 0, 0], "as": "ring + word" },
+      { "is": "lamp",    "does": "low latency",   "at": [152, 520, 80, 14, 0, 0, 0, 0], "as": "ring + word" },
+      { "is": "knob",    "does": "master",        "at": [60, 540, 180, 200, 0, 0, 0, 0], "as": "arc", "reads": "−4.2 out",
+        "scale": [-48, -24, -12, -6, 0, 6], "peak": { "at": [226, 560, 40, 20] } },
+      { "is": "strip",   "of": "the chosen track","at": [16, 896, 232, 170, 0, 0, 0, 0], "template": "strip" },  // level, peak, in, plug-in, send
+      { "is": "readout", "shows": "track count",  "at": [16, 1080, 60, 40, 0, 1, 0, 1], "size": 28 },
+      { "is": "readout", "shows": "chosen track", "at": [150, 1090, 80, 20, 0, 1, 0, 1], "with": "its colour" },
+      { "is": "button",  "does": "new track",     "at": [220, 1082, 24, 24, 0, 1, 0, 1], "shape": "ring +" },
+      { "is": "readout", "shows": "region gain · transpose · fine tune", "at": [16, 1130, 220, 24, 0, 1, 0, 1] },
+      { "is": "menu",    "does": "tool",  "at": [16, 1160, 80, 24, 0, 1, 0, 1] }, { "is": "menu", "does": "mode",  "at": [150, 1160, 80, 24, 0, 1, 0, 1] },
+      { "is": "menu",    "does": "grid",  "at": [16, 1194, 80, 24, 0, 1, 0, 1] }, { "is": "menu", "does": "nudge", "at": [150, 1194, 80, 24, 0, 1, 0, 1] },
+      { "is": "toggle",  "does": "automation", "at": [16, 1230, 100, 14, 0, 1, 0, 1] }, { "is": "toggle", "does": "rubato", "at": [150, 1230, 100, 14, 0, 1, 0, 1] },
+      { "is": "slider",  "does": "zoom across", "at": [16, 1250, 110, 20, 0, 1, 0, 1] }, { "is": "slider", "does": "zoom down", "at": [150, 1250, 110, 20, 0, 1, 0, 1] },
+      { "is": "button",  "does": "help", "at": [250, 18, 18, 18, 1, 0, 1, 0], "shape": "ring ?" }
+    ],
+    "command line": [
+      { "is": "button",  "does": "command line", "at": [6, 0, 20, 22, 0, 0, 0, 0], "glyph": "chevron" },
+      { "is": "field",   "does": "say it",       "at": [26, 3, 268, 16, 0, 0, 0, 0] },
+      { "is": "readout", "shows": "what was said",  "at": [300, 0, 900, 22, 0, 0, 1, 0] },
+      { "is": "readout", "shows": "cpu · rate · buffer · saved", "at": [1180, 0, 240, 22, 1, 0, 1, 0] },
+      { "is": "button",  "does": "key sheet",    "at": [1434, 3, 40, 16, 1, 0, 1, 0], "label": "keys" }
+    ]
+  },
+
+  // ── the templates: drawn once, drawn for every track. A template holds layouts; the row's height picks one. In a
+  //    layout, each part stands by eight numbers in the row (l t r b: how it goes when the row grows), and may look
+  //    otherwise in a state. Parts are the head's own list (ui.js headRow) plus anything added ──
+  "templates": {
+    "head": {
+      "width": 292,
+      "states": ["chosen", "armed", "listening", "muted", "soloed", "stack", "in a stack", "bus", "frozen", "their track", "automation on", "thin"],
+      "layouts": [
+        { "name": "thin", "for": [9, 17],
+          "parts": [
+            { "is": "colour mark", "at": [0, 0, 6, -1, 0, 0, 0, 1] },
+            { "is": "name", "at": [42, 0, 170, 0, 0, 0.5, 0, 0.5], "size": "fits the row", "ink": 0.88 }
+          ] },
+        { "name": "one line", "for": [17, 36],
+          "parts": [
+            { "is": "colour mark", "at": [10, 8, 6, 20, 0, 0.22, 0, 0.78], "ink": "the track's colour",
+              "states": { "muted": { "ink": 0.4 } } },
+            { "is": "number",      "at": [18, 0, 20, 12, 0, 0.5, 0, 0.5], "size": 8.5, "ink": 0.32, "states": { "chosen": { "ink": 0.8 } } },
+            { "is": "name",        "at": [42, 0, 86, 12, 0, 0.5, 0, 0.5], "size": "heads.size", "weight": 400, "ink": 0.88, "fits": "to the tag",
+              "states": { "chosen": { "weight": 500, "ink": 1 }, "muted": { "ink": 0.42 }, "stack": { "weight": 500 } } },
+            { "is": "tag",         "after": "name", "gap": 6, "size": 9, "ink": 0.4, "italic": "when theirs" },
+            { "is": "group",       "after": "tag",  "gap": 8, "size": 9, "weight": 500, "ink": 0.62 },
+            { "is": "level",       "at": [138, -8, 40, 16, 0, 0.5, 0, 0.5], "as": "bar", "heavier": true,
+              "reads": { "at": [178, 0, 34, 12, 0, 0.5, 0, 0.5], "anchor": "end", "size": 9, "ink": 0.56, "states": { "chosen": { "ink": 0.9 } } },
+              "states": { "automation on": { "as": "the lane's choice, boxed" } } },
+            { "is": "cells",       "at": [220, -7, 62, 14, 1, 0.5, 1, 0.5], "cell": 14, "gap": 2, "size": 8.5,
+              "of": ["armed", "listening", "muted", "soloed"], "colours": { "armed": "recording", "listening": "listening", "soloed": "solo" } },
+            { "is": "chosen wash", "at": [0, 0, 292, 0, 0, 0, 1, 1], "fill": "heads.chosen", "under": "everything", "states": { "chosen": { "shows": true } } },
+            { "is": "rule",        "at": [0, -1, 292, 1, 0, 1, 1, 1], "ink": 0.05, "states": { "stack": { "ink": 0.09 } } }
+          ] },
+        { "name": "two lines", "for": [36, null],
+          "parts": [
+            { "is": "colour mark", "at": [10, 8, 6, 20, 0, 0.22, 0, 0.78] },
+            { "is": "number",      "at": [18, -14, 20, 12, 0, 0.5, 0, 0.5], "size": 8.5 },
+            { "is": "name",        "at": [42, -14, 166, 12, 0, 0.5, 0, 0.5] },
+            { "is": "level",       "at": [42, 2, 110, 16, 0, 0.5, 0, 0.5], "as": "bar", "reads": { "at": [182, 10, 34, 12, 0, 0.5, 0, 0.5] } },
+            { "is": "cells",       "at": [220, -7, 62, 14, 1, 0.5, 1, 0.5] },
+            { "is": "chosen wash", "at": [0, 0, 292, 0, 0, 0, 1, 1] },
+            { "is": "rule",        "at": [0, -1, 292, 1, 0, 1, 1, 1] }
+          ] }
+      ] },
+    "strip":  { "...": "the mixer's strip the same way: name, pan, level, two meters, in, patch rows, sends, out, group" },
+    "region": { "...": "corners, fill, the wave's style, the name's place, fades' look — in each state (chosen, muted, loop)" },
+    "marker": { "...": "a box or a flag, the name's place" },
+    "playhead": { "...": "a line and a cap; its colour; never moved — it is a time" },
+    "cycle":  { "...": "a band or a rule over the bars; its colour" }
+  },
+
+  // ── images and faces the theme carries (in the .sst beside the json). An svg is cleaned on the way in (no script,
+  //    nothing fetched from outside); a png with states is cut into its slots in the editor, not by pink pixels ──
+  "assets": [],
+
+  // ── knobs of the theme: what its maker let anyone change, each a setting in settings › display ──
+  "knobs": [
+    { "name": "head level bar", "sets": "templates.head.layouts[1].parts[level].as", "of": ["bar", "knob", "fader"], "is": "bar" }
+  ],
+
+  // ── a theme may give the same room other windows later (a mixer window of its own); the form leaves the room ──
+  "windows": []
+}

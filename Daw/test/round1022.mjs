@@ -1,5 +1,5 @@
 // node test/round1022.mjs [w h] — his asks of 2026-10-22: a marker pressed is only chosen, gone to by its number it is
-// cycled too; / asks for a bar to go to (the prompt is ⌥/); a thing on the patch, right-clicked: disconnect, bypass,
+// cycled too; / asks for a bar to go to (⌥/ is the line at the foot); a thing on the patch, right-clicked: disconnect, bypass,
 // delete; a group said in the mixer's strips (and the inspector's), named there by a double press, and right-clicked:
 // what it shares, each on or off (pan among them now).
 import { open, PAGE } from './cdp.mjs'
@@ -36,7 +36,8 @@ await ev(`if (typeof START !== 'undefined') START.on = false; S.sel = 1; S.cycle
   await b.type('17'); await key('Enter', 'Enter', 13)
   ok('…typed 17: the playhead is on bar 17', Math.abs((await ev(`return curPos()`)) - 16) < 1e-6, await ev(`return curPos()`))
   await key('/', 'Slash', 191, ALT)
-  ok('⌥/ opens the prompt', await ev(`flush(); return S.panel.on && S.panel.tab === 'prompt'`), await ev(`return [S.panel.on, S.panel.tab]`))
+  ok('⌥/ puts the hand on the line at the foot (the prompt page is gone, 2026-10-22; it was the prompt)', await ev(`flush(); return document.activeElement === $('cmd')`), await ev(`return document.activeElement && document.activeElement.id`))
+  await ev(`$('cmd').blur()`)
   ok('the menu bar says so: Go to Bar… /, Say It ⌥/', await ev(`const all = MENU_BAR().flatMap(m => m[1]).filter(Array.isArray); return all.some(l => l[0] === 'Go to Bar…' && l[1] === 'Slash') && all.filter(l => l[0] === 'Say It').every(l => l[1] === '⌥Slash')`))
   await ev(`S.panel.on = false; setView(true); dirtyAll(); flush()`) }
 

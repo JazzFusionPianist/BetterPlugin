@@ -244,6 +244,11 @@ let DISP_X = 0, SIDE_X = 0
 const BARC = { pos: [0, 100], smpte: [100, 94], tempo: [194, 62], meter: [256, 44], key: [300, 58] }      // the middle's cells: where each begins in it, how wide
 const NUDGE_W = 92
 const TL = ' clip-path="url(#tl)"', LN = ' clip-path="url(#ln)"'
+/* the rows' edge at the heads' side, for the lines the rows draw there: the heads' width, or further in with the
+   inspector; where a theme's box puts the lanes (boxes.js) */
+const headEdge = () => typeof BOX === 'object' && BOX.said ? X0 : Math.max(HEAD_W, X0)
+/* is a point within the rows — the lanes, the markers, the bars — wherever each stands (a theme's boxes may put a row under the lanes) */
+const inRows = p => { const lo = Math.min(TY, MK_Y, RU_Y), hi = Math.max(BY, MK_Y + MK_H, RU_Y + RU_H); return p.y >= lo && p.y <= hi }
 
 /* ── the tracks' own bar: a new track; the two views of the lanes; the tool in each hand, the snap; what is chosen and how
    it looks; the zoom ── */
@@ -295,7 +300,7 @@ function pTool () {
     const vx = zx + 82
     s += P(`M${vx - 10} ${zy - 4}V${zy + 4}M${vx - 12} ${zy - 2}L${vx - 10} ${zy - 4}L${vx - 8} ${zy - 2}M${vx - 12} ${zy + 2}L${vx - 10} ${zy + 4}L${vx - 8} ${zy + 2}`, { stroke: INK, sa: .45, cap: 'round' }) + R(vx, zy - 1, 54, 2, { fill: INK, fa: .14 }) + R(vx + 52 * fy, zy - 5, 2, 10, { fill: INK }) + hit(vx - 6, y + 2, 66, 22, 'zoomy', '', 'ew-resize')
   }
-  return s + hline(0, RX, y + TOOL_H - .5, .08) + vline(Math.max(HEAD_W, X0) - .5, y, y + TOOL_H, .08)      // (at the heads' edge, wherever they stand: the inspector moves them — inspector.js)
+  return s + hline(0, RX, y + TOOL_H - .5, .08) + vline(headEdge() - .5, y, y + TOOL_H, .08)      // (at the heads' edge, wherever they stand: the inspector moves them — inspector.js; a theme's box — boxes.js)
 }
 /* ── the list that opens under the colour key and the outline key: every pigment laid from deep to light, the greys; and
    the outlines. "as the track" and "as read" give a choice back to the room. ── */
@@ -355,7 +360,7 @@ function pScenes () {
     if (next && xr - xl >= 14) g += R(xr - 11, y0 + MK_H / 2 - 3, 6, 6, { fill: on ? K1 : INK })
     hits += hit(xl, y0 + 2, xr - xl, MK_H - 4, 'scene', ` data-i="${i}"`)
   })
-  return s + G(g, '', TL) + hline(0, RX, y0 + MK_H - .5, .06) + vline(Math.max(HEAD_W, X0) - .5, y0, y0 + MK_H, .08) + hits
+  return s + G(g, '', TL) + hline(0, RX, y0 + MK_H - .5, .06) + vline(headEdge() - .5, y0, y0 + MK_H, .08) + hits
 }
 /* where each marker begins, a line in its own colour down the lanes (engine.js: markColours): under the regions, so it is seen where a track has
    no sound there (his ask, 2026-10-21). Drawn again with the markers' row, so it follows a marker pulled along and the
@@ -426,7 +431,7 @@ function pRuler () {
      (his pick of bars before one draft 1); the other button, where the song starts from a list (edit.js preTo) */
   PRESQ = null
   { const x = bx(1); if (x >= X0 - 1 && x <= X1) { g += R(n(x) + .5, y + RU_H - 7.5, 6.5, 6.5, { fill: INK, fa: .85 }); hits += hit(x - 4, y + RU_H - 11, 14, 11, 'prestart', '', 'ew-resize'); PRESQ = { x0: x - 4, x1: x + 10, y0: y + RU_H - 11, y1: y + RU_H } } }      // (PRESQ: the playhead standing over it at the song's start does not take it)
-  return s + G(g, '', TL) + hline(0, RX, y + RU_H - .5, .1) + vline(Math.max(HEAD_W, X0) - .5, y, y + RU_H, .08) + hits
+  return s + G(g, '', TL) + hline(0, RX, y + RU_H - .5, .1) + vline(headEdge() - .5, y, y + RU_H, .08) + hits
 }
 
 /* a list to pick from, where the pointer is. An item: {t, k (set at the right), on, dim, sep (a line above it), v} */
@@ -907,7 +912,7 @@ function pDrop () {
 }
 /* the playhead: its line down the lanes; its head in the lower part of the bars, clear of the cycle's strip; and round the
    head a place to take it by, wider than the head (pressed there, it is held where it is and goes with the hand) */
-const pPlay = () => { if (typeof RTB !== 'undefined' && RTB.on) return ''; const y = RU_Y + RU_CY + 1, c = lkC('play.c', INK); if (typeof SKIN === 'object' && SKINS.play[SKIN.k.playhead]) return G(SKINS.play[SKIN.k.playhead](c, lkN('play.w')), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"'); return G(P(`M.5 ${y + 6}V${BY}`, { stroke: c, sw: lkN('play.w') }) + P(`M-4.5 ${y + 1}H5.5V${y + 7}L.5 ${y + 12}L-4.5 ${y + 7}Z`, { fill: c }) + hit(-10.5, y, 22, RU_H - RU_CY, 'playhead', '', 'ew-resize'), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"') }
+const pPlay = () => { if (typeof RTB !== 'undefined' && RTB.on) return ''; const y = RU_Y + RU_CY + 1, c = lkC('play.c', INK); if (typeof SKIN === 'object' && SKINS.play[SKIN.k.playhead]) return G(SKINS.play[SKIN.k.playhead](c, lkN('play.w')), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"'); return G(P(`M.5 ${Math.min(y + 6, TY)}V${Math.max(BY, y + 6)}`, { stroke: c, sw: lkN('play.w') }) + P(`M-4.5 ${y + 1}H5.5V${y + 7}L.5 ${y + 12}L-4.5 ${y + 7}Z`, { fill: c }) + hit(-10.5, y, 22, RU_H - RU_CY, 'playhead', '', 'ew-resize'), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"') }
 
 /* ── the bottom panel: the chosen track's patch, with its strip beside it; or the mixer ── */
 /* SIDE: the room the patch keeps at its right for the chosen track's strip and the out's — none while the transport panel
@@ -1783,7 +1788,7 @@ function onWheel (e) {
     if (Math.abs(onWheel.acc) >= 30) { S.panel.mx += Math.sign(onWheel.acc); onWheel.acc = 0; uiDirty('dock') }
     e.preventDefault(); return
   }
-  if (p.x > X1 || p.y < MK_Y || p.y > BY) return
+  if (p.x > X1 || !inRows(p)) return                                               // (the rows — the lanes, the markers, the bars — wherever each stands: boxes.js)
   e.preventDefault()
   if (e.altKey || e.ctrlKey) { if (p.x >= X0 && !ZOOM.pinch) zoomLive(PXB * Math.exp(-e.deltaY * .0035), barAt(p.x)); return }   // option + wheel (or a pinch told as a wheel) zooms on the pointer — not twice over while the same pinch is told as a gesture too
   if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) { const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY; if (dx && p.x >= X0) viewLive(PXB, clamp(VX + dx / PXB, 0, maxVX())) }
@@ -2164,7 +2169,7 @@ async function boot () {
   svg.addEventListener('wheel', onWheel, { passive: false })
   /* a pinch on the trackpad (WebKit tells it as a gesture): zoom about where the fingers are */
   let pinch = null
-  addEventListener('gesturestart', e => { e.preventDefault(); const p = pt(e); pinch = p.x >= X0 && p.x <= X1 && p.y >= MK_Y && p.y <= BY ? { pxb: PXB, bar: barAt(p.x) } : null; ZOOM.pinch = !!pinch })
+  addEventListener('gesturestart', e => { e.preventDefault(); const p = pt(e); pinch = p.x >= X0 && p.x <= X1 && inRows(p) ? { pxb: PXB, bar: barAt(p.x) } : null; ZOOM.pinch = !!pinch })
   addEventListener('gesturechange', e => { e.preventDefault(); if (pinch) zoomLive(pinch.pxb * e.scale, pinch.bar) })
   addEventListener('gestureend', e => { e.preventDefault(); pinch = null; ZOOM.pinch = false; viewSettle() })
   svg.addEventListener('contextmenu', onContext)

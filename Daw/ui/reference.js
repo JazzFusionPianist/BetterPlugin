@@ -183,7 +183,7 @@ PARTS.ref = pRef
       uiDirty('ref'); return
     }
     /* a press on the room: the mix is heard again */
-    if (REF.on && el) { const p = pt(e); if (p.y >= MK_Y && p.y < BY && p.x >= refX0() && p.x < RX) refHear(false) }
+    if (REF.on && el) { const p = pt(e); if ((typeof inRows === 'function' ? inRows(p) : p.y >= MK_Y && p.y < BY) && p.x >= refX0() && p.x < RX) refHear(false) }      // (the rows wherever each stands: boxes.js)
     return down0(e)
   }
   onMove = function (e) {

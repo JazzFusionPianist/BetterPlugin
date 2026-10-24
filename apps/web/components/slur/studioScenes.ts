@@ -1,10 +1,11 @@
 /* The Slur Studio page's moving parts — every scene drawn from where it is
    in its scroll, a four-bar song made in the browser once play is pressed,
    and the keycaps your own keyboard presses. Mounted on the page's root and
-   torn down with it. Draft: apps/web/design/slur studio page draft 1
-   (approved 2026-10-24). */
+   torn down with it. Drafts: apps/web/design/slur studio page draft 1, worn
+   in bauhaus by design/bauhaus site draft 1 (both approved 2026-10-24). */
 
-const NS = 'http://www.w3.org/2000/svg', INK = '#ECEAE4', K0 = '#0E0E0E', K1 = '#151514'
+const NS = 'http://www.w3.org/2000/svg', INK = '#151412', PAPER = '#F1ECDF', P2 = '#E8E1D0', P3 = '#DCD4C0', T2 = '#6E685B'
+const RED = '#D52B1E', BLUE = '#1D4E9E', YELLOW = '#F2C230'
 type Attrs = Record<string, string | number>
 
 function el<K extends keyof SVGElementTagNameMap> (tag: K, attrs: Attrs = {}, parent?: Element): SVGElementTagNameMap[K] {
@@ -14,7 +15,7 @@ function el<K extends keyof SVGElementTagNameMap> (tag: K, attrs: Attrs = {}, pa
   return e
 }
 const txt = (p: Element, x: number, y: number, s: string, a: Attrs = {}) => {
-  const t = el('text', Object.assign({ x, y, fill: INK, 'font-family': 'Instrument Sans, sans-serif', 'font-size': 14 }, a), p)
+  const t = el('text', Object.assign({ x, y, fill: INK, 'font-family': 'Jost, sans-serif', 'font-size': 14 }, a), p)
   t.textContent = s
   return t
 }
@@ -101,7 +102,7 @@ export function mountStudio (root: HTMLElement): () => void {
     A.on = !A.on
     if (A.on) { A.t0 = A.ctx.currentTime + .05; A.next = A.t0; A.step = 0; A.timer = window.setInterval(tick, 25) }
     else clearInterval(A.timer)
-    $('playTri').setAttribute('fill', A.on ? INK : 'none')
+    $('playTri').setAttribute('d', A.on ? 'M 27 27 H 47 V 47 H 27 Z' : 'M 29 22 L 55 37 L 29 52 Z')
     $('play').setAttribute('aria-label', A.on ? 'stop' : 'play')
   }
   const playBtn = $('play'), onPlay = () => { void playToggle() }
@@ -118,72 +119,80 @@ export function mountStudio (root: HTMLElement): () => void {
     staff.innerHTML = ''; NOTES.length = 0
     const W = innerWidth, H = innerHeight; staff.setAttribute('viewBox', `0 0 ${W} ${H}`)
     const y0 = H * .5 - 52
-    for (let k = 0; k < 5; k++) el('line', { x1: 0, x2: W, y1: y0 + k * 26, y2: y0 + k * 26, stroke: INK, 'stroke-opacity': .07 }, staff)
-    const cols = ['#5C80FF', '#3FB872', '#F89C38', '#B79CFF', '#F27BA6', '#E5B73B']
+    for (let k = 0; k < 5; k++) el('line', { x1: 0, x2: W, y1: y0 + k * 26, y2: y0 + k * 26, stroke: INK, 'stroke-opacity': .12 }, staff)
+    const cols = [RED, BLUE, YELLOW, INK, RED, BLUE]
     for (let i = 0; i < 9; i++) {
       const x = W * (.06 + i * .11), y = y0 + ((i * 5) % 9) * 13, g = el('g', { transform: `translate(${x} ${y})` }, staff)
-      el('ellipse', { cx: 0, cy: 0, rx: 15, ry: 10.5, transform: 'rotate(-22)', fill: cols[i % 6], 'fill-opacity': 0 }, g); NOTES.push(g)
+      el('circle', { cx: 0, cy: 0, r: 13, fill: cols[i % 6], 'fill-opacity': 0 }, g); NOTES.push(g)
     }
   }
   drawStaff(); on('resize', drawStaff)
 
   /* ── 1: tidy — the regions as they came, flung about; they fall into lanes, and the lanes sort themselves ── */
   interface Reg { rg: SVGGElement; body: SVGRectElement; bars: SVGRectElement[]; a: number; w: number; fling: { x: number; y: number; r: number; s: number } }
-  interface Lane { raw: string; name: string; fam: string; c: string; d: string; at: number; regs: [number, number][] }
+  interface Lane { raw: string; name: string; fam: string; c: string; at: number; regs: [number, number][] }
   const tidySvg = $<SVGSVGElement>('tidySvg')
-  el('rect', { x: 0, y: 0, width: 1440, height: 900, fill: K0 }, tidySvg)
+  el('rect', { x: 0, y: 0, width: 1440, height: 900, fill: PAPER }, tidySvg)
+  /* the daw's bauhaus colours by family: drums and voices red, bass and effects blue, keys yellow, guitars black */
   const LANES: Lane[] = [
-    { raw: 'Audio 12', name: 'riser', fam: 'effects', c: '#D1C7B0', d: '#322D22', at: 8, regs: [[7, 9], [15, 17]] },
-    { raw: 'VOX comp 3', name: 'lead vox', fam: 'voice', c: '#DF716A', d: '#400707', at: 6, regs: [[5, 11], [11, 17], [19, 25]] },
-    { raw: 'Audio 1', name: 'kick', fam: 'drums', c: '#213E97', d: '#000326', at: 0, regs: [[1, 9], [9, 17], [17, 25]] },
-    { raw: 'keys bounce v2', name: 'keys', fam: 'keys', c: '#338B69', d: '#001004', at: 4, regs: [[1, 13], [13, 25]] },
-    { raw: 'snr_top_FINAL', name: 'snare', fam: 'drums', c: '#3B79B8', d: '#000326', at: 1, regs: [[5, 9], [9, 17], [17, 25]] },
-    { raw: 'Bass DI (1)', name: 'bass', fam: 'bass', c: '#784A99', d: '#10001E', at: 3, regs: [[1, 9], [9, 17], [17, 25]] },
-    { raw: 'GTR L', name: 'guitar', fam: 'guitar', c: '#C07E2B', d: '#2F0F00', at: 5, regs: [[5, 13], [13, 21]] },
-    { raw: 'bgv stack', name: 'bgv', fam: 'voice', c: '#E58F86', d: '#400707', at: 7, regs: [[9, 17], [21, 25]] },
-    { raw: 'Audio 7', name: 'hats', fam: 'drums', c: '#71B0D6', d: '#001A2E', at: 2, regs: [[3, 17], [19, 25]] },
+    { raw: 'Audio 12', name: 'riser', fam: 'effects', c: BLUE, at: 8, regs: [[7, 9], [15, 17]] },
+    { raw: 'VOX comp 3', name: 'lead vox', fam: 'voice', c: RED, at: 6, regs: [[5, 11], [11, 17], [19, 25]] },
+    { raw: 'Audio 1', name: 'kick', fam: 'drums', c: RED, at: 0, regs: [[1, 9], [9, 17], [17, 25]] },
+    { raw: 'keys bounce v2', name: 'keys', fam: 'keys', c: YELLOW, at: 4, regs: [[1, 13], [13, 25]] },
+    { raw: 'snr_top_FINAL', name: 'snare', fam: 'drums', c: RED, at: 1, regs: [[5, 9], [9, 17], [17, 25]] },
+    { raw: 'Bass DI (1)', name: 'bass', fam: 'bass', c: BLUE, at: 3, regs: [[1, 9], [9, 17], [17, 25]] },
+    { raw: 'GTR L', name: 'guitar', fam: 'guitar', c: INK, at: 5, regs: [[5, 13], [13, 21]] },
+    { raw: 'bgv stack', name: 'bgv', fam: 'voice', c: RED, at: 7, regs: [[9, 17], [21, 25]] },
+    { raw: 'Audio 7', name: 'hats', fam: 'drums', c: RED, at: 2, regs: [[3, 17], [19, 25]] },
   ]
-  const TX0 = 300, TX1 = 1400, PX = (TX1 - TX0) / 24, TOP = 128, LH = 52, tbx = (b: number) => TX0 + (b - 1) * PX
+  const TX0 = 300, TX1 = 1400, PX = (TX1 - TX0) / 24, TOP = 150, LH = 50, tbx = (b: number) => TX0 + (b - 1) * PX
   const tGrid = el('g', {}, tidySvg)
-  for (let b = 1; b <= 25; b++) el('line', { x1: tbx(b), x2: tbx(b), y1: TOP - 20, y2: TOP + 9 * LH, stroke: INK, 'stroke-opacity': b % 4 === 1 ? .09 : .035 }, tGrid)
+  for (let b = 1; b <= 25; b++) el('rect', { x: tbx(b), y: TOP - 6, width: 1, height: 9 * LH + 6, fill: INK, opacity: b % 4 === 1 ? .16 : .06 }, tGrid)
   const tLanes = LANES.map((L, i) => {
-    const g = el('g', {}, tidySvg), nm = txt(g, 60, 0, L.raw, { 'font-size': 20, 'fill-opacity': .55 })
-    const bar = el('rect', { x: 34, y: -14, width: 5, height: 28, fill: '#6E6B63' }, g)
+    const g = el('g', {}, tidySvg)
+    const nb = txt(g, 56, 8, String(L.at + 1).padStart(2, '0'), { 'font-size': 24, 'font-weight': 700, fill: L.c, opacity: 0 })
+    const nm = txt(g, 100, 7, L.raw, { 'font-size': 20, 'font-weight': 500, fill: T2 })
     const regs: Reg[] = L.regs.map(([a, b]) => {
-      const w = (b - a) * PX - 3, rg = el('g', {}, tidySvg), h = LH - 14
-      const body = el('rect', { x: 0, y: -h / 2, width: w, height: h, rx: L.fam === 'voice' || L.fam === 'effects' ? 7 : 0, fill: '#3A3A38' }, rg)
+      const w = (b - a) * PX - 3, rg = el('g', {}, tidySvg), h = LH - 12
+      const body = el('rect', { x: 0, y: -h / 2, width: w, height: h, fill: P3 }, rg)
       const bars: SVGRectElement[] = []
       for (let px = 4; px < w - 4; px += 3) {
         const k = px / w, beat = L.fam === 'drums' ? (Math.floor(px / (PX / 4)) % 2 ? .3 : 1) : .65 + .35 * Math.sin(k * 9 + i)
         const hh = Math.max(2, (rnd() * .5 + .5) * (h - 10) * beat * (L.fam === 'effects' ? k : 1))
-        bars.push(el('rect', { x: px, y: -hh / 2, width: 1.4, height: hh, fill: K0, opacity: .7 }, rg))
+        bars.push(el('rect', { x: px, y: -hh / 2, width: 1.4, height: hh, fill: '#B3AA93' }, rg))
       }
       const fling = { x: 80 + rnd() * 1250, y: 80 + rnd() * 740, r: (rnd() - .5) * 70, s: .7 + rnd() * .5 }
       return { rg, body, bars, a, w, fling }
     })
-    return { ...L, g, nm, bar, regs, raw0: i }
+    return { ...L, g, nb, nm, regs, raw0: i }
   })
-  const tPh = el('line', { x1: 0, x2: 0, y1: TOP - 26, y2: TOP + 9 * LH, stroke: INK, 'stroke-width': 2, opacity: 0 }, tidySvg)
+  /* the markers as shapes over a thick rule, the cycle a yellow stretch of it; the playhead a disc on the rule */
   const tMarkers = el('g', { opacity: 0 }, tidySvg)
-  ;['intro', 'verse', 'pre', 'chorus', 'verse 2', 'chorus'].forEach((m, k) => {
-    const x = tbx([1, 5, 9, 13, 17, 21][k])
-    el('rect', { x: x + .5, y: TOP - 70, width: 4 * PX - 1, height: 28, fill: K1, stroke: INK, 'stroke-opacity': .25 }, tMarkers); txt(tMarkers, x + 10, TOP - 51, m, { 'font-size': 15 })
+  el('rect', { x: TX0, y: TOP - 20, width: TX1 - TX0, height: 6, fill: INK }, tMarkers); el('rect', { x: tbx(17), y: TOP - 20, width: 8 * PX, height: 6, fill: YELLOW }, tMarkers)
+  ;([['intro', 1, 'c', RED], ['verse', 5, 's', BLUE], ['pre', 9, 't', YELLOW], ['chorus', 13, 'c', RED], ['verse 2', 17, 's', BLUE], ['chorus', 21, 't', YELLOW]] as const).forEach(([m, a, s, c]) => {
+    const x = tbx(a) + 4, y = TOP - 52
+    if (s === 'c') el('circle', { cx: x + 8, cy: y, r: 8, fill: c }, tMarkers)
+    if (s === 's') el('rect', { x, y: y - 8, width: 16, height: 16, fill: c }, tMarkers)
+    if (s === 't') el('path', { d: `M ${x + 8} ${y - 9} L ${x + 17} ${y + 8} L ${x - 1} ${y + 8} Z`, fill: c }, tMarkers)
+    txt(tMarkers, x + 26, y + 7, m, { 'font-size': 19, 'font-weight': 500 })
   })
+  const tPh = el('g', { opacity: 0 }, tidySvg)
+  el('rect', { x: -1.5, y: TOP - 20, width: 3, height: 9 * LH + 20, fill: RED }, tPh); el('circle', { cx: 0, cy: TOP - 17, r: 10, fill: RED }, tPh)
   const drawTidy = (p: number) => {
     const fly = seg(p, .02, .42), sort = seg(p, .46, .72), paint = seg(p, .5, .8), play = seg(p, .78, 1)
     tGrid.setAttribute('opacity', String(fly))
     tLanes.forEach((L, i) => {
       const row = lerp(L.raw0, L.at, ease(sort)), y = TOP + row * LH + LH / 2
       L.g.setAttribute('transform', `translate(0 ${y})`); L.g.setAttribute('opacity', String(seg(fly, .5, 1)))
-      L.nm.textContent = sort > .5 ? L.name : L.raw; L.nm.setAttribute('fill-opacity', sort > .5 ? '1' : '.55')
+      const sorted = sort > .5
+      L.nm.textContent = sorted ? L.name : L.raw; L.nm.setAttribute('fill', sorted ? INK : T2); L.nb.setAttribute('opacity', String(seg(sort, .5, .9)))
       const ink = paint > 0 ? TX0 + paint * (TX1 - TX0) * 1.2 : 0
-      L.bar.setAttribute('fill', paint > .1 ? L.c : '#6E6B63')
       L.regs.forEach((R, k) => {
         const t = ease(seg(fly, (i * 3 + k) / 40, .55 + (i * 3 + k) / 60)), fx = R.fling
         const x = lerp(fx.x, tbx(R.a) + 1.5, t), yy = lerp(fx.y, y, t), r = lerp(fx.r, 0, t), sc = lerp(fx.s, 1, t)
         R.rg.setAttribute('transform', `translate(${x.toFixed(1)} ${yy.toFixed(1)}) rotate(${r.toFixed(2)}) scale(${sc.toFixed(3)})`)
         const lit = ink > 0 && tbx(R.a) < ink
-        R.body.setAttribute('fill', lit ? L.c : '#3A3A38'); for (const b of R.bars) b.setAttribute('fill', lit ? L.d : K0)
+        R.body.setAttribute('fill', lit ? L.c : P3); for (const b of R.bars) b.setAttribute('fill', lit ? PAPER : '#B3AA93')
       })
     })
     tPh.setAttribute('opacity', play > 0 ? '1' : '0'); tPh.setAttribute('transform', `translate(${lerp(TX0, TX1, play)} 0)`)
@@ -191,123 +200,129 @@ export function mountStudio (root: HTMLElement): () => void {
     $('tidyWord').classList.toggle('on', p > .5)
   }
 
-  /* ── 2: the transport, as big as a poster: the place counts with the scroll (or with the music) ── */
-  const tp = $<SVGSVGElement>('tpSvg'), RED = '#D8432E'
-  el('path', { d: 'M90 110L210 180L90 250Z', fill: INK }, tp); el('rect', { x: 260, y: 116, width: 60, height: 60, fill: INK }, tp); el('circle', { cx: 290, cy: 226, r: 27, fill: 'none', stroke: RED, 'stroke-width': 3 }, tp)
-  const tpBar = txt(tp, 70, 600, '1', { 'font-size': 380, 'font-weight': 500, 'letter-spacing': '-22' })
-  const tpSub = txt(tp, 400, 590, '.1.1', { 'font-size': 64 }), tpTick = txt(tp, 520, 590, '.001', { 'font-size': 40, 'fill-opacity': .7 })
-  const tpTime = txt(tp, 82, 668, '00:00:00:00', { 'font-size': 30 }); txt(tp, 280, 668, '30 fps', { 'font-size': 20, 'fill-opacity': .5 })
-  el('rect', { x: 760, y: 120, width: 130, height: 130, fill: 'none', stroke: INK, 'stroke-width': 3 }, tp); txt(tp, 825, 202, '4/4', { 'font-size': 42, 'font-weight': 500, 'text-anchor': 'middle' })
-  const tpBeats = [0, 1, 2, 3].map(k => el('rect', { x: 762 + k * 32, y: 270, width: 22, height: 22, fill: 'none', stroke: INK, 'stroke-width': 2.5 }, tp))
-  const dx = 1110, dy = 230
-  for (let k = 0; k < 60; k++) {
-    const a = k / 60 * Math.PI * 2, r1 = k % 15 ? 124 : 112
-    el('line', { x1: dx + Math.sin(a) * 134, y1: dy - Math.cos(a) * 134, x2: dx + Math.sin(a) * r1, y2: dy - Math.cos(a) * r1, stroke: INK, 'stroke-opacity': .5, 'stroke-width': 2 }, tp)
-  }
-  txt(tp, dx - 12, dy + 26, '92', { 'font-size': 96, 'font-weight': 500, 'text-anchor': 'middle' }); txt(tp, dx + 52, dy + 26, '.00', { 'font-size': 32 }); txt(tp, dx, dy + 72, 'bpm', { 'font-size': 26, 'fill-opacity': .7, 'text-anchor': 'middle' })
-  const tpDot = el('circle', { cx: dx, cy: dy + 134, r: 7, fill: INK }, tp)
-  const tpTri = el('path', { d: 'M0 -70L62 52H-62Z', fill: '#E5B73B', transform: 'translate(800 470)' }, tp)
-  el('rect', { x: 709, y: 546, width: 182, height: 38, fill: INK }, tp); txt(tp, 723, 573, 'cycle 17 to 25', { 'font-size': 21, fill: K1 })
-  el('path', { d: 'M1000 520A110 110 0 1 1 1220 520', fill: 'none', stroke: '#2B2B2A', 'stroke-width': 22 }, tp)
-  const tpArc = el('path', { d: '', fill: 'none', stroke: INK, 'stroke-width': 3 }, tp)
-  const tpKnob = el('rect', { x: 0, y: 0, width: 20, height: 20, fill: INK }, tp)
-  txt(tp, 1110, 526, '−4.2', { 'font-size': 58, 'font-weight': 500, 'text-anchor': 'middle' }); txt(tp, 1110, 564, 'out', { 'font-size': 24, 'fill-opacity': .7, 'text-anchor': 'middle' })
+  /* ── 2: the transport, as a poster: the daw's bauhaus column made large; the place counts with the scroll (or with the music) ── */
+  const tp = $<SVGSVGElement>('tpSvg')
+  el('circle', { cx: 200, cy: 210, r: 100, fill: RED }, tp); el('path', { d: 'M 170 160 L 255 210 L 170 260 Z', fill: PAPER }, tp)
+  el('rect', { x: 348, y: 112, width: 104, height: 104, fill: INK }, tp)
+  el('circle', { cx: 400, cy: 290, r: 42, fill: 'none', stroke: RED, 'stroke-width': 10 }, tp)
+  const tpBar = txt(tp, 54, 690, '1', { 'font-size': 420, 'font-weight': 700, 'letter-spacing': -18 })
+  const tpSub = txt(tp, 545, 680, '.1.1', { 'font-size': 70, 'font-weight': 600, fill: RED }), tpTick = txt(tp, 668, 680, '.001', { 'font-size': 42, 'font-weight': 500, fill: RED })
+  const tpClock = txt(tp, 72, 756, '0:00.0', { 'font-size': 32, 'font-weight': 600 }), tpTime = txt(tp, 196, 756, '00:00:00:00', { 'font-size': 24, fill: T2 })
+  el('rect', { x: 600, y: 112, width: 156, height: 156, fill: BLUE }, tp); txt(tp, 678, 208, '4/4', { 'font-size': 56, 'font-weight': 600, fill: PAPER, 'text-anchor': 'middle' })
+  const tpBeats = [0, 1, 2, 3].map(k => el('rect', { x: 604 + k * 38, y: 290, width: 24, height: 24, fill: 'none', stroke: INK, 'stroke-width': 3 }, tp))
+  el('circle', { cx: 1010, cy: 230, r: 140, fill: YELLOW }, tp); txt(tp, 1010, 262, '92', { 'font-size': 120, 'font-weight': 700, 'text-anchor': 'middle' }); txt(tp, 1010, 312, 'bpm', { 'font-size': 24, 'font-weight': 600, 'text-anchor': 'middle' })
+  const tpTri = el('path', { d: 'M 0 -113 L 100 57 L -100 57 Z', fill: YELLOW, transform: 'translate(840 513)' }, tp)
+  el('rect', { x: 724, y: 590, width: 232, height: 46, fill: INK }, tp); txt(tp, 742, 621, 'cycle 17 to 25', { 'font-size': 23, fill: PAPER })
+  /* the out: a needle through a blue ring, a red disc at its end, moving with the level */
+  const tpNeedle = el('g', { transform: 'translate(1180 600)' }, tp)
+  el('rect', { x: -1.5, y: -250, width: 3, height: 500, fill: INK }, tpNeedle); el('circle', { cx: 0, cy: -210, r: 12, fill: RED }, tpNeedle)
+  el('circle', { cx: 1180, cy: 600, r: 112, fill: 'none', stroke: BLUE, 'stroke-width': 54 }, tp); el('circle', { cx: 1180, cy: 600, r: 84, fill: PAPER }, tp)
+  txt(tp, 1180, 606, '−4.2', { 'font-size': 52, 'font-weight': 700, 'text-anchor': 'middle' }); txt(tp, 1180, 638, 'out', { 'font-size': 20, 'font-weight': 600, 'text-anchor': 'middle' })
   const drawTransport = (p: number, bars: number) => {
     const bar = 1 + (A.on ? bars % 24 : p * 23.99), whole = Math.floor(bar), fr = bar - whole, beat = Math.floor(fr * 4), six = Math.floor(fr * 16) % 4, tk = Math.floor(fr * 3840) % 240, sec = (bar - 1) * BAR
     tpBar.textContent = String(whole); const wb = tpBar.getComputedTextLength()
-    tpSub.textContent = `.${beat + 1}.${six + 1}`; tpSub.setAttribute('x', String(70 + wb + 10))
-    tpTick.textContent = '.' + String(tk + 1).padStart(3, '0'); tpTick.setAttribute('x', String(70 + wb + 10 + tpSub.getComputedTextLength() + 6))
-    const pad = (v: number) => String(Math.floor(v)).padStart(2, '0'); tpTime.textContent = `${pad(sec / 3600)}:${pad(sec / 60 % 60)}:${pad(sec % 60)}:${pad(sec % 1 * 30)}`
+    tpSub.textContent = `.${beat + 1}.${six + 1}`; tpSub.setAttribute('x', String(54 + wb + 14))
+    tpTick.textContent = '.' + String(tk + 1).padStart(3, '0'); tpTick.setAttribute('x', String(54 + wb + 14 + tpSub.getComputedTextLength() + 6))
+    const pad = (v: number) => String(Math.floor(v)).padStart(2, '0')
+    tpClock.textContent = `${Math.floor(sec / 60)}:${pad(sec % 60)}.${Math.floor(sec % 1 * 10)}`; tpTime.textContent = `${pad(sec / 3600)}:${pad(sec / 60 % 60)}:${pad(sec % 60)}:${pad(sec % 1 * 30)}`
     tpBeats.forEach((q, k) => q.setAttribute('fill', k === beat ? INK : 'none'))
-    const a = (bar - 1) * Math.PI / 2; tpDot.setAttribute('cx', String(dx + Math.sin(a) * 134)); tpDot.setAttribute('cy', String(dy + Math.cos(a) * 134))
-    tpTri.setAttribute('transform', `translate(800 470) rotate(${(bar - 1) * 15})`)
-    const lv = .55 + .25 * Math.sin(bar * 2.1) + (beat === 0 ? .08 : 0), ang = Math.PI * (1 + lv), ex = 1110 + Math.cos(ang) * 110, ey = 520 + Math.sin(ang) * 110
-    tpArc.setAttribute('d', `M1000 520A110 110 0 0 1 ${ex.toFixed(1)} ${ey.toFixed(1)}`); tpKnob.setAttribute('x', String(ex - 10)); tpKnob.setAttribute('y', String(ey - 10))
+    tpTri.setAttribute('transform', `translate(840 513) rotate(${(bar - 1) * 15})`)
+    const lv = .55 + .25 * Math.sin(bar * 2.1) + (beat === 0 ? .08 : 0)
+    tpNeedle.setAttribute('transform', `translate(1180 600) rotate(${(-80 + lv * 90).toFixed(1)})`)
     $('tpWord').classList.toggle('on', p > .15)
   }
 
   /* ── 3: rubato — the pins fall, then the time between them is pulled ── */
-  const rub = $<SVGSVGElement>('rubSvg'); el('rect', { x: 0, y: 0, width: 1440, height: 900, fill: K0 }, rub)
-  const ry = 560, rh = 230, rx0 = 80, rx1 = 1360
-  el('rect', { x: rx0, y: ry - rh / 2, width: rx1 - rx0, height: rh, rx: 18, fill: '#DF716A' }, rub)
+  const rub = $<SVGSVGElement>('rubSvg'); el('rect', { x: 0, y: 0, width: 1440, height: 900, fill: PAPER }, rub)
+  const ry = 610, rh = 220, rx0 = 80, rx1 = 1360
+  el('rect', { x: rx0, y: ry - rh / 2, width: rx1 - rx0, height: rh, fill: RED }, rub)
   const rBars: { f: number; r: SVGRectElement }[] = []; seed = 3
   const words = [[0, .14], [.18, .33], [.37, .52], [.56, .72], [.76, .96]]
   for (let k = 0; k < 360; k++) {
     const f = k / 360, inWord = words.find(([a, b]) => f >= a && f <= b), env = inWord ? Math.sin(Math.PI * (f - inWord[0]) / (inWord[1] - inWord[0])) : .04
     const hh = Math.max(2, (rnd() * .45 + .55) * (rh - 30) * env)
-    rBars.push({ f, r: el('rect', { x: 0, y: ry - hh / 2, width: 2, height: hh, fill: '#400707' }, rub) })
+    rBars.push({ f, r: el('rect', { x: 0, y: ry - hh / 2, width: 2, height: hh, fill: PAPER }, rub) })
   }
-  const rPins = [0, .18, .37, .56, .76, 1].map(f => ({ f, g: el('g', {}, rub) }))
-  for (const P of rPins) { el('line', { x1: 0, x2: 0, y1: ry - rh / 2 - 34, y2: ry + rh / 2 + 8, stroke: INK, 'stroke-width': 3 }, P.g); el('rect', { x: -9, y: ry - rh / 2 - 52, width: 18, height: 18, fill: INK }, P.g) }
   const rTo = [0, .14, .41, .58, .80, 1]                                       // where the pins are pulled to: a late first word, a pushed third
+  const rPins = [0, .18, .37, .56, .76, 1].map((f, i) => {
+    const g = el('g', {}, rub)
+    el('rect', { x: -1.5, y: ry - rh / 2 - 40, width: 3, height: rh + 52, fill: INK }, g); el('rect', { x: -10, y: ry - rh / 2 - 60, width: 20, height: 20, fill: INK }, g)
+    const dir = Math.sign(rTo[i] - f), arrow = dir ? el('path', { d: dir > 0 ? `M 18 ${ry - rh / 2 - 57} L 30 ${ry - rh / 2 - 50} L 18 ${ry - rh / 2 - 43} Z` : `M -18 ${ry - rh / 2 - 57} L -30 ${ry - rh / 2 - 50} L -18 ${ry - rh / 2 - 43} Z`, fill: YELLOW, opacity: 0 }, g) : null
+    return { f, g, arrow }
+  })
   const drawRubato = (p: number) => {
-    const drop = seg(p, .05, .35), pull = ease(seg(p, .4, .85))
-    const P = rPins.map((q, i) => [q.f, lerp(q.f, rTo[i], pull)])
+    const drop = seg(p, .05, .35), pull = ease(seg(p, .4, .85)), P = rPins.map((q, i) => [q.f, lerp(q.f, rTo[i], pull)])
     const map = (f: number) => { for (let i = 1; i < P.length; i++) if (f <= P[i][0]) { const [a, A0] = P[i - 1], [b, B0] = P[i]; return A0 + (f - a) / (b - a) * (B0 - A0) } return f }
     for (const B of rBars) B.r.setAttribute('x', (rx0 + 8 + map(B.f) * (rx1 - rx0 - 16)).toFixed(1))
     rPins.forEach((Q, i) => {
       const t = ease(seg(drop, i / 8, i / 8 + .4)), x = rx0 + 8 + map(Q.f) * (rx1 - rx0 - 16)
       Q.g.setAttribute('transform', `translate(${x.toFixed(1)} ${lerp(-500, 0, t).toFixed(1)})`); Q.g.setAttribute('opacity', String(t))
+      Q.arrow?.setAttribute('opacity', String(seg(p, .4, .5) * (1 - seg(p, .9, 1))))
     })
     $('rubWord').classList.toggle('on', p > .2)
   }
 
   /* ── 4: the doctor — two sounds in the same place, found, and one of them ducked ── */
   const doc = $<SVGSVGElement>('docSvg')
-  const X = (f: number) => 120 + Math.log(f / 21) / Math.log(400 / 21) * 760, Y0 = 760
+  const X = (f: number) => 120 + Math.log(f / 21) / Math.log(400 / 21) * 760, Y0 = 800
   const curve = (c: number, w: number, g: number) => { let d = ''; for (let k = 0; k <= 120; k++) { const f = 21 * Math.pow(400 / 21, k / 120), v = g * Math.exp(-Math.pow(Math.log(f / c) / w, 2)); d += (k ? 'L' : 'M') + X(f).toFixed(1) + ' ' + (Y0 - v).toFixed(1) } return d }
-  el('line', { x1: 120, x2: 880, y1: Y0, y2: Y0, stroke: INK, 'stroke-opacity': .6 }, doc)
-  for (const [f, w] of [[21, '21 hz'], [92, '92 hz'], [400, '400 hz']] as const) txt(doc, X(f) - 20, Y0 + 34, w, { 'font-size': 20, 'fill-opacity': .7 })
-  const dBand = el('rect', { x: X(63), y: Y0 - 420, width: X(100) - X(63), height: 420, fill: '#E5B73B', opacity: 0 }, doc)
-  const dKick = el('path', { d: curve(80, .55, 380) + `L${X(400)} ${Y0}L${X(21)} ${Y0}Z`, fill: '#213E97' }, doc)
-  const dBass = el('path', { d: curve(95, .75, 360), fill: 'none', stroke: '#B57BE0', 'stroke-width': 5, 'stroke-linejoin': 'round' }, doc)
+  const dBand = el('rect', { x: X(63), y: Y0 - 400, width: X(100) - X(63), height: 400, fill: YELLOW, opacity: 0 }, doc)
+  const dKick = el('path', { d: curve(80, .55, 330) + `L${X(400)} ${Y0}L${X(21)} ${Y0}Z`, fill: BLUE }, doc)
+  const dGhost = el('path', { d: curve(95, .75, 330), fill: 'none', stroke: RED, 'stroke-width': 3, 'stroke-dasharray': '6 7', opacity: 0 }, doc)
+  const dBass = el('path', { d: curve(95, .75, 330), fill: 'none', stroke: RED, 'stroke-width': 7, 'stroke-linejoin': 'round' }, doc)
+  el('rect', { x: 120, y: Y0, width: 760, height: 3, fill: INK }, doc)
+  for (const [f, w] of [[21, '21 hz'], [92, '92 hz'], [400, '400 hz']] as const) txt(doc, X(f) - 20, Y0 + 34, w, { 'font-size': 18, fill: T2 })
   dKick.style.clipPath = 'inset(0 100% 0 0)'
   const dBL = dBass.getTotalLength(); dBass.style.strokeDasharray = String(dBL)
-  const key = el('g', { transform: 'translate(0 712)' }, doc)
-  el('rect', { x: 140, y: 120, width: 18, height: 18, fill: '#213E97' }, key); txt(key, 168, 136, 'kick', { 'font-size': 22 })
-  el('line', { x1: 250, x2: 276, y1: 129, y2: 129, stroke: '#B57BE0', 'stroke-width': 5 }, key); txt(key, 286, 136, 'bass', { 'font-size': 22 })
-  const dFound = el('g', { opacity: 0, transform: 'translate(0 170)' }, doc)
-  el('rect', { x: 950, y: 150, width: 52, height: 52, fill: INK }, dFound); txt(dFound, 976, 189, '1', { 'font-size': 34, 'font-weight': 600, fill: K1, 'text-anchor': 'middle' })
-  txt(dFound, 1022, 176, 'kick and bass meet', { 'font-size': 34, 'font-weight': 500 }); txt(dFound, 1022, 210, 'chorus 17–24', { 'font-size': 20, 'fill-opacity': .7 })
-  const dPct = txt(dFound, 1022, 270, '72% together', { 'font-size': 26 })
-  const dWay = el('g', { opacity: 0, transform: 'translate(0 170)' }, doc)
-  el('rect', { x: 950, y: 330, width: 52, height: 52, fill: INK }, dWay); txt(dWay, 976, 368, 'B', { 'font-size': 34, 'font-weight': 600, fill: K1, 'text-anchor': 'middle' })
-  txt(dWay, 1022, 356, 'duck the bass', { 'font-size': 34, 'font-weight': 500 }); txt(dWay, 1022, 390, 'whole band −4.0 dB while the kick plays', { 'font-size': 20, 'fill-opacity': .7 })
-  const dHeard = txt(dWay, 1022, 440, 'heard 0.0 dB', { 'font-size': 26, fill: '#E5484D' })
+  const dFound = el('g', { opacity: 0, transform: 'translate(960 330)' }, doc)
+  el('rect', { x: 0, y: 0, width: 56, height: 56, fill: INK }, dFound); txt(dFound, 28, 41, '1', { 'font-size': 36, 'font-weight': 700, fill: PAPER, 'text-anchor': 'middle' })
+  txt(dFound, 76, 28, 'kick and bass meet', { 'font-size': 34, 'font-weight': 600 }); txt(dFound, 76, 62, 'chorus 17 to 24', { 'font-size': 20, fill: T2 })
+  const dPct = txt(dFound, 76, 118, '72% together', { 'font-size': 26, 'font-weight': 500 })
+  const dWay = el('g', { opacity: 0, transform: 'translate(960 330)' }, doc)
+  el('rect', { x: 0, y: 180, width: 56, height: 56, fill: YELLOW }, dWay); txt(dWay, 28, 221, 'B', { 'font-size': 36, 'font-weight': 700, 'text-anchor': 'middle' })
+  txt(dWay, 76, 208, 'duck the bass', { 'font-size': 34, 'font-weight': 600 }); txt(dWay, 76, 242, 'whole band −4.0 dB while the kick plays', { 'font-size': 20, fill: T2 })
+  const dHeard = txt(dWay, 76, 296, 'heard 0.0 dB', { 'font-size': 26, 'font-weight': 600, fill: RED })
+  const key = el('g', { transform: 'translate(960 690)' }, doc)
+  el('rect', { x: 0, y: 0, width: 20, height: 20, fill: BLUE }, key); txt(key, 30, 17, 'kick', { 'font-size': 20 })
+  el('rect', { x: 110, y: 7, width: 30, height: 7, fill: RED }, key); txt(key, 150, 17, 'bass', { 'font-size': 20 })
+  el('rect', { x: 230, y: 0, width: 20, height: 20, fill: YELLOW }, key); txt(key, 260, 17, 'where they meet', { 'font-size': 20 })
   const drawDoctor = (p: number, bars: number) => {
     const draw = seg(p, .02, .3), find = seg(p, .32, .45), duck = ease(seg(p, .55, .85))
     dKick.style.clipPath = `inset(0 ${(100 - draw * 100).toFixed(1)}% 0 0)`; dBass.style.strokeDashoffset = String(dBL * (1 - draw))
     const beatPulse = A.on ? Math.pow(1 - ((bars * 4) % 1), 3) : 0
-    dBand.setAttribute('opacity', (find * (.25 + .2 * beatPulse) * (1 - duck * .7)).toFixed(3))
-    dBass.setAttribute('d', curve(95, .75, 360 - duck * (150 + 30 * beatPulse)))
+    dBand.setAttribute('opacity', (find * (.9 - duck * .35 + .1 * beatPulse)).toFixed(3))
+    dBass.setAttribute('d', curve(95, .75, 330 - duck * (140 + 30 * beatPulse))); dGhost.setAttribute('opacity', (duck * .55).toFixed(3))
     dFound.setAttribute('opacity', String(find)); dWay.setAttribute('opacity', String(seg(p, .5, .58)))
-    dPct.textContent = `${Math.round(72 - duck * 49)}% together`; dHeard.textContent = `heard −${(duck * 4.1).toFixed(1)} dB`
+    dPct.textContent = `${Math.round(72 - duck * 41)}% together`; dHeard.textContent = `heard −${(duck * 3.5).toFixed(1)} dB`
     $('docWord').classList.toggle('on', p > .1)
   }
 
   /* ── 5: the rough mix — the tracks in the room, front to back, left to right: up front, one room, wide ── */
-  const rough = $<SVGSVGElement>('roughSvg'), cx = 1070, top = 150, RW = 540, RH = 520
-  el('rect', { x: cx - RW / 2, y: top, width: RW, height: RH, fill: '#1B1B1A' }, rough)
-  const mInner = el('rect', { x: cx - RW / 2 + 70, y: top + 50, width: RW - 140, height: RH - 180, fill: '#232322', opacity: 0 }, rough)
-  const mFrame = el('rect', { x: cx - RW / 2, y: top, width: RW, height: RH, fill: 'none', stroke: INK, 'stroke-width': 3, opacity: 0 }, rough)
-  txt(rough, cx - RW / 2 + 14, top + 26, 'back', { 'font-size': 17, 'fill-opacity': .45 }); txt(rough, cx - RW / 2 + 14, top + RH - 14, 'front', { 'font-size': 17, 'fill-opacity': .45 })
-  ;['l', 'c', 'r'].forEach((c, k) => txt(rough, cx - RW / 2 + k * RW / 2 - (k === 2 ? 10 : k ? 4 : 0), top + RH + 30, c, { 'font-size': 18, 'fill-opacity': .5 }))
-  const mLetter = txt(rough, cx - RW / 2, top - 30, 'A', { 'font-size': 64, 'font-weight': 600 }), mName = txt(rough, cx - RW / 2 + 64, top - 40, 'up front', { 'font-size': 30, 'font-weight': 500 })
+  const rough = $<SVGSVGElement>('roughSvg'), cx = 1120, top = 200, RW = 540, RH = 520
+  const WAYS = [['A', 'up front'], ['B', 'one room'], ['C', 'wide']]
+  const mWays = WAYS.map(([l, n], i) => {
+    const x = cx - RW / 2 + i * (RW / 3), cell = el('rect', { x, y: 96, width: RW / 3, height: 64, fill: 'none', stroke: INK, 'stroke-width': 2 }, rough)
+    return { cell, l: txt(rough, x + 18, 140, l, { 'font-size': 32, 'font-weight': 700 }), n: txt(rough, x + 52, 138, n, { 'font-size': 20, 'font-weight': 500 }) }
+  })
+  el('rect', { x: cx - RW / 2, y: top, width: RW, height: RH, fill: P2 }, rough)
+  const mInner = el('rect', { x: cx - RW / 2 + 70, y: top + 50, width: RW - 140, height: RH - 180, fill: P3, opacity: 0 }, rough)
+  el('rect', { x: cx - RW / 2, y: top, width: RW, height: RH, fill: 'none', stroke: INK, 'stroke-width': 3 }, rough)
+  txt(rough, cx - RW / 2 + 14, top + 28, 'back', { 'font-size': 17, fill: T2 }); txt(rough, cx - RW / 2 + 14, top + RH - 14, 'front', { 'font-size': 17, fill: T2 })
+  ;['l', 'c', 'r'].forEach((c, k) => txt(rough, cx - RW / 2 + k * RW / 2 - (k === 2 ? 10 : k ? 4 : 0), top + RH + 32, c, { 'font-size': 18, fill: T2 }))
   /* each track: its number, its colour, and where it stands in A, B and C (x −1…1 across, y 0 back…1 front, and a width for the wide ones) */
   type At = [number, number] | [number, number, number]
-  const TR: [string, string, At, At, At][] = [['01', '#213E97', [0, .78], [0, .7], [.05, .62]], ['02', '#3B79B8', [.03, .62], [0, .36], [.15, .55]], ['03', '#71B0D6', [-.28, .58], [-.2, .3], [-.42, .5]], ['04', '#784A99', [0, .86], [0, .8], [0, .8]],
-    ['05', '#338B69', [-.05, .56, .36], [-.1, .33, .5], [-.2, .3, 1.5]], ['06', '#C07E2B', [-.52, .6], [-.25, .35], [-.8, .3]], ['07', '#DF716A', [0, .93], [0, .62], [0, .75]], ['08', '#D1C7B0', [-.15, .38, .6], [-.1, .12, .8], [-.1, .06, 1.6]]]
+  const TR: [string, string, At, At, At][] = [['01', RED, [0, .78], [0, .72], [.05, .62]], ['02', RED, [.03, .6], [.16, .34], [.15, .55]], ['03', RED, [-.3, .58], [-.3, .3], [-.42, .5]], ['04', BLUE, [0, .9], [0, .86], [0, .8]],
+    ['05', YELLOW, [-.05, .5, .36], [-.1, .5, .5], [-.2, .3, 1.5]], ['06', INK, [-.52, .66], [-.6, .46], [-.8, .3]], ['07', RED, [.2, .76], [.22, .6], [0, .75]], ['08', BLUE, [-.15, .36, .6], [-.1, .12, .8], [-.1, .06, 1.6]]]
   const mTracks = TR.map(([n, c, a, b, cc]) => {
     const g = el('g', {}, rough), wide = a.length > 2
-    const shape = wide ? el('rect', { x: -100, y: -9, width: 200, height: 18, fill: c }, g) : el('circle', { r: 26, fill: c }, g)
-    txt(g, wide ? -92 : 0, 6, n, { 'font-size': 16, 'font-weight': 600, fill: n === '08' ? K1 : INK, 'text-anchor': wide ? 'start' : 'middle' })
+    const shape = wide ? el('rect', { x: -100, y: -10, width: 200, height: 20, fill: c }, g) : el('circle', { r: 28, fill: c }, g)
+    txt(g, wide ? -92 : 0, 6, n, { 'font-size': 16, 'font-weight': 700, fill: c === YELLOW ? INK : PAPER, 'text-anchor': wide ? 'start' : 'middle' })
     return { g, shape, wide, at: [a, b, cc] }
   })
-  const WAYS = [['A', 'up front'], ['B', 'one room'], ['C', 'wide']]
   const drawRough = (p: number, bars: number) => {
     const s = p * 2, k = Math.min(1, Math.floor(s)), f = clamp(s - k, 0, 1), t = ease(f < .55 ? 0 : (f - .55) / .45), cur = t > .5 ? k + 1 : k
-    mLetter.textContent = WAYS[cur][0]; mName.textContent = WAYS[cur][1]
-    mInner.setAttribute('opacity', cur === 1 ? '1' : '0'); mFrame.setAttribute('opacity', cur === 1 ? '1' : '0')
+    mWays.forEach((w, i) => { const on = i === cur; w.cell.setAttribute('fill', on ? INK : 'none'); w.l.setAttribute('fill', on ? PAPER : INK); w.n.setAttribute('fill', on ? PAPER : INK) })
+    mInner.setAttribute('opacity', cur === 1 ? '1' : '0')
     const pulse = A.on ? Math.pow(1 - ((bars * 4) % 1), 4) : 0
     for (const R of mTracks) {
       const a = R.at[k], b = R.at[Math.min(2, k + 1)], x = lerp(a[0], b[0], t), y = lerp(a[1], b[1], t), w = lerp(a[2] ?? 1, b[2] ?? 1, t)
@@ -317,32 +332,32 @@ export function mountStudio (root: HTMLElement): () => void {
     $('roughWord').classList.toggle('on', p > .1)
   }
 
-  /* ── 6: the patch — prints on the wall, wired, each doing its thing ── */
-  const patch = $<SVGSVGElement>('patchSvg'), py = 420
+  /* ── 6: the patch — prints on the wall, wired, each doing its thing (the prints keep their own colours) ── */
+  const patch = $<SVGSVGElement>('patchSvg'), py = 380
   const wires: { w: SVGPathElement; L: number }[] = []
-  const wire = (d: string) => { wires.push({ w: el('path', { d, fill: 'none', stroke: INK, 'stroke-width': 2.4, 'stroke-opacity': .85 }, patch), L: 0 }) }
+  const wire = (d: string) => { wires.push({ w: el('path', { d, fill: 'none', stroke: INK, 'stroke-width': 3 }, patch), L: 0 }) }
   wire(`M120 ${py}H330`); wire(`M470 ${py}C540 ${py} 560 ${py - 140} 640 ${py - 140}`); wire(`M470 ${py}C540 ${py} 560 ${py + 140} 640 ${py + 140}`)
-  wire(`M800 ${py - 140}C880 ${py - 140} 880 ${py} 940 ${py}`); wire(`M800 ${py + 140}C880 ${py + 140} 880 ${py} 940 ${py}`); wire(`M1040 ${py}H1140`); wire(`M1260 ${py}H1340`)
-  for (const [x, w] of [[120, 'in'], [1340, 'out']] as const) { el('circle', { cx: x, cy: py, r: 9, fill: K0, stroke: INK, 'stroke-width': 2.4 }, patch); txt(patch, x - 8, py + 38, w, { 'font-size': 20, 'fill-opacity': .7 }) }
+  wire(`M800 ${py - 140}C880 ${py - 140} 880 ${py} 940 ${py}`); wire(`M800 ${py + 140}C880 ${py + 140} 880 ${py} 940 ${py}`); wire(`M1000 ${py}H1140`); wire(`M1260 ${py}H1340`)
+  for (const [x, w] of [[120, 'in'], [1340, 'out']] as const) { el('circle', { cx: x, cy: py, r: 10, fill: PAPER, stroke: INK, 'stroke-width': 3 }, patch); txt(patch, x - 8, py + 40, w, { 'font-size': 20, fill: T2 }) }
   /* tape: an orange plate with two reels for eyes */
   const tape = el('g', {}, patch); el('rect', { x: -70, y: -70, width: 140, height: 140, fill: '#E07B3C' }, tape)
   const eyes = [-30, 30].map(ex => { const g = el('g', {}, tape); g.dataset.at = `translate(${ex} -12)`; g.setAttribute('transform', g.dataset.at); el('circle', { r: 22, fill: 'none', stroke: '#FBFAF7', 'stroke-width': 5 }, g); el('circle', { r: 6, fill: '#FBFAF7' }, g); return g })
   el('path', { d: 'M-46 30Q0 50 46 30', fill: 'none', stroke: '#FBFAF7', 'stroke-width': 5, 'stroke-linecap': 'round' }, tape)
-  txt(patch, 400, py + 104, 'tape', { 'font-size': 22, 'font-weight': 600, 'text-anchor': 'middle' }); txt(patch, 400, py + 130, 'hard 24', { 'font-size': 18, 'fill-opacity': .6, 'text-anchor': 'middle' })
+  txt(patch, 400, py + 104, 'tape', { 'font-size': 22, 'font-weight': 600, 'text-anchor': 'middle' }); txt(patch, 400, py + 130, 'hard 24', { 'font-size': 18, fill: T2, 'text-anchor': 'middle' })
   /* space: a blue disc of rings */
   const space = el('g', {}, patch); el('circle', { r: 70, fill: '#5C80FF' }, space)
   const RINGS = [18, 32, 46, 58], rings = RINGS.map(r => el('circle', { r, fill: 'none', stroke: '#FBFAF7', 'stroke-width': 2.4, 'stroke-opacity': .8 }, space)); el('circle', { r: 6, fill: '#FBFAF7' }, space)
-  txt(patch, 720, py - 40, 'space', { 'font-size': 22, 'font-weight': 600, 'text-anchor': 'middle' }); txt(patch, 720, py - 14, 'hall 30', { 'font-size': 18, 'fill-opacity': .6, 'text-anchor': 'middle' })
+  txt(patch, 720, py - 40, 'space', { 'font-size': 22, 'font-weight': 600, 'text-anchor': 'middle' }); txt(patch, 720, py - 14, 'hall 30', { 'font-size': 18, fill: T2, 'text-anchor': 'middle' })
   /* delay: a teal disc of fading bars */
   const delay = el('g', {}, patch); el('circle', { r: 70, fill: '#3E9E96' }, delay)
   const taps = [0, 1, 2, 3, 4, 5].map(k => el('rect', { x: -38 + k * 13, y: -30 + k * 4, width: 6, height: 60 - k * 8, fill: '#FBFAF7' }, delay))
-  txt(patch, 720, py + 244, 'delay', { 'font-size': 22, 'font-weight': 600, 'text-anchor': 'middle' }); txt(patch, 720, py + 270, 'clean 20', { 'font-size': 18, 'fill-opacity': .6, 'text-anchor': 'middle' })
-  /* mix: two lines become one */
-  el('path', { d: `M940 ${py - 30}C980 ${py - 30} 980 ${py} 1000 ${py}M940 ${py + 30}C980 ${py + 30} 980 ${py} 1000 ${py}M1000 ${py}H1040`, fill: 'none', stroke: '#F3E6C8', 'stroke-width': 5, 'stroke-linecap': 'round' }, patch)
-  const mixDot = el('circle', { cx: 1000, cy: py, r: 9, fill: '#F3E6C8' }, patch); txt(patch, 990, py + 70, 'mix', { 'font-size': 22, 'font-weight': 600, 'text-anchor': 'middle' })
+  txt(patch, 720, py + 244, 'delay', { 'font-size': 22, 'font-weight': 600, 'text-anchor': 'middle' }); txt(patch, 720, py + 270, 'clean 20', { 'font-size': 18, fill: T2, 'text-anchor': 'middle' })
+  /* mix: the two lines summed in a disc */
+  const mixDot = el('circle', { cx: 970, cy: py, r: 30, fill: PAPER, stroke: INK, 'stroke-width': 3 }, patch)
+  el('path', { d: `M 954 ${py} H 986 M 970 ${py - 16} V ${py + 16}`, stroke: INK, 'stroke-width': 3 }, patch); txt(patch, 970, py + 62, 'mix', { 'font-size': 22, 'font-weight': 600, 'text-anchor': 'middle' })
   /* a plug-in of the mac's own, in the same patch */
-  el('rect', { x: 1140, y: py - 60, width: 120, height: 120, fill: '#1B1B1A', stroke: INK, 'stroke-opacity': .5, 'stroke-width': 2 }, patch); el('rect', { x: 1240, y: py - 52, width: 10, height: 10, fill: INK }, patch)
-  txt(patch, 1200, py + 8, 'comp', { 'font-size': 22, 'text-anchor': 'middle' }); txt(patch, 1200, py + 104, 'au', { 'font-size': 18, 'fill-opacity': .6, 'text-anchor': 'middle' })
+  el('rect', { x: 1140, y: py - 60, width: 120, height: 120, fill: P2, stroke: INK, 'stroke-width': 3 }, patch); el('rect', { x: 1236, y: py - 50, width: 14, height: 14, fill: RED }, patch)
+  txt(patch, 1200, py + 8, 'comp', { 'font-size': 22, 'font-weight': 500, 'text-anchor': 'middle' }); txt(patch, 1200, py + 96, 'au', { 'font-size': 18, fill: T2, 'text-anchor': 'middle' })
   for (const W of wires) { W.L = W.w.getTotalLength(); W.w.style.strokeDasharray = String(W.L); W.w.style.strokeDashoffset = String(W.L) }
   const prints = [[tape, `translate(400 ${py})`], [space, `translate(720 ${py - 140})`], [delay, `translate(720 ${py + 140})`]] as const
   const drawPatch = (p: number, bars: number, now: number) => {
@@ -354,7 +369,7 @@ export function mountStudio (root: HTMLElement): () => void {
     taps.forEach((r, k) => r.setAttribute('opacity', k === beat % 6 ? '1' : '.35'))
     const blink = (now % 3600) < 140
     for (const e of eyes) e.setAttribute('transform', `${e.dataset.at} scale(1 ${blink ? .12 : 1})`)
-    mixDot.setAttribute('r', (9 + (A.on ? Math.pow(1 - ph, 3) * 6 : 0)).toFixed(1))
+    mixDot.setAttribute('r', (30 + (A.on ? Math.pow(1 - ph, 3) * 6 : 0)).toFixed(1))
     $('patchWord').classList.toggle('on', p > .3)
   }
 
@@ -365,7 +380,7 @@ export function mountStudio (root: HTMLElement): () => void {
     shotB.style.clipPath = `inset(0 0 0 ${(100 - t * 100).toFixed(2)}%)`
     wipe.style.left = `calc(${(100 - t * 100).toFixed(2)}% - 1px)`
     wipe.style.opacity = t > 0 && t < 1 ? '1' : '0'
-    shot.style.transform = `translateY(-50%) scale(${(1.08 - seg(p, 0, .3) * .08).toFixed(3)})`
+    shot.style.transform = `scale(${(1.08 - seg(p, 0, .3) * .08).toFixed(3)})`
     $('looksWord').classList.toggle('on', p > .1)
   }
 
@@ -420,7 +435,7 @@ export function mountStudio (root: HTMLElement): () => void {
     const b16 = Math.floor(bars * 16)
     if (A.on && b16 !== lastBeat) {
       lastBeat = b16; const n = NOTES[b16 % NOTES.length]
-      if (n && b16 % 2 === 0) { const e = n.firstChild as SVGEllipseElement; e.style.transition = 'none'; e.setAttribute('fill-opacity', '1'); requestAnimationFrame(() => { e.style.transition = 'fill-opacity 1.2s ease'; e.setAttribute('fill-opacity', '0') }) }
+      if (n && b16 % 2 === 0) { const e = n.firstChild as SVGCircleElement; e.style.transition = 'none'; e.setAttribute('fill-opacity', '1'); requestAnimationFrame(() => { e.style.transition = 'fill-opacity 1.2s ease'; e.setAttribute('fill-opacity', '0') }) }
     }
     for (const s of SC) if (visible(s.el)) s.draw(prog(s.el), bars, now)
     raf = requestAnimationFrame(frame)

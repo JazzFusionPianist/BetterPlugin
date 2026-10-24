@@ -2,38 +2,36 @@
 
 import { useEffect, useState } from 'react'
 import SlurMark from './SlurMark'
-import { C, FAMILIES, OUTLINES, ellipsePath, hz, play, wholeNotePath } from './marks'
+import { C, FAMILIES, hz, play } from './marks'
 import RoomPicture from './RoomPicture'
 import PictoNav from './PictoNav'
 import WallPicture from './WallPicture'
 import '@/app/slur.css'
 
-/* The catalogue. A new program is one more entry: its name, its ground,
-   its note (colour and pitch), what it runs as, and where its installers
-   are published (GitHub release tags beginning with `tag`). */
+/* The catalogue. A new program is one more entry: its name, its poster,
+   its pitch, what it runs as, and where its installers are published
+   (GitHub release tags beginning with `tag`). */
 interface Plugin {
   name: string
-  ground: string
-  note: string
+  poster: 'slur' | 'patch' | 'studio'
   ink: string
+  arm: string
   step: number
-  hollow: boolean
   formats: string
   tag?: string            // release tag prefix on GitHub
   fallback?: { url: string; version: string }   // the last known installer, used until the API answers
   web?: boolean           // also runs in the browser
-  glow?: boolean
   lettered?: boolean      // the whole name is in the hand (slur studio), not "slur" beside set words
 }
-const STUDIO_GROUND = '#C9D5FF'
+const PAPER = '#F1ECDF', INK = '#151412', RED = '#D52B1E', BLUE = '#1D4E9E', YELLOW = '#F2C230'
 const PLUGINS: Plugin[] = [
-  { name: 'slur', ground: '#BFE6CB', note: C.green, ink: C.ink, step: 3, hollow: true, formats: 'au vst3 aax', web: true },
+  { name: 'slur', poster: 'slur', ink: INK, arm: C.blue, step: 3, formats: 'au vst3 aax', web: true },
   {
-    name: 'patch on slur', ground: '#14120F', note: C.orange, ink: C.white, step: 5, hollow: false, formats: 'au vst3', glow: true,
+    name: 'patch on slur', poster: 'patch', ink: PAPER, arm: RED, step: 5, formats: 'au vst3',
     tag: 'patch-on-slur-',
     fallback: { url: 'https://github.com/JazzFusionPianist/BetterPlugin/releases/download/patch-on-slur-1.0.9/Patch-on-Slur-1.0.9.pkg', version: '1.0.9' },
   },
-  { name: 'slur studio', ground: STUDIO_GROUND, note: C.blue, ink: C.ink, step: 1, hollow: true, formats: 'mac app', lettered: true },
+  { name: 'slur studio', poster: 'studio', ink: PAPER, arm: YELLOW, step: 1, formats: 'mac app', lettered: true },
 ]
 const REPO = 'JazzFusionPianist/BetterPlugin'
 
@@ -65,26 +63,46 @@ function useInstallers () {
 
 const slug = (name: string) => name.replace(/ /g, '-')
 
-function Tile ({ p }: { p: Plugin }) {
-  const y = 130 + 4 * 26 - p.step * 13
-  const line = p.ink === C.white ? 'rgba(251,250,247,.16)' : 'rgba(26,25,23,.14)'
-  const [pre, post] = p.name.split('slur').map(x => x.trim())
+/* a program's poster: a composition of the wall's shapes, the name in the hand at its foot */
+function PosterArt ({ kind }: { kind: Plugin['poster'] | 'soon' }) {
   return (
-    <div className="sl-arch-tile" style={{ background: p.ground, cursor: 'pointer' }} onClick={() => { play(hz(p.step), 0, 1.8); document.getElementById(slug(p.name))?.scrollIntoView({ behavior: 'smooth' }) }}>
-      <svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        {p.glow && (
-          <>
-            <defs><radialGradient id={`glow-${p.step}`}><stop offset="0" stopColor={p.note} stopOpacity=".55" /><stop offset="1" stopColor={p.note} stopOpacity="0" /></radialGradient></defs>
-            <ellipse cx={150} cy={y} rx={150} ry={170} fill={`url(#glow-${p.step})`} />
-          </>
-        )}
-        {[0, 1, 2, 3, 4].map(k => <line key={k} x1={0} x2={300} y1={130 + k * 26} y2={130 + k * 26} stroke={line} />)}
-        <g className="sl-note"><path d={wholeNotePath(150, y, 44, p.hollow)} fill={p.note} fillRule="evenodd" /></g>
-      </svg>
+    <svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      {kind === 'slur' && <>
+        <rect width={300} height={400} fill="#E8E1D0" />
+        {[0, 1, 2, 3, 4].map(i => <rect key={i} x={0} y={118 + i * 18} width={300} height={1.5} fill={INK} opacity={.5} />)}
+        <path className="mv a" d="M 0 400 L 300 400 L 52 168 Z" fill={YELLOW} />
+        <circle className="mv b" cx={214} cy={145} r={19} fill={INK} />
+      </>}
+      {kind === 'patch' && <>
+        <rect width={300} height={400} fill={INK} />
+        <rect className="mv c" x={36} y={56} width={172} height={172} fill={RED} />
+        {[30, 56, 82].map(r => <circle key={r} cx={208} cy={142} r={r} fill="none" stroke={PAPER} strokeWidth={2.4} />)}
+        <rect x={0} y={290} width={300} height={2.4} fill={PAPER} />
+        {[30, 270].map(x => <circle key={x} cx={x} cy={291} r={6} fill={INK} stroke={PAPER} strokeWidth={2.4} />)}
+      </>}
+      {kind === 'studio' && <>
+        <rect width={300} height={400} fill={BLUE} />
+        <circle className="mv c" cx={150} cy={150} r={104} fill={PAPER} />
+        <rect x={0} y={292} width={300} height={14} fill={INK} />
+        <circle className="mv b" cx={96} cy={299} r={15} fill={RED} />
+        <path d="M 232 240 L 262 292 L 202 292 Z" fill={YELLOW} />
+      </>}
+      {kind === 'soon' && <>
+        <rect x={1} y={1} width={298} height={398} fill="none" stroke={INK} strokeWidth={2} strokeDasharray="6 6" />
+        <circle cx={150} cy={180} r={70} fill="none" stroke={INK} strokeWidth={2} strokeDasharray="6 6" />
+      </>}
+    </svg>
+  )
+}
+
+function Poster ({ p }: { p: Plugin }) {
+  const [pre] = p.name.split('slur').map(x => x.trim())
+  return (
+    <div className="sl-poster" onClick={() => { play(hz(p.step), 0, 1.8); document.getElementById(slug(p.name))?.scrollIntoView({ behavior: 'smooth' }) }}>
+      <PosterArt kind={p.poster} />
       <div className="nm" style={{ color: p.ink }}>
-        {pre && <span>{pre}</span>}
-        <SlurMark height={52} ink={p.ink} arm={p.note} title={p.name} studio={p.lettered} />
-        {post && !p.lettered && <span>{post}</span>}
+        {pre && !p.lettered && <span>{pre}</span>}
+        <SlurMark height={p.lettered ? 52 : 64} ink={p.ink} arm={p.arm} title={p.name} studio={p.lettered} />
       </div>
     </div>
   )
@@ -92,6 +110,7 @@ function Tile ({ p }: { p: Plugin }) {
 
 export default function Downloads () {
   const found = useInstallers()
+  const patch = found['patch on slur'] ?? PLUGINS[1].fallback!
   return (
     <div className="sl">
       <div className="sl-grain" />
@@ -107,7 +126,7 @@ export default function Downloads () {
             const url = (found[p.name] ?? p.fallback)?.url
             return (
               <div className="sl-item" key={p.name}>
-                <Tile p={p} />
+                <Poster p={p} />
                 <div className="sl-meta">
                   <span className="f">{p.formats}</span>
                   {p.web && <a className="sl-pill line" href="/?door=signin">web</a>}
@@ -117,28 +136,23 @@ export default function Downloads () {
             )
           })}
           <div className="sl-item">
-            <div className="sl-arch-tile next">
-              <svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-                {[0, 1, 2, 3, 4].map(k => <line key={k} x1={0} x2={300} y1={130 + k * 26} y2={130 + k * 26} stroke="rgba(26,25,23,.12)" />)}
-                <path d={ellipsePath(150, 182, 44, 31, -22)} fill="none" stroke="rgba(26,25,23,.3)" strokeWidth={1.5} strokeDasharray="4 5" />
-              </svg>
-            </div>
-            <div className="sl-meta"><span className="soon">soon</span></div>
+            <div className="sl-poster" style={{ cursor: 'default' }}><PosterArt kind="soon" /></div>
+            <div className="sl-meta"><span className="soon" style={{ marginLeft: 'auto' }}>soon</span></div>
           </div>
         </div>
       </main>
 
-      <About id="slur" ground="#BFE6CB" ink={C.ink} picture={<RoomPicture />} lede={<SlurMark height={150} arm={C.green} />}
-        rows={SLUR_ROWS} acts={<><a className="sl-pill ink" href="/?door=signin">open in the browser</a><span className="soon">mac soon</span></>} />
+      <Room id="slur" n={1} shape="tri" name={<SlurMark height={120} arm={YELLOW} />}
+        acts={<><a className="sl-pill ink" href="/?door=signin">open in the browser</a><span className="soon">mac soon</span></>}
+        rows={SLUR_ROWS} work={<div className="sl-work room"><RoomPicture /></div>} />
 
-      <About id="patch-on-slur" ground="#14120F" ink={C.white} dark picture={<WallPicture className="sl-wall" />}
-        lede={<div className="sl-lede-row"><span>patch on</span><SlurMark height={150} ink={C.white} arm={C.orange} /></div>}
-        rows={PATCH_ROWS} extra={<Families />}
-        acts={(() => { const r = found['patch on slur'] ?? PLUGINS[1].fallback!; return <><a className="sl-pill paper" href={r.url}>mac</a><span className="soon">{r.version} au vst3</span></> })()} />
+      <Room id="patch-on-slur" n={2} shape="sq" dark name={<div className="sl-lede-row"><span>patch on</span><SlurMark height={120} ink={PAPER} arm={RED} /></div>}
+        acts={<><a className="sl-pill paper" href={patch.url}>mac</a><span className="soon">{patch.version} au vst3</span></>}
+        rows={PATCH_ROWS} work={<div className="sl-work wall"><WallPicture className="sl-wall" /></div>} extra={<Families />} />
 
-      <About id="slur-studio" ground={STUDIO_GROUND} ink={C.ink} picture={<div className="sl-shot"><img src="/slur/daw-arrange.jpg" alt="" /></div>}
-        lede={<SlurMark className="sl-two" height={150} arm={C.blue} studio />}
-        rows={STUDIO_ROWS} extra={<Outlines />} acts={<span className="soon">mac soon</span>} />
+      <Room id="slur-studio" n={3} shape="ci" two name={<SlurMark height={104} arm={BLUE} studio />}
+        acts={<><a className="sl-pill ink" href="/studio">the whole room</a><span className="soon">mac soon</span></>}
+        rows={STUDIO_ROWS} work={<div className="sl-work shot"><img src="/slur/studio/room-bauhaus.jpg" alt="Slur Studio with a song open" /></div>} />
 
       <div className="sl-foot-row plain">
         <a href="/terms">terms</a><a href="/privacy">privacy</a>
@@ -149,9 +163,9 @@ export default function Downloads () {
   )
 }
 
-/* ── the introductions ──
-   One arch per plug-in: its picture, its name lettered, and an index of
-   plain facts (a word, then what it is). No slogans. */
+/* ── the rooms ──
+   One per program: its number painted large, its name in the hand, the work
+   hung, and an index of plain facts (a word, then what it is) as its label. */
 
 const SLUR_ROWS: [string, string][] = [
   ['room', 'one per band or per record. chat, stems, calendar and notes in it'],
@@ -168,40 +182,43 @@ const PATCH_ROWS: [string, string][] = [
   ['hands', 'turn a print by hand, or give it to an lfo, a macro or a follower'],
   ['no account', 'open it and play'],
 ]
-
 const STUDIO_ROWS: [string, string][] = [
+  ['tidy', 'every track heard for what it is, named and put in order'],
+  ['rubato', 'pins on the sound, pulled along the time'],
+  ['doctor', 'the whole song heard at once. what crowds and what pokes out, by its bars'],
+  ['rough mix', 'one hearing, three mixes to start from'],
   ['patch', 'patch on slur sits on every track. au and vst3 plug-ins go in the same patch'],
-  ['slur', 'the room is a panel beside the song'],
-  ['outlines', 'a region is cut by what plays in it. drums, bass and voice are told apart before a name is read'],
-  ['say it', 'type kick -3 db and the fader moves'],
-  ['editing', 'one tool for ranges, trims and fades. crossfades. slip, shuffle, spot or grid'],
-  ['hand off', 'stems or a mix as wav, aiff, flac or m4a, for the daw the song is finished in'],
+  ['your keys', 'the keys of logic pro, ableton live, cubase or pro tools'],
   ['runs on', 'mac'],
 ]
 
-function About ({ id, ground, ink, dark, picture, lede, rows, extra, acts }: {
-  id: string; ground: string; ink: string; dark?: boolean
-  picture: React.ReactNode; lede: React.ReactNode; rows: [string, string][]; extra?: React.ReactNode; acts: React.ReactNode
+function Room ({ id, n, shape, dark, two, name, acts, rows, work, extra }: {
+  id: string; n: number; shape: 'tri' | 'sq' | 'ci'; dark?: boolean; two?: boolean
+  name: React.ReactNode; acts: React.ReactNode; rows: [string, string][]; work: React.ReactNode; extra?: React.ReactNode
 }) {
   return (
-    <section id={id} className={`sl-arch sl-about${dark ? ' dark' : ''}`} style={{ background: ground, color: ink }}>
-      <div className="sl-about-pic">{picture}</div>
-      <div className="sl-about-body">
-        <div className="sl-about-name">
-          {lede}
-          <div className="sl-about-acts">{acts}</div>
+    <section id={id} className={`sl-room${dark ? ' dark' : ''}`}>
+      {shape === 'tri'
+        ? <svg className="sl-room-shape tri" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 100 0 L 100 100 L 0 100 Z" fill={YELLOW} /></svg>
+        : <div className={`sl-room-shape ${shape}`} aria-hidden="true" />}
+      <div className="sl-room-head">
+        <div className="sl-num" aria-hidden="true">{n}</div>
+        <div className="sl-room-name">
+          <div className={two ? 'two' : undefined}>{name}</div>
+          <div className="sl-room-acts">{acts}</div>
         </div>
+      </div>
+      <div className="sl-room-body">
         <ol className="sl-index">
           {rows.map(([k, v]) => <li key={k}><b>{k}</b><span>{v}</span></li>)}
         </ol>
+        {work}
       </div>
       {extra}
     </section>
   )
 }
 
-/* Patch on Slur's families, each by its plate's silhouette — told apart
-   from across the wall, the way the plug-in draws them. */
 function Families () {
   return (
     <div className="sl-families">
@@ -210,33 +227,6 @@ function Families () {
           <svg viewBox="-24 -24 48 48" width="48" height="48" aria-hidden="true"><path d={f.shape} fill={f.c} fillRule="evenodd" /></svg>
           <b>{f.name}</b>
           <span>{f.members}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/* Slur Studio's regions, each by its outline — the way the program cuts them:
-   the pigment, and the sound in the same hue near black. */
-const SOUND = OUTLINES.map((_, k) => {
-  let seed = 11 + k * 97
-  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
-  return Array.from({ length: 53 }, (_, i) => {
-    const beat = 1 - ((i * (k % 2 ? 3 : 2)) % 13) / 13
-    return Math.max(1.5, (rnd() * .55 + .45) * 30 * (k === 0 ? beat * .8 + .2 : Math.sin(Math.PI * (i + 3) / 59) * .6 + .4))
-  })
-})
-function Outlines () {
-  return (
-    <div className="sl-families six">
-      {OUTLINES.map((o, k) => (
-        <div key={o.name}>
-          <svg viewBox="0 0 120 44" width="120" height="44" aria-hidden="true">
-            <path d={o.shape} fill={o.c} />
-            {SOUND[k].map((h, i) => <rect key={i} x={7 + i * 2} y={22 - h / 2} width={1.2} height={h} fill={o.deep} />)}
-          </svg>
-          <b>{o.name}</b>
-          <span>{o.members}</span>
         </div>
       ))}
     </div>

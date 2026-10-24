@@ -1,34 +1,37 @@
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Slur Studio's own page (/studio) — the daw told in scenes, each held on
-   the screen while it is scrolled through. Dark, the site's bar on top with
-   its words in white. Everything is .ss-* or under .ss; the bar and the
-   footer are the site's own (.sl-*). Draft: design/slur studio page draft 1.
+   the screen while it is scrolled through, worn in the daw's bauhaus look:
+   paper, ink, red, blue and yellow; jost. Everything is .ss-* or under .ss;
+   the bar, the buttons and the footer are the site's own (.sl-*).
+   Drafts: design/slur studio page draft 1, design/bauhaus site draft 1.
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 
 .sl.ss {
-  --ss-k0: #0E0E0E; --ss-k1: #151514; --ss-ink: #ECEAE4; --ss-paper: #F3F0E8; --ss-dark: #1A1917; --ss-lav: #C9D5FF; --ss-yellow: #E5B73B;
-  background: var(--ss-k0); color: var(--ss-ink);
+  --ss-ink: #151412; --ss-paper: #F1ECDF; --ss-t2: #6E685B; --ss-red: #D52B1E; --ss-blue: #1D4E9E; --ss-yellow: #F2C230;
+  background: var(--ss-paper); color: var(--ss-ink);
   /* clip, not hidden: a hidden overflow makes the page its own scroller, and the scenes' sticky screens stop holding */
   overflow: visible; overflow-x: clip;
 }
-html:has(.sl.ss), html:has(.sl.ss) body { height: auto; overflow: visible; overflow-x: clip; overscroll-behavior: auto; background: #0E0E0E; }
+html:has(.sl.ss), html:has(.sl.ss) body { height: auto; overflow: visible; overflow-x: clip; overscroll-behavior: auto; background: #F1ECDF; }
 .ss svg { display: block; }
-.ss-grain { position: fixed; inset: 0; pointer-events: none; z-index: 60; opacity: .14; mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
 /* the top: the site's own bar, over the first screen */
-.ss .sl-top.static { position: absolute; z-index: 50; color: var(--ss-ink); }
+.ss .sl-top.static { position: absolute; z-index: 50; }
 
 /* a scene: as tall as it is long; inside it, the screen it holds while it is scrolled through */
 .ss-scene { position: relative; }
 .ss-stick { position: sticky; top: 0; height: 100vh; overflow: hidden; }
-.ss-word { position: absolute; left: 4vw; bottom: 7vh; z-index: 5; pointer-events: none; }
-.ss .ss-word h2 { margin: 0; font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; font-size: clamp(64px, 13vw, 210px); line-height: .82; letter-spacing: -.02em; }
-.ss .ss-word p { margin: 18px 0 0 .6vw; font-size: clamp(15px, 1.5vw, 21px); max-width: 560px; line-height: 1.35; opacity: .86; }
-.ss-word.right { left: auto; right: 4vw; text-align: right; }
+.ss-word { position: absolute; left: 3.6vw; bottom: 6vh; z-index: 5; pointer-events: none; }
+.ss .ss-word h2 { margin: 0; font-weight: 700; font-size: clamp(64px, 13.9vw, 200px); line-height: .8; letter-spacing: -.035em; }
+.ss .ss-word p { margin: 44px 0 0 .3vw; font-size: clamp(15px, 1.4vw, 20px); max-width: 540px; line-height: 1.35; }
+.ss-word.right { left: auto; right: 3.6vw; text-align: right; }
 .ss .ss-word.right p { margin-left: auto; }
-.ss-word.top { bottom: auto; top: 12vh; }
-.ss .ss-word.top p { max-width: 420px; }
+.ss-word.high { bottom: auto; top: 11vh; }
+.ss .ss-word.high p { max-width: 460px; }
+/* set up the right edge, as a poster sets a word */
+.ss-word.up { left: auto; right: 2.6vw; bottom: 3.5vh; }
+.ss .ss-word.up h2 { font-size: clamp(64px, 9.7vw, 140px); writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; line-height: .8; }
+.ss-tpcap { position: absolute; left: 41.7vw; top: 84.5vh; z-index: 5; margin: 0; max-width: 430px; font-size: clamp(14px, 1.4vw, 20px); line-height: 1.35; }
 .ss-reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .9s cubic-bezier(.2, .7, .2, 1); }
 .ss-reveal.on { opacity: 1; transform: none; }
 
@@ -39,54 +42,58 @@ html:has(.sl.ss), html:has(.sl.ss) body { height: auto; overflow: visible; overf
 .ss-name { width: min(1100px, 86vw); height: auto; position: relative; z-index: 2; margin-top: -6vh; }
 .ss-name:not(.ready) { visibility: hidden; }          /* until the scenes set it up to be written on */
 .ss-playrow { position: absolute; left: 0; right: 0; bottom: 9vh; z-index: 3; display: flex; justify-content: center; align-items: center; gap: 34px; }
-.ss #play { width: 74px; height: 74px; }
-.ss #play svg { width: 74px; height: 74px; overflow: visible; }
-.ss-readout { font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 4px; min-width: 300px; }
-.ss-readout .b { font-size: 76px; font-weight: 500; letter-spacing: -.04em; line-height: 1; }
-.ss-readout .s { font-size: 20px; }
-.ss-readout .t { font-size: 14px; opacity: .7; }
-.ss-meter4 { display: flex; gap: 6px; margin-left: 18px; }
-.ss-meter4 i { width: 9px; height: 9px; border: 1.2px solid var(--ss-ink); display: block; }
+.ss #play { width: 80px; height: 80px; transition: transform .25s cubic-bezier(.3, 1.6, .5, 1); }
+.ss #play:hover { transform: scale(1.06); }
+.ss #play svg { width: 80px; height: 80px; overflow: visible; }
+.ss-readout { font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 4px; min-width: 320px; }
+.ss-readout .b { font-size: 84px; font-weight: 700; letter-spacing: -.04em; line-height: 1; }
+.ss-readout .s { font-size: 22px; font-weight: 500; color: var(--ss-red); }
+.ss-readout .t { font-size: 14px; color: var(--ss-red); opacity: .8; }
+.ss-meter4 { display: flex; gap: 6px; margin-left: 20px; }
+.ss-meter4 i { width: 11px; height: 11px; border: 2px solid var(--ss-ink); display: block; }
 .ss-meter4 i.on { background: var(--ss-ink); }
-.ss-bpm { font-size: 13px; opacity: .7; margin-left: 14px; }
-.ss-hint { position: absolute; bottom: 3vh; left: 0; right: 0; text-align: center; font-size: 12px; opacity: .5; }
+.ss-bpm { font-size: 13px; color: var(--ss-t2); margin-left: 14px; }
+.ss-hint { position: absolute; bottom: 3vh; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--ss-t2); }
 
 /* ── the room in it ── */
 .ss-full { position: absolute; inset: 0; width: 100%; height: 100%; }
 .ss #tidy { height: 340vh; } .ss #transport { height: 260vh; } .ss #rubato { height: 260vh; } .ss #doctor { height: 260vh; } .ss #rough { height: 320vh; } .ss #patch { height: 260vh; } .ss #looks { height: 240vh; }
-.ss-shot { position: absolute; right: 4vw; top: 50%; width: min(70vw, 1300px); aspect-ratio: 1440 / 900; transform: translateY(-50%); border-radius: 14px; overflow: hidden; box-shadow: 0 50px 120px -30px rgba(0,0,0,.8), 0 0 0 1px rgba(236,234,228,.12); }
+.ss-shot { position: absolute; right: 4vw; top: 12vh; width: min(60vw, 1100px); aspect-ratio: 1440 / 900; overflow: hidden; box-shadow: 0 34px 60px -24px rgba(21,20,18,.45), 0 0 0 1px rgba(21,20,18,.08); }
 .ss-shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .ss-shot .b { clip-path: inset(0 0 0 100%); }
-.ss-wipe { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ss-yellow); box-shadow: 0 0 30px var(--ss-yellow); opacity: 0; }
+.ss-wipe { position: absolute; top: 0; bottom: 0; width: 4px; background: var(--ss-yellow); opacity: 0; }
 
-/* ── keys: a light room for once ── */
-.ss #keys { background: var(--ss-lav); color: var(--ss-dark); border-radius: 50% 50% 0 0 / 160px 160px 0 0; padding: 22vh 4vw 18vh; position: relative; z-index: 2; }
-.ss #keys h2 { margin: 0; font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; font-size: clamp(64px, 11vw, 180px); line-height: .85; }
+/* ── keys: a blue room under an arch ── */
+.ss #keys { position: relative; z-index: 2; background: var(--ss-blue); color: var(--ss-paper); padding: 20vh 3.6vw 18vh; margin-top: 170px; }
+.ss-arch { position: absolute; left: 0; right: 0; top: -169px; width: 100%; height: 170px; }
+.ss #keys h2 { margin: 0; font-weight: 700; font-size: clamp(64px, 11.8vw, 170px); line-height: .85; letter-spacing: -.035em; }
 .ss-sets { display: flex; gap: 10px; flex-wrap: wrap; margin: 34px 0 54px; }
-.ss .ss-sets button { height: 44px; padding: 0 22px; border-radius: 22px; box-shadow: inset 0 0 0 1.3px rgba(26,25,23,.45); font-size: 15px; transition: background .2s, color .2s; }
-.ss .ss-sets button.on { background: var(--ss-dark); color: #FBFAF7; box-shadow: none; }
-.ss-caps { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-end; }
-.ss-caps .cap { width: 132px; height: 132px; border-radius: 22px; background: #FBFAF7; box-shadow: 0 7px 0 rgba(26,25,23,.28), 0 14px 30px -10px rgba(26,25,23,.25); display: flex; flex-direction: column; justify-content: space-between; padding: 16px 18px; transition: transform .08s ease, box-shadow .08s ease, background .2s; }
-.ss-caps .cap b { font-size: 40px; font-weight: 500; letter-spacing: -.02em; line-height: 1; }
+.ss .ss-sets button { height: 44px; padding: 0 20px; border: 2px solid var(--ss-paper); font-size: 15px; font-weight: 500; transition: background .15s, color .15s; }
+.ss .ss-sets button:hover, .ss .ss-sets button.on { background: var(--ss-paper); color: var(--ss-blue); }
+.ss-caps { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-end; }
+.ss-caps .cap { width: 132px; height: 132px; background: var(--ss-paper); color: var(--ss-ink); border: 2px solid var(--ss-ink); box-shadow: 7px 7px 0 var(--ss-ink); display: flex; flex-direction: column; justify-content: space-between; padding: 16px 18px; transition: transform .08s ease, box-shadow .08s ease, background .15s; }
+.ss-caps .cap b { font-size: 40px; font-weight: 600; letter-spacing: -.02em; line-height: 1; }
 .ss-caps .cap span { font-size: 14px; opacity: .65; }
-.ss-caps .cap.down { transform: translateY(6px); box-shadow: 0 1px 0 rgba(26,25,23,.28); background: var(--ss-yellow); }
-.ss-say { margin-top: 40px; font-size: 18px; min-height: 26px; opacity: .8; }
-.ss-note { margin-top: 10px; font-size: 13px; opacity: .55; }
+.ss-caps .cap.down { transform: translate(5px, 5px); box-shadow: 2px 2px 0 var(--ss-ink); background: var(--ss-yellow); }
+.ss-say { margin-top: 40px; font-size: 20px; min-height: 28px; }
+.ss-note { margin-top: 10px; font-size: 14px; opacity: .65; }
 
 /* ── the end ── */
-.ss #end { background: var(--ss-paper); color: var(--ss-dark); padding: 18vh 4vw 0; position: relative; z-index: 2; }
+.ss #end { position: relative; z-index: 2; background: var(--ss-paper); color: var(--ss-ink); padding: 18vh 3.6vw 0; }
 .ss-end-mark { width: min(760px, 86vw); height: auto; }
-.ss-acts { display: flex; gap: 12px; align-items: center; margin: 40px 0 16vh; }
-.ss-pill { height: 48px; padding: 0 26px; border-radius: 24px; display: inline-flex; align-items: center; font-size: 16px; box-shadow: inset 0 0 0 1.3px rgba(26,25,23,.55); }
-.ss-acts .soon { opacity: .6; }
+.ss-acts { display: flex; gap: 14px; align-items: center; margin: 40px 0 16vh; }
 .ss #end .sl-foot-row.plain { padding-left: 0; padding-right: 0; }
-.ss #end .sl-foot-row.plain a:hover { color: var(--ss-dark); }
 
 @media (prefers-reduced-motion: reduce) { .ss-reveal { transition: none; } }
 @media (max-width: 760px) {
-  .ss-readout .b { font-size: 52px; } .ss-readout { min-width: 0; } .ss-meter4, .ss-bpm { display: none; }
+  .ss-readout .b { font-size: 56px; } .ss-readout { min-width: 0; } .ss-meter4, .ss-bpm { display: none; }
   .ss-playrow { gap: 18px; }
+  .ss #play, .ss #play svg { width: 64px; height: 64px; }
   .ss-word { left: 6vw; right: 6vw; bottom: 6vh; } .ss-word.right { right: 6vw; text-align: left; } .ss .ss-word.right p { margin-left: 0; }
-  .ss-caps .cap { width: 96px; height: 96px; border-radius: 18px; } .ss-caps .cap b { font-size: 28px; }
-  .ss #keys { border-radius: 50% 50% 0 0 / 70px 70px 0 0; }
+  .ss-word.up { left: auto; right: 6vw; bottom: 4vh; }
+  .ss-tpcap { left: 6vw; right: 22vw; top: auto; bottom: 6vh; }
+  .ss-shot { right: 4vw; left: 4vw; width: auto; top: 18vh; }
+  .ss-caps .cap { width: 96px; height: 96px; } .ss-caps .cap b { font-size: 28px; }
+  .ss #keys { margin-top: 70px; }
+  .ss-arch { top: -69px; height: 70px; }
 }

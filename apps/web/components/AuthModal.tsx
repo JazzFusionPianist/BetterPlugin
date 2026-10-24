@@ -5,14 +5,7 @@ import { SecurityCheck } from '@orb/core/components/SecurityCheck.tsx'
 import { RememberMe } from '@orb/core/components/RememberMe.tsx'
 import { authSessionStorage, supabase } from '@/lib/supabase'
 import SlurMark from './slur/SlurMark'
-import Bar from './slur/Bar'
-import { C } from './slur/marks'
-
-const DOOR_NOTES = [
-  { x: 170, step: 2, color: C.ink, hollow: false },
-  { x: 360, step: 6, color: C.paper },
-  { x: 550, step: 4, color: C.orange, hollow: false },
-]
+import DoorScore from './slur/DoorScore'
 
 type Mode = 'signin' | 'signup'
 
@@ -142,13 +135,13 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
     </label>
   )
 
-  // The door: a lilac arch with three tied notes on the left, the form on
-  // the right. Phones get the form alone.
+  // The door: a red slab with a score of points and lines on the left, the
+  // form on the right. Phones get a band of the score over the form.
   return (
     <div className={`sl-door${open ? ' open' : ''}`} role="dialog" aria-modal="true" aria-label={mode === 'signin' ? 'log in' : 'sign up'}>
       <div className="sl-door-l">
-        {open && <Bar w={720} h={900} y0={360} gap={60} s={50} line="rgba(26,25,23,.35)" notes={DOOR_NOTES} />}
-        <span className="sl-logo"><SlurMark height={40} arm={C.white} /><span>studio</span></span>
+        {open && <DoorScore />}
+        <span className="sl-logo"><SlurMark height={40} ink="#F1ECDF" arm="#F2C230" /><span>studio</span></span>
       </div>
       <div className="sl-door-r">
         <button className="sl-door-x" onClick={onClose}>close</button>

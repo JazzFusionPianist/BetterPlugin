@@ -214,6 +214,20 @@ async function runSelfTest (mode) {
     await note('page', { errors: window.__errs || [] })
     await NAT.call('testDone'); return
   }
+  if (mode === 'maker') {                                                          // only this: the theme maker's own app (build.sh installs it; run as "<it>/Contents/MacOS/Slur Studio" --selftest=maker): it opens on the room laid out by hand, alone — no project, no start page, nothing written, its own menu bar
+    await step('maker', async () => {
+      await sleep(600); flush()
+      const res = { on: typeof MK === 'object' && MK.on, alone: typeof MK === 'object' && MK.alone, boxes: BOX.names.filter(nm => LOOK['box.' + nm] != null).length, start: !!(typeof START === 'object' && START.on), hold: PROJ.hold, menus: MENUS.sent ? JSON.parse(MENUS.sent).map(m => m.t) : null, back: !!document.querySelector('[data-mk="back"]'), chrome: ['mk-top', 'mk-left', 'mk-right', 'mk-layers'].every(id => !!$(id)), title: document.querySelector('#mk-top input.name') && document.querySelector('#mk-top input.name').value }
+      /* kept: into the room's list (the check's own settings stand in for his) */
+      MK.name = 'check theme'; document.querySelector('[data-mk="keep"]').click(); await sleep(400)
+      const p = await NAT.call('prefGet'), v = p && p.looks && p.looks['check theme']
+      res.kept = { said: MK.said, inRoom: !!v, boxes: v ? Object.keys(v).filter(k => /^box\./.test(k)).length : 0 }
+      res.ok = res.on && res.alone && !res.start && res.hold > 0 && !res.back && res.chrome && res.kept.inRoom && res.kept.boxes >= 6
+      return res
+    })
+    await note('page', { errors: window.__errs || [] })
+    await NAT.call('testDone'); return
+  }
   if (mode === 'realtime') {                                                       // only this: a realtime print (Engine::liveStart, realtime.js) — the mix, two stems, a bounce in place, one stopped
     await step('realtime', async () => {
       const res = {}, t0 = performance.now()

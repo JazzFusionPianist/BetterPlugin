@@ -40,6 +40,23 @@ if [ -n "$SIGN" ] && codesign --force --deep --sign "$SIGN" "$DEST.new" > /dev/n
 else codesign --force --deep --sign - "$DEST.new" > /dev/null 2>&1; echo "signed by nobody (the Mac will ask again for the microphone and Documents after this build: see build.sh)"; fi
 rm -rf "$DEST" && mv "$DEST.new" "$DEST"
 echo "installed: $DEST"
+# the theme maker beside it, an app of its own (his ask, 2026-10-24): the same program, told by its Info.plist to open the
+# room laid out by hand (Main.cpp makerApp). It is not a second Slur Studio: another name and bundle id, no project it
+# opens or writes, no file kinds it answers for, settings of its own; a theme it keeps goes into the room's list.
+MAKER="/Applications/Slur Studio Theme Maker.app"
+rm -rf "$MAKER.new"
+ditto "$DEST" "$MAKER.new"
+PL="$MAKER.new/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName Slur Studio Theme Maker" -c "Set :CFBundleIdentifier com.slurstudio.daw.alpha.thememaker" "$PL"
+/usr/libexec/PlistBuddy -c "Delete :CFBundleDisplayName" "$PL" 2> /dev/null || true
+/usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Slur Studio Theme Maker" -c "Add :SlurSurface string maker" "$PL"
+/usr/libexec/PlistBuddy -c "Delete :CFBundleDocumentTypes" "$PL" 2> /dev/null || true
+/usr/libexec/PlistBuddy -c "Delete :UTExportedTypeDeclarations" "$PL" 2> /dev/null || true
+plutil -convert xml1 "$PL"
+{ [ -n "$SIGN" ] && codesign --force --deep --sign "$SIGN" "$MAKER.new" > /dev/null 2>&1; } || codesign --force --deep --sign - "$MAKER.new" > /dev/null 2>&1
+rm -rf "$MAKER" && mv "$MAKER.new" "$MAKER"
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$MAKER" > /dev/null 2>&1 || true
+echo "installed: $MAKER"
 # the same program under the name it had before ("Slur DAW"): taken away, so that there are never two to open — unless a
 # copy of it is open right now, which is left to be closed by hand
 OLD="/Applications/Slur DAW.app"

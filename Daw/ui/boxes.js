@@ -18,19 +18,20 @@ for (const nm of BOX.names.concat(['drawn'])) QUAL.set('box.' + nm, ['box.' + nm
 const boxSaid = () => BOX.on && BOX.names.some(nm => LOOK['box.' + nm] != null)
 const boxNums = s => String(s).trim().split(/[\s,]+/).map(Number)
 /* a box at the window's size (WW × WH, window units): its edges moved from where they were drawn by their pins */
-function boxRect (nm, WW, WH) {
-  const v = LOOK['box.' + nm]
-  if (v == null) return null
-  const [x, y, w, h, l = 0, t = 0, r = 0, b = 0] = boxNums(v), dW = WW - BOX.drawn[0], dH = WH - BOX.drawn[1]
+function boxRectOf (nums, WW, WH) {
+  const [x, y, w, h, l = 0, t = 0, r = 0, b = 0] = nums, dW = WW - BOX.drawn[0], dH = WH - BOX.drawn[1]
   const x0 = x + l * dW, x1 = x + w + r * dW, y0 = y + t * dH, y1 = y + h + b * dH
   return { x0, y0, x1, y1, w: Math.max(0, x1 - x0), h: Math.max(0, y1 - y0) }
 }
+function boxRect (nm, WW, WH) { const v = LOOK['box.' + nm]; return v == null ? null : boxRectOf(boxNums(v), WW, WH) }
+/* the room's x from the window's left edge: the transport's column at the left (none at the right — skins.js colOff) */
+const boxOff = () => typeof colOff === 'function' ? colOff() : (SKV.left || 0)
 /* the room as it is cut now, said as boxes (the window's units; the inspector, slur and the panel closed): what the
    theme maker starts from, and what the test holds the room to */
 function boxWrite () {
-  const left = SKV.left || 0, WW = W + left, WH = H, o = { 'box.drawn': `${WW} ${WH}` }
+  const col = SKV.left || 0, WW = W + col, WH = H, left = boxOff(), o = { 'box.drawn': `${WW} ${WH}` }
   const say = (nm, x0, y0, x1, y1, l, t, r, b) => { o['box.' + nm] = [x0, y0, x1 - x0, y1 - y0, l, t, r, b].map(v => +(+v).toFixed(1)).join(' ') }
-  if (left) say('transport', 0, 0, left, WH, 0, 0, 0, 1)
+  if (col) { if (SKIN.colRight) say('transport', WW - col, 0, WW, WH, 1, 0, 1, 1); else say('transport', 0, 0, col, WH, 0, 0, 0, 1) }      // (the column at the left, or at the right: skins.js)
   else if (BAR_H) say('transport', 0, 0, WW, BAR_H, 0, 0, 1, 0)
   if (DECK_H) say('foot', 0, WH - DECK_H, WW, WH, 0, 1, 1, 1)
   if (!SKIN.noTool) say('tool', 0, TOOL_Y, WW, TOOL_Y + TOOL_H, 0, 0, 1, 0)
@@ -55,7 +56,8 @@ function boxWrite () {
     const left0 = SKV.left || 0, WW = W + left0, WH = H
     BOX.drawn = LOOK['box.drawn'] != null ? boxNums(LOOK['box.drawn']) : [WW, WH]
     const t = boxRect('transport', WW, WH), f = boxRect('foot', WW, WH)
-    const col = !!t && t.x0 <= .5 && t.y0 <= .5 && t.y1 >= WH - .5 && t.w < WW / 2
+    const colL = !!t && t.x0 <= .5 && t.y0 <= .5 && t.y1 >= WH - .5 && t.w < WW / 2, colR = !!t && !colL && t.x1 >= WW - .5 && t.y0 <= .5 && t.y1 >= WH - .5 && t.w < WW / 2, col = colL || colR
+    if (col) SKIN.colRight = colR                                                   // (the column at the right of the room: skins.js)
     const top = !!t && !col && t.y0 <= .5 && t.h < WH / 2
     BAR_H = top ? Math.round(t.h) : 0
     DECK_H = Math.round(f ? f.h : t && !col && !top && t.y1 >= WH - .5 ? t.h : 0)
@@ -68,7 +70,7 @@ function boxWrite () {
     relayout0()
     BOX.dx = 0; BOX.cmdDy = 0
     if (!BOX.said || (typeof RTB !== 'undefined' && RTB.on)) return
-    const left = SKV.left || 0, WW = W + left, WH = H
+    const WW = W + (SKV.left || 0), WH = H, left = boxOff()
     const at = nm => { const r = boxRect(nm, WW, WH); return r ? { x0: r.x0 - left, x1: r.x1 - left, y0: r.y0, y1: r.y1 } : null }      // (room units)
     const lanes = at('lanes'), heads = at('heads'), marks = at('markers'), bars = at('bars'), tool = at('tool'), cmd = at('command line')
     const insp = typeof INSP === 'object' && INSP.w ? INSP.w : 0, panel = S.panel.h * VIEW.p

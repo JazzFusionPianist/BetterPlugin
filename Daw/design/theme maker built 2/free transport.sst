@@ -1,0 +1,13 @@
+{
+ "slurTheme": 1,
+ "name": "free transport",
+ "theme": {
+  "box.drawn": "1728 1117",
+  "box.lanes": "60 44 1376 999 0 0 1 1",
+  "box.heads": "1436 44 292 999 1 0 1 1",
+  "box.bars": "60 1043 1376 26 0 1 1 1",
+  "box.markers": "60 1069 1376 26 0 1 1 1",
+  "box.command line": "0 1095 1728 22 0 1 1 1",
+  "widgets": "[{\"id\": \"band\", \"is\": \"shape\", \"shape\": \"rect\", \"fill\": \"#1B1B1A\", \"at\": [0, 0, 1728, 44, 0, 0, 1, 0]}, {\"id\": \"pos\", \"is\": \"readout\", \"shows\": \"position\", \"size\": 20, \"weight\": 500, \"at\": [24, 6, 220, 32, 0, 0, 0, 0]}, {\"id\": \"time\", \"is\": \"readout\", \"shows\": \"time\", \"size\": 12, \"ink\": \"#9A9893\", \"at\": [250, 8, 130, 28, 0, 0, 0, 0]}, {\"id\": \"tempo\", \"is\": \"readout\", \"shows\": \"tempo\", \"size\": 12, \"at\": [1136, 8, 90, 28, 1, 0, 1, 0]}, {\"id\": \"meas\", \"is\": \"readout\", \"shows\": \"measure\", \"size\": 12, \"at\": [1236, 8, 60, 28, 1, 0, 1, 0]}, {\"id\": \"key\", \"is\": \"readout\", \"shows\": \"key\", \"size\": 12, \"at\": [1306, 8, 90, 28, 1, 0, 1, 0]}, {\"id\": \"disc\", \"is\": \"shape\", \"shape\": \"disc\", \"fill\": \"#1B1B1A\", \"fa\": 94, \"line\": \"#ECEAE4\", \"la\": 18, \"at\": [120, 583, 124, 124, 0, 1, 0, 1]}, {\"id\": \"play\", \"is\": \"button\", \"does\": \"play\", \"size\": 16, \"at\": [168, 597, 28, 28, 0, 1, 0, 1]}, {\"id\": \"tostart\", \"is\": \"button\", \"does\": \"tostart\", \"at\": [130, 629, 24, 24, 0, 1, 0, 1]}, {\"id\": \"click\", \"is\": \"button\", \"does\": \"click\", \"at\": [210, 629, 24, 24, 0, 1, 0, 1]}, {\"id\": \"stop\", \"is\": \"button\", \"does\": \"stop\", \"at\": [146, 661, 24, 24, 0, 1, 0, 1]}, {\"id\": \"rec\", \"is\": \"button\", \"does\": \"rec\", \"label\": \"\\u25cf\", \"at\": [194, 661, 24, 24, 0, 1, 0, 1]}, {\"id\": \"loop\", \"is\": \"button\", \"does\": \"loop\", \"at\": [170, 679, 24, 24, 0, 1, 0, 1]}, {\"id\": \"meter\", \"is\": \"meter\", \"at\": [10, 60, 40, 500, 0, 0, 0, 0]}, {\"id\": \"out\", \"is\": \"knob\", \"does\": \"master\", \"at\": [6, 580, 48, 48, 0, 0, 0, 0]}, {\"id\": \"lamp\", \"is\": \"lamp\", \"shows\": \"recording\", \"label\": \"rec\", \"ink\": \"#9A9893\", \"at\": [8, 650, 50, 16, 0, 0, 0, 0]}, {\"id\": \"mixer\", \"is\": \"button\", \"does\": \"menu:winmixer\", \"label\": \"mixer\", \"size\": 9.5, \"at\": [1356, 613, 60, 22, 1, 1, 1, 1]}]"
+ }
+}

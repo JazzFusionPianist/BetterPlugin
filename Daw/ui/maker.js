@@ -5,7 +5,7 @@
    layers at the foot. A box pressed is chosen and pulled; its handles size it; its pins say what follows the window
    (boxes.js). The head opened: its template's parts, at three heights, pulled where they should stand (tmpl.js).
    Every change is made in the look (LOOK) and the room redraws: what is seen is what the theme is. Read after tmpl.js. */
-const MK = { on: new URLSearchParams(location.search).get('maker') != null, size: [1728, 1117], k: 1, mode: 'boxes', sel: null, part: null, try: false, drag: null, undo: [], redo: [], name: 'untitled theme', said: '', warn: null, cols: [14, 28, 72], hz: 1.6, guides: [] }
+const MK = { on: new URLSearchParams(location.search).get('maker') != null, alone: new URLSearchParams(location.search).get('alone') != null, size: [1728, 1117], k: 1, mode: 'boxes', sel: null, part: null, try: false, drag: null, undo: [], redo: [], name: 'untitled theme', said: '', warn: null, cols: [14, 28, 72], hz: 1.6, guides: [] }
 const MK_SIZES = [['13″', 1440, 900], ['16″', 1728, 1117], ['27″', 2560, 1440]]
 const MK_Z = ['command line', 'tool', 'markers', 'bars', 'heads', 'transport', 'foot', 'lanes']       // what is pressed first: the smaller over the larger
 const MK_NAMES = { transport: 'transport', foot: 'foot band', tool: 'tool row', markers: 'markers', bars: 'bars', heads: 'heads', lanes: 'lanes', 'command line': 'command line' }
@@ -57,7 +57,7 @@ if (MK.on) {
   { const g = document.createElementNS('http://www.w3.org/2000/svg', 'g'); g.id = 'g-maker'; $('svg').appendChild(g) }
   const MKC = '#6E9BFF'                                                              // the maker's own colour: what it draws over the room, never the room's
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-  const left = () => SKV.left || 0
+  const left = () => boxOff()
   const WW = () => W + left(), WH = () => H
 
   /* ── the room at the size the theme is drawn for, scaled into the middle ── */
@@ -74,19 +74,36 @@ if (MK.on) {
   }
   /* the theme's boxes, seeded from the room as it stands when it has none (every box there, to be pulled) */
   const seed = () => { if (!boxSaid()) { Object.assign(LOOK, boxWrite()); relayout() } }
-  const rectOf = nm => boxRect(nm, WW(), WH())
-  const pinsOf = nm => { const v = LOOK['box.' + nm]; return v == null ? [0, 0, 0, 0] : boxNums(v).slice(4, 8).map(x => x || 0) }
+  /* a widget is chosen by 'w:' and its id; a box by its name */
+  const isW = nm => typeof nm === 'string' && nm.startsWith('w:')
+  const wgOf = nm => wgList().find(q => 'w:' + q.id === nm) || null
+  const rectOf = nm => isW(nm) ? (wgOf(nm) ? wgRect(wgOf(nm)) : null) : boxRect(nm, WW(), WH())
+  const pinsOf = nm => { if (isW(nm)) { const w = wgOf(nm); return w ? (w.at || []).slice(4, 8).map(x => x || 0) : [0, 0, 0, 0] } const v = LOOK['box.' + nm]; return v == null ? [0, 0, 0, 0] : boxNums(v).slice(4, 8).map(x => x || 0) }
   /* a box set at the window's size: stored at the size the theme was drawn at, its pins undone */
   const store = (nm, r, pins) => {
     const [l, t, rr, b] = pins || pinsOf(nm), dW = WW() - BOX.drawn[0], dH = WH() - BOX.drawn[1]
-    const x = r.x0 - l * dW, x1 = r.x1 - rr * dW, y = r.y0 - t * dH, y1 = r.y1 - b * dH
-    LOOK['box.' + nm] = [x, y, x1 - x, y1 - y, l, t, rr, b].map(v => +(+v).toFixed(1)).join(' ')
+    const x = r.x0 - l * dW, x1 = r.x1 - rr * dW, y = r.y0 - t * dH, y1 = r.y1 - b * dH, nums = [x, y, x1 - x, y1 - y, l, t, rr, b].map(v => +(+v).toFixed(1))
+    if (isW(nm)) { const list = wgList(), w = list.find(q => 'w:' + q.id === nm); if (w) { w.at = nums; wgSave(list) } return }
+    LOOK['box.' + nm] = nums.join(' ')
+  }
+  /* a widget changed: the field set (or taken off), the list kept */
+  const wgSet = (nm, k, v) => { const list = wgList(), w = list.find(q => 'w:' + q.id === nm); if (!w) return; if (v == null || v === '') delete w[k]; else w[k] = v; wgSave(list) }
+  const wgNames = { button: 'button', readout: 'readout', knob: 'knob', fader: 'fader', meter: 'meter', lamp: 'lamp', text: 'text', shape: 'shape', line: 'line', image: 'image' }
+  const wgSaid = w => `${wgNames[w.is] || w.is}${w.does ? ': ' + w.does.replace(/^(menu|key):/, '') : w.shows ? ': ' + w.shows : w.label ? ': ' + w.label : ''}`
+  /* a new widget, in the middle of the window, chosen */
+  const WG_NEW = { button: { does: 'play', at: [60, 28] }, readout: { shows: 'position', at: [120, 28] }, knob: { does: 'master', at: [72, 72] }, fader: { does: 'master', at: [28, 120] }, meter: { at: [24, 120] }, lamp: { shows: 'playing', label: 'playing', at: [80, 18] }, text: { label: 'text', at: [120, 20] }, shape: { shape: 'rect', at: [100, 60] }, line: { at: [120, 2] }, image: { at: [160, 100] } }
+  function wgAdd (is, more = {}) {
+    seed(); snap()
+    const d = WG_NEW[is] || { at: [60, 28] }, list = wgList(), id = Date.now().toString(36) + (list.length + 1).toString(36), [w, h] = d.at
+    list.push(Object.assign({ id, is }, d, more, { at: [Math.round(WW() / 2 - w / 2), Math.round(WH() / 2 - h / 2), w, h, 0, 0, 0, 0] })); wgSave(list)
+    MK.sel = 'w:' + id; MK.mode = 'boxes'; lay(); chrome()
   }
   const lay = () => { relayout(); dirtyAll() }
   const snap = () => { MK.undo.push(JSON.stringify(LOOK)); if (MK.undo.length > 200) MK.undo.shift(); MK.redo.length = 0 }
   const back = (from, to) => { if (!from.length) return; to.push(JSON.stringify(LOOK)); applyLook(JSON.parse(from.pop())); setView(true); chrome() }
   const within = (r, x, y) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1
-  const boxAt = (x, y) => MK_Z.find(nm => { const r = rectOf(nm); return r && within(r, x, y) }) || null
+  /* what is pressed: the widgets first (the last drawn on top), then the boxes, the smaller over the larger */
+  const boxAt = (x, y) => { const ws = wgList(); for (let i = ws.length - 1; i >= 0; i--) if (within(wgRect(ws[i]), x, y)) return 'w:' + ws[i].id; return MK_Z.find(nm => { const r = rectOf(nm); return r && within(r, x, y) }) || null }
 
   /* ── what is drawn over the room: the chosen box, its handles, its pins, the guides, the distances; the head's columns ── */
   const HANDLES = [['nw', 0, 0], ['n', .5, 0], ['ne', 1, 0], ['w', 0, .5], ['e', 1, .5], ['sw', 0, 1], ['s', .5, 1], ['se', 1, 1]]
@@ -98,7 +115,7 @@ if (MK.on) {
     return s + hits
   }
   const pinG = (x, y, on, dir, k) => on ? G(P(`M${n(x - 5 / k)} ${n(y)}H${n(x + 5 / k)}M${n(x + 2 / k)} ${n(y - 3 / k)}L${n(x + 5 / k)} ${n(y)}L${n(x + 2 / k)} ${n(y + 3 / k)}`, { stroke: MKC, sw: 1.2 / k, cap: 'round' }), `rotate(${dir} ${n(x)} ${n(y)})`) : Cc(x, y, 2.4 / k, { fill: MKC })
-  const label = (x, y, t, k, anchor = 'start') => T(x, y, t, { size: 9.5 / k, c: MKC, anchor })
+  const label = (x, y, t, k, anchor = 'start') => { const sz = 9.5 / k, w = tw(t, sz) + 6 / k, x0 = anchor === 'middle' ? x - w / 2 : anchor === 'end' ? x - w + 3 / k : x - 3 / k; return R(x0, y - sz * .95, w, sz * 1.3, { fill: K0, fa: .86 }) + T(x, y, t, { size: sz, c: MKC, anchor }) }      // (on a dark ground of its own: it may stand over what the room draws)
   const dist = (x0, y0, x1, y1, t, k) => { const v = x0 === x1; return P(`M${n(x0)} ${n(y0)}L${n(x1)} ${n(y1)}`, { stroke: MKC, sw: 1 / k }) + (v ? P(`M${n(x0 - 3 / k)} ${n(y0)}H${n(x0 + 3 / k)}M${n(x0 - 3 / k)} ${n(y1)}H${n(x0 + 3 / k)}`, { stroke: MKC, sw: 1 / k }) + label(x0 + 6 / k, (y0 + y1) / 2 + 3.5 / k, t, k) : P(`M${n(x0)} ${n(y0 - 3 / k)}V${n(y0 + 3 / k)}M${n(x1)} ${n(y0 - 3 / k)}V${n(y0 + 3 / k)}`, { stroke: MKC, sw: 1 / k }) + label((x0 + x1) / 2, y0 - 5 / k, t, k, 'middle')) }
   function pMaker () {
     const k = 1, l = left()
@@ -113,7 +130,7 @@ if (MK.on) {
     const above = nearest(nm, 'y', y0), beside = nearest(nm, 'x', r.x0)
     if (above != null && y0 - above > 1) d += dist((x0 + x1) / 2 - 40, above, (x0 + x1) / 2 - 40, y0, String(Math.round(y0 - above)), k)
     if (beside != null && r.x0 - beside > 1) d += dist(beside - l, (y0 + y1) / 2 - 40, x0, (y0 + y1) / 2 - 40, String(Math.round(r.x0 - beside)), k)
-    d += label(x0, y0 - 8, `${MK_NAMES[nm]}  —  ${Math.round(r.x0)} · ${Math.round(r.y0)}  —  ${Math.round(r.w)} × ${Math.round(r.h)}`, k)
+    d += label(x0, y0 - 8, `${isW(nm) ? wgSaid(wgOf(nm) || {}) : MK_NAMES[nm]}   ${Math.round(r.x0)}, ${Math.round(r.y0)}   ${Math.round(r.w)} × ${Math.round(r.h)}`, k)
     return s + G(d, '', ' pointer-events="none"') + frame(x0, y0, x1, y1, k, ` data-nm="${nm}"`)      // (what is drawn takes no presses; the handles do)
   }
   /* the nearest edge above (axis y: a bottom edge or the window's top) or at the left (a right edge or the window's left) */
@@ -132,8 +149,8 @@ if (MK.on) {
     MK.cols.forEach((rh, c) => {
       S.rh = rh; for (const t of S.tracks) delete t.h
       relayout()
-      const x = colX(c) - l, y = 64, h = rows.length * rh
-      s += label(x, y - 14, `${tmplLayout(doc(), rh).name} · ${rh}`, z, 'start').replace(MKC, INK)
+      const x = colX(c), y = 64, h = rows.length * rh                              // (in the columns' own units: the group is moved to the window's left edge and scaled)
+      s += label(x, y - 14, `${tmplLayout(doc(), rh).name}, ${rh}`, z, 'start').replace(MKC, INK)
       s += R(x, y, HEAD_W, h, { fill: lkC('heads.ground', K1) })
       let rowsS = ''
       for (const i of rows) rowsS += G(headRow(i), `translate(0 ${n(y + i * rh - rowY(i))})`)
@@ -146,15 +163,15 @@ if (MK.on) {
           const nmP = tmplGeom(i, rh).find(q => q.is === 'name'), cl = tmplGeom(i, rh).find(q => q.is === 'cells')
           let d = ''
           if (p.is === 'level' && nmP) d += dist(x + nmP.x, py + p.h + 12, px, py + p.h + 12, `${Math.round(px - x - nmP.x)} from the name`, z)
-          if (p.is === 'level' && cl) d += dist(px + p.w, py - 10, x + cl.x, py - 10, `${Math.round(x + cl.x - px - p.w)} to the cells`, z)
-          d += label(px, py - 8, `${p.is}  —  ${Math.round(p.x)} · ${Math.round(p.y)}  —  ${Math.round(p.w)} × ${Math.round(p.h)}`, z)
+          if (p.is === 'level' && cl) d += dist(px + p.w, py + p.h + 24, x + cl.x, py + p.h + 24, `${Math.round(x + cl.x - px - p.w)} to the cells`, z)
+          d += label(px, py - 8, `${p.is}   ${Math.round(p.x)}, ${Math.round(p.y)}   ${Math.round(p.w)} × ${Math.round(p.h)}`, z)
           s += G(d, '', ' pointer-events="none"') + frame(px, py, px + p.w, py + p.h, z, ` data-is="${p.is}" data-c="${c}"`)
         }
       }
     })
     S.rh = was; S.tracks.forEach((t, i) => { if (wasH[i] != null) t.h = wasH[i] }); relayout()
     /* the columns stand larger than life (z), the hand's pull read back through it (partMove) */
-    return R(-l, 0, WW(), WH(), { fill: K0 }) + G(s, `translate(${n(-l)} 0) scale(${z})`) + T(48 - l, WH() - 22, 'pull a part where it should stand; its column is the layout it belongs to — thin, one line, two lines', { size: 9.5, a: .4 })
+    return R(-l, 0, WW(), WH(), { fill: K0 }) + G(s, `translate(${n(-l)} 0) scale(${z})`) + T(48 - l, WH() - 22, 'pull a part where it should stand; its column is the layout it belongs to: thin, one line, two lines', { size: 9.5, a: .4 })
   }
 
   /* ── the pointer: a box or a part pressed, pulled, let go ── */
@@ -227,6 +244,8 @@ if (MK.on) {
     }
     if (MK.mode === 'head' && MK.part && /^Arrow/.test(e.key)) { e.preventDefault(); snap(); const s = e.shiftKey ? 10 : 1; partMove({ is: MK.part.is, c: MK.part.c, kind: 'part', x: 0, y: 0, moved: true, keyed: true }, e.key === 'ArrowLeft' ? -s : e.key === 'ArrowRight' ? s : 0, e.key === 'ArrowUp' ? -s : e.key === 'ArrowDown' ? s : 0, e); return true }
     if ((e.metaKey || e.ctrlKey) && e.code === 'KeyZ') { e.preventDefault(); if (e.shiftKey) back(MK.redo, MK.undo); else back(MK.undo, MK.redo); return true }
+    if ((e.key === 'Backspace' || e.key === 'Delete') && MK.mode === 'boxes' && isW(MK.sel)) { e.preventDefault(); snap(); wgSave(wgList().filter(w => 'w:' + w.id !== MK.sel)); MK.sel = null; lay(); chrome(); return true }
+    if ((e.metaKey || e.ctrlKey) && e.code === 'KeyD' && MK.mode === 'boxes' && isW(MK.sel)) { e.preventDefault(); document.querySelector('[data-mk="wdup"]') && document.querySelector('[data-mk="wdup"]').click(); return true }
     if ((e.key === 'Backspace' || e.key === 'Delete') && MK.mode === 'boxes' && MK.sel && MK.sel !== 'lanes') { e.preventDefault(); snap(); delete LOOK['box.' + MK.sel]; MK.sel = null; lay(); chrome(); return true }
     if (e.key === 'Escape') { MK.sel = null; MK.part = null; uiDirty('maker'); chrome(); return true }
     return false
@@ -260,63 +279,101 @@ if (MK.on) {
     $('mk-top').innerHTML = `<input class="name" data-mk="name" value="${esc(MK.name)}" style="position:absolute;left:12px;top:10px">
       <span class="said">${esc(MK.said)}</span>
       <div class="sizes">${MK_SIZES.map(([t, w, h]) => chip(`${t} ${w}×${h}`, MK.size[0] === w && MK.size[1] === h, 'size', ` data-w="${w}" data-h="${h}"`)).join('')}</div>
-      <div class="play"><span class="key" data-mk="play">${S.playing ? 'stop' : 'play'}</span><span class="key${MK.try ? ' armed' : ''}" data-mk="try">try the room</span><span class="key" data-mk="back" style="margin-left:14px">back to the room</span></div>
+      <div class="play"><span class="key" data-mk="play">${S.playing ? 'stop' : 'play'}</span><span class="key${MK.try ? ' armed' : ''}" data-mk="try">try the room</span>${MK.alone ? '' : '<span class="key" data-mk="back" style="margin-left:14px">back to the room</span>'}</div>
       <div class="keys"><span class="key${MK.undo.length ? '' : ' dim'}" data-mk="undo">undo</span><span class="key${MK.redo.length ? '' : ' dim'}" data-mk="redo">redo</span><span class="key" data-mk="check">check</span><span class="key" data-mk="open">open .sst…</span><span class="key" data-mk="share">share as .sst…</span><span class="key armed" data-mk="keep">keep</span></div>`
     /* the left: every box, the head's template, what comes later */
     const rows = BOX.names.map(nm => { const has = LOOK['box.' + nm] != null; return `<div class="row${MK.mode === 'boxes' && MK.sel === nm ? ' on' : ''}${has ? '' : ' dim'}" data-mk="box" data-nm="${nm}"><span>${esc(MK_NAMES[nm])}</span><span class="k">${has ? (nm === 'lanes' ? 'always' : '') : '+ add'}</span></div>` }).join('')
-    $('mk-left').innerHTML = `<div class="h">boxes — pressed in the room, or here</div>${rows}
-      <div class="h">templates — drawn once, drawn for every track</div>
+    $('mk-left').innerHTML = `<div class="h">boxes: pressed in the room, or here</div>${rows}
+      <div class="h">templates: drawn once, drawn for every track</div>
       <div class="row${MK.mode === 'head' ? ' on' : ''}" data-mk="mode" data-mode="head"><span>the head</span><span class="k">${MK.mode === 'head' ? 'editing' : 'edit…'}</span></div>
       <div class="row${MK.mode === 'boxes' ? ' on' : ''}" data-mk="mode" data-mode="boxes"><span>the room</span><span class="k">${MK.mode === 'boxes' ? 'editing' : 'back…'}</span></div>
-      <div class="h">controls — any function, as a</div>
-      ${['button', 'readout', 'knob', 'fader', 'meter', 'lamp'].map(t => `<div class="row dim"><span>${t}</span><span class="k">stage three</span></div>`).join('')}
+      <div class="h">controls: pressed, one is put in the middle of the room</div>
+      ${[['button', 'play, stop… any menu line'], ['readout', 'position, tempo…'], ['knob', 'the out, the tempo'], ['fader', 'the out'], ['meter', 'the out'], ['lamp', 'playing, recording…']].map(([t, k]) => `<div class="row" data-mk="add" data-is="${t}"><span>${t}</span><span class="k">${k}</span></div>`).join('')}
       <div class="h">marks</div>
-      ${['text', 'shape', 'line', 'image', 'group'].map(t => `<div class="row dim"><span>${t}</span><span class="k">stage three</span></div>`).join('')}`
+      ${[['text', ''], ['shape', 'rect, disc, triangle'], ['line', ''], ['image', 'png, jpg, svg']].map(([t, k]) => `<div class="row" data-mk="add" data-is="${t}"><span>${t}</span><span class="k">${k}</span></div>`).join('')}
+      ${wgList().length ? `<div class="h">widgets in the theme</div>` + wgList().map(w => `<div class="row${MK.mode === 'boxes' && MK.sel === 'w:' + w.id ? ' on' : ''}" data-mk="box" data-nm="w:${w.id}"><span>${esc(wgSaid(w))}</span></div>`).join('') : ''}`
     /* the right: what the chosen thing is */
     let right = ''
     if (MK.mode === 'head') {
       const dd = doc(), p = MK.part, lay_ = p ? tmplLayout(dd, MK.cols[p.c]) : null, part = lay_ && lay_.parts.find(q => q.is === p.is)
-      right = `<div class="title">${p ? esc(p.is) + ' — a part of the head' : 'the head — its template'}</div>`
-      right += `<div class="h">layouts — by the row's height</div>` + field('', dd.layouts.map((L, i) => chip(`${L.name} ${L.for[0] || 0}–${L.for[1] == null ? '∞' : L.for[1]}`, p && lay_ === L, 'col', ` data-c="${i}"`)).join(''))
+      right = `<div class="title">${p ? esc(p.is) + ': a part of the head' : 'the head: its template'}</div>`
+      right += `<div class="h">layouts, by the row's height</div>` + field('', dd.layouts.map((L, i) => chip(`${L.name} ${L.for[0] || 0}–${L.for[1] == null ? '∞' : L.for[1]}`, p && lay_ === L, 'col', ` data-c="${i}"`)).join(''))
       if (part) {
-        const rule = v => v == null ? '—' : typeof v === 'number' ? String(v) : typeof v === 'string' ? v : `${v.from ? v.from + ' ' : ''}${v.a != null ? (v.a >= 0 && v.from ? '+ ' : '') + v.a : ''}${v.k ? ` + ${v.k} × height` : ''}${v.round ? ', rounded' : ''}${v.min != null ? `, at least ${v.min}` : ''}${v.max != null ? `, at most ${v.max}` : ''}`
-        right += `<div class="h">stands at — a number, or a rule of the row's height</div>`
+        const rule = v => v == null ? 'none' : typeof v === 'number' ? String(v) : typeof v === 'string' ? v : `${v.from ? v.from + ' ' : ''}${v.a != null ? (v.a >= 0 && v.from ? '+ ' : '') + v.a : ''}${v.k ? ` + ${v.k} × height` : ''}${v.round ? ', rounded' : ''}${v.min != null ? `, at least ${v.min}` : ''}${v.max != null ? `, at most ${v.max}` : ''}`
+        right += `<div class="h">stands at: a number, or a rule of the row's height</div>`
         for (const k of ['x', 'y', 'w', 'inset', 'right', 'room', 'size']) if (part[k] != null) right += field(k === 'right' ? 'from the right' : k === 'room' ? 'the name ends by' : k, `<span style="font-variant-numeric:tabular-nums">${esc(rule(part[k]))}</span>`)
-        if (part.reads) right += field('reads at', `<span style="font-variant-numeric:tabular-nums">${esc(rule(part.reads.x))} · ${esc(rule(part.reads.y))}</span>`)
+        if (part.reads) right += field('reads at', `<span style="font-variant-numeric:tabular-nums">${esc(rule(part.reads.x))}, ${esc(rule(part.reads.y))}</span>`)
         right += `<div class="note">pull it in its column; ⇧ and the arrows move it by ten. The slope on the height (½: it stays in the row's middle) is kept.</div>`
         if (part.states) { right += `<div class="h">in each state</div>`; for (const st in part.states) right += field(st, `<span style="opacity:.6">${esc(JSON.stringify(part.states[st]))}</span>`) }
-        right += `<div class="h">what comes later</div><div class="note">as a bar, a knob, a fader, an image stack; images in each state; a part added to the head; letting the user set it — stage three.</div>`
+        right += `<div class="h">what comes later</div><div class="note">as a bar, a knob, a fader, an image stack; images in each state; a part added to the head; letting the user set it: later.</div>`
       } else right += `<div class="note" style="padding-left:14px">press a part in any column: the colour mark, the number, the name, the cells, the level, its reading. Each column is one layout: thin rows, one line, two lines.</div>`
-    } else {
+    } else if (isW(MK.sel) && wgOf(MK.sel)) right = wgProps(MK.sel)
+    else {
       const nm = MK.sel, r = nm && rectOf(nm)
       if (!r) right = `<div class="title">the room</div><div class="note" style="padding-left:14px">press a box in the room to choose it; pull it, or its handles; the arrows nudge it. A box pressed in the list at the left is chosen too.</div>`
       else {
         const pins = pinsOf(nm)
-        right = `<div class="title">${esc(MK_NAMES[nm])} — a box</div>
-          <div class="h">stands at</div>${field('left · top', num('x', r.x0) + num('y', r.y0))}${field('width · height', num('w', r.w) + num('h', r.h))}
-          <div class="h">when the window grows</div>${field('the edges', chip(`left · ${PIN_WORDS[pins[0]] || pins[0]}`, pins[0] === 1, 'pin', ' data-p="0"') + chip(`top · ${PIN_WORDS[pins[1]] || pins[1]}`, pins[1] === 1, 'pin', ' data-p="1"'))}${field('', chip(`right · ${PIN_WORDS[pins[2]] || pins[2]}`, pins[2] === 1, 'pin', ' data-p="2"') + chip(`bottom · ${PIN_WORDS[pins[3]] || pins[3]}`, pins[3] === 1, 'pin', ' data-p="3"'))}
+        right = `<div class="title">${esc(MK_NAMES[nm])}: a box</div>
+          <div class="h">stands at</div>${field('left, top', num('x', r.x0) + num('y', r.y0))}${field('width, height', num('w', r.w) + num('h', r.h))}
+          <div class="h">when the window grows</div>${field('the edges', chip(`left ${PIN_WORDS[pins[0]] || pins[0]}`, pins[0] === 1, 'pin', ' data-p="0"') + chip(`top ${PIN_WORDS[pins[1]] || pins[1]}`, pins[1] === 1, 'pin', ' data-p="1"'))}${field('', chip(`right ${PIN_WORDS[pins[2]] || pins[2]}`, pins[2] === 1, 'pin', ' data-p="2"') + chip(`bottom ${PIN_WORDS[pins[3]] || pins[3]}`, pins[3] === 1, 'pin', ' data-p="3"'))}
           <div class="note">pressed, an edge goes from staying, to following the window, to half way. A wider window: what follows at the right moves or stretches.</div>`
-        if (nm === 'transport' || nm === 'foot') right += `<div class="h">drawn as</div>${field('', `<span style="opacity:.6">${nm === 'transport' ? (l ? `a column down the left, ${l} wide` : BAR_H ? `a band over the room, ${BAR_H} tall` : 'no band — the transport is drawn by its kind') : `a band over the foot, ${DECK_H} tall`}</span>`)}<div class="note">the transport is drawn by its kind for now (stage three draws it from widgets); its box says only how wide its column, or how tall its band, is.</div>`
-        if (nm === 'heads') right += `<div class="h">the heads</div>${field('rows', '<span style="opacity:.6">follow the lanes — always</span>')}${field('width', '<span style="opacity:.6">292 for now</span>')}${field('the template', chip('edit the head…', false, 'mode', ' data-mode="head"'))}`
-        if (nm === 'markers' || nm === 'bars') right += `<div class="h">the ${nm}</div>${field('time', '<span style="opacity:.6">the lanes\' — always; above or under them as the box stands</span>')}`
+        if (nm === 'transport' || nm === 'foot') right += `<div class="h">drawn as</div>${field('', `<span style="opacity:.6">${nm === 'transport' ? (l ? `a column down the left, ${l} wide` : BAR_H ? `a band over the room, ${BAR_H} tall` : 'no band: the transport is drawn by its kind') : `a band over the foot, ${DECK_H} tall`}</span>`)}<div class="note">the transport is drawn by its kind for now (stage three draws it from widgets); its box says only how wide its column, or how tall its band, is.</div>`
+        if (nm === 'heads') right += `<div class="h">the heads</div>${field('rows', '<span style="opacity:.6">follow the lanes, always</span>')}${field('width', '<span style="opacity:.6">292 for now</span>')}${field('the template', chip('edit the head…', false, 'mode', ' data-mode="head"'))}`
+        if (nm === 'markers' || nm === 'bars') right += `<div class="h">the ${nm}</div>${field('time', '<span style="opacity:.6">the lanes\', always; above or under them as the box stands</span>')}`
         if (nm === 'command line') right += `<div class="h">the command line</div>${field('height', '<span style="opacity:.6">22 for now</span>')}`
         right += `<div class="h">shows</div>${field('', chip('always', true, '') + (nm === 'lanes' ? '' : chip('take it out', false, 'remove')))}`
-        right += `<div class="h">looks</div><div class="note" style="padding-left:14px">fill, line, corners, shadow, opacity — stage three. Colours are the look's, on the display page.</div>`
+        right += `<div class="h">looks</div><div class="note" style="padding-left:14px">fill, line, corners, shadow, opacity: later. Colours are the look's, on the display page.</div>`
       }
     }
     $('mk-right').innerHTML = right
     /* the foot: the order they are drawn in */
-    const order = ['lanes', 'heads', 'bars', 'markers', 'tool', 'transport', 'foot', 'command line'].filter(nm => LOOK['box.' + nm] != null || nm === 'lanes').reverse()
-    $('mk-layers').innerHTML = `<div class="h" style="display:flex">layers — what is over what<span style="margin-left:auto">${MK.warn == null ? 'press check' : MK.warn.length ? MK.warn.length + ' covered: ' + esc(MK.warn.slice(0, 3).join(', ')) : 'nothing is covered'}</span></div>
-      <div class="cols">${order.map(nm => `<div class="row${MK.mode === 'boxes' && MK.sel === nm ? ' on' : ''}" data-mk="box" data-nm="${nm}" style="break-inside:avoid"><span>${esc(MK_NAMES[nm])}</span><span class="k">${nm === 'lanes' ? 'under everything' : ''}</span></div>`).join('')}</div>
-      <div class="note" style="padding-left:14px">the room draws them in this order for now; pulling a layer over another comes with stage three.</div>`
+    const order = wgList().map(w => 'w:' + w.id).reverse().concat(['lanes', 'heads', 'bars', 'markers', 'tool', 'transport', 'foot', 'command line'].filter(nm => LOOK['box.' + nm] != null || nm === 'lanes').reverse())
+    $('mk-layers').innerHTML = `<div class="h" style="display:flex">layers: what is over what<span style="margin-left:auto">${MK.warn == null ? 'press check' : MK.warn.length ? MK.warn.length + ' covered: ' + esc(MK.warn.slice(0, 3).join(', ')) : 'nothing is covered'}</span></div>
+      <div class="cols">${order.map(nm => `<div class="row${MK.mode === 'boxes' && MK.sel === nm ? ' on' : ''}" data-mk="box" data-nm="${nm}" style="break-inside:avoid"><span>${esc(isW(nm) ? wgSaid(wgOf(nm) || {}) : MK_NAMES[nm])}</span><span class="k">${nm === 'lanes' ? 'under everything' : isW(nm) ? 'widget' : ''}</span></div>`).join('')}</div>
+      <div class="note" style="padding-left:14px">the widgets lie over the room's parts, the later over the earlier; the parts keep their order for now.</div>`
+  }
+  /* what a widget is: what it does or shows, its words, where it stands, its pins, its looks */
+  const sel = (k, items, v) => `<select data-wk="${k}" class="num" style="width:auto;max-width:170px">${items.map(([t, val]) => `<option value="${esc(val)}"${val === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>`
+  const txt = (k, v, w = 120) => `<input class="num" data-wk="${k}" value="${esc(v == null ? '' : v)}" style="width:${w}px">`
+  const nump = (k, v, unit = '') => `<input class="num" data-wk="${k}" data-num="1" value="${v == null ? '' : v}" style="width:54px">${unit ? `<span style="opacity:.4;margin-left:-2px">${unit}</span>` : ''}`
+  const col = (k, v) => `<input type="color" data-wk="${k}" value="${v || '#ECEAE4'}" style="width:22px;height:20px;padding:0;border:1px solid rgba(236,234,228,.2);background:#0E0E0E">${v ? chip('none', false, 'wnone', ` data-k="${k}"`) : `<span style="opacity:.4;font-size:9.5px">the room's</span>`}`
+  /* every line of the menu bar, as a button may do it */
+  const menuLines = () => { const out = []; for (const [m, lines] of MENU_BAR()) (function walk (ls, path) { for (const l of ls) { if (l === '-') continue; const [t0, k0, o = {}] = l; if (o.sub) { walk(o.sub, path + ' › ' + t0); continue } if (o.id || o.do || (k0 && KEYS[k0])) out.push([path + ' › ' + t0, 'menu:' + (o.id || `m:${out.length}`)]) } })(lines, m); return out }
+  function wgProps (nm) {
+    const w = wgOf(nm), r = wgRect(w), pins = pinsOf(nm)
+    let s = `<div class="title">${esc(wgNames[w.is] || w.is)}: a widget</div>`
+    if (w.is === 'button') s += `<div class="h">what it does</div>` + field('does', sel('does', WG_DOES.concat([['none', '']], menuLines().filter(([, v]) => !/m:\d+$/.test(v))), w.does || 'play')) + field('label', txt('label', w.label) + `<span style="opacity:.4">(none: its glyph)</span>`) + field('size', nump('size', w.size, 'px'))
+    if (w.is === 'readout') s += `<div class="h">what it shows</div>` + field('shows', sel('shows', WG_SHOWS.map(x => [x, x]), w.shows || 'position')) + field('size, weight', nump('size', w.size, 'px') + sel('weight', [['regular', 400], ['medium', 500], ['bold', 600]], w.weight || 400))
+    if (w.is === 'knob') s += `<div class="h">what it turns</div>` + field('does', sel('does', [['the out', 'master'], ['the tempo', 'tempo']], w.does || 'master'))
+    if (w.is === 'lamp') s += `<div class="h">what it shows</div>` + field('lit when', sel('shows', WG_LAMPS.map(x => [x, x]), w.shows || 'playing')) + field('label', txt('label', w.label))
+    if (w.is === 'text') s += `<div class="h">the words</div>` + field('text', txt('label', w.label, 160)) + field('size, weight', nump('size', w.size, 'px') + sel('weight', [['regular', 400], ['medium', 500], ['bold', 600]], w.weight || 400)) + field('set', sel('anchor', [['from the left', 'start'], ['in the middle', 'middle'], ['to the right', 'end']], w.anchor || 'start'))
+    if (w.is === 'shape') s += `<div class="h">the shape</div>` + field('shape', sel('shape', [['rect', 'rect'], ['disc', 'disc'], ['triangle', 'triangle']], w.shape || 'rect')) + field('line width', nump('sw', w.sw, 'px'))
+    if (w.is === 'line') s += `<div class="h">the line</div>` + field('width', nump('sw', w.sw, 'px')) + `<div class="note">a line runs from the box's top left to its bottom right: size the box to lay it</div>`
+    if (w.is === 'image') s += `<div class="h">the image</div>` + field('', chip(w.src ? 'another image…' : 'choose an image…', false, 'wimg')) + `<div class="note">kept inside the theme (a png, jpg or svg; small ones keep the .sst small)</div>`
+    s += `<div class="h">stands at</div>${field('left, top', num('x', r.x0) + num('y', r.y0))}${field('width, height', num('w', r.w) + num('h', r.h))}`
+    s += `<div class="h">when the window grows</div>${field('the edges', chip(`left ${PIN_WORDS[pins[0]] || pins[0]}`, pins[0] === 1, 'pin', ' data-p="0"') + chip(`top ${PIN_WORDS[pins[1]] || pins[1]}`, pins[1] === 1, 'pin', ' data-p="1"'))}${field('', chip(`right ${PIN_WORDS[pins[2]] || pins[2]}`, pins[2] === 1, 'pin', ' data-p="2"') + chip(`bottom ${PIN_WORDS[pins[3]] || pins[3]}`, pins[3] === 1, 'pin', ' data-p="3"'))}`
+    s += `<div class="h">looks</div>${field('ink', col('ink', w.ink))}${w.is === 'line' ? '' : field('fill', col('fill', w.fill) + (w.fill ? nump('fa', w.fa == null ? 100 : w.fa, '%') : ''))}${field('line', col('line', w.line) + (w.line ? nump('la', w.la == null ? 100 : w.la, '%') : ''))}${w.is === 'line' ? '' : field('corners', nump('rx', w.rx, 'px'))}${field('opacity', nump('op', w.op == null ? 100 : w.op, '%'))}`
+    s += `<div class="h">the widget</div>${field('', chip('another like it ⌘D', false, 'wdup') + chip('take it out ⌫', false, 'wremove'))}`
+    return s
+  }
+  function wgImage (nm) {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/png,image/jpeg,image/svg+xml'
+    inp.onchange = () => { const f = inp.files[0]; if (!f) return; if (f.size > 2 * 1024 * 1024) { MK.said = 'an image under 2 MB, please'; chrome(); return } const rd = new FileReader(); rd.onload = () => { snap(); wgSet(nm, 'src', String(rd.result)); lay(); chrome() }; rd.readAsDataURL(f) }
+    inp.click()
   }
   /* a press in the chrome */
   document.addEventListener('click', e => {
     const el = e.target.closest ? e.target.closest('[data-mk]') : null
     if (!el || el.tagName === 'INPUT') return
     const mk = el.dataset.mk
-    if (mk === 'box') { MK.mode = 'boxes'; const nm = el.dataset.nm; if (LOOK['box.' + nm] == null) { seed(); snap(); if (LOOK['box.' + nm] == null) { Object.assign(LOOK, { ['box.' + nm]: boxWrite()['box.' + nm] || `${left()} 0 200 100 0 0 0 0` }); lay() } } MK.sel = nm; uiDirty('maker'); chrome() }
+    if (mk === 'add') { wgAdd(el.dataset.is); if (el.dataset.is === 'image') wgImage(MK.sel) }
+    else if (mk === 'wremove' && isW(MK.sel)) { snap(); wgSave(wgList().filter(w => 'w:' + w.id !== MK.sel)); MK.sel = null; lay(); chrome() }
+    else if (mk === 'wdup' && isW(MK.sel)) { snap(); const list = wgList(), w = list.find(q => 'w:' + q.id === MK.sel), c = JSON.parse(JSON.stringify(w)); c.id = Date.now().toString(36) + (list.length + 1).toString(36); c.at[0] += 16; c.at[1] += 16; list.push(c); wgSave(list); MK.sel = 'w:' + c.id; lay(); chrome() }
+    else if (mk === 'wnone' && isW(MK.sel)) { snap(); wgSet(MK.sel, el.dataset.k, null); lay(); chrome() }
+    else if (mk === 'wpick' && isW(MK.sel)) { snap(); wgSet(MK.sel, el.dataset.k, el.dataset.v); lay(); chrome() }
+    else if (mk === 'wimg' && isW(MK.sel)) wgImage(MK.sel)
+    else if (mk === 'box' && isW(el.dataset.nm)) { MK.mode = 'boxes'; MK.sel = el.dataset.nm; uiDirty('maker'); chrome() }
+    else if (mk === 'box') { MK.mode = 'boxes'; const nm = el.dataset.nm; if (LOOK['box.' + nm] == null) { seed(); snap(); if (LOOK['box.' + nm] == null) { Object.assign(LOOK, { ['box.' + nm]: boxWrite()['box.' + nm] || `${left()} 0 200 100 0 0 0 0` }); lay() } } MK.sel = nm; uiDirty('maker'); chrome() }
     else if (mk === 'mode') { MK.mode = el.dataset.mode; MK.part = null; if (MK.mode === 'head') { if (!LOOK['tmpl.head']) { snap(); LOOK['tmpl.head'] = JSON.stringify(TMPL_HEAD0) } if (!NAT) demoStates() } setView(true); chrome() }      // (the demo's tracks put in their states; in the app the song's own tracks are left as they are)
     else if (mk === 'col' && MK.part) { MK.part.c = +el.dataset.c; uiDirty('maker'); chrome() }
     else if (mk === 'size') { MK.size = [+el.dataset.w, +el.dataset.h]; fitRoom(); chrome() }
@@ -336,6 +393,7 @@ if (MK.on) {
     const el = e.target
     if (!el.closest || !el.closest('.mk')) return
     if (el.dataset.mk === 'name') { MK.name = el.value.trim().slice(0, 40) || 'untitled theme'; return }
+    if (el.dataset.wk && isW(MK.sel)) { snap(); const k = el.dataset.wk, v = el.type === 'number' || el.dataset.num ? (el.value === '' ? null : +el.value) : el.value; wgSet(MK.sel, k, v); lay(); chrome(); return }
     if (el.classList.contains('num') && MK.sel) {
       const r = rectOf(MK.sel), v = +el.value; if (!isFinite(v)) return
       snap()
@@ -349,7 +407,7 @@ if (MK.on) {
   function check () {
     const g = $('g-maker'), was = g.style.display; g.style.display = 'none'
     const bad = [], r0 = board.getBoundingClientRect(), k = MK.k
-    for (const sel of ['#g-head [data-a]', '#g-scenes [data-a]', '#g-ruler [data-a]', '#g-top [data-a]', '#g-cmd [data-a]']) for (const el of document.querySelectorAll(sel)) {
+    for (const sel of ['#g-head [data-a]', '#g-scenes [data-a]', '#g-ruler [data-a]', '#g-top [data-a]', '#g-cmd [data-a]', '#g-widgets [data-a]']) for (const el of document.querySelectorAll(sel)) {
       const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2
       if (cx < r0.left || cx > r0.right || cy < r0.top || cy > r0.bottom) continue
       const top = document.elementFromPoint(cx, cy)
@@ -361,7 +419,8 @@ if (MK.on) {
   const themeOut = () => { const o = {}; for (const k in LOOK) if (QUAL.has(k)) o[k] = LOOK[k]; return o }
   async function keep () {
     const theme = themeOut()
-    if (NAT) { const p = await NAT.call('prefGet'), looks = (p && p.looks) || {}; looks[MK.name] = theme; await NAT.call('prefSet', { key: 'looks', value: looks }); MK.said = `kept as ${MK.name} — settings › display` }
+    if (NAT && MK.alone) { const r = await NAT.call('lookKeepRoom', { name: MK.name, look: theme }); MK.said = r && r.ok ? `kept as ${MK.name}: in Slur Studio, settings › display` : 'could not keep it' }      // (the theme maker's own app: the room's list, not its own)
+    else if (NAT) { const p = await NAT.call('prefGet'), looks = (p && p.looks) || {}; looks[MK.name] = theme; await NAT.call('prefSet', { key: 'looks', value: looks }); MK.said = `kept as ${MK.name} (settings › display)` }
     else { try { localStorage.setItem('slur.maker.' + MK.name, JSON.stringify(theme)); MK.said = `kept as ${MK.name} (this browser)` } catch (e) { MK.said = 'could not keep it' } }
     chrome()
   }
@@ -382,6 +441,29 @@ if (MK.on) {
     const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.sst,.json'
     inp.onchange = () => { const f = inp.files[0]; if (!f) return; f.text().then(t => take(t, f.name.replace(/\.(sst|json)$/, ''))) }
     inp.click()
+  }
+  /* the theme maker's own app (Main.cpp makerApp): no project is opened (not the last one, not one handed over), no start
+     page comes, nothing is ever written; its menu bar is its own */
+  if (MK.alone) {
+    PROJ.hold++
+    openStart = () => {}
+    loadProject = async () => false
+    openProject = async () => {}
+    menusSend = async function () {
+      if (!NAT) return
+      const sizes = MK_SIZES.map(([t, w, h]) => [`${t} ${w}×${h}`, null, { do: () => { MK.size = [w, h]; fitRoom(); chrome() }, on: () => MK.size[0] === w && MK.size[1] === h }])
+      const lines = [
+        ['File', [['Open Theme…', null, { do: () => openFile() }], ['Share as .sst…', null, { do: () => share() }], '-', ['Keep in Slur Studio', null, { do: () => keep() }]]],
+        ['Edit', [['Undo', null, { do: () => back(MK.undo, MK.redo) }], ['Redo', null, { do: () => back(MK.redo, MK.undo) }]]],
+        ['View', [['The Room', null, { do: () => { MK.mode = 'boxes'; MK.part = null; setView(true); chrome() }, on: () => MK.mode === 'boxes' }], ['The Head', null, { do: () => { const e = document.querySelector('[data-mk="mode"][data-mode="head"]'); if (e) e.click() }, on: () => MK.mode === 'head' }], '-'].concat(sizes)],
+        ['Window', [['Minimize', '⌘KeyM', { sys: 'performMiniaturize', always: 1 }], ['Zoom', null, { sys: 'performZoom' }], '-', ['Enter Full Screen', '⌃⌘KeyF', { sys: 'toggleFullScreen', always: 1 }]]],
+      ]
+      MENUS.acts.clear(); MENUS.ons.clear()
+      const bar = lines.map(([t, ls], i) => ({ t, en: t, sub: menuTree(ls, String(i), t) })), json = JSON.stringify(bar)
+      const words = Object.fromEntries(['About Slur Studio', 'Settings…', 'Services', 'Hide Slur Studio', 'Hide Others', 'Show All', 'Quit Slur Studio'].map(w => [w, w.replace('Slur Studio', 'Slur Studio Theme Maker')]))
+      if (json !== MENUS.sent) { MENUS.sent = json; MENUS.state = ''; await NAT.call('menus', { bar, words }) }
+      menusTick()
+    }
   }
   /* on the way in, once the room is up (boot, ui.js): the room as it comes, its boxes written out, the chrome drawn */
   const boot0 = boot

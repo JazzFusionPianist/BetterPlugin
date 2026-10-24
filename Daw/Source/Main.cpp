@@ -164,7 +164,37 @@ juce::int64 bytesIn (const juce::File& dir)
     return n;
 }
 juce::var whyNot (const char* why) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); o->setProperty ("why", why); return juce::var (o); }
-juce::File prefsFile() { return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("Application Support").getChildFile (daw::folderName()).getChildFile ("settings.json"); }
+/** The theme maker: this program installed a second time, under its own name (build.sh writes SlurSurface = maker into
+    that copy's Info.plist; his ask, 2026-10-24: "내 애플리케이션에 … 뜨게끔"). It opens the room's page laid out by hand
+    (ui/maker.js) on the song the app is born with, keeps its own settings and its own mark of a run, opens no project and
+    writes none; a theme it keeps goes into the room's settings (op lookKeepRoom). */
+/** The page's own address, ending in its folder's slash (the root already has one: a second makes every file the page asks
+    for "//name", which is not there) */
+juce::String pageRoot() { auto r = juce::WebBrowserComponent::getResourceProviderRoot(); return r.endsWithChar ('/') ? r : r + "/"; }
+bool makerApp()
+{
+    static const bool on = []
+    {
+        const auto xml = juce::parseXML (juce::File::getSpecialLocation (juce::File::currentApplicationFile).getChildFile ("Contents/Info.plist"));
+        if (xml == nullptr) return false;
+        if (auto* dict = xml->getChildByName ("dict"))
+            for (auto* k = dict->getFirstChildElement(); k != nullptr; k = k->getNextElement())
+                if (k->hasTagName ("key") && k->getAllSubText() == "SlurSurface") { auto* v = k->getNextElement(); return v != nullptr && v->getAllSubText() == "maker"; }
+        return false;
+    }();
+    return on;
+}
+/** The room's own settings, wherever this copy keeps its own (the check's own, in a check) */
+juce::File roomPrefsFile()
+{
+    if (selfTestMode().isNotEmpty()) return daw::musicRoot().getChildFile ("State").getChildFile ("settings.json");
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("Application Support").getChildFile (daw::folderName()).getChildFile ("settings.json");
+}
+juce::File prefsFile()
+{
+    if (makerApp()) return roomPrefsFile().getParentDirectory().getSiblingFile (juce::String (daw::folderName()) + " Theme Maker").getChildFile ("settings.json");      // (the maker's own: its device, its window, the mark of its run)
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("Application Support").getChildFile (daw::folderName()).getChildFile ("settings.json");
+}
 /** A folder kept under the program's old name comes to lie under its new one, whole and as it is — only when nothing lies
     under the new name yet (two that are both there are left, for a person to look at). -> what was done, in a word. */
 juce::String takeOver (const juce::File& old, const juce::File& now)
@@ -270,7 +300,7 @@ public:
         if (! test) engine.devices().addChangeListener (this);
         if (! test) { const auto prefs = juce::JSON::parse (prefsFile()); if (prefs["hands"].isInt() && (int) prefs["hands"] >= 0) engine.setHands ((int) prefs["hands"]); }      // how many threads were asked for in the settings
         if (! test) { const auto prefs = juce::JSON::parse (prefsFile()); if (prefs["llm"].isInt() && (int) prefs["llm"] > 0) engine.lowLatMs.store (juce::jlimit (1, 100, (int) prefs["llm"])); }      // low latency mode's limit, as it was set (the mode itself begins off)
-        if (! test) engine.openKeys();                                 // every keyboard the machine has is listened to (the check plays its own keys)
+        if (! test && ! makerApp()) engine.openKeys();                 // every keyboard the machine has is listened to (the check plays its own keys; the theme maker plays none)
         {
             /* audio units opened by the app itself, not through the library: only where asked for (see Engine::ownAu) */
             const auto args = juce::JUCEApplicationBase::getCommandLineParameters();
@@ -301,7 +331,7 @@ public:
                     handle (args.size() > 0 ? args[0].toString() : juce::String(), args.size() > 1 ? args[1] : juce::var(), std::move (done));
                 }));
         addAndMakeVisible (*web);
-        web->goToURL (juce::WebBrowserComponent::getResourceProviderRoot());
+        web->goToURL (pageRoot() + (makerApp() ? "?maker=1&alone=1" : ""));      // (the theme maker opens on the room laid out by hand)
         setSize (1440, 900);
         startTimerHz (30);
     }
@@ -475,6 +505,7 @@ private:
             o->setProperty ("ok", true); o->setProperty ("sr", engine.sr);
             o->setProperty ("mp3", engine.lame.existsAsFile()); o->setProperty ("lame", engine.lame.getFullPathName()); o->setProperty ("mic", slurMicStatus()); o->setProperty ("ins", engine.inputCount());
             o->setProperty ("selftest", selfTestMode());
+            o->setProperty ("alone", makerApp());                    // (the theme maker: no project is opened, none written)
             o->setProperty ("up", slurSecondsUp());                  // from the press that opened the app to the page asking its first question
             o->setProperty ("diskFree", (double) projectsRoot().getBytesFreeOnVolume());      // the room left on the disk the projects lie on: said once when it is little
             if (lastRun().isObject()) { o->setProperty ("lastRun", lastRun()); lastRun() = juce::var(); }      // told once: the run before this one did not end by itself
@@ -503,7 +534,24 @@ private:
         if (op == "loop")    { engine.loopA.store ((double) d["a"]); engine.loopB.store ((double) d["b"]); engine.loop.store ((int) d["on"] != 0); done (okVar()); return; }
         if (op == "audioSettings") { showSettings ("audio"); done (okVar()); return; }      // (the room's own ways to the device: the same window, on its audio part)
         if (op == "settings")      { showSettings (d["part"].toString()); done (okVar()); return; }
-        if (op == "maker")         { web->goToURL (juce::WebBrowserComponent::getResourceProviderRoot() + ((int) d["on"] != 0 ? "/?maker=1" : "/")); done (okVar()); return; }      // the theme maker: the room's page laid out by hand (ui/maker.js), and back
+        if (op == "maker")                                             // the theme maker: the app of its own beside this one (build.sh), else the room's page laid out by hand in place (ui/maker.js), and back
+        {
+            const auto app = juce::File::getSpecialLocation (juce::File::currentApplicationFile).getSiblingFile (juce::String (daw::folderName()) + " Theme Maker.app");
+            if ((int) d["on"] != 0 && ! makerApp() && selfTestMode().isEmpty() && app.isDirectory()) { done (okVar (app.startAsProcess())); return; }
+            web->goToURL (pageRoot() + ((int) d["on"] != 0 ? "?maker=1" : "")); done (okVar()); return;
+        }
+        if (op == "lookKeepRoom")                                      // a theme the theme maker keeps: into the room's own list (settings > display), by its name
+        {
+            const auto name = d["name"].toString().trim().substring (0, 40);
+            if (name.isEmpty() || ! d["look"].isObject()) { done (okVar (false)); return; }
+            auto v = juce::JSON::parse (roomPrefsFile());
+            if (! v.isObject()) v = juce::var (new juce::DynamicObject());
+            auto looks = v["looks"].isObject() ? v["looks"] : juce::var (new juce::DynamicObject());
+            looks.getDynamicObject()->setProperty (name, d["look"]);
+            v.getDynamicObject()->setProperty ("looks", looks);
+            roomPrefsFile().getParentDirectory().createDirectory();
+            done (okVar (roomPrefsFile().replaceWithText (juce::JSON::toString (v)))); return;
+        }
         if (op == "settingsClose") { if (settings != nullptr) settings->setVisible (false); done (okVar()); return; }
         if (op == "settingsRead")  { done (settingsNow()); return; }
         if (op == "lowLatency")    { done (engine.setLowLatency ((int) d["on"] != 0, (int) d["ms"])); return; }      // the transport's bolt: what is heard live goes without what is too late (Engine::lowLatency)
@@ -1866,7 +1914,7 @@ public:
                 if (mode == "second" || other != 0) { quit(); return; }
             }
         }
-        if (selfTestMode().isEmpty()) moveToNewName();                         // (before anything is read: the mark of the last run lies in one of the folders)
+        if (selfTestMode().isEmpty() && ! makerApp()) moveToNewName();         // (before anything is read: the mark of the last run lies in one of the folders)
         lastRun() = daw::Marker::begin (stateDir(), selfTestMode().isNotEmpty());
         daw::logLine ("start  " + juce::File::getSpecialLocation (juce::File::currentApplicationFile).getFullPathName() + (lastRun().isObject() ? "  (the run before this one did not end by itself)" : ""));
         window = std::make_unique<MainWindow>();

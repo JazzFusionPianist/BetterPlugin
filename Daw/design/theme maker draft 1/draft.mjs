@@ -116,16 +116,16 @@ const partsBox = (chosen = 'heads') => `<div class="left">
   <div class="search">find a part or a function…</div>
   <div class="h">boxes</div>
   ${[['box', 'transport', ''], ['box', 'heads', ''], ['lanes', 'lanes', 'always'], ['box', 'bars', ''], ['box', 'markers', ''], ['box', 'mixer', ''], ['box', 'patch', ''], ['box', 'notes', ''], ['box', 'automation heads', ''], ['box', 'inspector', 'off'], ['box', 'command line', '']].map(([i, t, k]) => row(i, t, k, t === chosen)).join('')}
-  <div class="h">controls — any function, as a</div>
-  ${[['button', 'button', '212 functions'], ['readout', 'readout', 'position, tempo…'], ['knob', 'knob'], ['fader', 'fader'], ['meter', 'meter', 'bar · needle · led'], ['lamp', 'lamp', 'playing, recording…']].map(([i, t, k]) => row(i, t, k)).join('')}
+  <div class="h">controls: any function, as a</div>
+  ${[['button', 'button', '212 functions'], ['readout', 'readout', 'position, tempo…'], ['knob', 'knob'], ['fader', 'fader'], ['meter', 'meter', 'bar, needle, led'], ['lamp', 'lamp', 'playing, recording…']].map(([i, t, k]) => row(i, t, k)).join('')}
   <div class="h">marks</div>
-  ${[['text', 'text'], ['shape', 'shape'], ['line', 'line'], ['image', 'image', 'png · svg'], ['group', 'group']].map(([i, t, k]) => row(i, t, k)).join('')}
+  ${[['text', 'text'], ['shape', 'shape'], ['line', 'line'], ['image', 'image', 'png, svg'], ['group', 'group']].map(([i, t, k]) => row(i, t, k)).join('')}
 </div>`
 /* what the chosen thing is: where it stands, what follows the window, what it is over, when it shows, how it looks */
 const field = (l, v) => `<div class="field"><span class="l">${esc(l)}</span><span class="v">${v}</span></div>`
 const note = t => `<div class="note">${esc(t)}</div>`
 const box = (v, u = '') => `<span class="box">${esc(v)}${u ? `<span style="opacity:.4;margin-left:3px">${u}</span>` : ''}</span>`
-const pin = (name, v) => { const on = v === 'follows', half = v === '½'; return `<span class="chip${on ? ' on' : ''}" style="min-width:64px;justify-content:space-between">${esc(name)}<span style="margin-left:6px;opacity:${on ? 1 : .55}">${half ? '½' : on ? '→' : '·'}</span></span>` }
+const pin = (name, v) => { const on = v === 'follows', half = v === '½'; return `<span class="chip${on ? ' on' : ''}" style="min-width:64px;justify-content:space-between">${esc(name)}<span style="margin-left:6px;opacity:${on ? 1 : .55}">${half ? '½' : on ? '→' : ','}</span></span>` }
 const chips = (...a) => a.map(([t, on]) => `<span class="chip${on ? ' on' : ''}">${esc(t)}</span>`).join('')
 const propsBox = (title, sections) => `<div class="right">
   <div style="padding:16px 14px 4px;font-size:12px;font-weight:500">${esc(title)}</div>
@@ -133,7 +133,7 @@ const propsBox = (title, sections) => `<div class="right">
 </div>`
 const SW = c => `<span class="sw" style="background:${c}"></span>`
 /* the layers: what is over what, each with its eye and its lock */
-const layers = (list, title = 'layers — what is over what') => `<div class="layers">
+const layers = (list, title = 'layers: what is over what') => `<div class="layers">
   <div class="h" style="display:flex">${esc(title)}<span style="margin-left:auto">warnings: none</span></div>
   <div style="columns:3;column-gap:0">${list.map(([t, on, hid, lock]) => `<div class="row${on ? ' on' : ''}" style="break-inside:avoid"><svg class="g" viewBox="0 0 14 14" style="position:static"><circle cx="7" cy="7" r="${hid ? 2 : 3.5}" fill="${INK}" fill-opacity="${hid ? .2 : .7}"/></svg><span style="opacity:${hid ? .4 : 1}">${esc(t)}</span><span class="k">${lock ? 'locked' : ''}</span></div>`).join('')}</div>
 </div>`
@@ -157,26 +157,26 @@ const dist = (x0, y0, x1, y1, label) => { const vert = x0 === x1; return `<path 
     <path d="M${bx + bw + .5} ${ry}V${ry + RH}" stroke="${ACC}" stroke-opacity=".6" stroke-dasharray="3 3"/>
     ${dist(bx + bw / 2 - 40, ry, bx + bw / 2 - 40, by, '52')}
     ${dist(bx, by + bh - 40, bx + bw, by + bh - 40, '292')}
-    <text x="${rx}" y="${ry - 8}" font-size="9.5" fill="${ACC}">heads  —  248 · 52  —  292 × 1043</text>
-    <text x="${rx + RW}" y="${ry - 8}" font-size="9.5" fill="${INK}" fill-opacity=".4" text-anchor="end">16″ · 1728 × 1117</text>
+    <text x="${rx}" y="${ry - 8}" font-size="9.5" fill="${ACC}">heads   248, 52   292 × 1043</text>
+    <text x="${rx + RW}" y="${ry - 8}" font-size="9.5" fill="${INK}" fill-opacity=".4" text-anchor="end">16″, 1728 × 1117</text>
   </svg>`
-  const props = propsBox('heads — a box', [
-    ['stands at', [field('left · top', box(248, 'px') + box(52, 'px')), field('width · height', box(292, 'px') + box(1043, 'px'))]],
+  const props = propsBox('heads: a box', [
+    ['stands at', [field('left, top', box(248, 'px') + box(52, 'px')), field('width, height', box(292, 'px') + box(1043, 'px'))]],
     ['when the window grows', [field('the edges', pin('left', 'stays') + pin('top', 'stays')), field('', pin('right', 'stays') + pin('bottom', 'follows')), note('a wider window: the lanes take it; a taller one: the heads go on down. ½ makes an edge go half as far; a number, a share of its own.')]],
     ['gives way to', [field('at its left', box('inspector')), field('at its foot', box('the panel'))]],
     ['shows', [field('when', chips(['always', true], ['wide window'], ['never']))]],
-    ['looks', [field('fill', SW(K1) + box('ground')), field('line at the right', SW(INK) + box(12, '%')), field('corners · shadow', box(0, 'px') + box('none')), field('opacity', box(100, '%'))]],
+    ['looks', [field('fill', SW(K1) + box('ground')), field('line at the right', SW(INK) + box(12, '%')), field('corners, shadow', box(0, 'px') + box('none')), field('opacity', box(100, '%'))]],
     ['the heads', [field('rows', `<span style="opacity:.6">follow the lanes</span> <svg width="14" height="14" style="position:static"><path d="M3 7h8M5 4.5h4a2.5 2.5 0 0 1 0 5h-4a2.5 2.5 0 0 1 0-5z" fill="none" stroke="${INK}" stroke-opacity=".5"/></svg>`), field('layouts', chips(['thin 9–17'], ['one line 17–36', true], ['two lines 36+'])), field('', `<span class="chip" style="border-style:dashed">+ a layout</span>`), field('rename', box('press twice')), field('the template', `<span class="key" style="margin:0">edit the head…</span>`)]],
   ])
   const lay = layers([['notes', false, true], ['mixer', false, true], ['patch', false, true], ['inspector', false, true], ['transport', false, false, true], ['command line', false, false], ['markers', false, false], ['bars', false, false], ['heads', true, false], ['lanes', false, false, true]])
   const body = topBar('untitled theme', 'from the room as it comes') + partsBox('heads') + `<div class="mid"><div class="canvas">${room}${over}</div>${lay}</div>` + props
-  await sheet('1 the editor - the room live in the middle, the heads box chosen, its pins.png', body)
+  await sheet('1 the editor, the room live in the middle, the heads box chosen, its pins.png', body)
 }
 
 /* ── 2 heads: the template ── */
 {
   const k = 1.3, gaps = [44, 126], rows = 9
-  const cols = [['thin · 20', photos.heads20, 20], ['one line · 36', photos.heads36, 36], ['two lines · 72', photos.heads72, 72]]
+  const cols = [['thin, 20', photos.heads20, 20], ['one line, 36', photos.heads36, 36], ['two lines, 72', photos.heads72, 72]]
   let x = 48, room = '', over = `<svg width="${CW}" height="${CH}">`
   const y = 64
   for (const [t, img, rh] of cols) {
@@ -191,14 +191,14 @@ const dist = (x0, y0, x1, y1, label) => { const vert = x0 === x1; return `<path 
       const lx = x + 138 * k, ly = y + (rh + rh / 2 - 8) * k, lw = 40 * k, lh = 16 * k
       over += frame(lx, ly, lw, lh) + pinG(lx + lw / 2, ly - 10, false, -90)
       over += dist(x + 42 * k, ly + lh + 14, lx, ly + lh + 14, '96 from the name')
-      over += `<text x="${x + w}" y="${y - 14}" font-size="9.5" fill="${ACC}" text-anchor="end">level  —  138 · middle  —  40 × 16</text>`
+      over += `<text x="${x + w}" y="${y - 14}" font-size="9.5" fill="${ACC}" text-anchor="end">level   138, middle   40 × 16</text>`
     }
     x += w + gaps.shift()
   }
   over += `<text x="48" y="${CH - 22}" font-size="9.5" fill="${INK}" fill-opacity=".4">pull a column's foot to change its height and see the rows between; a layout's range runs from where one ends to where the next begins</text></svg>`
-  const props = propsBox('level — a part of the head', [
+  const props = propsBox('level: a part of the head', [
     ['in the layout', [field('layouts', chips(['thin 9–17'], ['one line 17–36', true], ['two lines 36+'])), field('this one is for', box(17, 'px') + `<span style="opacity:.4">to</span>` + box(36, 'px'))]],
-    ['stands at', [field('left · top', box(138, 'px') + box('middle')), field('width · height', box(40, 'px') + box(16, 'px'))]],
+    ['stands at', [field('left, top', box(138, 'px') + box('middle')), field('width, height', box(40, 'px') + box(16, 'px'))]],
     ['when the row grows', [field('the edges', pin('left', 'stays') + pin('top', '½')), field('', pin('right', 'stays') + pin('bottom', '½'))]],
     ['what it shows', [field('value', box('the track’s level')), field('reads', box('−6.0 dB') + `<span style="opacity:.4">after it</span>`), field('as a', chips(['bar', true], ['knob'], ['fader'], ['image stack']))]],
     ['in each state', [field('states', chips(['at rest', true], ['chosen'], ['muted'], ['automation on'])), field('a line drawn', box('none')), field('muted', `<span style="opacity:.6">ink at 42%</span>`)]],
@@ -207,14 +207,14 @@ const dist = (x0, y0, x1, y1, label) => { const vert = x0 === x1; return `<path 
   ])
   const parts = `<div class="left">
     <div class="search">find a part…</div>
-    <div class="h">the head — one line · 17–36</div>
-    ${[['mark', 'colour mark', ''], ['num', 'number', ''], ['text', 'name', ''], ['text', 'tag — bus · frozen · alt', ''], ['text', 'group', ''], ['fader', 'level', '', true], ['readout', 'level, read', ''], ['cell', 'armed', 'r'], ['cell', 'listening', 'i'], ['cell', 'muted', 'm'], ['cell', 'soloed', 's'], ['readout', 'automation', 'when on'], ['line', 'rule under the row', '']].map(([i, t, k, on]) => row(i, t, k, on)).join('')}
+    <div class="h">the head: one line, 17–36</div>
+    ${[['mark', 'colour mark', ''], ['num', 'number', ''], ['text', 'name', ''], ['text', 'tag: bus, frozen, alt', ''], ['text', 'group', ''], ['fader', 'level', '', true], ['readout', 'level, read', ''], ['cell', 'armed', 'r'], ['cell', 'listening', 'i'], ['cell', 'muted', 'm'], ['cell', 'soloed', 's'], ['readout', 'automation', 'when on'], ['line', 'rule under the row', '']].map(([i, t, k, on]) => row(i, t, k, on)).join('')}
     <div class="h">add to the head</div>
     ${[['meter', 'a meter', ''], ['knob', 'pan', ''], ['readout', 'input', ''], ['button', 'any function…', ''], ['image', 'image', '']].map(([i, t, k]) => row(i, t, k)).join('')}
   </div>`
-  const lay = layers([['rule under the row', false], ['automation', false, true], ['cells', false], ['level, read', false], ['level', true], ['group', false], ['tag', false], ['name', false], ['number', false], ['colour mark', false], ['chosen wash', false, false, true]], 'layers of the head — what is over what')
-  const body = topBar('untitled theme', 'the head — its template; every track draws it') + parts + `<div class="mid"><div class="canvas">${room}${over}</div>${lay}</div>` + props
-  await sheet('2 heads - the template at three heights, the level chosen, its states and images.png', body)
+  const lay = layers([['rule under the row', false], ['automation', false, true], ['cells', false], ['level, read', false], ['level', true], ['group', false], ['tag', false], ['name', false], ['number', false], ['colour mark', false], ['chosen wash', false, false, true]], 'layers of the head: what is over what')
+  const body = topBar('untitled theme', 'the head: its template; every track draws it') + parts + `<div class="mid"><div class="canvas">${room}${over}</div>${lay}</div>` + props
+  await sheet('2 heads, the template at three heights, the level chosen, its states and images.png', body)
 }
 
 /* ── 3 free: what could not be made before ── */
@@ -234,7 +234,7 @@ const dist = (x0, y0, x1, y1, label) => { const vert = x0 === x1; return `<path 
     <rect x="0" y="0" width="1920" height="${TOP * k}" fill="${K2}"/>
     <text x="${24 * k}" y="${28 * k}" font-size="${18 * k}" font-weight="500" fill="${INK}" style="font-variant-numeric:tabular-nums">17 . 3 . 1 . 120</text>
     <text x="${210 * k}" y="${28 * k}" font-size="${11.5 * k}" fill="${INK}" fill-opacity=".6">00:00:34:12</text>
-    <text x="${(LW - 24) * k}" y="${28 * k}" font-size="${11.5 * k}" fill="${INK}" fill-opacity=".86" text-anchor="end">120.00  ·  4/4  ·  A minor</text>
+    <text x="${(LW - 24) * k}" y="${28 * k}" font-size="${11.5 * k}" fill="${INK}" fill-opacity=".86" text-anchor="end">120.00 ,  4/4 ,  A minor</text>
     <g transform="translate(${100 * k} ${(LY + LH - 300 - 120) * k})">
       <circle cx="0" cy="0" r="${62 * k}" fill="${K2}" fill-opacity=".94" stroke="${INK}" stroke-opacity=".18"/>
       ${glyph('play', 0, -22 * k, INK, .95, k * 1.6)}${glyph('stop', -26 * k, 14 * k, INK, .8, k * 1.2)}${glyph('rec', 26 * k, 14 * k, REC, 1, k * 1.2)}${glyph('loop', 0, 40 * k, SOLO, 1, k * 1.1)}${glyph('tostart', -40 * k, -14 * k, INK, .7, k)}${glyph('click', 40 * k, -14 * k, INK, .7, k)}
@@ -244,7 +244,7 @@ const dist = (x0, y0, x1, y1, label) => { const vert = x0 === x1; return `<path 
     <text x="${22 * k}" y="${(LY + LH - 310) * k}" font-size="${9.5 * k}" fill="${INK}" fill-opacity=".6" text-anchor="middle">−0.4</text>
   </svg>`
   const body = `<style>html,body{width:1920px;height:${Math.round(WH * k)}px}</style>${s}`
-  await sheet('3 free - a theme that could not be made before: heads right, bars under, the transport a cluster over the lanes.png', body, [0, 0, 1920, Math.round(WH * k)])
+  await sheet('3 free, a theme that could not be made before: heads right, bars under, the transport a cluster over the lanes.png', body, [0, 0, 1920, Math.round(WH * k)])
 }
 
 async function sheet (file, body, clip = [0, 0, 1920, 1200]) {

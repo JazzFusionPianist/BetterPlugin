@@ -125,8 +125,9 @@ function trackCtl (t, only) {
 }
 /* what the engine is told of a track of notes, beside what it is told of every track (see sendSession) */
 const noteMsg = (t, only) => isInst(t) ? { inst: 1, notes: trackSound(t, only), ctl: trackCtl(t, only) } : {}
-/* does a track hear what is played by hand: the chosen track of notes does, and every armed one */
-const liveOn = t => isInst(t) && (!!t.arm || S.tracks[S.sel] === t)
+/* does a track hear what is played by hand: the armed tracks of notes, or the chosen one while none is armed (an arm left
+   on another track no longer doubles the chosen one: rec.js moves the arm with the choice) */
+const liveOn = t => isInst(t) && (S.tracks.some(x => x.arm && isInst(x)) ? !!t.arm : S.tracks[S.sel] === t)
 
 /* ── the lanes: a region's notes, each a short line at its height (the region's own range of keys, an octave at least) ── */
 function notesPath (r, ly, lh, v0, v1) {

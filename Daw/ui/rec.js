@@ -13,10 +13,35 @@ async function toggleArm (i) {
   const t = S.tracks[i]
   if (!t || t.kind !== 'audio' || t.theirs || S.rec) return
   if (!t.arm && groupOf(i, 'record').some(x => x.kind === 'audio' && !x.theirs && !x.inst) && !(await needInput())) return      // (tracks of notes need no input opened: the keys are always listened to)
-  const to = !t.arm
-  for (const x of groupOf(i, 'record')) if (x.kind === 'audio' && !x.theirs) x.arm = to
+  const to = !t.arm, rows = groupOf(i, 'record')
+  const f = to && ARMF.auto != null && byId(ARMF.auto)
+  if (f && f.arm && !rows.includes(f)) f.arm = false                                     // (armed by hand, the one that only went with the choice lets go: several record only when several are pressed)
+  ARMF.auto = null
+  for (const x of rows) if (x.kind === 'audio' && !x.theirs) x.arm = to
   uiDirty('head', 'dock')
 }
+/* the arm goes with the chosen track. While fewer than two are armed, choosing another track moves it there: a track of
+   notes takes it, an audio track takes it from another audio track (its input is open already; choosing never asks for
+   the microphone), and an audio track chosen after a track of notes only lets the other go. Two or more pressed by hand
+   stay as they are whatever is chosen; a bus, a stack or a track of theirs chosen moves nothing. */
+const ARMF = { at: undefined, key: null, auto: null }                                  // (the track last seen chosen; the project it was in; the track armed by the choice alone)
+function armFollow () {
+  const t = S.tracks[S.sel], at = t ? t.id : null, key = projKey() + ':' + SOUNDS.gen
+  if (key !== ARMF.key) { ARMF.key = key; ARMF.at = at; ARMF.auto = null; return }      // (another project opened: what it was saved with stands)
+  if (at === ARMF.at) return
+  ARMF.at = at
+  if (S.rec || !t || t.kind !== 'audio' || t.theirs) return
+  const armed = S.tracks.filter(x => x.kind === 'audio' && x.arm)
+  if (armed.length > 1 || armed[0] === t) return
+  const was = armed[0], take = t.inst || (was && !was.inst)
+  if (!was && !take) return
+  if (was) was.arm = false
+  if (take) t.arm = true
+  ARMF.auto = take ? t.id : null
+  uiDirty('head', 'dock')
+}
+{ const flush0 = flush
+  flush = function () { armFollow(); flush0() } }
 async function toggleMon (i) {
   const t = S.tracks[i]
   if (!t || t.kind !== 'audio' || t.inst) return
@@ -39,7 +64,7 @@ async function record () {
       const t = S.tracks[S.sel]
       if (!t || t.kind !== 'audio' || t.theirs) { say('arm a track first'); return }
       if (!t.inst && !(await needInput())) return
-      t.arm = true; armed = [t]
+      t.arm = true; armed = [t]; ARMF.auto = t.id                                       // (armed by the take alone: it goes with the choice afterwards)
     } else if (armed.some(t => !t.inst) && !(await needInput())) return
     if (S.playing) halt(false)
     const bar = S.pos >= SONG_END - 1e-6 ? 0 : S.pos, count = S.countIn ? 1 : 0

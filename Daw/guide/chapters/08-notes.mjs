@@ -57,7 +57,7 @@ export default () => chapter('notes', t('notes and instruments', '노트와 악�
 
   page(t('playing', '연주하기'), { kind: 'split', tw: 104, txt:
     h('who hears the keyboard', '건반 소리를 듣는 트랙') +
-    p('The chosen track, if it is a track of notes, and every armed track of notes, all at once. There is nothing to set: no device, no channel.', '선택한 트랙(노트 트랙일 때)과 녹음 대기 중인 모든 노트 트랙이 동시에 듣습니다. 설정할 것은 없습니다. 장치도 채널도 고르지 않습니다.') +
+    p('The armed tracks of notes, or the chosen one while none is armed. The arm goes with the chosen track; arm two or more by hand to play them together. Nothing to set: no device, no channel.', '녹음 대기 중인 노트 트랙이 듣습니다. 대기 중인 트랙이 없으면 선택한 트랙(노트 트랙일 때)이 듣습니다. 녹음 대기는 선택한 트랙을 따라가므로 건반 소리도 고른 트랙을 따라갑니다. 여러 트랙에서 함께 치려면 직접 둘 이상을 녹음 대기로 두세요. 설정할 것은 없습니다. 장치도 채널도 고르지 않습니다.') +
     h('a MIDI keyboard', 'MIDI 건반') +
     p('Every MIDI input the Mac has is listened to from the moment the app starts; one plugged in later is listened to as well.', 'Mac의 모든 MIDI 입력을 앱이 시작할 때부터 듣습니다. 나중에 꽂은 것도 듣습니다.') +
     h('the computer’s keys', '컴퓨터 자판') +
